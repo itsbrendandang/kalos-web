@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #eff1ea;
+  --card: #ffffff;
+  --fg: #15241c;
+  --muted: #586a5e;
+  --accent: #15a375;
+  --accent-hover: #0e7c57;
+  --accent-soft: #e4f4ed;
+  --explore: #c77e2e;
+  --explore-deep: #8f5418;
+  --explore-soft: #fbefdd;
+  --border: #e8ece3;
+  --sidebar: #13231c;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-explore: var(--explore);
+  --color-explore-deep: var(--explore-deep);
+  --color-explore-soft: var(--explore-soft);
+  --color-border: var(--border);
+  --color-sidebar: var(--sidebar);
+  --font-head: var(--font-sora);
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-jbmono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}

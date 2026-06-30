@@ -2,13 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, FlaskConical, Database, type LucideIcon } from "lucide-react";
+import { LayoutGrid, Sparkles, FlaskConical, Database, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+const NAV: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
+  { href: "/", label: "Dashboard", icon: LayoutGrid, exact: true },
   { href: "/optimize", label: "Optimize", icon: Sparkles },
   { href: "/analyze", label: "Analyze", icon: FlaskConical },
   { href: "/data", label: "Data", icon: Database },
+];
+
+const OBJECTIVES = [
+  { key: "titer", label: "Titer", color: "#5bd39b" },
+  { key: "purity", label: "Purity", color: "#6f7bd6" },
 ];
 
 function Leaf({ size = 22 }: { size?: number }) {
@@ -18,6 +24,10 @@ function Leaf({ size = 22 }: { size?: number }) {
       <path d="M12 21c0-4 1-6 3.5-8.5S20 9 20 9s-1 4-3.5 6.5S12 21 12 21z" fill="#15a375" />
     </svg>
   );
+}
+
+function isActive(path: string, href: string, exact?: boolean) {
+  return exact ? path === href : path === href || path.startsWith(`${href}/`);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -31,14 +41,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map((n) => {
-            const active = path.startsWith(n.href);
+            const active = isActive(path, n.href, n.exact);
             return (
               <Link
                 key={n.href}
                 href={n.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[13px] transition-colors",
-                  active ? "bg-accent font-semibold text-white" : "text-white/65 hover:bg-white/10 hover:text-white",
+                  "flex items-center gap-3 rounded-full px-3.5 py-2 text-[13px] transition-colors",
+                  active
+                    ? "bg-accent font-semibold text-white shadow-[0_6px_16px_rgba(21,163,117,.30)]"
+                    : "text-white/65 hover:bg-white/10 hover:text-white",
                 )}
               >
                 <n.icon className="size-4 shrink-0" />
@@ -47,6 +60,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        <div className="mt-7 px-2">
+          <div className="mb-2.5 font-mono text-[10px] tracking-wide text-white/40 uppercase">Objectives</div>
+          <div className="flex flex-col gap-1.5">
+            {OBJECTIVES.map((o) => (
+              <div key={o.key} className="flex items-center gap-2 text-[12px] text-white/70">
+                <span className="size-2 rounded-full" style={{ background: o.color }} />
+                {o.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-auto px-2 font-mono text-[10px] tracking-wide text-white/45">
           powered by BoTorch + ESM-2
         </div>
@@ -57,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Leaf size={20} />
           <span className="font-head font-bold">Kalos</span>
         </div>
-        <div className="mx-auto max-w-5xl px-6 py-8">{children}</div>
+        <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
       </main>
     </div>
   );

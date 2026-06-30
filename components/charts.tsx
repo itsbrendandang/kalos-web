@@ -23,6 +23,22 @@ const axisTitle = (value: string, side: "x" | "y") =>
     ? { value, position: "insideBottom" as const, offset: -4, style: { fontSize: 11, fill: INK } }
     : { value, angle: -90, position: "insideLeft" as const, style: { fontSize: 11, fill: INK } };
 
+export function Sparkline({ data, color = ACCENT }: { data: { best: number }[]; color?: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={48}>
+      <AreaChart data={data} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
+        <defs>
+          <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity={0.22} />
+            <stop offset="1" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area type="monotone" dataKey="best" stroke={color} strokeWidth={2} fill="url(#spark)" dot={false} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: number }[]; yLabel: string }) {
   return (
     <ResponsiveContainer width="100%" height={260}>

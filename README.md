@@ -2,10 +2,17 @@
 
 The production front end for [Kalos](https://github.com/itsbrendandang/kalos) — a
 Bayesian-optimization platform for bioprocess development. Next.js 16 + Tailwind v4,
-in the "Calm Growth" design language, consuming the Kalos engine API.
+in the "Calm Growth" design language (green primary with a soft periwinkle
+secondary accent), consuming the Kalos engine API.
 
 ## Views
 
+- **Dashboard** (`/`) — the at-a-glance home: an optimization-landscape hero
+  (convergence curve in single-objective mode, the titer-vs-purity Pareto front
+  in multi), a Single/Multi toggle, live engine status, stat tiles (experiments
+  run, active proposals), the best-titer headline metric with a sparkline, and
+  the next-experiments timeline. Falls back to example data when the engine is
+  offline.
 - **Optimize** — the live engine: single- and multi-objective optimization, the
   convergence curve, the titer-vs-purity Pareto front, and proposed next
   experiments (each with a predicted value, an uncertainty, and an

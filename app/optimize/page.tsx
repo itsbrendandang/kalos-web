@@ -29,8 +29,24 @@ export default function OptimizePage() {
       setBusy(false);
     }
   }
+  // Initial fetch: setState only after the await, avoiding a synchronous
+  // setState inside the effect body.
   useEffect(() => {
-    run();
+    let on = true;
+    (async () => {
+      try {
+        const [a, b] = await Promise.all([runSingle(), runMulti()]);
+        if (on) {
+          setS(a);
+          setM(b);
+        }
+      } catch {
+        if (on) setErr(true);
+      }
+    })();
+    return () => {
+      on = false;
+    };
   }, []);
 
   const gap = s ? Math.sqrt(s.best_recipe.reduce((acc, v, i) => acc + (v - s.optimum[i]) ** 2, 0)) : 0;

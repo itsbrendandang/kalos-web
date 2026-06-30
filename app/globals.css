@@ -11,6 +11,9 @@
   --explore: #c77e2e;
   --explore-deep: #8f5418;
   --explore-soft: #fbefdd;
+  --accent2: #6f7bd6;
+  --accent2-deep: #4b56b0;
+  --accent2-soft: #edeefb;
   --border: #e8ece3;
   --sidebar: #13231c;
 }
@@ -26,6 +29,9 @@
   --color-explore: var(--explore);
   --color-explore-deep: var(--explore-deep);
   --color-explore-soft: var(--explore-soft);
+  --color-accent2: var(--accent2);
+  --color-accent2-deep: var(--accent2-deep);
+  --color-accent2-soft: var(--accent2-soft);
   --color-border: var(--border);
   --color-sidebar: var(--sidebar);
   --font-head: var(--font-sora);

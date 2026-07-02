@@ -26,10 +26,23 @@ blue/Satoshi design (scoped tokens in `app/voyager/voyager.css`, Manrope stands
 in for Satoshi) with its own top-nav chrome. The optimizer sidebar is bypassed
 for these routes in `components/app-shell.tsx`.
 
-- **`/voyager`** — the Projects home: customers and their projects, each tagged
-  by workflow stage (Phase 1 iterations, Phase 2 scale-up, drafting). Seed data
-  in `app/voyager/data.ts`; the engine does not yet expose a customers/projects
-  API, so this screen is illustrative and does not call it.
+- **`/voyager`** — Projects home: customers and their projects, each tagged by
+  workflow stage. Add/Edit customer and project modals open here.
+- **`/voyager/projects/[id]`** — project workspace with three tabs:
+  - **Phase 1** — the iterative DoE/Bayesian-opt loop as iteration cards
+    (LHS then BO Explore/Exploit), batch-ticket upload, and unlock gating.
+  - **Phase 2** — scale-up: either the setup state (config + 9-stage pipeline) or
+    the run results with Promote/Hold candidate cards (drivers, scale-up
+    projection, warnings) alongside the completed pipeline.
+  - **Linkage tree** — an interactive SVG experiment lineage (Phase 1 and
+    Phase 1+2) with a clickable per-node detail panel.
+- **`/voyager/projects/[id]/report`** — the final report: stat cards, drivers and
+  ideal ranges, scale-up projection curve, candidate decisions, and export.
+
+Seed data lives in `app/voyager/data.ts`. The engine does not yet expose a
+customers/projects API, so these screens are illustrative and do not call it;
+the types are shaped so a real API can drop in without touching the views.
+The completed-projects home variant is not yet wired.
 
 ## Run it
 

@@ -1,4 +1,5 @@
 import { Tag } from "@/components/ui/card";
+import { fmt } from "@/lib/utils";
 
 type Row = { vals: number[]; mode: "explore" | "exploit"; reason: string };
 
@@ -31,7 +32,7 @@ export function Proposals<T extends Row>({
             <tr key={i}>
               <td className="border-b border-border/60 px-2 py-1.5 text-left text-muted">#{i + 1}</td>
               {r.vals.map((v, j) => (
-                <td key={j} className="border-b border-border/60 px-2 py-1.5 text-right">{v}</td>
+                <td key={j} className="border-b border-border/60 px-2 py-1.5 text-right">{fmt(v)}</td>
               ))}
               <td className="border-b border-border/60 px-2 py-1.5 text-right">{predFn(r)}</td>
               <td className="border-b border-border/60 px-2 py-1.5 text-left">

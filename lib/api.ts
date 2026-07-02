@@ -48,14 +48,35 @@ export type AnalyzeResult = {
   error?: string;
 };
 
-export const runSingle = (): Promise<SingleRun> => fetch(`${API}/api/single`).then((r) => r.json());
-export const runMulti = (): Promise<MultiRun> => fetch(`${API}/api/multi`).then((r) => r.json());
+async function unwrap<T>(r: Response): Promise<T> {
+  if (!r.ok) {
+    let detail = "";
+    try {
+      const body: unknown = await r.json();
+      if (body && typeof body === "object" && "detail" in body) {
+        const d = (body as { detail: unknown }).detail;
+        if (typeof d === "string") detail = d;
+      }
+    } catch {
+      try {
+        detail = (await r.text()).slice(0, 200);
+      } catch {
+        detail = "";
+      }
+    }
+    throw new Error(`Request failed (${r.status})${detail ? `: ${detail}` : ""}`);
+  }
+  return r.json() as Promise<T>;
+}
+
+export const runSingle = (): Promise<SingleRun> => fetch(`${API}/api/single`).then((r) => unwrap<SingleRun>(r));
+export const runMulti = (): Promise<MultiRun> => fetch(`${API}/api/multi`).then((r) => unwrap<MultiRun>(r));
 
 export async function runFile(file: File, target?: string): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
-  return fetch(`${API}/api/run`, { method: "POST", body: fd }).then((r) => r.json());
+  return fetch(`${API}/api/run`, { method: "POST", body: fd }).then((r) => unwrap<AnalyzeResult>(r));
 }
 
 export { API };

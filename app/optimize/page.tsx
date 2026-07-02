@@ -34,6 +34,8 @@ export default function OptimizePage() {
   }, []);
 
   const gap = s ? Math.sqrt(s.best_recipe.reduce((acc, v, i) => acc + (v - s.optimum[i]) ** 2, 0)) : 0;
+  const sLast = s?.trajectory.at(-1);
+  const mLast = m?.trajectory.at(-1);
 
   return (
     <div className="flex flex-col gap-7">
@@ -67,7 +69,7 @@ export default function OptimizePage() {
             <div className="mb-5 grid grid-cols-3 gap-3">
               <Kpi hero label="Best titer (mg/L)" value={fmt(s.best_value, 1)} />
               <Kpi label="Gap to optimum" value={gap.toFixed(3)} />
-              <Kpi label="Experiments" value={s.trajectory.at(-1)!.n} />
+              <Kpi label="Experiments" value={fmt(sLast?.n, 0)} />
             </div>
             <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
               <div>
@@ -76,7 +78,7 @@ export default function OptimizePage() {
               </div>
               <div>
                 <SectionLabel>Next batch proposed</SectionLabel>
-                <Proposals cols={["x1", "x2", "x3"]} rows={s.proposals} predHead="pred. titer" predFn={(p) => `${p.pred} ± ${p.std}`} />
+                <Proposals cols={["x1", "x2", "x3"]} rows={s.proposals} predHead="pred. titer" predFn={(p) => `${fmt(p.pred)} ± ${fmt(p.std)}`} />
               </div>
             </div>
           </>
@@ -96,9 +98,9 @@ export default function OptimizePage() {
         {m ? (
           <>
             <div className="mb-5 grid grid-cols-3 gap-3">
-              <Kpi hero label="Pareto front" value={m.trajectory.at(-1)!.pareto} hint="tradeoff points" />
-              <Kpi label="Best titer (mg/L)" value={fmt(m.trajectory.at(-1)!.best_titer, 1)} />
-              <Kpi label="Best purity (%)" value={fmt(m.trajectory.at(-1)!.best_purity, 0)} />
+              <Kpi hero label="Pareto front" value={fmt(mLast?.pareto, 0)} hint="tradeoff points" />
+              <Kpi label="Best titer (mg/L)" value={fmt(mLast?.best_titer, 1)} />
+              <Kpi label="Best purity (%)" value={fmt(mLast?.best_purity, 0)} />
             </div>
             <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
               <div>
@@ -111,7 +113,7 @@ export default function OptimizePage() {
                   cols={["x1", "x2", "x3"]}
                   rows={m.proposals}
                   predHead="pred. titer / purity"
-                  predFn={(p) => `${p.pred_titer} / ${p.pred_purity}%`}
+                  predFn={(p) => `${fmt(p.pred_titer)} / ${fmt(p.pred_purity)}%`}
                 />
               </div>
             </div>

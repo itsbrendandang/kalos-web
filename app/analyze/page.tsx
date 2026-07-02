@@ -10,6 +10,16 @@ import { DriversBar, PredScatter } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
 import { cn, fmt } from "@/lib/utils";
 
+const ACCEPTED_EXT = [".csv", ".tsv", ".xlsx", ".xls"];
+const MAX_SIZE = 25 * 1024 * 1024;
+
+function rejectFile(f: File): string | null {
+  const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+  if (!ACCEPTED_EXT.includes(ext)) return `Unsupported file type. Use ${ACCEPTED_EXT.join(", ")}.`;
+  if (f.size > MAX_SIZE) return "File is too large. The maximum size is 25 MB.";
+  return null;
+}
+
 export default function AnalyzePage() {
   const [res, setRes] = useState<AnalyzeResult | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -17,13 +27,21 @@ export default function AnalyzePage() {
   const [err, setErr] = useState("");
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const reqId = useRef(0);
 
   async function analyze(f: File, target?: string) {
+    const rejection = rejectFile(f);
+    if (rejection) {
+      setErr(rejection);
+      return;
+    }
+    const id = ++reqId.current;
     setFile(f);
     setBusy(true);
     setErr("");
     try {
       const d = await runFile(f, target);
+      if (id !== reqId.current) return;
       if (d.error) {
         setErr(d.error);
         setRes(null);
@@ -31,9 +49,10 @@ export default function AnalyzePage() {
         setRes(d);
       }
     } catch {
+      if (id !== reqId.current) return;
       setErr("Could not reach the engine. Start it with `python -m kalos.portal`.");
     } finally {
-      setBusy(false);
+      if (id === reqId.current) setBusy(false);
     }
   }
 
@@ -158,7 +177,7 @@ export default function AnalyzePage() {
             cols={res.proposal_features}
             rows={res.proposals}
             predHead={`pred. ${res.target}`}
-            predFn={(p) => `${p.pred} ± ${p.std}`}
+            predFn={(p) => `${fmt(p.pred)} ± ${fmt(p.std)}`}
           />
         </Card>
       ) : null}

@@ -5,17 +5,17 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer,
 } from "recharts";
 
-const ACCENT = "#15a375";
-const CLAY = "#c77e2e";
-const GRAY = "#8a948c";
-const GRID = "#e8ece3";
-const INK = "#586a5e";
+const ACCENT = "#111111";
+const CLAY = "#9ca3af";
+const GRAY = "#9ca3af";
+const GRID = "#ededed";
+const INK = "#6b7280";
 
 const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-jbmono)" } as const;
 const tip = {
   contentStyle: {
     fontSize: 12, fontFamily: "var(--font-jbmono)", borderRadius: 8,
-    border: "1px solid #e8ece3", background: "#fff", color: "#15241c",
+    border: "1px solid #e5e5e5", background: "#fff", color: "#0a0a0a",
   },
 } as const;
 const axisTitle = (value: string, side: "x" | "y") =>

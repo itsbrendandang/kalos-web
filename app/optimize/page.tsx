@@ -106,7 +106,7 @@ export default function OptimizePage() {
           <DemoBadge />
         </div>
         <p className="mb-4 text-[13px] text-muted">
-          Maximize titer and purity together. The emerald frontier is the set of best achievable tradeoffs you can pick from.
+          Maximize titer and purity together. The frontier is the set of best achievable tradeoffs you can pick from.
         </p>
         {m ? (
           <>

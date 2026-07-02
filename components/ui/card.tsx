@@ -5,7 +5,7 @@ export function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "rounded-2xl bg-card p-5 shadow-[0_1px_2px_rgba(20,40,30,.04),0_10px_26px_rgba(20,40,30,.05)]",
+        "rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,.03),0_8px_24px_rgba(0,0,0,.04)]",
         className,
       )}
       {...props}
@@ -32,7 +32,7 @@ export function Kpi({
     <div
       className={cn(
         "rounded-xl px-4 py-3.5",
-        hero ? "bg-accent-hover shadow-[0_8px_20px_rgba(14,124,87,.30)]" : "bg-bg",
+        hero ? "bg-accent-hover shadow-[0_8px_20px_rgba(0,0,0,.18)]" : "bg-bg",
       )}
     >
       <div className={cn("text-[11px] font-medium", hero ? "text-white" : "text-muted")}>{label}</div>
@@ -86,7 +86,7 @@ export function Tag({ mode }: { mode: "explore" | "exploit" }) {
     <span
       className={cn(
         "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-        mode === "exploit" ? "bg-accent-soft text-accent-hover" : "bg-explore-soft text-explore-deep",
+        mode === "exploit" ? "bg-accent text-white" : "bg-explore-soft text-explore-deep",
       )}
     >
       {mode}

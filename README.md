@@ -2,7 +2,7 @@
 
 The production front end for [Kalos](https://github.com/itsbrendandang/kalos) — a
 Bayesian-optimization platform for bioprocess development. Next.js 16 + Tailwind v4,
-in the "Calm Growth" design language, consuming the Kalos engine API.
+in a minimal black-and-white design system, consuming the Kalos engine API.
 
 ## Views
 

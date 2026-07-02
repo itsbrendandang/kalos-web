@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil, FileText, GitBranch } from "lucide-react";
+import { ArrowLeft, Pencil, FileText, GitBranch, Activity } from "lucide-react";
 import type { Project } from "@/app/voyager/data";
 import { Phase1View } from "./phase1-view";
 import { Phase2View } from "./phase2-view";
@@ -37,7 +37,14 @@ export function ProjectWorkspace({ project }: { project: Project }) {
       <div className="hdr2">
         <div>
           <div className="v-eyebrow mb-0.5">{project.customerName}</div>
-          <h1 className="v-title">{project.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="v-title">{project.name}</h1>
+            {project.live ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--v-blue-tint)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--v-blue-7)]">
+                <Activity className="size-2.5" /> Live · engine
+              </span>
+            ) : null}
+          </div>
           <div className="mt-0.5 text-[12px] text-[color:rgba(17,17,17,0.4)]">{subtitle(project)}</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">

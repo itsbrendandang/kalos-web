@@ -32,6 +32,16 @@ export type MultiRun = {
   proposals: MultiProposal[];
 };
 
+export type Reliability = {
+  spearman: number | null;
+  ci95: [number, number] | null;
+  spearman_floor: number;
+  clears_floor: boolean;
+  ci_excludes_zero: boolean;
+  /** Quantities the current engine does not model, surfaced so the UI can say so. */
+  unmodeled: string[];
+};
+
 export type AnalyzeResult = {
   n: number;
   d: number;
@@ -42,6 +52,9 @@ export type AnalyzeResult = {
   cv_spearman: number | null;
   cv_ci95?: [number, number] | null;
   cv_n_groups?: number;
+  /** Distribution-free +/- band (abs) from pooled out-of-fold residuals. */
+  conformal_q?: number | null;
+  reliability?: Reliability;
   best: number;
   drivers: { name: string; rho: number }[];
   proposal_features: string[];
@@ -65,6 +78,12 @@ export type LatestResult =
   | { has_data: false }
   | (AnalyzeResult & { has_data: true; dataset: string; updated: number });
 
-export const getLatest = (): Promise<LatestResult> => fetch(`${API}/api/latest`).then((r) => r.json());
+export const getLatest = (): Promise<LatestResult> =>
+  fetch(`${API}/api/latest`).then((r) => {
+    // fetch only rejects on network failure; treat a non-2xx engine response as an
+    // error too, so callers show the offline state instead of a fake "no data".
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
 
 export { API };

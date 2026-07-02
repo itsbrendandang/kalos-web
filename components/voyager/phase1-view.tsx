@@ -110,7 +110,9 @@ export function Phase1View({ project }: { project: Project }) {
   if (project.iterations.length === 0) {
     return (
       <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:rgba(17,17,17,0.4)]">
-        No Phase 1 iterations for this project. It began directly in Phase 2 scale-up.
+        {project.live
+          ? "This project is scored live by the engine. See the Phase 2 tab for the engine's recommended next experiments."
+          : "No Phase 1 iterations for this project. It began directly in Phase 2 scale-up."}
       </div>
     );
   }

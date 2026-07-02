@@ -33,7 +33,14 @@ for these routes in `components/app-shell.tsx`.
     (LHS then BO Explore/Exploit), batch-ticket upload, and unlock gating.
   - **Phase 2** — scale-up: either the setup state (config + 9-stage pipeline) or
     the run results with Promote/Hold candidate cards (drivers, scale-up
-    projection, warnings) alongside the completed pipeline.
+    projection, warnings) alongside the completed pipeline. These are illustrative.
+  - **Phase 2 (live)** — the "Bioqore R&D" project (`live: true`) scores the real
+    uploaded dataset through the engine via `GET /api/latest`: recommended next
+    experiments (recipe + predicted target with a distribution-free conformal
+    band), honest model reliability (grouped-CV Spearman + CI vs the 0.20 floor),
+    global signed drivers, and an explicit "not modeled" callout (success
+    probability, calibration, scale-up transfer). Falls back to a start-the-engine
+    notice when the API is unreachable.
   - **Linkage tree** — an interactive SVG experiment lineage (Phase 1 and
     Phase 1+2) with a clickable per-node detail panel.
 - **`/voyager/projects/[id]/report`** — the final report: stat cards, drivers and

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FileText, Upload, ChevronDown, AlertTriangle, Info, RefreshCw, Play, Settings, FlaskConical, Flag } from "lucide-react";
 import type { Project, Candidate, PipelineStage } from "@/app/voyager/data";
+import { Phase2Live } from "./phase2-live";
 
 const DECISION_CLASS: Record<Candidate["decision"], string> = {
   promote: "pro",
@@ -249,6 +250,7 @@ function ResultsView({ project }: { project: Project }) {
 }
 
 export function Phase2View({ project }: { project: Project }) {
+  if (project.live) return <Phase2Live />;
   const complete = project.run?.status === "complete" && project.candidates.length > 0;
   return complete ? <ResultsView project={project} /> : <SetupView project={project} />;
 }

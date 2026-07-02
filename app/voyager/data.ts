@@ -121,6 +121,8 @@ export interface Project {
   target: string;
   /** Which workspace tab a project opens on. */
   defaultTab: "phase1" | "phase2";
+  /** When true, the Phase 2 tab scores the real uploaded dataset via the engine. */
+  live?: boolean;
   hasTree: "p1" | "p1p2" | null;
   experiments: DbExperiment[];
   config: { name: string; detail: string } | null;
@@ -422,6 +424,27 @@ const P_LNP: Project = {
   report: null,
 };
 
+const P_LIVE: Project = {
+  id: "p-live",
+  customerId: "c3",
+  customerName: "Bioqore R&D",
+  name: "Media DoE (live engine)",
+  objective: "Recommend the next media experiments from the real uploaded dataset",
+  status: "in_progress",
+  stage: { kind: "phase2", label: "Live engine" },
+  target: "the uploaded target",
+  defaultTab: "phase2",
+  live: true,
+  hasTree: null,
+  experiments: [],
+  config: null,
+  run: null,
+  pipeline: [],
+  candidates: [],
+  iterations: [],
+  report: null,
+};
+
 export const CUSTOMERS: Customer[] = [
   {
     id: "c1",
@@ -434,6 +457,12 @@ export const CUSTOMERS: Customer[] = [
     name: "Customer 2",
     address: "88 Innovation Way, South San Francisco, CA 94080",
     projects: [P_VVP, P_LNP],
+  },
+  {
+    id: "c3",
+    name: "Bioqore R&D",
+    address: "Internal · scored live by the kalos engine",
+    projects: [P_LIVE],
   },
 ];
 

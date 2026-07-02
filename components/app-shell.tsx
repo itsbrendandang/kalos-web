@@ -23,6 +23,9 @@ function Leaf({ size = 22 }: { size?: number }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
+  // The Voyager product surface carries its own chrome (see app/voyager/layout.tsx),
+  // so the optimizer sidebar is bypassed for those routes.
+  if (path.startsWith("/voyager")) return <>{children}</>;
   return (
     <div className="flex min-h-svh">
       <aside className="flex w-56 shrink-0 flex-col bg-sidebar px-3 py-5 max-md:hidden">

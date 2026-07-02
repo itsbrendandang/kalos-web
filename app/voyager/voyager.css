@@ -1,0 +1,180 @@
+/*
+ * Voyager product surface — scoped design system.
+ * A distinct blue/Satoshi look for the customer-facing Voyager screens,
+ * kept separate from the black-and-white optimizer views. Every rule is
+ * nested under .voyager-root so it cannot leak into the rest of kalos-web.
+ * Palette + type mirror voyager_complete_v3.html (Satoshi → Manrope stand-in).
+ */
+.voyager-root {
+  --v-ink: #111111;
+  --v-border: #e1e1e1;
+  --v-blue: #204af4;
+  --v-blue-7: #1434b5;
+  --v-blue-9: #061c72;
+  --v-bg: #fdfdfd;
+  --v-surface: #fafafa;
+  --v-green: #2e7d32;
+  --v-blue-soft: #f9faff;
+  --v-blue-border: #c8d0fa;
+  --v-blue-tint: #eef1fe;
+  --v-hover: #f4f6ff;
+
+  min-height: 100svh;
+  background: var(--v-bg);
+  color: var(--v-ink);
+  font-family: var(--font-voyager), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.voyager-root ::selection {
+  background: var(--v-blue-tint);
+}
+
+/* Eyebrow + page title */
+.v-eyebrow {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.28);
+}
+.v-title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--v-ink);
+}
+
+/* Primary + ghost buttons */
+.v-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.v-btn-primary {
+  background: var(--v-blue);
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  padding: 7px 13px;
+}
+.v-btn-primary:hover {
+  background: var(--v-blue-7);
+}
+.v-btn-ghost {
+  background: transparent;
+  color: rgba(17, 17, 17, 0.4);
+  border: 0.5px solid var(--v-border);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+.v-btn-ghost:hover {
+  color: var(--v-blue);
+  border-color: var(--v-blue-border);
+}
+
+/* "N projects" pill */
+.v-tag {
+  font-size: 10px;
+  background: #f0f0f0;
+  color: rgba(17, 17, 17, 0.45);
+  padding: 2px 6px;
+  border-radius: 20px;
+}
+
+/* Project card */
+.v-card {
+  border: 0.5px solid var(--v-border);
+  border-radius: 10px;
+  padding: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  text-align: left;
+  background: transparent;
+  width: 100%;
+}
+.v-card:hover {
+  border-color: var(--v-blue-border);
+}
+.v-card--p2 {
+  border-color: var(--v-blue-border);
+  background: var(--v-blue-soft);
+}
+.v-card--done {
+  background: var(--v-surface);
+  border-color: #a5d6a7;
+}
+
+.v-phase {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+.v-phase--p1 {
+  color: var(--v-green);
+}
+.v-phase--p2 {
+  color: var(--v-blue-7);
+}
+.v-phase--done,
+.v-phase--draft {
+  color: rgba(17, 17, 17, 0.35);
+}
+
+.v-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--v-ink);
+  line-height: 1.3;
+}
+.v-card-obj {
+  font-size: 11px;
+  color: rgba(17, 17, 17, 0.45);
+  line-height: 1.4;
+}
+.v-card-ft {
+  padding-top: 8px;
+  border-top: 0.5px solid var(--v-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: rgba(17, 17, 17, 0.35);
+}
+
+/* Dashed "add" card */
+.v-add-card {
+  border: 1.5px dashed var(--v-border);
+  border-radius: 10px;
+  padding: 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 96px;
+  background: transparent;
+  color: rgba(17, 17, 17, 0.3);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.v-add-card:hover {
+  border-color: var(--v-blue);
+  background: var(--v-hover);
+  color: var(--v-blue-7);
+}

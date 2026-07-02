@@ -19,6 +19,18 @@ in a minimal black-and-white design system, consuming the Kalos engine API.
 - **Data** — the barcode registry: every dataset and run under a stable,
   anonymized barcode.
 
+## Voyager surface (preview)
+
+A separate customer-facing product surface lives under `/voyager`, in its own
+blue/Satoshi design (scoped tokens in `app/voyager/voyager.css`, Manrope stands
+in for Satoshi) with its own top-nav chrome. The optimizer sidebar is bypassed
+for these routes in `components/app-shell.tsx`.
+
+- **`/voyager`** — the Projects home: customers and their projects, each tagged
+  by workflow stage (Phase 1 iterations, Phase 2 scale-up, drafting). Seed data
+  in `app/voyager/data.ts`; the engine does not yet expose a customers/projects
+  API, so this screen is illustrative and does not call it.
+
 ## Run it
 
 The engine API must be running first (in the `kalos` repo):

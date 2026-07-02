@@ -6,6 +6,9 @@ in the "Calm Growth" design language, consuming the Kalos engine API.
 
 ## Views
 
+- **Overview**: the closed-loop optimizer at a glance - best titer, experiments to
+  target, the convergence curve, the titer-vs-purity Pareto, and the ranked next
+  experiments.
 - **Optimize** — the live engine: single- and multi-objective optimization, the
   convergence curve, the titer-vs-purity Pareto front, and proposed next
   experiments (each with a predicted value, an uncertainty, and an

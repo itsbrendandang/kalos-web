@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, FlaskConical, Database, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Sparkles, FlaskConical, Database, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/optimize", label: "Optimize", icon: Sparkles },
   { href: "/analyze", label: "Analyze", icon: FlaskConical },
   { href: "/data", label: "Data", icon: Database },
@@ -31,7 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map((n) => {
-            const active = path.startsWith(n.href);
+            const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
             return (
               <Link
                 key={n.href}

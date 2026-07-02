@@ -49,6 +49,38 @@ export function Kpi({
   );
 }
 
+export function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  tone = "accent",
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
+  tone?: "accent" | "explore";
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[10.5px] font-semibold tracking-wide text-muted uppercase">{label}</div>
+        <span
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-lg",
+            tone === "accent" ? "bg-accent-soft text-accent-hover" : "bg-explore-soft text-explore-deep",
+          )}
+        >
+          <Icon className="size-4" />
+        </span>
+      </div>
+      <div className="tabular mt-2.5 font-mono text-[26px] leading-none font-semibold text-fg">{value}</div>
+      {sub ? <div className="mt-1.5 text-[11px] text-muted">{sub}</div> : null}
+    </Card>
+  );
+}
+
 export function Tag({ mode }: { mode: "explore" | "exploit" }) {
   return (
     <span

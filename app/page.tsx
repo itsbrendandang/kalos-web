@@ -1,29 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, Target, FlaskConical, GitBranch, TrendingUp } from "lucide-react";
-import { runSingle, runMulti, type SingleRun, type MultiRun } from "@/lib/api";
+import Link from "next/link";
+import { Target, Gauge, Database, TrendingUp, Upload, RefreshCw } from "lucide-react";
+import { getLatest, type LatestResult } from "@/lib/api";
 import { Card, SectionLabel, StatCard, Tag } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PageHeader, DemoBadge, Loading } from "@/components/page-header";
-import { ConvergenceChart, ParetoChart } from "@/components/charts";
+import { PageHeader, Loading } from "@/components/page-header";
+import { DriversBar, PredScatter } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
 import { fmt } from "@/lib/utils";
 
+const BTN_ACCENT =
+  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-[0_2px_8px_rgba(21,163,117,.28)] transition-colors hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
+
+function ago(ts?: number) {
+  if (!ts) return "";
+  const s = Date.now() / 1000 - ts;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
 export default function Overview() {
-  const [s, setS] = useState<SingleRun | null>(null);
-  const [m, setM] = useState<MultiRun | null>(null);
+  const [data, setData] = useState<LatestResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
 
-  async function run() {
-    // Refresh-button path (an event handler): synchronous setState here is fine.
+  async function refresh() {
     setBusy(true);
     setErr(false);
     try {
-      const [a, b] = await Promise.all([runSingle(), runMulti()]);
-      setS(a);
-      setM(b);
+      setData(await getLatest());
     } catch {
       setErr(true);
     } finally {
@@ -31,15 +40,10 @@ export default function Overview() {
     }
   }
   useEffect(() => {
-    // Initial load: no synchronous setState in the effect body (Loading shows
-    // while s/m are null), which satisfies react-hooks/set-state-in-effect.
     let cancelled = false;
-    Promise.all([runSingle(), runMulti()])
-      .then(([a, b]) => {
-        if (!cancelled) {
-          setS(a);
-          setM(b);
-        }
+    getLatest()
+      .then((d) => {
+        if (!cancelled) setData(d);
       })
       .catch(() => {
         if (!cancelled) setErr(true);
@@ -49,51 +53,113 @@ export default function Overview() {
     };
   }, []);
 
-  const gap = s ? Math.sqrt(s.best_recipe.reduce((acc, v, i) => acc + (v - s.optimum[i]) ** 2, 0)) : 0;
-  const top = s?.proposals[0];
-
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Overview"
-        desc="Your closed-loop optimizer at a glance — the best result so far, how fast it converged, and the experiments to run next."
+        desc="Your closed-loop optimizer, on your data: model reliability, what drives the outcome, and the experiments to run next."
         action={
-          <Button onClick={run} disabled={busy}>
-            <Sparkles />
-            {busy ? "Running…" : "Refresh"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={refresh} disabled={busy}>
+              <RefreshCw />
+              {busy ? "…" : "Refresh"}
+            </Button>
+            <Link href="/analyze" className={BTN_ACCENT}>
+              <Upload />
+              Analyze data
+            </Link>
+          </div>
         }
       />
 
       {err ? (
         <Card className="text-sm text-explore-deep">
-          Could not reach the engine. Start it with <code className="font-mono">python -m kalos.portal</code> (it serves
-          the API on port 8050), then Refresh.
+          Could not reach the engine. Start it with <code className="font-mono">python -m kalos.portal</code> (port 8050),
+          then Refresh.
         </Card>
       ) : null}
 
-      {/* stat row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={Target} label="Best titer" value={s ? fmt(s.best_value, 1) : "—"} sub="mg/L, single-objective" />
-        <StatCard icon={FlaskConical} label="Experiments" value={s ? s.trajectory.at(-1)!.n : "—"} sub="to reach the best" />
-        <StatCard icon={TrendingUp} label="Gap to optimum" value={s ? gap.toFixed(3) : "—"} sub="distance in recipe space" />
-        <StatCard icon={GitBranch} tone="explore" label="Pareto tradeoffs" value={m ? m.trajectory.at(-1)!.pareto : "—"} sub="titer vs purity" />
+      {data == null ? (
+        <Loading />
+      ) : !data.has_data ? (
+        <Card className="flex flex-col items-center gap-3 py-14 text-center">
+          <span className="grid size-11 place-items-center rounded-xl bg-accent-soft text-accent-hover">
+            <Database className="size-5" />
+          </span>
+          <div className="font-head text-lg font-semibold">No dataset analyzed yet</div>
+          <p className="max-w-[46ch] text-[13.5px] text-muted">
+            Upload a run sheet on Analyze and this page will show your model&apos;s reliability, what drives your outcome,
+            and the next experiments to run.
+          </p>
+          <Link href="/analyze" className={BTN_ACCENT}>
+            <Upload />
+            Upload a run sheet
+          </Link>
+        </Card>
+      ) : (
+        <OverviewBody d={data} />
+      )}
+    </div>
+  );
+}
+
+function OverviewBody({ d }: { d: Extract<LatestResult, { has_data: true }> }) {
+  const rho = d.cv_spearman;
+  const ci = d.cv_ci95 ?? null;
+  const reliable = rho != null && ci != null && ci[0] > 0;
+  const top = d.proposals[0];
+  const topDriver = d.drivers[0];
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted">
+        <Database className="size-3.5" />
+        <span className="text-fg">{d.dataset}</span>
+        <span>
+          · {d.n} runs · {d.d} inputs · target {d.target}
+          {d.updated ? ` · ${ago(d.updated)}` : ""}
+        </span>
       </div>
 
-      {/* convergence + the single most useful action */}
-      <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard icon={Target} label={`Best ${d.target}`} value={fmt(d.best, 1)} sub="best observed" />
+        <StatCard
+          icon={Gauge}
+          tone={reliable ? "accent" : "explore"}
+          label="Model reliability"
+          value={rho != null ? rho.toFixed(2) : "n/a"}
+          sub={
+            rho != null
+              ? ci
+                ? `held-out corr · 95% CI [${ci[0].toFixed(2)}, ${ci[1].toFixed(2)}]`
+                : "held-out rank corr"
+              : "not scored (too few groups)"
+          }
+        />
+        <StatCard
+          icon={Database}
+          label="Runs / inputs"
+          value={`${d.n} / ${d.d}`}
+          sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Top driver"
+          value={topDriver ? (topDriver.name.length > 11 ? topDriver.name.slice(0, 11) + "…" : topDriver.name) : "—"}
+          sub={topDriver ? `ρ ${topDriver.rho.toFixed(2)}` : ""}
+        />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
         <Card>
-          <div className="mb-1 flex items-center gap-2">
-            <SectionLabel className="mb-0">Convergence</SectionLabel>
-            <DemoBadge />
-          </div>
+          <SectionLabel>Predicted vs measured (out-of-fold)</SectionLabel>
           <p className="mb-3 text-[13px] text-muted">
-            Best titer climbs as the loop proposes and measures — the point is fewer experiments to target.
+            Honest held-out predictions; points near the dashed line are well ranked.
           </p>
-          {s ? (
-            <ConvergenceChart data={s.trajectory.map((t) => ({ n: t.n, best: t.best }))} yLabel="best titer (mg/L)" />
+          {d.oof.length ? (
+            <PredScatter oof={d.oof} />
           ) : (
-            <Loading />
+            <p className="py-10 text-center text-[12px] text-muted">not enough held-out points</p>
           )}
         </Card>
 
@@ -105,48 +171,53 @@ export default function Overview() {
                 <Tag mode={top.mode} />
                 <span className="text-[12px] text-muted">{top.reason}</span>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 {top.vals.map((v, i) => (
                   <div key={i} className="rounded-xl bg-bg px-3 py-2.5">
-                    <div className="text-[10px] font-medium text-muted">x{i + 1}</div>
-                    <div className="tabular mt-0.5 font-mono text-[16px] font-semibold text-fg">{v}</div>
+                    <div className="truncate text-[10px] font-medium text-muted">{d.proposal_features[i] ?? `x${i + 1}`}</div>
+                    <div className="tabular mt-0.5 font-mono text-[15px] font-semibold text-fg">{v}</div>
                   </div>
                 ))}
               </div>
               <div className="mt-auto rounded-xl bg-accent-soft px-3 py-3">
-                <div className="text-[10px] font-medium text-accent-hover">predicted titer</div>
+                <div className="text-[10px] font-medium text-accent-hover">predicted {d.target}</div>
                 <div className="tabular mt-0.5 font-mono text-[20px] font-semibold text-accent-hover">
                   {top.pred} <span className="text-[12px] font-normal">± {top.std}</span>
                 </div>
               </div>
             </div>
           ) : (
-            <Loading />
+            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
           )}
         </Card>
       </div>
 
-      {/* pareto + the ranked recommendations */}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
-          <div className="mb-1 flex items-center gap-2">
-            <SectionLabel className="mb-0">Titer vs purity</SectionLabel>
-            <DemoBadge />
-          </div>
-          <p className="mb-3 text-[13px] text-muted">The emerald frontier is the set of best achievable tradeoffs.</p>
-          {m ? <ParetoChart all={m.all} pareto={m.pareto} /> : <Loading />}
+          <SectionLabel>What drives {d.target}</SectionLabel>
+          <p className="mb-3 text-[13px] text-muted">Signed correlation: emerald raises the outcome, clay lowers it.</p>
+          {d.drivers.length ? (
+            <DriversBar drivers={d.drivers} />
+          ) : (
+            <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
+          )}
         </Card>
 
         <Card>
           <SectionLabel>Recommended next experiments</SectionLabel>
-          <p className="mb-3 text-[13px] text-muted">Ranked by the acquisition function — highest expected gain first.</p>
-          {s ? (
-            <Proposals cols={["x1", "x2", "x3"]} rows={s.proposals} predHead="pred. titer" predFn={(p) => `${p.pred} ± ${p.std}`} />
+          <p className="mb-3 text-[13px] text-muted">Ranked by the acquisition function; highest expected gain first.</p>
+          {d.proposals.length ? (
+            <Proposals
+              cols={d.proposal_features}
+              rows={d.proposals}
+              predHead={`pred. ${d.target}`}
+              predFn={(p) => `${p.pred} ± ${p.std}`}
+            />
           ) : (
-            <Loading />
+            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
           )}
         </Card>
       </div>
-    </div>
+    </>
   );
 }

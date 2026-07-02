@@ -40,6 +40,8 @@ export type AnalyzeResult = {
   targets: string[];
   features: string[];
   cv_spearman: number | null;
+  cv_ci95?: [number, number] | null;
+  cv_n_groups?: number;
   best: number;
   drivers: { name: string; rho: number }[];
   proposal_features: string[];
@@ -57,5 +59,12 @@ export async function runFile(file: File, target?: string): Promise<AnalyzeResul
   if (target) fd.append("target", target);
   return fetch(`${API}/api/run`, { method: "POST", body: fd }).then((r) => r.json());
 }
+
+// The most recent real (uploaded) analysis — what the Overview reflects.
+export type LatestResult =
+  | { has_data: false }
+  | (AnalyzeResult & { has_data: true; dataset: string; updated: number });
+
+export const getLatest = (): Promise<LatestResult> => fetch(`${API}/api/latest`).then((r) => r.json());
 
 export { API };

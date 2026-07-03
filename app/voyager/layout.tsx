@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./voyager.css";
 
-// Satoshi (the prototype's typeface) is not available through next/font, which
-// self-hosts to avoid external requests. Manrope is the closest self-hostable
-// match; swap to a self-hosted Satoshi via next/font/local for exact fidelity.
+// TODO: self-host Satoshi. The prototype's typeface (Satoshi) is not on Google
+// Fonts and no Satoshi font files are checked into this repo, so it cannot be
+// self-hosted via next/font/local without first sourcing licensed font files.
+// Manrope is used as the closest self-hostable stand-in; once real Satoshi
+// font files are added under e.g. public/fonts/satoshi/, swap this for
+// next/font/local and keep the exported `--font-voyager` variable name so no
+// other file needs to change.
 const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-voyager" });
 
 export const metadata: Metadata = {

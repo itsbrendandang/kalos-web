@@ -18,7 +18,7 @@ function IterationCard({ it }: { it: Iteration }) {
           </div>
           {it.state === "done" ? (
             <div className="scdone">
-              <span className="grid size-3.5 place-items-center rounded-full bg-[#4caf50]">
+              <span className="grid size-3.5 place-items-center rounded-full bg-green">
                 <Check className="size-2 text-white" strokeWidth={3} />
               </span>
               Complete
@@ -45,9 +45,7 @@ function IterationCard({ it }: { it: Iteration }) {
                 <FileText className="size-3 text-[color:var(--v-blue)]" /> {it.file.name}
                 <span className="pbbadge">{it.file.badge}</span>
               </div>
-              <span className="pbbadge" style={{ background: "#4caf50", color: "#fff" }}>
-                Ingested
-              </span>
+              <span className="pbbadge v-badge-done">Ingested</span>
             </div>
             <table className="pbtbl">
               <thead>

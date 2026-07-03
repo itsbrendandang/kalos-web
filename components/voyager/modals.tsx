@@ -102,17 +102,15 @@ export function VoyagerModal({ state, onClose }: { state: ModalState; onClose: (
             className="mb-1.5 flex items-center gap-2 rounded-[7px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-2 py-1.5"
           >
             <span
-              className="size-[5px] shrink-0 rounded-full"
-              style={{ background: p.stage.kind === "phase2" ? "var(--v-blue)" : "#4caf50" }}
+              className={`size-[5px] shrink-0 rounded-full ${
+                p.stage.kind === "phase2" ? "v-stage-dot--phase2" : "v-stage-dot--phase1"
+              }`}
             />
             <span className="flex-1 text-[12px] font-medium text-[color:var(--v-ink)]">{p.name}</span>
             <span
-              className="rounded-full px-[5px] py-0.5 text-[9px] font-medium"
-              style={
-                p.stage.kind === "phase2"
-                  ? { background: "#eef1fe", color: "var(--v-blue-7)" }
-                  : { background: "#e8f5e9", color: "#2e7d32" }
-              }
+              className={`rounded-full px-[5px] py-0.5 text-[9px] font-medium ${
+                p.stage.kind === "phase2" ? "v-stage-pill--phase2" : "v-stage-pill--phase1"
+              }`}
             >
               {p.stage.kind === "phase2" ? "Phase 2" : "Phase 1"}
             </span>

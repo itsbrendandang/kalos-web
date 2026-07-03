@@ -31,6 +31,10 @@ interface Band {
   dashed?: boolean;
 }
 
+// Node-color dictionary for the experiment lineage SVG. Kept as a self-contained
+// constant (rather than CSS classes) because each node type maps to a fixed
+// fill/stroke/text/badge combination that is only ever read here, and the SVG
+// nodes are drawn imperatively - see DESIGN.md ("Linkage tree" exception).
 const STYLE: Record<NodeType, { fill: string; stroke: string; text: string; badge: string; badgeLabel: string }> = {
   root: { fill: "#C5CAE9", stroke: "#9FA8DA", text: "#283593", badge: "#C5CAE9", badgeLabel: "LHS batch" },
   "bo-exp": { fill: "#C8E6C9", stroke: "#A5D6A7", text: "#1B5E20", badge: "#C8E6C9", badgeLabel: "BO Explore" },
@@ -139,7 +143,7 @@ function TreeSvg({
 }) {
   const byKey = new Map(nodes.map((n) => [n.key, n]));
   return (
-    <svg viewBox={`0 0 360 ${height}`} xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", display: "block" }}>
+    <svg viewBox={`0 0 360 ${height}`} xmlns="http://www.w3.org/2000/svg" className="block w-full">
       {bands.map((b) => (
         <g key={b.text}>
           <text x={8} y={b.y} fontSize={9} fontWeight={500} fill={b.blue ? "rgba(32,74,244,.55)" : "rgba(17,17,17,.28)"} letterSpacing={1}>
@@ -165,13 +169,13 @@ function TreeSvg({
         const isBest = n.star;
         const selected = selectedKey === n.key;
         return (
-          <g key={n.key} style={{ cursor: "pointer" }} onClick={() => onSelect(n)}>
+          <g key={n.key} className="cursor-pointer" onClick={() => onSelect(n)}>
             <circle
               cx={n.x}
               cy={n.y}
               r={n.r}
               fill={st.fill}
-              stroke={isBest ? "#204AF4" : selected ? "#204AF4" : st.stroke}
+              stroke={isBest || selected ? "var(--v-blue)" : st.stroke}
               strokeWidth={isBest || selected ? 2 : 1.5}
             />
             <text x={n.x} y={n.y + 3} textAnchor="middle" fontSize={n.type === "root" ? 9 : 8} fontWeight={500} fill={st.text}>
@@ -184,7 +188,15 @@ function TreeSvg({
                 textAnchor="middle"
                 fontSize={8}
                 fontWeight={isBest || n.type === "promote" || n.type === "hold" ? 500 : 400}
-                fill={isBest ? "#204AF4" : n.type === "promote" ? "#2E7D32" : n.type === "hold" ? "#5D4037" : "rgba(17,17,17,.4)"}
+                fill={
+                  isBest
+                    ? "var(--v-blue)"
+                    : n.type === "promote"
+                      ? "var(--v-green)"
+                      : n.type === "hold"
+                        ? STYLE.hold.text
+                        : "rgba(17,17,17,.4)"
+                }
               >
                 {n.yieldLabel}
               </text>
@@ -245,7 +257,7 @@ function Detail({ n }: { n: TNode | null }) {
           <div className="dc-detail-label">Lineage</div>
           {n.lineageParent ? (
             <div className="lin-item">
-              <span className="lin-dot" style={{ background: "#C5CAE9" }} />
+              <span className="lin-dot" style={{ background: STYLE.root.fill }} />
               <span className="flex-1 font-medium text-[color:var(--v-ink)]">{n.lineageParent}</span>
               <span className="text-[10px] text-[color:rgba(17,17,17,0.35)]">Parent</span>
             </div>
@@ -253,7 +265,7 @@ function Detail({ n }: { n: TNode | null }) {
           {n.lineageChildren
             ? n.lineageChildren.split(",").map((c) => (
                 <div key={c} className="lin-item">
-                  <span className="lin-dot" style={{ background: "#BBDEFB" }} />
+                  <span className="lin-dot" style={{ background: STYLE["bo-expl2"].fill }} />
                   <span className="flex-1 font-medium text-[color:var(--v-ink)]">{c.trim()}</span>
                   <span className="text-[10px] text-[color:rgba(17,17,17,0.35)]">Child</span>
                 </div>

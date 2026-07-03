@@ -65,9 +65,7 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
                       <div className="scale-bar-track">
                         <div className={`scale-bar-fill ${s.warn ? "hld-fill" : "pro-fill"}`} style={{ width: `${s.value}%` }} />
                       </div>
-                      <div className="scale-trend" style={s.warn ? { color: "#e65100" } : undefined}>
-                        {s.delta}
-                      </div>
+                      <div className={`scale-trend ${s.warn ? "v-scale-warn" : ""}`}>{s.delta}</div>
                     </div>
                   ))}
                 </div>
@@ -92,20 +90,20 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
   );
 }
 
+const PIPELINE_BADGE_CLASS: Record<"complete" | "run" | "idle", string> = {
+  complete: "v-pipeline-badge--complete",
+  run: "v-pipeline-badge--run",
+  idle: "v-pipeline-badge--idle",
+};
+
 function Pipeline({ stages, badge }: { stages: PipelineStage[]; badge: { text: string; tone: "complete" | "run" | "idle" } }) {
-  const badgeStyle =
-    badge.tone === "complete"
-      ? { background: "#e8f5e9", color: "#2e7d32" }
-      : badge.tone === "run"
-        ? { background: "var(--v-blue-tint)", color: "var(--v-blue-7)" }
-        : { background: "#f0f0f0", color: "rgba(17,17,17,.4)" };
   return (
     <div>
       <div className="sh">9-stage pipeline{badge.tone !== "idle" ? " · run #1" : ""}</div>
       <div className="pipe-box">
         <div className="pipe-hd">
           AI pipeline
-          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-medium" style={badgeStyle}>
+          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${PIPELINE_BADGE_CLASS[badge.tone]}`}>
             {badge.text}
           </span>
         </div>

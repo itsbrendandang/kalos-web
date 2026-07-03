@@ -20,17 +20,17 @@ function ScaleUpCurve({ points }: { points: ReportData["scaleUp"] }) {
     .reverse();
   const band = [...bandTop, ...bandBot].join(" ");
   return (
-    <svg viewBox="0 0 250 76" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%" }}>
-      <polygon points={band} fill="#EEF1FE" />
-      <polyline points={line} fill="none" stroke="#204AF4" strokeWidth={1.5} />
+    <svg viewBox="0 0 250 76" xmlns="http://www.w3.org/2000/svg" className="w-full">
+      <polygon points={band} fill="var(--v-blue-tint)" />
+      <polyline points={line} fill="none" stroke="var(--v-blue)" strokeWidth={1.5} />
       {points.map((p, i) => (
         <circle
           key={p.label}
           cx={x(i)}
           cy={y(p.value)}
           r={i === n - 1 ? 2.5 : 3}
-          fill={i === n - 1 ? "white" : "#204AF4"}
-          stroke={i === n - 1 ? "#204AF4" : undefined}
+          fill={i === n - 1 ? "white" : "var(--v-blue)"}
+          stroke={i === n - 1 ? "var(--v-blue)" : undefined}
           strokeWidth={i === n - 1 ? 1.5 : undefined}
         />
       ))}
@@ -39,10 +39,10 @@ function ScaleUpCurve({ points }: { points: ReportData["scaleUp"] }) {
           {p.label}
         </text>
       ))}
-      <text x={x(0)} y={y(points[0].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="#204AF4">
+      <text x={x(0)} y={y(points[0].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="var(--v-blue)">
         {points[0].value}%
       </text>
-      <text x={x(n - 1)} y={y(points[n - 1].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="#204AF4">
+      <text x={x(n - 1)} y={y(points[n - 1].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="var(--v-blue)">
         {points[n - 1].value}%
       </text>
     </svg>
@@ -61,7 +61,7 @@ export function ProjectReport({ project }: { project: Project }) {
       </button>
 
       <div className="mb-4 flex items-center gap-2.5">
-        <span className="grid size-8 place-items-center rounded-full bg-[#e8f5e9] text-[#2e7d32]">
+        <span className="grid size-8 place-items-center rounded-full bg-green-soft text-green">
           <Check className="size-3.5" strokeWidth={3} />
         </span>
         <div>
@@ -82,9 +82,7 @@ export function ProjectReport({ project }: { project: Project }) {
         {r.stats.map((s) => (
           <div key={s.label} className="r-stat">
             <div className="r-stat-l">{s.label}</div>
-            <div className="r-stat-v" style={s.accent ? { color: "var(--v-blue)" } : undefined}>
-              {s.value}
-            </div>
+            <div className={`r-stat-v ${s.accent ? "v-report-accent" : ""}`}>{s.value}</div>
             <div className="r-stat-s">{s.sub}</div>
           </div>
         ))}

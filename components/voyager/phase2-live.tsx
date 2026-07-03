@@ -36,32 +36,29 @@ function verdict(r: Reliability | undefined): { tone: "ok" | "warn" | "bad"; tex
   return { tone: "bad", text: "Weak: below the 0.20 floor and the 95% CI includes zero. Recommendations are low-confidence." };
 }
 
+const TONE_CLASS: Record<"ok" | "warn" | "bad", string> = {
+  ok: "v-tone-ok",
+  warn: "v-tone-warn",
+  bad: "v-tone-bad",
+};
+
 function Reliability_({ d }: { d: AnalyzeResult }) {
   const r = d.reliability;
   const v = verdict(r);
-  const tone =
-    v.tone === "ok"
-      ? { bg: "#f4fbf4", border: "#a5d6a7", ink: "#1b5e20" }
-      : v.tone === "warn"
-        ? { bg: "#fff9f0", border: "#ffd580", ink: "#5d4037" }
-        : { bg: "#fdf3f3", border: "#f0b4b4", ink: "#8a2b2b" };
+  const toneClass = TONE_CLASS[v.tone];
   return (
-    <div className="rounded-[10px] border-[0.5px] px-3.5 py-3" style={{ background: tone.bg, borderColor: tone.border }}>
+    <div className={`rounded-[10px] border-[0.5px] px-3.5 py-3 ${toneClass}`}>
       <div className="mb-1.5 flex items-center gap-2">
-        <Gauge className="size-3.5" style={{ color: tone.ink }} />
-        <span className="text-[12px] font-medium" style={{ color: tone.ink }}>
-          Model reliability
-        </span>
+        <Gauge className="size-3.5" />
+        <span className="text-[12px] font-medium">Model reliability</span>
         {r?.spearman != null ? (
-          <span className="ml-auto font-mono text-[12px] font-semibold" style={{ color: tone.ink }}>
+          <span className="ml-auto font-mono text-[12px] font-semibold">
             Spearman {fmt(r.spearman, 2)}
             {r.ci95 ? ` · 95% CI [${fmt(r.ci95[0], 2)}, ${fmt(r.ci95[1], 2)}]` : ""}
           </span>
         ) : null}
       </div>
-      <div className="text-[11px] leading-[1.55]" style={{ color: tone.ink }}>
-        {v.text}
-      </div>
+      <div className="text-[11px] leading-[1.55]">{v.text}</div>
     </div>
   );
 }
@@ -72,10 +69,8 @@ function ProposalCard({ d, p, i }: { d: AnalyzeResult; p: AnalyzeResult["proposa
   const isExploit = p.mode === "exploit";
   return (
     <div className="dc">
-      <div className="dc-row" style={{ cursor: "default", background: isExploit ? "#f4fbf4" : "#f9faff" }}>
-        <span className="dcb" style={isExploit ? { background: "#a5d6a7", color: "#1b5e20" } : { background: "#c8d0fa", color: "#1434b5" }}>
-          {isExploit ? "Exploit" : "Explore"}
-        </span>
+      <div className={`dc-row cursor-default ${isExploit ? "dc-row--exploit" : "dc-row--explore"}`}>
+        <span className={`dcb ${isExploit ? "dcb--exploit" : "dcb--explore"}`}>{isExploit ? "Exploit" : "Explore"}</span>
         <div className="min-w-0 flex-1">
           <div className="dcn">Candidate {i + 1}</div>
           <div className="dcsub">{cleanReason(p.reason)}</div>
@@ -87,7 +82,7 @@ function ProposalCard({ d, p, i }: { d: AnalyzeResult; p: AnalyzeResult["proposa
           </div>
         </div>
       </div>
-      <div className="dc-expand" style={{ borderTop: "0.5px solid var(--v-border)" }}>
+      <div className="dc-expand">
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           {d.proposal_features.map((f, k) => (
             <div key={f} className="cond-cell">
@@ -117,7 +112,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
         </div>
 
         {offline ? (
-          <div className="mb-2 rounded-[8px] border-[0.5px] border-[#ffd580] bg-[#fff9f0] px-3 py-2 text-[11px] text-[#5d4037]">
+          <div className="v-tone-warn mb-2 rounded-[8px] border-[0.5px] px-3 py-2 text-[11px]">
             Could not reach the engine just now; showing the last successful result. Retry with Refresh.
           </div>
         ) : null}
@@ -146,7 +141,10 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
                   {dr.name}
                 </div>
                 <div className="mini-bar-track">
-                  <div className="mini-bar-fill" style={{ width: `${w}%`, background: dr.rho >= 0 ? "var(--v-blue)" : "#9ca3af" }} />
+                  <div
+                    className={`mini-bar-fill ${dr.rho >= 0 ? "" : "v-driver-fill--down"}`}
+                    style={{ width: `${w}%` }}
+                  />
                 </div>
                 <div className="mini-bar-pct">{dr.rho >= 0 ? "+" : ""}{fmt(dr.rho, 2)}</div>
               </div>

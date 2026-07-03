@@ -15,7 +15,7 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
 function Leaf({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 21c0-5 0-7-3-10S4 7 4 7s4 1 6 3 2 5 2 5z" fill="#a3a3a3" />
+      <path d="M12 21c0-5 0-7-3-10S4 7 4 7s4 1 6 3 2 5 2 5z" fill="var(--blue-border)" />
       <path d="M12 21c0-4 1-6 3.5-8.5S20 9 20 9s-1 4-3.5 6.5S12 21 12 21z" fill="#ffffff" />
     </svg>
   );
@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={n.href}
                 className={cn(
                   "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[13px] transition-colors",
-                  active ? "bg-white font-semibold text-fg" : "text-white/60 hover:bg-white/10 hover:text-white",
+                  active ? "bg-accent font-semibold text-white" : "text-white/60 hover:bg-white/10 hover:text-white",
                 )}
               >
                 <n.icon className="size-4 shrink-0" />

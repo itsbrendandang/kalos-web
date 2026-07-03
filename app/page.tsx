@@ -12,7 +12,7 @@ import { Proposals } from "@/components/proposals";
 import { fmt } from "@/lib/utils";
 
 const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-[0_1px_2px_rgba(0,0,0,.15)] transition-colors hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
+  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-[0_1px_2px_rgba(32,74,244,.25)] transition-colors hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 function ago(ts?: number) {
   if (!ts) return "";

@@ -5,7 +5,7 @@ export function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,.03),0_8px_24px_rgba(0,0,0,.04)]",
+        "rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(17,17,17,.03),0_8px_24px_rgba(17,17,17,.04)]",
         className,
       )}
       {...props}
@@ -32,7 +32,7 @@ export function Kpi({
     <div
       className={cn(
         "rounded-xl px-4 py-3.5",
-        hero ? "bg-accent-hover shadow-[0_8px_20px_rgba(0,0,0,.18)]" : "bg-bg",
+        hero ? "bg-accent-hover shadow-[0_8px_20px_rgba(32,74,244,.22)]" : "bg-bg",
       )}
     >
       <div className={cn("text-[11px] font-medium", hero ? "text-white" : "text-muted")}>{label}</div>

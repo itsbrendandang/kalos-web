@@ -30,7 +30,22 @@ export default function OptimizePage() {
     }
   }
   useEffect(() => {
-    run();
+    // Initial load without a synchronous setState in the effect body (Loading
+    // shows while s/m are null) — satisfies react-hooks/set-state-in-effect.
+    let cancelled = false;
+    Promise.all([runSingle(), runMulti()])
+      .then(([a, b]) => {
+        if (!cancelled) {
+          setS(a);
+          setM(b);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setErr(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const gap = s ? Math.sqrt(s.best_recipe.reduce((acc, v, i) => acc + (v - s.optimum[i]) ** 2, 0)) : 0;
@@ -91,7 +106,7 @@ export default function OptimizePage() {
           <DemoBadge />
         </div>
         <p className="mb-4 text-[13px] text-muted">
-          Maximize titer and purity together. The emerald frontier is the set of best achievable tradeoffs you can pick from.
+          Maximize titer and purity together. The frontier is the set of best achievable tradeoffs you can pick from.
         </p>
         {m ? (
           <>

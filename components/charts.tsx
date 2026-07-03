@@ -5,17 +5,40 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer,
 } from "recharts";
 
-const ACCENT = "#15a375";
-const CLAY = "#c77e2e";
-const GRAY = "#8a948c";
-const GRID = "#e8ece3";
-const INK = "#586a5e";
+/**
+ * Shared recharts theme, driven by the app-wide blue design tokens
+ * (app/globals.css). Every chart on every surface reads from this object so
+ * series color, grid, axis, and tooltip styling stay in sync across the app.
+ * See DESIGN.md for the token reference.
+ */
+const CHART_THEME = {
+  series: "var(--blue)",
+  seriesDown: "var(--explore)",
+  grid: "var(--grid)",
+  axis: "var(--muted)",
+  hoverCursor: "rgba(32, 74, 244, 0.06)",
+  tooltip: {
+    border: "var(--border)",
+    background: "var(--card)",
+    text: "var(--fg)",
+  },
+} as const;
+
+const ACCENT = CHART_THEME.series;
+const CLAY = CHART_THEME.seriesDown;
+const GRAY = CHART_THEME.seriesDown;
+const GRID = CHART_THEME.grid;
+const INK = CHART_THEME.axis;
 
 const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-jbmono)" } as const;
 const tip = {
   contentStyle: {
-    fontSize: 12, fontFamily: "var(--font-jbmono)", borderRadius: 8,
-    border: "1px solid #e8ece3", background: "#fff", color: "#15241c",
+    fontSize: 12,
+    fontFamily: "var(--font-jbmono)",
+    borderRadius: 8,
+    border: `1px solid ${CHART_THEME.tooltip.border}`,
+    background: CHART_THEME.tooltip.background,
+    color: CHART_THEME.tooltip.text,
   },
 } as const;
 const axisTitle = (value: string, side: "x" | "y") =>
@@ -67,7 +90,7 @@ export function DriversBar({ drivers }: { drivers: { name: string; rho: number }
         <CartesianGrid stroke={GRID} horizontal={false} />
         <XAxis type="number" domain={[-0.6, 0.7]} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
         <YAxis type="category" dataKey="name" width={118} tick={{ ...tick, fontSize: 10 }} tickLine={false} axisLine={false} />
-        <Tooltip {...tip} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+        <Tooltip {...tip} cursor={{ fill: CHART_THEME.hoverCursor }} />
         <Bar dataKey="rho" radius={[0, 4, 4, 0]} isAnimationActive={false}>
           {data.map((d, i) => (
             <Cell key={i} fill={d.rho >= 0 ? ACCENT : CLAY} />

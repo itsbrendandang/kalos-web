@@ -6,7 +6,7 @@ type Size = "default" | "sm";
 
 const variants: Record<Variant, string> = {
   default:
-    "bg-accent text-white shadow-[0_2px_8px_rgba(21,163,117,.28)] hover:bg-accent-hover",
+    "bg-accent text-white shadow-[0_1px_2px_rgba(32,74,244,.25)] hover:bg-accent-hover",
   outline: "border border-border bg-card hover:bg-bg",
   ghost: "hover:bg-bg",
 };

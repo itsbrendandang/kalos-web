@@ -144,7 +144,7 @@ export default function AnalyzePage() {
 
           <div className="mb-5 grid gap-5 lg:grid-cols-2">
             <div>
-              <SectionLabel>Drivers — raises (emerald) or lowers (clay) {res.target}</SectionLabel>
+              <SectionLabel>Drivers: dark bars raise, light bars lower {res.target}</SectionLabel>
               <DriversBar drivers={res.drivers} />
             </div>
             <div>

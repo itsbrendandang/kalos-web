@@ -1,25 +1,27 @@
 /*
- * Voyager product surface — scoped design system.
+ * Voyager product surface - scoped rules on top of the shared design system.
  *
- * A distinct blue/Satoshi look for the customer-facing Voyager screens, kept
- * separate from the black-and-white optimizer views. Every rule is nested under
- * .voyager-root so it cannot leak into the rest of kalos-web. Palette + type
- * mirror voyager_complete_v3.html (Satoshi -> Manrope stand-in).
+ * The Voyager screens use the same blue token set as the rest of kalos-web
+ * (defined once in app/globals.css). This file only aliases those shared
+ * tokens to the short "--v-*" / "--b5" style names the ported prototype
+ * markup expects, and layers the Voyager-specific component classes (cards,
+ * pipeline stages, linkage tree, modals, ...) on top. See DESIGN.md at the
+ * repo root for the full token reference.
  */
 .voyager-root {
-  /* Semantic tokens */
-  --v-ink: #111111;
-  --v-border: #e1e1e1;
-  --v-blue: #204af4;
-  --v-blue-7: #1434b5;
-  --v-blue-9: #061c72;
-  --v-bg: #fdfdfd;
-  --v-surface: #fafafa;
-  --v-green: #2e7d32;
-  --v-blue-soft: #f9faff;
-  --v-blue-border: #c8d0fa;
-  --v-blue-tint: #eef1fe;
-  --v-hover: #f4f6ff;
+  /* Aliases onto the shared root tokens (app/globals.css) */
+  --v-ink: var(--fg);
+  --v-border: var(--border);
+  --v-blue: var(--blue);
+  --v-blue-7: var(--blue-hover);
+  --v-blue-9: var(--blue-deep);
+  --v-bg: var(--bg);
+  --v-surface: var(--card);
+  --v-green: var(--green);
+  --v-blue-soft: var(--blue-soft);
+  --v-blue-border: var(--blue-border);
+  --v-blue-tint: var(--blue-tint);
+  --v-hover: var(--blue-hover-bg);
 
   /* Aliases used by the ported prototype rules below */
   --ink: var(--v-ink);
@@ -29,6 +31,25 @@
   --b9: var(--v-blue-9);
   --bg: var(--v-bg);
   --sf: var(--v-surface);
+
+  /* Status tones (reliability banners, exploit/explore chips, warnings) */
+  --v-ok-bg: var(--green-soft);
+  --v-ok-border: #a5d6a7;
+  --v-ok-ink: #1b5e20;
+  --v-warn-bg: #fff9f0;
+  --v-warn-border: #ffd580;
+  --v-warn-ink: #5d4037;
+  --v-bad-bg: #fdf3f3;
+  --v-bad-border: #f0b4b4;
+  --v-bad-ink: #8a2b2b;
+  --v-exploit-bg: #f4fbf4;
+  --v-exploit-badge-bg: #a5d6a7;
+  --v-exploit-badge-ink: #1b5e20;
+  --v-explore-bg: var(--blue-soft);
+  --v-explore-badge-bg: var(--blue-border);
+  --v-explore-badge-ink: var(--blue-hover);
+  --v-done-badge-bg: var(--green);
+  --v-done-badge-ink: #ffffff;
 
   min-height: 100svh;
   background: var(--v-bg);
@@ -1325,6 +1346,80 @@
   padding: 6px 14px;
   border-radius: 7px;
   cursor: pointer;
+}
+
+/* ---- Reliability / status banners (tone variants) ---- */
+.voyager-root .v-tone-ok {
+  background: var(--v-ok-bg);
+  border-color: var(--v-ok-border);
+  color: var(--v-ok-ink);
+}
+.voyager-root .v-tone-warn {
+  background: var(--v-warn-bg);
+  border-color: var(--v-warn-border);
+  color: var(--v-warn-ink);
+}
+.voyager-root .v-tone-bad {
+  background: var(--v-bad-bg);
+  border-color: var(--v-bad-border);
+  color: var(--v-bad-ink);
+}
+
+/* ---- Candidate row background by decision (Phase 2 live) ---- */
+.voyager-root .dc-row--exploit {
+  background: var(--v-exploit-bg);
+}
+.voyager-root .dc-row--explore {
+  background: var(--v-explore-bg);
+}
+.voyager-root .dcb--exploit {
+  background: var(--v-exploit-badge-bg);
+  color: var(--v-exploit-badge-ink);
+}
+.voyager-root .dcb--explore {
+  background: var(--v-explore-badge-bg);
+  color: var(--v-explore-badge-ink);
+}
+
+/* ---- Misc status chips reused as inline-hex replacements ---- */
+.voyager-root .v-badge-done {
+  background: var(--v-done-badge-bg);
+  color: var(--v-done-badge-ink);
+}
+.voyager-root .v-driver-fill--down {
+  background: var(--explore);
+}
+.voyager-root .v-pipeline-badge--complete {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.voyager-root .v-pipeline-badge--run {
+  background: var(--v-blue-tint);
+  color: var(--v-blue-7);
+}
+.voyager-root .v-pipeline-badge--idle {
+  background: #f0f0f0;
+  color: rgba(17, 17, 17, 0.4);
+}
+.voyager-root .v-stage-dot--phase2 {
+  background: var(--v-blue);
+}
+.voyager-root .v-stage-dot--phase1 {
+  background: var(--v-green);
+}
+.voyager-root .v-stage-pill--phase2 {
+  background: var(--v-blue-tint);
+  color: var(--v-blue-7);
+}
+.voyager-root .v-stage-pill--phase1 {
+  background: var(--v-ok-bg);
+  color: var(--v-ok-ink);
+}
+.voyager-root .v-scale-warn {
+  color: var(--amber);
+}
+.voyager-root .v-report-accent {
+  color: var(--v-blue);
 }
 
 @keyframes v-pulse {

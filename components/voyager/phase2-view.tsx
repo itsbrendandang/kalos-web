@@ -31,7 +31,7 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
           <div className="dcp">{c.prob}%</div>
           <div className="dcu">success · {c.uncertainty}</div>
         </div>
-        <ChevronDown className={`size-3 text-[color:rgba(17,17,17,0.3)] transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`size-3 text-[color:var(--v-faint)] transition-transform ${open ? "rotate-180" : ""}`} />
       </div>
       <div className="dcbar">
         <div className="dcf" style={{ width: `${c.prob}%` }} />
@@ -79,7 +79,7 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
             </div>
           ) : null}
           {c.note ? (
-            <div className="mt-1 text-[11px] text-[color:rgba(17,17,17,0.45)]">
+            <div className="mt-1 text-[11px] text-[color:var(--v-muted)]">
               <Info className="mr-1 inline size-3 align-[-2px] text-[color:var(--v-blue)]" />
               {c.note}
             </div>
@@ -201,7 +201,7 @@ function SetupView({ project }: { project: Project }) {
             ))
           ) : (
             <div className="hrow">
-              <div className="hrn text-[color:rgba(17,17,17,0.4)]">No experiments uploaded yet</div>
+              <div className="hrn text-[color:var(--v-muted)]">No experiments uploaded yet</div>
             </div>
           )}
         </div>
@@ -216,7 +216,7 @@ function ResultsView({ project }: { project: Project }) {
     <div className="two">
       <div>
         <div className="sh">Candidate decisions · run #{project.run?.number ?? 1}</div>
-        <div className="mb-2 text-[11px] text-[color:rgba(17,17,17,0.44)]">
+        <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
           Click a candidate to view full analysis before taking any lab action.
         </div>
         {project.candidates.map((c, i) => (

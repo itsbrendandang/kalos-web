@@ -47,6 +47,7 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 | `--amber` / `--amber-soft` | `#e65100` / `#fff3e0` | Warning / "hold" states |
 | `--sidebar` | `#0a1233` | Dark sidebar background (optimizer nav) |
 | `--grid` | `#e5e9f7` | Chart gridlines |
+| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | Secondary / tertiary caption text on the Voyager surface. Both clear WCAG AA (>= 4.5:1) on white. They replaced low-opacity ink (`rgba(17,17,17,.3-.4)`), which read 2.3-2.6:1 and failed AA at caption sizes. Use these for muted text under `.voyager-root`, never a raw low-opacity ink. |
 
 Status colors beyond this table (warn/bad banner tones, decision-card
 promote/hold/retire colors) live as additional `--v-*` tokens inside

@@ -1,5 +1,6 @@
 import { FileText, Upload, Lock, ArrowRight, Check } from "lucide-react";
 import type { Project, Iteration } from "@/app/voyager/data";
+import { IllustrativeBanner } from "./illustrative-banner";
 
 function IterationCard({ it }: { it: Iteration }) {
   return (
@@ -116,6 +117,7 @@ export function Phase1View({ project }: { project: Project }) {
   }
   return (
     <div>
+      {!project.live ? <IllustrativeBanner /> : null}
       <div className="sh">Iterations — upload batch ticket after each run</div>
       {project.iterations.map((it) => (
         <IterationCard key={it.n} it={it} />

@@ -102,6 +102,9 @@ export function DriversBar({ drivers }: { drivers: { name: string; rho: number }
 }
 
 export function PredScatter({ oof }: { oof: [number, number][] }) {
+  if (oof.length === 0) {
+    return <p className="py-10 text-center text-[12px] text-muted">not enough held-out points</p>;
+  }
   const data = oof.map(([measured, predicted]) => ({ measured, predicted }));
   const vals = data.flatMap((d) => [d.measured, d.predicted]);
   const lo = Math.min(...vals);

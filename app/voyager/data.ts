@@ -234,7 +234,7 @@ const CHO_CANDIDATES: Candidate[] = [
     prob: 84,
     uncertainty: "±6%",
     rationale:
-      "Consistent yield above threshold at all scales. Low epistemic uncertainty. Domain transfer from CHO-K1 to CHO-DG44 validated with high confidence.",
+      "Yield stays above threshold across the projected scales, with low epistemic uncertainty. Domain transfer from CHO-K1 to CHO-DG44 looks favorable in this projection.",
     drivers: [
       { name: "Temperature", weight: 91 },
       { name: "pH", weight: 68 },
@@ -257,7 +257,7 @@ const CHO_CANDIDATES: Candidate[] = [
     prob: 78,
     uncertainty: "±9%",
     rationale:
-      "Strong at bench and pilot. Confidence narrows at 200L; validate dissolved oxygen control before advancing. Domain transfer stable.",
+      "Strong at bench and pilot. Confidence narrows at 200L; validate dissolved oxygen control before advancing. Domain transfer looks stable in this projection.",
     drivers: [
       { name: "Glucose feed", weight: 85 },
       { name: "Temperature", weight: 55 },
@@ -306,7 +306,7 @@ const CHO_REPORT: ReportData = {
     { label: "Pipeline runs", value: "1", sub: "Run #1 · final" },
   ],
   overview:
-    "IgG titer optimization for Customer 1. Phase 1 ran experiments across 4 conditions at microscale. Bayesian optimization identified temperature and pH as the dominant drivers. Phase 2 scale-up confirmed two candidates viable for production.",
+    "IgG titer optimization for Customer 1. Phase 1 ran experiments across 4 conditions at microscale. Bayesian optimization identified temperature and pH as the dominant drivers. Phase 2 scale-up projected two candidates as viable for production.",
   candidates: [
     { decision: "promote", name: "Experiment 1 · High temp", prob: 84, uncertainty: "±6%" },
     { decision: "promote", name: "Experiment 2 · Opt. glucose", prob: 78, uncertainty: "±9%" },
@@ -326,7 +326,7 @@ const CHO_REPORT: ReportData = {
     { label: "Prod.", value: 74 },
   ],
   phase1Summary:
-    "4 iterations. LHS (30) then BO Explore (10), BO Explore (10), BO Exploit (10). Best yield: 3.91 g/L (EXP-042). Convergence confirmed by iteration 4.",
+    "4 iterations. LHS (30) then BO Explore (10), BO Explore (10), BO Exploit (10). Best yield: 3.91 g/L (EXP-042). Trajectory converged by iteration 4.",
 };
 
 const CHO_EXPERIMENTS: DbExperiment[] = [

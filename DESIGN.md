@@ -54,11 +54,22 @@ promote/hold/retire colors) live as additional `--v-*` tokens inside
 `.voyager-root` in `app/voyager/voyager.css`, since they are only used by the
 Voyager product screens.
 
+`components/voyager/illustrative-banner.tsx` reuses the `--v-warn-*` tokens for
+the "Sample data - illustrative, not a real analysis" disclaimer shown on every
+non-live Voyager screen (Phase 1, Phase 2 setup/results, and the final report -
+anywhere `project.live` is not true). The live, engine-backed Phase 2 view
+keeps its own "Live · engine" badge instead.
+
 ## Radius and type
 
 - Card radius: `16px` (`--radius-card`, `rounded-2xl` in Tailwind).
 - Control radius (buttons, inputs, chips): `10px` (`--radius-control`,
   `rounded-[10px]`).
+- The global `:focus-visible` rule in `app/globals.css` only sets `outline` +
+  `outline-offset`, no `border-radius`. It used to hardcode `10px`, which drew
+  a mismatched rounded-rectangle ring over pill-shaped and circular elements
+  (phase tabs, round badges). Leaving radius unset lets the ring follow each
+  element's own `border-radius` instead.
 - Voyager component-level radii (pills, small chips, pipeline stage rows) are
   set directly in `voyager.css` class rules and range `6px`-`12px`
   depending on element size; they intentionally stay slightly tighter than

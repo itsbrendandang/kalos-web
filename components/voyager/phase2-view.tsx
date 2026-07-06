@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FileText, Upload, ChevronDown, AlertTriangle, Info, RefreshCw, Play, Settings, FlaskConical, Flag } from "lucide-react";
 import type { Project, Candidate, PipelineStage } from "@/app/voyager/data";
 import { Phase2Live } from "./phase2-live";
+import { IllustrativeBanner } from "./illustrative-banner";
 
 const DECISION_CLASS: Record<Candidate["decision"], string> = {
   promote: "pro",
@@ -150,98 +151,104 @@ const IDLE_STAGES: PipelineStage[] = [
 
 function SetupView({ project }: { project: Project }) {
   return (
-    <div className="two">
-      <div>
-        <div className="sh">Pipeline configuration</div>
-        <div className="cfg-card">
-          <div className="cfg-hdr">
-            <span className="flex items-center gap-1.5">
-              <Settings className="size-3" /> Pipeline config
-            </span>
-            <span className="breq">Required</span>
-          </div>
-          <div className="cfg-body">
-            <div className="dz">
-              <Settings className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
-              <div className="dzt">Upload pipeline config YAML</div>
-              <div className="dzs">Scale-up volumes · domain transfer · gating thresholds</div>
-              <button className="dzb">
-                <Upload className="size-2.5" /> Browse
-              </button>
+    <div>
+      <IllustrativeBanner />
+      <div className="two">
+        <div>
+          <div className="sh">Pipeline configuration</div>
+          <div className="cfg-card">
+            <div className="cfg-hdr">
+              <span className="flex items-center gap-1.5">
+                <Settings className="size-3" /> Pipeline config
+              </span>
+              <span className="breq">Required</span>
             </div>
-          </div>
-        </div>
-        <div className="run-bar opacity-50">
-          <div>
-            <div className="rbt">Run scale-up pipeline</div>
-            <div className="rbs">Upload config to enable</div>
-          </div>
-          <button className="rbtn opacity-60">
-            <Play className="size-[11px]" /> Run pipeline
-          </button>
-        </div>
-        <div className="sh mt-3.5">Experiment batch tickets</div>
-        <div className="dz mb-2">
-          <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
-          <div className="dzt">Upload experiment batch ticket</div>
-          <div className="dzs">CSV · parsed and saved to DB under this project</div>
-          <button className="dzb">
-            <Upload className="size-2.5" /> Browse files
-          </button>
-        </div>
-        <div className="hist-box">
-          <div className="hist-hd">Experiments in DB</div>
-          {project.experiments.length ? (
-            project.experiments.map((e) => (
-              <div key={e.id} className="hrow">
-                <FlaskConical className="size-3 text-[color:var(--v-blue)]" />
-                <div className="hrn">{e.name}</div>
-                <div className="hrc">{e.id}</div>
+            <div className="cfg-body">
+              <div className="dz">
+                <Settings className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+                <div className="dzt">Upload pipeline config YAML</div>
+                <div className="dzs">Scale-up volumes · domain transfer · gating thresholds</div>
+                <button className="dzb">
+                  <Upload className="size-2.5" /> Browse
+                </button>
               </div>
-            ))
-          ) : (
-            <div className="hrow">
-              <div className="hrn text-[color:var(--v-muted)]">No experiments uploaded yet</div>
             </div>
-          )}
+          </div>
+          <div className="run-bar opacity-50">
+            <div>
+              <div className="rbt">Run scale-up pipeline</div>
+              <div className="rbs">Upload config to enable</div>
+            </div>
+            <button className="rbtn opacity-60">
+              <Play className="size-[11px]" /> Run pipeline
+            </button>
+          </div>
+          <div className="sh mt-3.5">Experiment batch tickets</div>
+          <div className="dz mb-2">
+            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+            <div className="dzt">Upload experiment batch ticket</div>
+            <div className="dzs">CSV · parsed and saved to DB under this project</div>
+            <button className="dzb">
+              <Upload className="size-2.5" /> Browse files
+            </button>
+          </div>
+          <div className="hist-box">
+            <div className="hist-hd">Experiments in DB</div>
+            {project.experiments.length ? (
+              project.experiments.map((e) => (
+                <div key={e.id} className="hrow">
+                  <FlaskConical className="size-3 text-[color:var(--v-blue)]" />
+                  <div className="hrn">{e.name}</div>
+                  <div className="hrc">{e.id}</div>
+                </div>
+              ))
+            ) : (
+              <div className="hrow">
+                <div className="hrn text-[color:var(--v-muted)]">No experiments uploaded yet</div>
+              </div>
+            )}
+          </div>
         </div>
+        <Pipeline stages={IDLE_STAGES} badge={{ text: "Not started", tone: "idle" }} />
       </div>
-      <Pipeline stages={IDLE_STAGES} badge={{ text: "Not started", tone: "idle" }} />
     </div>
   );
 }
 
 function ResultsView({ project }: { project: Project }) {
   return (
-    <div className="two">
-      <div>
-        <div className="sh">Candidate decisions · run #{project.run?.number ?? 1}</div>
-        <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
-          Click a candidate to view full analysis before taking any lab action.
+    <div>
+      <IllustrativeBanner />
+      <div className="two">
+        <div>
+          <div className="sh">Candidate decisions · run #{project.run?.number ?? 1}</div>
+          <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
+            Click a candidate to view full analysis before taking any lab action.
+          </div>
+          {project.candidates.map((c, i) => (
+            <CandidateCard key={c.id} c={c} defaultOpen={i === 0} />
+          ))}
+          <div className="sh mt-3.5">Upload more experiments</div>
+          <div className="dz mb-2">
+            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+            <div className="dzt">Upload validation batch ticket</div>
+            <div className="dzs">Each upload sharpens the next pipeline run</div>
+            <button className="dzb">
+              <Upload className="size-2.5" /> Browse files
+            </button>
+          </div>
+          <div className="flex justify-end">
+            <button className="rbtn">
+              <RefreshCw className="size-[11px]" /> Re-run pipeline
+            </button>
+          </div>
         </div>
-        {project.candidates.map((c, i) => (
-          <CandidateCard key={c.id} c={c} defaultOpen={i === 0} />
-        ))}
-        <div className="sh mt-3.5">Upload more experiments</div>
-        <div className="dz mb-2">
-          <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
-          <div className="dzt">Upload validation batch ticket</div>
-          <div className="dzs">Each upload sharpens the next pipeline run</div>
-          <button className="dzb">
-            <Upload className="size-2.5" /> Browse files
+        <div>
+          <Pipeline stages={project.pipeline} badge={{ text: "Complete", tone: "complete" }} />
+          <button className="gbtn mt-3 w-full justify-center">
+            <Flag className="size-[11px]" /> Mark project complete
           </button>
         </div>
-        <div className="flex justify-end">
-          <button className="rbtn">
-            <RefreshCw className="size-[11px]" /> Re-run pipeline
-          </button>
-        </div>
-      </div>
-      <div>
-        <Pipeline stages={project.pipeline} badge={{ text: "Complete", tone: "complete" }} />
-        <button className="gbtn mt-3 w-full justify-center">
-          <Flag className="size-[11px]" /> Mark project complete
-        </button>
       </div>
     </div>
   );

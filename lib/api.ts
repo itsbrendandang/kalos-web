@@ -63,14 +63,32 @@ export type AnalyzeResult = {
   error?: string;
 };
 
-export const runSingle = (): Promise<SingleRun> => fetch(`${API}/api/single`).then((r) => r.json());
-export const runMulti = (): Promise<MultiRun> => fetch(`${API}/api/multi`).then((r) => r.json());
+export const runSingle = (): Promise<SingleRun> =>
+  fetch(`${API}/api/single`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
+
+export const runMulti = (): Promise<MultiRun> =>
+  fetch(`${API}/api/multi`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
 
 export async function runFile(file: File, target?: string): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
-  return fetch(`${API}/api/run`, { method: "POST", body: fd }).then((r) => r.json());
+  return fetch(`${API}/api/run`, { method: "POST", body: fd }).then(async (r) => {
+    const d = (await r.json()) as AnalyzeResult;
+    // A 400 with the documented { error } body is an expected "bad upload"
+    // response the caller renders inline (see analyze/page.tsx) - not a
+    // failure to throw on. Any other non-ok response (5xx, or a 4xx without
+    // that shape) is unexpected, so route it to the same error/offline path
+    // as the other engine calls instead of returning it as a fake result.
+    if (!r.ok && typeof d.error !== "string") throw new Error(`engine responded ${r.status}`);
+    return d;
+  });
 }
 
 // The most recent real (uploaded) analysis — what the Overview reflects.

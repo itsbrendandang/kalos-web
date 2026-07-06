@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, FileType, Table } from "lucide-react";
 import type { Project, ReportData } from "@/app/voyager/data";
+import { IllustrativeBanner } from "./illustrative-banner";
 
 const DECISION_CLASS = { promote: "pro", hold: "hld", retire: "ret" } as const;
 const DECISION_LABEL = { promote: "Promote", hold: "Hold", retire: "Retire" } as const;
@@ -59,6 +60,8 @@ export function ProjectReport({ project }: { project: Project }) {
       <button className="bb" onClick={() => router.push("/voyager")}>
         <ArrowLeft className="size-3" /> All projects
       </button>
+
+      {!project.live ? <IllustrativeBanner /> : null}
 
       <div className="mb-4 flex items-center gap-2.5">
         <span className="grid size-8 place-items-center rounded-full bg-green-soft text-green">

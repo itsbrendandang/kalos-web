@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Pencil, Plus, X } from "lucide-react";
 import type { Customer, Project } from "@/app/voyager/data";
 
@@ -15,6 +15,75 @@ function statusValue(s: Project["status"]): string {
   return { drafting: "Drafting", in_progress: "In Progress", completed: "Completed", terminated: "Terminated" }[s];
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Traps Tab/Shift+Tab focus within the given container while it is mounted,
+ * moves focus into it on mount, and restores focus to whatever was focused
+ * beforehand on unmount. Also marks the rest of the page inert so screen
+ * readers and Tab can't reach it while the modal is open.
+ */
+function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>) {
+  // Captured once per mount (lazy initializer), not inside the effect below -
+  // React Strict Mode's dev-only mount/cleanup/remount would otherwise let
+  // the effect's second run capture the modal's own (already-focused) field
+  // as "previously focused" instead of the real trigger element.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  if (previouslyFocusedRef.current === null) {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+  }
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // The modal renders inline in the page tree (no portal), so the trigger
+    // button and the rest of the page live alongside it under shared
+    // ancestors (e.g. .voyager-root). Marking only document.body's direct
+    // children inert would miss all of that. Instead walk up from the modal
+    // to <body>, marking every other sibling inert at each level.
+    const siblings: HTMLElement[] = [];
+    for (let node: HTMLElement | null = container; node && node !== document.body; node = node.parentElement) {
+      const parent = node.parentElement;
+      if (!parent) break;
+      Array.from(parent.children).forEach((el) => {
+        if (el !== node && el instanceof HTMLElement) siblings.push(el);
+      });
+    }
+    siblings.forEach((el) => el.setAttribute("inert", ""));
+
+    const focusables = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
+    // Respect a field's own `autoFocus` (e.g. the name input): React applies
+    // that during the same commit, before this layout effect runs, so if
+    // focus already landed inside the container we leave it alone.
+    if (!container.contains(document.activeElement)) {
+      (focusables()[0] ?? container).focus();
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Tab" || !container) return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    container.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      container.removeEventListener("keydown", onKeyDown);
+      siblings.forEach((el) => el.removeAttribute("inert"));
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [containerRef]);
+}
+
 function Shell({
   title,
   subtitle,
@@ -26,6 +95,9 @@ function Shell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -36,7 +108,15 @@ function Shell({
 
   return (
     <div className="modal-scrim" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        ref={modalRef}
+        className="modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+      >
         <div className="mhdr">
           <div>
             <div className="mt">{title}</div>
@@ -93,7 +173,7 @@ export function VoyagerModal({ state, onClose }: { state: ModalState; onClose: (
           <input className="fi" defaultValue={c.address} />
         </div>
         <div className="my-3 h-px bg-[color:var(--v-border)]" />
-        <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.7px] text-[color:rgba(17,17,17,0.35)]">
+        <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.7px] text-[color:var(--v-muted)]">
           Projects
         </div>
         {c.projects.map((p) => (

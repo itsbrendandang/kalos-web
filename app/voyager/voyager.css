@@ -23,6 +23,11 @@
   --v-blue-tint: var(--blue-tint);
   --v-hover: var(--blue-hover-bg);
 
+  /* Accessible secondary text. Low-opacity ink (rgba(17,17,17,.3-.4)) read
+     2.3-2.6:1 on white and failed WCAG AA at caption sizes; these clear 4.5:1. */
+  --v-muted: #5b6470;
+  --v-faint: #6b7280;
+
   /* Aliases used by the ported prototype rules below */
   --ink: var(--v-ink);
   --p2: var(--v-border);
@@ -102,7 +107,7 @@
 }
 .v-btn-ghost {
   background: transparent;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   border: 0.5px solid var(--v-border);
   font-size: 11px;
   padding: 4px 8px;
@@ -155,7 +160,7 @@
 }
 .v-phase--done,
 .v-phase--draft {
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
 }
 .v-card-name {
   font-size: 13px;
@@ -175,7 +180,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
 }
 .v-add-card {
   border: 1.5px dashed var(--v-border);
@@ -189,7 +194,7 @@
   gap: 5px;
   min-height: 96px;
   background: transparent;
-  color: rgba(17, 17, 17, 0.3);
+  color: var(--v-faint);
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -207,7 +212,7 @@
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   cursor: pointer;
   background: none;
   border: none;
@@ -222,7 +227,7 @@
   font-weight: 500;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: rgba(17, 17, 17, 0.3);
+  color: var(--v-faint);
   margin-bottom: 7px;
 }
 .voyager-root .hdr2 {
@@ -243,7 +248,7 @@
   border-radius: 20px;
   cursor: pointer;
   border: 0.5px solid var(--p2);
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   background: transparent;
 }
 .voyager-root .phtab.on {
@@ -348,7 +353,7 @@
 }
 .voyager-root .locked .icnum {
   background: var(--p2);
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 .voyager-root .icbody {
   flex: 1;
@@ -358,7 +363,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: rgba(17, 17, 17, 0.3);
+  color: var(--v-faint);
 }
 .voyager-root .done .iclabel,
 .voyager-root .active .iclabel {
@@ -372,7 +377,7 @@
 }
 .voyager-root .icsub {
   font-size: 11px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 .voyager-root .icright {
   display: flex;
@@ -389,7 +394,7 @@
 }
 .voyager-root .icctl {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
 }
 .voyager-root .scdone {
   display: flex;
@@ -441,7 +446,7 @@
 }
 .voyager-root .dzs {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 .voyager-root .dzb {
   display: inline-flex;
@@ -496,11 +501,11 @@
 }
 .voyager-root .pbtbl th {
   text-align: left;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   padding: 5px 11px;
   border-bottom: 0.5px solid var(--v-blue-tint);
   background: #fafcff;
@@ -518,7 +523,7 @@
   font-weight: 500;
 }
 .voyager-root .ac {
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
   background: #e8f5e9;
   color: var(--v-green);
@@ -606,7 +611,7 @@
 }
 .voyager-root .upls {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   margin-top: 1px;
 }
 .voyager-root .uplr {
@@ -699,7 +704,7 @@
 }
 .voyager-root .pend .snum {
   background: var(--p2);
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 .voyager-root .sn {
   font-size: 11px;
@@ -708,7 +713,7 @@
 }
 .voyager-root .chip {
   display: inline-flex;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
   background: var(--v-blue-tint);
   color: var(--b7);
@@ -744,7 +749,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.7px;
-  color: rgba(17, 17, 17, 0.3);
+  color: var(--v-faint);
 }
 .voyager-root .hrow {
   display: flex;
@@ -763,7 +768,7 @@
   color: var(--ink);
 }
 .voyager-root .hrc {
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 
 /* ---- Candidate decisions (Phase 2 results) ---- */
@@ -827,7 +832,7 @@
 }
 .voyager-root .dcsub {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   margin-top: 1px;
 }
 .voyager-root .dcp {
@@ -840,7 +845,7 @@
 }
 .voyager-root .dcu {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   margin-top: 1px;
 }
 .voyager-root .dcbar {
@@ -881,7 +886,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.7px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   margin-bottom: 5px;
 }
 .voyager-root .dc-rationale {
@@ -917,7 +922,7 @@
 }
 .voyager-root .mini-bar-pct {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   min-width: 26px;
   text-align: right;
 }
@@ -929,7 +934,7 @@
   margin-bottom: 3px;
 }
 .voyager-root .scale-label {
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   width: 72px;
   flex-shrink: 0;
 }
@@ -957,7 +962,7 @@
 }
 .voyager-root .scale-trend {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   min-width: 48px;
   text-align: right;
 }
@@ -1002,11 +1007,11 @@
 }
 .voyager-root .exp-tbl th {
   text-align: left;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   padding: 5px 9px;
   border-bottom: 0.5px solid var(--p2);
   position: sticky;
@@ -1087,7 +1092,7 @@
   justify-content: center;
   height: 160px;
   text-align: center;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   gap: 7px;
 }
 .voyager-root .cond-grid {
@@ -1104,7 +1109,7 @@
 }
 .voyager-root .cond-lbl {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   margin-bottom: 2px;
 }
 .voyager-root .cond-val {
@@ -1139,7 +1144,7 @@
 }
 .voyager-root .r-stat-l {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   margin-bottom: 2px;
 }
 .voyager-root .r-stat-v {
@@ -1150,7 +1155,7 @@
 }
 .voyager-root .r-stat-s {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   margin-top: 1px;
 }
 .voyager-root .r-sec-t {
@@ -1193,13 +1198,13 @@
 }
 .voyager-root .r-driver-pct {
   font-size: 11px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
   min-width: 26px;
   text-align: right;
 }
 .voyager-root .r-driver-range {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   min-width: 78px;
   text-align: right;
 }
@@ -1233,7 +1238,7 @@
 }
 .voyager-root .rcu {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 
 /* ---- Modals ---- */
@@ -1272,11 +1277,11 @@
 }
 .voyager-root .ms {
   font-size: 11px;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 .voyager-root .mx {
   font-size: 16px;
-  color: rgba(17, 17, 17, 0.3);
+  color: var(--v-faint);
   cursor: pointer;
   background: none;
   border: none;
@@ -1317,7 +1322,7 @@
 }
 .voyager-root .fhint {
   font-size: 10px;
-  color: rgba(17, 17, 17, 0.35);
+  color: var(--v-muted);
   margin-top: 3px;
   line-height: 1.5;
 }
@@ -1399,7 +1404,7 @@
 }
 .voyager-root .v-pipeline-badge--idle {
   background: #f0f0f0;
-  color: rgba(17, 17, 17, 0.4);
+  color: var(--v-muted);
 }
 .voyager-root .v-stage-dot--phase2 {
   background: var(--v-blue);

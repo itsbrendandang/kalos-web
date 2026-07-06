@@ -120,7 +120,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
         <Reliability_ d={d} />
 
         <div className="sh mt-3.5">Recommended next experiments</div>
-        <div className="mb-2 text-[11px] text-[color:rgba(17,17,17,0.44)]">
+        <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
           The engine&apos;s actual output: the batch to run next, each with a predicted {d.target} and a distribution-free
           uncertainty band. These are experiments to run, not scale-up promotions.
         </div>
@@ -132,7 +132,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
       <div>
         <div className="sh">What drives {d.target}</div>
         <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] p-3">
-          <div className="mb-2 text-[10px] text-[color:rgba(17,17,17,0.4)]">Global signed rank correlation across all runs.</div>
+          <div className="mb-2 text-[10px] text-[color:var(--v-muted)]">Global signed rank correlation across all runs.</div>
           {d.drivers.map((dr) => {
             const w = Math.min(100, Math.abs(dr.rho) * 100);
             return (
@@ -157,15 +157,15 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[color:rgba(17,17,17,0.6)]">
             <Info className="size-3 text-[color:var(--v-blue)]" /> Shown elsewhere in the mock, absent here on purpose
           </div>
-          <ul className="space-y-1 text-[11px] text-[color:rgba(17,17,17,0.5)]">
+          <ul className="space-y-1 text-[11px] text-[color:var(--v-muted)]">
             {(d.reliability?.unmodeled ?? ["feasibility probability", "calibration (ECE)", "scale-up transfer"]).map((u) => (
               <li key={u} className="flex gap-1.5">
-                <span className="text-[color:rgba(17,17,17,0.3)]">•</span>
+                <span className="text-[color:var(--v-faint)]">•</span>
                 {u}
               </li>
             ))}
           </ul>
-          <div className="mt-2 text-[10px] leading-[1.5] text-[color:rgba(17,17,17,0.4)]">
+          <div className="mt-2 text-[10px] leading-[1.5] text-[color:var(--v-muted)]">
             Success-probability % and the Bench→2000L scale-up curve need a feasibility classifier and multi-scale data the
             current engine does not have, so they are omitted rather than fabricated.
           </div>
@@ -179,7 +179,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center">
       <FlaskConical className="mx-auto mb-2 size-5 text-[color:rgba(17,17,17,0.2)]" />
-      <div className="text-[12px] text-[color:rgba(17,17,17,0.55)]">{children}</div>
+      <div className="text-[12px] text-[color:var(--v-muted)]">{children}</div>
     </div>
   );
 }

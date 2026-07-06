@@ -47,17 +47,29 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 | `--amber` / `--amber-soft` | `#e65100` / `#fff3e0` | Warning / "hold" states |
 | `--sidebar` | `#0a1233` | Dark sidebar background (optimizer nav) |
 | `--grid` | `#e5e9f7` | Chart gridlines |
+| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | Secondary / tertiary caption text on the Voyager surface. Both clear WCAG AA (>= 4.5:1) on white. They replaced low-opacity ink (`rgba(17,17,17,.3-.4)`), which read 2.3-2.6:1 and failed AA at caption sizes. Use these for muted text under `.voyager-root`, never a raw low-opacity ink. |
 
 Status colors beyond this table (warn/bad banner tones, decision-card
 promote/hold/retire colors) live as additional `--v-*` tokens inside
 `.voyager-root` in `app/voyager/voyager.css`, since they are only used by the
 Voyager product screens.
 
+`components/voyager/illustrative-banner.tsx` reuses the `--v-warn-*` tokens for
+the "Sample data - illustrative, not a real analysis" disclaimer shown on every
+non-live Voyager screen (Phase 1, Phase 2 setup/results, and the final report -
+anywhere `project.live` is not true). The live, engine-backed Phase 2 view
+keeps its own "Live · engine" badge instead.
+
 ## Radius and type
 
 - Card radius: `16px` (`--radius-card`, `rounded-2xl` in Tailwind).
 - Control radius (buttons, inputs, chips): `10px` (`--radius-control`,
   `rounded-[10px]`).
+- The global `:focus-visible` rule in `app/globals.css` only sets `outline` +
+  `outline-offset`, no `border-radius`. It used to hardcode `10px`, which drew
+  a mismatched rounded-rectangle ring over pill-shaped and circular elements
+  (phase tabs, round badges). Leaving radius unset lets the ring follow each
+  element's own `border-radius` instead.
 - Voyager component-level radii (pills, small chips, pipeline stage rows) are
   set directly in `voyager.css` class rules and range `6px`-`12px`
   depending on element size; they intentionally stay slightly tighter than

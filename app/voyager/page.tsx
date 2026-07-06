@@ -37,7 +37,7 @@ function CustomerSection({ customer, onModal }: { customer: Customer; onModal: (
     <section className="mb-5">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Building2 className="size-3.5 text-[color:rgba(17,17,17,0.3)]" />
+          <Building2 className="size-3.5 text-[color:var(--v-faint)]" />
           <span className="text-[13px] font-medium text-[color:var(--v-ink)]">{customer.name}</span>
           <span className="v-tag">
             {n} project{n === 1 ? "" : "s"}

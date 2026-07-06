@@ -44,7 +44,10 @@ these routes in `components/app-shell.tsx`.
     (LHS then BO Explore/Exploit), batch-ticket upload, and unlock gating.
   - **Phase 2** - scale-up: either the setup state (config + 9-stage pipeline) or
     the run results with Promote/Hold candidate cards (drivers, scale-up
-    projection, warnings) alongside the completed pipeline. These are illustrative.
+    projection, warnings) alongside the completed pipeline. These are illustrative
+    and carry a persistent "Sample data - illustrative, not a real analysis"
+    banner (same on Phase 1 and the final report) so fabricated numbers are never
+    mistaken for real engine output.
   - **Phase 2 (live)** - the "Bioqore R&D" project (`live: true`) scores the real
     uploaded dataset through the engine via `GET /api/latest`: recommended next
     experiments (recipe + predicted target with a distribution-free conformal
@@ -74,7 +77,7 @@ Then the web app:
 
 ```bash
 npm install
-npm run dev                    # http://localhost:3001
+npm run dev                    # http://localhost:3000
 ```
 
 Point at a different engine with `NEXT_PUBLIC_API_URL` in `.env.local`

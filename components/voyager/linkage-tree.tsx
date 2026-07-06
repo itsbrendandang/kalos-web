@@ -220,7 +220,7 @@ function Detail({ n }: { n: TNode | null }) {
   const st = STYLE[n.type];
   return (
     <div>
-      <div className="mb-1 text-[10px] font-medium uppercase tracking-[1px] text-[color:rgba(17,17,17,0.35)]">
+      <div className="mb-1 text-[10px] font-medium uppercase tracking-[1px] text-[color:var(--v-muted)]">
         {n.key === "ROOT" ? "EXP-ROOT" : n.key.startsWith("V-") || n.key.startsWith("VAL") || n.key.startsWith("C-") ? n.key : `EXP-${n.key}`}
       </div>
       <div className="mb-1.5 text-[13px] font-bold tracking-[-0.2px] text-[color:var(--v-ink)]">{n.name}</div>
@@ -245,13 +245,13 @@ function Detail({ n }: { n: TNode | null }) {
       ) : null}
       {n.result ? (
         <div className="mb-2 flex items-baseline gap-1.5 rounded-[7px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-bg)] px-2 py-2">
-          <span className="text-[11px] text-[color:rgba(17,17,17,0.4)]">Yield</span>
+          <span className="text-[11px] text-[color:var(--v-muted)]">Yield</span>
           <span className="text-[19px] font-bold leading-none text-[color:var(--v-blue)]">{n.result}</span>
-          <span className="text-[11px] text-[color:rgba(17,17,17,0.4)]">%</span>
+          <span className="text-[11px] text-[color:var(--v-muted)]">%</span>
         </div>
       ) : null}
       <div className="dc-detail-label mt-1">Notes</div>
-      <div className="mb-2.5 text-[11px] leading-[1.6] text-[color:rgba(17,17,17,0.55)]">{n.notes}</div>
+      <div className="mb-2.5 text-[11px] leading-[1.6] text-[color:var(--v-muted)]">{n.notes}</div>
       {n.lineageParent || n.lineageChildren ? (
         <>
           <div className="dc-detail-label">Lineage</div>
@@ -259,7 +259,7 @@ function Detail({ n }: { n: TNode | null }) {
             <div className="lin-item">
               <span className="lin-dot" style={{ background: STYLE.root.fill }} />
               <span className="flex-1 font-medium text-[color:var(--v-ink)]">{n.lineageParent}</span>
-              <span className="text-[10px] text-[color:rgba(17,17,17,0.35)]">Parent</span>
+              <span className="text-[10px] text-[color:var(--v-muted)]">Parent</span>
             </div>
           ) : null}
           {n.lineageChildren
@@ -267,7 +267,7 @@ function Detail({ n }: { n: TNode | null }) {
                 <div key={c} className="lin-item">
                   <span className="lin-dot" style={{ background: STYLE["bo-expl2"].fill }} />
                   <span className="flex-1 font-medium text-[color:var(--v-ink)]">{c.trim()}</span>
-                  <span className="text-[10px] text-[color:rgba(17,17,17,0.35)]">Child</span>
+                  <span className="text-[10px] text-[color:var(--v-muted)]">Child</span>
                 </div>
               ))
             : null}

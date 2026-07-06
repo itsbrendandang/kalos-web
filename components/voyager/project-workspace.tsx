@@ -45,7 +45,7 @@ export function ProjectWorkspace({ project }: { project: Project }) {
               </span>
             ) : null}
           </div>
-          <div className="mt-0.5 text-[12px] text-[color:rgba(17,17,17,0.4)]">{subtitle(project)}</div>
+          <div className="mt-0.5 text-[12px] text-[color:var(--v-muted)]">{subtitle(project)}</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <button className="gbtn">

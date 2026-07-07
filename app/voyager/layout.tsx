@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import localFont from "next/font/local";
 import "./voyager.css";
 
-// TODO: self-host Satoshi. The prototype's typeface (Satoshi) is not on Google
-// Fonts and no Satoshi font files are checked into this repo, so it cannot be
-// self-hosted via next/font/local without first sourcing licensed font files.
-// Manrope is used as the closest self-hostable stand-in; once real Satoshi
-// font files are added under e.g. public/fonts/satoshi/, swap this for
-// next/font/local and keep the exported `--font-voyager` variable name so no
-// other file needs to change.
-const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-voyager" });
+// Satoshi is the prototype's typeface, now self-hosted via next/font/local from
+// the Fontshare Font License files under app/fonts/. Exported as --font-voyager
+// so voyager.css needs no change.
+const satoshi = localFont({
+  src: "../fonts/Satoshi-Variable.woff2",
+  variable: "--font-voyager",
+  weight: "300 900",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Voyager",
@@ -35,7 +36,7 @@ function TopNav() {
 
 export default function VoyagerLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`voyager-root ${manrope.variable}`}>
+    <div className={`voyager-root ${satoshi.variable}`}>
       <TopNav />
       <main className="mx-auto max-w-[1120px] px-6 py-7">{children}</main>
     </div>

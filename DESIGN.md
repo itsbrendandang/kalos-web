@@ -78,18 +78,15 @@ keeps its own "Live · engine" badge instead.
 
 Type:
 
-- Optimizer surface: Sora (`--font-sora`, headings) + Plus Jakarta Sans
-  (`--font-jakarta`, body) + JetBrains Mono (`--font-jbmono`, tabular/mono
-  data), all self-hosted via `next/font/google` in `app/layout.tsx`.
-- Voyager surface: Manrope (`--font-voyager`), self-hosted via
-  `next/font/google` in `app/voyager/layout.tsx`, standing in for Satoshi
-  (the original prototype's typeface). Satoshi font files are not checked
-  into this repo and were not downloaded from an unverified source, so
-  Manrope remains the typeface until real Satoshi font files are sourced and
-  added under version control. See the `TODO: self-host Satoshi` comment in
-  `app/voyager/layout.tsx` for the swap path (the exported `--font-voyager`
-  variable name should not change, so no other file needs to change when
-  Satoshi lands).
+- Satoshi is the single app-wide typeface, matching the Voyager v3 prototype.
+  It is self-hosted via `next/font/local` from the variable font under
+  `app/fonts/Satoshi-Variable.woff2` (Fontshare Font License, `SATOSHI-LICENSE.txt`
+  alongside it).
+- Optimizer surface: Satoshi drives both `--font-head` (headings) and
+  `--font-sans` (body) via `--font-satoshi` in `app/layout.tsx`; JetBrains Mono
+  (`--font-jbmono`, tabular/mono data) via `next/font/google`.
+- Voyager surface: Satoshi is exported as `--font-voyager` in
+  `app/voyager/layout.tsx`, so `voyager.css` needs no change.
 - Base sizes stay small and dense (11px-19px) across both surfaces, matching
   the original Voyager product screens: `10px` eyebrow/uppercase labels,
   `11px`-`13px` body and controls, `14px`-`19px` headings/titles, `26px`+

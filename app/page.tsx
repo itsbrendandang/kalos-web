@@ -2,17 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Target, Gauge, Database, TrendingUp, Upload, RefreshCw } from "lucide-react";
-import { getLatest, type LatestResult } from "@/lib/api";
-import { Card, SectionLabel, StatCard, Tag } from "@/components/ui/card";
+import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
+import { getLatest, isReliable, type LatestResult, type PopulatedResult } from "@/lib/api";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
-import { DriversBar, PredScatter } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
-import { fmt } from "@/lib/utils";
+import { ServiceUnavailable } from "@/components/service-unavailable";
+import { DriversTornado } from "@/components/dashboard/drivers-tornado";
+import { DriverInsights } from "@/components/dashboard/driver-insights";
+import { ReliabilityPanel } from "@/components/dashboard/reliability-panel";
+import { RunLandscape } from "@/components/dashboard/run-landscape";
+import { TargetDistribution } from "@/components/dashboard/target-distribution";
+import { ResponseSurface } from "@/components/dashboard/response-surface";
+import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
+import { cn, fmt, num } from "@/lib/utils";
 
 const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-[0_1px_2px_rgba(32,74,244,.25)] transition-colors hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
+  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-white transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 function ago(ts?: number) {
   if (!ts) return "";
@@ -21,6 +28,12 @@ function ago(ts?: number) {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
+}
+
+/** Pulls a trailing unit like "mg/L" out of a target name such as "Lipase conc. (mg/L)". */
+function parseUnit(target: string): string {
+  const m = target.match(/\(([^)]+)\)\s*$/);
+  return m ? m[1] : "";
 }
 
 export default function Overview() {
@@ -56,46 +69,35 @@ export default function Overview() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Overview"
-        desc="Your closed-loop optimizer, on your data: model reliability, what drives the outcome, and the experiments to run next."
+        eyebrow="Client workspace"
+        title="Bioprocessing dashboard"
+        desc="Upload a run sheet, review model reliability, identify process drivers, and choose the next batch of experiments."
         action={
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={refresh} disabled={busy}>
               <RefreshCw />
-              {busy ? "…" : "Refresh"}
+              {busy ? "..." : "Refresh"}
             </Button>
             <Link href="/analyze" className={BTN_ACCENT}>
               <Upload />
-              Analyze data
+              Run analysis
             </Link>
           </div>
         }
       />
 
-      {err ? (
-        <Card className="text-sm text-explore-deep">
-          Could not reach the engine. Start it with <code className="font-mono">python -m kalos.portal</code> (port 8050),
-          then Refresh.
+      {err && data ? (
+        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
+          Refresh failed. The dashboard is showing the last loaded analysis.
         </Card>
       ) : null}
 
-      {data == null ? (
+      {err && data == null ? (
+        <ServiceUnavailable onRetry={refresh} busy={busy} />
+      ) : data == null ? (
         <Loading />
       ) : !data.has_data ? (
-        <Card className="flex flex-col items-center gap-3 py-14 text-center">
-          <span className="grid size-11 place-items-center rounded-xl bg-accent-soft text-accent-hover">
-            <Database className="size-5" />
-          </span>
-          <div className="font-head text-lg font-semibold">No dataset analyzed yet</div>
-          <p className="max-w-[46ch] text-[13.5px] text-muted">
-            Upload a run sheet on Analyze and this page will show your model&apos;s reliability, what drives your outcome,
-            and the next experiments to run.
-          </p>
-          <Link href="/analyze" className={BTN_ACCENT}>
-            <Upload />
-            Upload a run sheet
-          </Link>
-        </Card>
+        <StartAnalysisCard />
       ) : (
         <OverviewBody d={data} />
       )}
@@ -103,121 +105,227 @@ export default function Overview() {
   );
 }
 
-function OverviewBody({ d }: { d: Extract<LatestResult, { has_data: true }> }) {
+function StartAnalysisCard() {
+  const steps = [
+    "Upload CSV, TSV, or Excel run sheet",
+    "Select the output you want to maximize",
+    "Review reliability before acting on suggestions",
+  ];
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="grid md:grid-cols-[1fr_360px]">
+        <div className="p-6">
+          <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent-hover">
+            <ClipboardList className="size-6" />
+          </span>
+          <h2 className="font-head text-[22px] font-semibold">Run your first analysis</h2>
+          <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
+            Start with an experiment table: one run per row, recipe inputs in columns, and at least one measured output.
+          </p>
+          <Link href="/analyze" className={`${BTN_ACCENT} mt-5`}>
+            <Upload />
+            Upload run sheet
+          </Link>
+        </div>
+        <div className="border-t border-border bg-blue-soft p-5 md:border-t-0 md:border-l">
+          <div className="mb-3 text-[12px] font-semibold text-fg">Analysis flow</div>
+          <div className="space-y-2.5">
+            {steps.map((step, i) => (
+              <div key={step} className="flex items-start gap-2.5 text-[12.5px] text-muted">
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-card font-mono text-[10px] font-semibold text-accent-hover">
+                  {i + 1}
+                </span>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function DatasetStrip({ d }: { d: PopulatedResult }) {
+  const ready = isReliable(d);
+  const kept = d.provenance?.filter((p) => p.status === "kept_feature").length ?? 0;
+  const dropped = d.provenance?.filter((p) => p.status.startsWith("dropped")).length ?? 0;
+  const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
+
+  return (
+    <Card className="flex flex-col gap-2 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted">
+          <Database className="size-3.5 shrink-0 text-accent-hover" />
+          <span className="max-w-[320px] truncate font-semibold text-fg" title={d.dataset}>
+            {d.dataset}
+          </span>
+          <span>
+            {d.n} runs / {d.d} inputs / target {d.target}
+            {d.updated ? ` / ${ago(d.updated)}` : ""}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border border-border bg-blue-soft px-2.5 py-1 text-[11px] font-semibold text-accent-hover">
+          <CheckCircle2 className="size-3.5" />
+          {ready ? "Ready to review" : "Reliability needs review"}
+        </div>
+      </div>
+      {d.provenance ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 font-mono text-[10.5px] text-muted">
+          <span>{kept} kept feature{kept === 1 ? "" : "s"}</span>
+          <span>{dropped} dropped column{dropped === 1 ? "" : "s"}</span>
+          <span>
+            {nonProducers} zero-{d.target} run{nonProducers === 1 ? "" : "s"}
+          </span>
+          {d.engine_version ? <span>engine {d.engine_version}</span> : null}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function KpiCell({
+  label,
+  value,
+  sub,
+  mono = true,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex min-h-[112px] flex-col justify-center p-4">
+      <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">{label}</div>
+      <div className={cn("tabular mt-1.5 truncate text-[24px] leading-none font-semibold text-fg", mono && "font-mono")}>
+        {value}
+      </div>
+      {sub ? <div className="mt-1.5 text-[12px] text-muted">{sub}</div> : null}
+    </div>
+  );
+}
+
+function KpiStrip({ d }: { d: PopulatedResult }) {
   const rho = d.cv_spearman;
-  const ci = d.cv_ci95 ?? null;
-  const reliable = rho != null && ci != null && ci[0] > 0;
-  const top = d.proposals[0];
+  const reliable = isReliable(d);
   const topDriver = d.drivers[0];
+  const unit = parseUnit(d.target);
+
+  return (
+    <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-5 xl:divide-x">
+      <KpiCell
+        label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
+        value={
+          <>
+            {fmt(d.best, 1)}
+            {unit ? <span className="ml-1 text-[13px] font-normal text-muted">{unit}</span> : null}
+          </>
+        }
+        sub="Best observed run"
+      />
+      <KpiCell
+        label="Model reliability"
+        value={rho != null ? rho.toFixed(2) : "n/a"}
+        sub={rho != null ? (reliable ? "Held-out Spearman, reliable" : "Held-out Spearman, needs review") : "not scored (too few groups)"}
+      />
+      <KpiCell
+        label="Runs / inputs"
+        value={`${d.n} / ${d.d}`}
+        sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
+      />
+      <KpiCell
+        label="Top driver"
+        mono={false}
+        value={topDriver ? topDriver.name : "-"}
+        sub={topDriver ? `rho ${topDriver.rho >= 0 ? "+" : ""}${topDriver.rho.toFixed(2)}` : ""}
+      />
+      <KpiCell label="Proposals ready" value={d.proposals.length} sub="From the last analysis" />
+    </div>
+  );
+}
+
+function OverviewBody({ d }: { d: PopulatedResult }) {
+  const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted">
-        <Database className="size-3.5" />
-        <span className="text-fg">{d.dataset}</span>
-        <span>
-          · {d.n} runs · {d.d} inputs · target {d.target}
-          {d.updated ? ` · ${ago(d.updated)}` : ""}
-        </span>
-      </div>
+      <DatasetStrip d={d} />
+      <KpiStrip d={d} />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={Target} label={`Best ${d.target}`} value={fmt(d.best, 1)} sub="best observed" />
-        <StatCard
-          icon={Gauge}
-          tone={reliable ? "accent" : "explore"}
-          label="Model reliability"
-          value={rho != null ? rho.toFixed(2) : "n/a"}
-          sub={
-            rho != null
-              ? ci
-                ? `held-out corr · 95% CI [${ci[0].toFixed(2)}, ${ci[1].toFixed(2)}]`
-                : "held-out rank corr"
-              : "not scored (too few groups)"
-          }
-        />
-        <StatCard
-          icon={Database}
-          label="Runs / inputs"
-          value={`${d.n} / ${d.d}`}
-          sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Top driver"
-          value={topDriver ? (topDriver.name.length > 11 ? topDriver.name.slice(0, 11) + "…" : topDriver.name) : "—"}
-          sub={topDriver ? `ρ ${topDriver.rho.toFixed(2)}` : ""}
-        />
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <Card>
-          <SectionLabel>Predicted vs measured (out-of-fold)</SectionLabel>
-          <p className="mb-3 text-[13px] text-muted">
-            Honest held-out predictions; points near the dashed line are well ranked.
-          </p>
-          {d.oof.length ? (
-            <PredScatter oof={d.oof} />
-          ) : (
-            <p className="py-10 text-center text-[12px] text-muted">not enough held-out points</p>
-          )}
-        </Card>
-
+      <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
         <Card className="flex flex-col">
-          <SectionLabel>Run this next</SectionLabel>
-          {top ? (
-            <div className="flex flex-1 flex-col">
-              <div className="mt-1 flex items-center gap-2">
-                <Tag mode={top.mode} />
-                <span className="text-[12px] text-muted">{top.reason}</span>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {top.vals.map((v, i) => (
-                  <div key={i} className="rounded-xl bg-bg px-3 py-2.5">
-                    <div className="truncate text-[10px] font-medium text-muted">{d.proposal_features[i] ?? `x${i + 1}`}</div>
-                    <div className="tabular mt-0.5 font-mono text-[15px] font-semibold text-fg">{v}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-auto rounded-xl bg-accent-soft px-3 py-3">
-                <div className="text-[10px] font-medium text-accent-hover">predicted {d.target}</div>
-                <div className="tabular mt-0.5 font-mono text-[20px] font-semibold text-accent-hover">
-                  {top.pred} <span className="text-[12px] font-normal">± {top.std}</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
-          )}
-        </Card>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card>
-          <SectionLabel>What drives {d.target}</SectionLabel>
-          <p className="mb-3 text-[13px] text-muted">Signed correlation: dark bars raise the outcome, light bars lower it.</p>
+          <div className="text-[15px] font-semibold text-fg">Process drivers</div>
+          <p className="mt-1 text-[12px] leading-snug text-muted">
+            Signed correlation of each input with {d.target}, held out across recipe groups. Blue raises the outcome, gray lowers it.
+          </p>
           {d.drivers.length ? (
-            <DriversBar drivers={d.drivers} />
+            <>
+              <div className="mt-3 flex flex-1 flex-col">
+                <DriversTornado drivers={d.drivers} target={d.target} />
+              </div>
+              <DriverInsights
+                target={d.target}
+                drivers={d.drivers}
+                n={d.n}
+                nonProducers={nonProducers}
+                provenance={d.provenance}
+                proposals={d.proposals}
+                proposalFeatures={d.proposal_features}
+              />
+            </>
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
           )}
         </Card>
 
-        <Card>
-          <SectionLabel>Recommended next experiments</SectionLabel>
-          <p className="mb-3 text-[13px] text-muted">Ranked by the acquisition function; highest expected gain first.</p>
+        <ReliabilityPanel d={d} />
+      </div>
+
+      {d.embedding ? (
+        <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+          <RunLandscape d={d} />
+          <TargetDistribution d={d} />
+        </div>
+      ) : (
+        <TargetDistribution d={d} />
+      )}
+
+      {d.response_surface && d.correlation ? (
+        <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+          <ResponseSurface d={d} />
+          <CorrelationHeatmap d={d} />
+        </div>
+      ) : (
+        <>
+          <ResponseSurface d={d} />
+          <CorrelationHeatmap d={d} />
+        </>
+      )}
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[15px] font-semibold text-fg">Recommended next experiments</div>
+            <p className="mt-1 max-w-[68ch] text-[12px] leading-snug text-muted">
+              From your last analysis, ranked by the acquisition function. Predictions carry a{" "}
+              {d.conformal_q != null ? `+/- ${num(d.conformal_q, 2)}` : "n/a"} conformal band.
+            </p>
+          </div>
+          <span className="font-mono text-[11px] whitespace-nowrap text-muted">{d.proposals.length} proposals</span>
+        </div>
+        <div className="mt-3">
           {d.proposals.length ? (
             <Proposals
               cols={d.proposal_features}
               rows={d.proposals}
               predHead={`pred. ${d.target}`}
-              predFn={(p) => `${p.pred} ± ${p.std}`}
+              predFn={(p) => `${num(p.pred, 2)} +/- ${num(p.std, 2)}`}
             />
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
           )}
-        </Card>
-      </div>
+        </div>
+      </Card>
     </>
   );
 }

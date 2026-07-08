@@ -11,7 +11,7 @@ import {
  * series color, grid, axis, and tooltip styling stay in sync across the app.
  * See DESIGN.md for the token reference.
  */
-const CHART_THEME = {
+export const CHART_THEME = {
   series: "var(--blue)",
   seriesDown: "var(--explore)",
   grid: "var(--grid)",
@@ -30,8 +30,8 @@ const GRAY = CHART_THEME.seriesDown;
 const GRID = CHART_THEME.grid;
 const INK = CHART_THEME.axis;
 
-const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-jbmono)" } as const;
-const tip = {
+export const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-jbmono)" } as const;
+export const tip = {
   contentStyle: {
     fontSize: 12,
     fontFamily: "var(--font-jbmono)",
@@ -41,7 +41,7 @@ const tip = {
     color: CHART_THEME.tooltip.text,
   },
 } as const;
-const axisTitle = (value: string, side: "x" | "y") =>
+export const axisTitle = (value: string, side: "x" | "y") =>
   side === "x"
     ? { value, position: "insideBottom" as const, offset: -4, style: { fontSize: 11, fill: INK } }
     : { value, angle: -90, position: "insideLeft" as const, style: { fontSize: 11, fill: INK } };

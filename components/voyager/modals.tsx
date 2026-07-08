@@ -173,7 +173,7 @@ export function VoyagerModal({ state, onClose }: { state: ModalState; onClose: (
           <input className="fi" defaultValue={c.address} />
         </div>
         <div className="my-3 h-px bg-[color:var(--v-border)]" />
-        <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.7px] text-[color:var(--v-muted)]">
+        <div className="mb-1.5 text-[10px] font-medium uppercase text-[color:var(--v-muted)]">
           Projects
         </div>
         {c.projects.map((p) => (

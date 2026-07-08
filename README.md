@@ -8,6 +8,9 @@ on a single unified blue design system, consuming the Kalos engine API.
 
 - **Overview**: your last analyzed dataset at a glance - model reliability (honest
   held-out rank correlation + 95% CI), what drives the outcome, predicted-vs-measured,
+  a run landscape (a low-dimensional projection of every run, positioned by recipe
+  similarity and colored by target - only shown when the engine returns an
+  `embedding`), a histogram of measured target values with non-producers called out,
   and the ranked next experiments. Reads `GET /api/latest`; shows an upload prompt
   until you analyze a dataset (it is not a demo).
 - **Optimize** - the live engine: single- and multi-objective optimization, the

@@ -10,17 +10,17 @@
  */
 :root {
   /* Base surfaces */
-  --bg: #fafbff;
+  --bg: #f6f8fc;
   --card: #ffffff;
-  --fg: #111111;
-  --muted: #6b7280;
-  --border: #e1e6f5;
+  --fg: #101828;
+  --muted: #667085;
+  --border: #d9e2f2;
 
   /* Blue scale (primary brand color, ported from the Voyager product surface) */
   --blue: #204af4;
   --blue-hover: #1434b5;
   --blue-deep: #061c72;
-  --blue-soft: #f9faff;
+  --blue-soft: #f8faff;
   --blue-tint: #eef1fe;
   --blue-border: #c8d0fa;
   --blue-hover-bg: #f4f6ff;
@@ -91,6 +91,11 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-satoshi), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--blue-tint);
+  color: var(--blue-deep);
 }
 
 .tabular {

@@ -1,11 +1,11 @@
 import { Barcode, Shield, Search } from "lucide-react";
-import { Card, SectionLabel } from "@/components/ui/card";
+import { Card, Kpi, SectionLabel } from "@/components/ui/card";
 import { PageHeader, DemoBadge } from "@/components/page-header";
 
 const DATASETS = [
-  { barcode: "KAL-DS-6C103E", name: "APR07", runs: 24, outputs: "Lipase_g.L · % Purity · Conc." },
-  { barcode: "KAL-DS-25B35F", name: "APR29", runs: 72, outputs: "Lipase_g.L · % Purity · Conc." },
-  { barcode: "KAL-DS-BEFF9A", name: "combined_APR", runs: 96, outputs: "Lipase_g.L · % Purity · Conc." },
+  { barcode: "KAL-DS-6C103E", name: "APR07", runs: 24, outputs: "Lipase_g.L / % Purity / Conc." },
+  { barcode: "KAL-DS-25B35F", name: "APR29", runs: 72, outputs: "Lipase_g.L / % Purity / Conc." },
+  { barcode: "KAL-DS-BEFF9A", name: "combined_APR", runs: 96, outputs: "Lipase_g.L / % Purity / Conc." },
 ];
 
 const FEATURES = [
@@ -18,9 +18,16 @@ export default function DataPage() {
   return (
     <div className="flex flex-col gap-7">
       <PageHeader
-        title="Data"
-        desc="Every dataset and every run is organized under a stable barcode, with identity stripped on the way in. The data stays queryable and shareable without exposing who it came from."
+        eyebrow="Data room"
+        title="Bioprocessing data registry"
+        desc="Every uploaded dataset and run is organized under a stable barcode, with identity stripped on the way in."
       />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Kpi hero label="Datasets" value={DATASETS.length} />
+        <Kpi label="Runs tracked" value={DATASETS.reduce((sum, d) => sum + d.runs, 0)} />
+        <Kpi label="Identity state" value="Anonymized" />
+      </div>
 
       <Card>
         <div className="mb-3 flex items-center gap-2">
@@ -30,7 +37,7 @@ export default function DataPage() {
         <div className="overflow-x-auto">
           <table className="tabular w-full border-collapse text-sm">
             <thead>
-              <tr className="text-[10px] tracking-wide text-muted uppercase">
+              <tr className="text-[10px] text-muted uppercase">
                 <th className="border-b border-border px-3 py-2 text-left">Barcode</th>
                 <th className="border-b border-border px-3 py-2 text-left">Dataset</th>
                 <th className="border-b border-border px-3 py-2 text-right">Runs</th>
@@ -51,7 +58,7 @@ export default function DataPage() {
         </div>
         <p className="mt-3 text-[12px] text-muted">
           166 runs across 3 datasets. Each run also carries its own <span className="font-mono text-fg">KAL-*</span> barcode.
-          Run <span className="font-mono text-fg">python examples/organize_data.py &lt;folder&gt;</span> in the engine to build this from your files.
+          New uploads appear here after analysis.
         </p>
       </Card>
 

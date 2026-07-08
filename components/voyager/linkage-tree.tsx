@@ -220,10 +220,10 @@ function Detail({ n }: { n: TNode | null }) {
   const st = STYLE[n.type];
   return (
     <div>
-      <div className="mb-1 text-[10px] font-medium uppercase tracking-[1px] text-[color:var(--v-muted)]">
+      <div className="mb-1 text-[10px] font-medium uppercase text-[color:var(--v-muted)]">
         {n.key === "ROOT" ? "EXP-ROOT" : n.key.startsWith("V-") || n.key.startsWith("VAL") || n.key.startsWith("C-") ? n.key : `EXP-${n.key}`}
       </div>
-      <div className="mb-1.5 text-[13px] font-bold tracking-[-0.2px] text-[color:var(--v-ink)]">{n.name}</div>
+      <div className="mb-1.5 text-[13px] font-bold text-[color:var(--v-ink)]">{n.name}</div>
       <span
         className="mb-2.5 inline-flex rounded-full px-[7px] py-0.5 text-[10px] font-medium"
         style={{ background: st.badge, color: "rgba(17,17,17,.7)" }}

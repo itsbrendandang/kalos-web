@@ -22,7 +22,7 @@ function TopNav() {
     <header className="flex items-center justify-between border-b border-[color:var(--v-border)] bg-[var(--v-bg)] px-5 py-3">
       <div className="flex items-center gap-2">
         <span className="size-3.5 rounded-full bg-[var(--v-blue)]" aria-hidden />
-        <span className="text-[13px] font-bold tracking-[-0.3px] text-[color:var(--v-ink)]">Voyager</span>
+        <span className="text-[13px] font-bold text-[color:var(--v-ink)]">Voyager</span>
       </div>
       <button className="flex items-center gap-2 rounded-full border-[0.5px] border-[color:var(--v-border)] py-[3px] pr-3 pl-1 transition-colors hover:border-[color:var(--v-blue-border)]">
         <span className="grid size-5 place-items-center rounded-full bg-[var(--v-blue-tint)] text-[9px] font-medium text-[color:var(--v-blue-7)]">

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader, DemoBadge, Loading } from "@/components/page-header";
 import { ConvergenceChart, ParetoChart } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
+import { ServiceUnavailable } from "@/components/service-unavailable";
 import { fmt } from "@/lib/utils";
 
 export default function OptimizePage() {
@@ -31,7 +32,7 @@ export default function OptimizePage() {
   }
   useEffect(() => {
     // Initial load without a synchronous setState in the effect body (Loading
-    // shows while s/m are null) — satisfies react-hooks/set-state-in-effect.
+    // shows while s/m are null), satisfying react-hooks/set-state-in-effect.
     let cancelled = false;
     Promise.all([runSingle(), runMulti()])
       .then(([a, b]) => {
@@ -49,92 +50,111 @@ export default function OptimizePage() {
   }, []);
 
   const gap = s ? Math.sqrt(s.best_recipe.reduce((acc, v, i) => acc + (v - s.optimum[i]) ** 2, 0)) : 0;
+  const offline = err && !s && !m;
 
   return (
     <div className="flex flex-col gap-7">
       <PageHeader
-        title="Optimize"
-        desc="Kalos suggests which experiment to run next to reach your target with fewer experiments."
+        eyebrow="Experiment planning"
+        title="Design next experiments"
+        desc="Use the fitted model to choose the next batch of recipes, balancing expected improvement with uncertainty."
         action={
           <Button onClick={run} disabled={busy}>
             <Sparkles />
-            {busy ? "Running…" : "Run"}
+            {busy ? "Running..." : "Run optimizer"}
           </Button>
         }
       />
 
-      {err ? (
-        <Card className="text-sm text-explore-deep">
-          Could not reach the engine. Start it with <code className="font-mono">python -m kalos.portal</code> (it serves the API on port 8050).
+      {offline ? (
+        <ServiceUnavailable
+          onRetry={run}
+          busy={busy}
+          body="The optimizer service is unavailable. Try again in a moment or contact Kalos support."
+        />
+      ) : null}
+
+      {err && !offline ? (
+        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
+          Latest optimizer run failed. Existing recommendations are still shown below.
         </Card>
       ) : null}
 
-      <Card>
-        <div className="mb-1 flex items-center gap-2">
-          <SectionLabel className="mb-0">Optimize one outcome</SectionLabel>
-          <DemoBadge />
-        </div>
-        <p className="mb-4 text-[13px] text-muted">
-          Maximize titer over a 3-input recipe. Best-so-far climbs as the loop proposes and measures.
-        </p>
-        {s ? (
-          <>
-            <div className="mb-5 grid grid-cols-3 gap-3">
-              <Kpi hero label="Best titer (mg/L)" value={fmt(s.best_value, 1)} />
-              <Kpi label="Gap to optimum" value={gap.toFixed(3)} />
-              <Kpi label="Experiments" value={s.trajectory.at(-1)!.n} />
+      {!offline ? (
+        <>
+          <Card>
+            <div className="mb-1 flex items-center gap-2">
+              <SectionLabel className="mb-0">Optimize one outcome</SectionLabel>
+              <DemoBadge />
             </div>
-            <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-              <div>
-                <SectionLabel>Convergence</SectionLabel>
-                <ConvergenceChart data={s.trajectory.map((t) => ({ n: t.n, best: t.best }))} yLabel="best titer (mg/L)" />
-              </div>
-              <div>
-                <SectionLabel>Next batch proposed</SectionLabel>
-                <Proposals cols={["x1", "x2", "x3"]} rows={s.proposals} predHead="pred. titer" predFn={(p) => `${p.pred} ± ${p.std}`} />
-              </div>
-            </div>
-          </>
-        ) : (
-          <Loading />
-        )}
-      </Card>
+            <p className="mb-4 text-[13px] text-muted">
+              Maximize titer over a 3-input recipe. Best-so-far climbs as the loop proposes and measures.
+            </p>
+            {s ? (
+              <>
+                <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                  <Kpi hero label="Best titer (mg/L)" value={fmt(s.best_value, 1)} />
+                  <Kpi label="Gap to optimum" value={gap.toFixed(3)} />
+                  <Kpi label="Experiments" value={s.trajectory.at(-1)!.n} />
+                </div>
+                <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
+                  <div>
+                    <SectionLabel>Convergence</SectionLabel>
+                    <ConvergenceChart data={s.trajectory.map((t) => ({ n: t.n, best: t.best }))} yLabel="best titer (mg/L)" />
+                  </div>
+                  <div>
+                    <SectionLabel>Next batch proposed</SectionLabel>
+                    <Proposals
+                      cols={["x1", "x2", "x3"]}
+                      rows={s.proposals}
+                      predHead="pred. titer"
+                      predFn={(p) => `${p.pred} +/- ${p.std}`}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <Loading />
+            )}
+          </Card>
 
-      <Card>
-        <div className="mb-1 flex items-center gap-2">
-          <SectionLabel className="mb-0">Optimize two outcomes at once</SectionLabel>
-          <DemoBadge />
-        </div>
-        <p className="mb-4 text-[13px] text-muted">
-          Maximize titer and purity together. The frontier is the set of best achievable tradeoffs you can pick from.
-        </p>
-        {m ? (
-          <>
-            <div className="mb-5 grid grid-cols-3 gap-3">
-              <Kpi hero label="Pareto front" value={m.trajectory.at(-1)!.pareto} hint="tradeoff points" />
-              <Kpi label="Best titer (mg/L)" value={fmt(m.trajectory.at(-1)!.best_titer, 1)} />
-              <Kpi label="Best purity (%)" value={fmt(m.trajectory.at(-1)!.best_purity, 0)} />
+          <Card>
+            <div className="mb-1 flex items-center gap-2">
+              <SectionLabel className="mb-0">Optimize two outcomes at once</SectionLabel>
+              <DemoBadge />
             </div>
-            <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-              <div>
-                <SectionLabel>Titer vs purity</SectionLabel>
-                <ParetoChart all={m.all} pareto={m.pareto} />
-              </div>
-              <div>
-                <SectionLabel>Next batch proposed</SectionLabel>
-                <Proposals
-                  cols={["x1", "x2", "x3"]}
-                  rows={m.proposals}
-                  predHead="pred. titer / purity"
-                  predFn={(p) => `${p.pred_titer} / ${p.pred_purity}%`}
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          <Loading />
-        )}
-      </Card>
+            <p className="mb-4 text-[13px] text-muted">
+              Maximize titer and purity together. The frontier is the set of best achievable tradeoffs you can pick from.
+            </p>
+            {m ? (
+              <>
+                <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                  <Kpi hero label="Pareto front" value={m.trajectory.at(-1)!.pareto} hint="tradeoff points" />
+                  <Kpi label="Best titer (mg/L)" value={fmt(m.trajectory.at(-1)!.best_titer, 1)} />
+                  <Kpi label="Best purity (%)" value={fmt(m.trajectory.at(-1)!.best_purity, 0)} />
+                </div>
+                <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
+                  <div>
+                    <SectionLabel>Titer vs purity</SectionLabel>
+                    <ParetoChart all={m.all} pareto={m.pareto} />
+                  </div>
+                  <div>
+                    <SectionLabel>Next batch proposed</SectionLabel>
+                    <Proposals
+                      cols={["x1", "x2", "x3"]}
+                      rows={m.proposals}
+                      predHead="pred. titer / purity"
+                      predFn={(p) => `${p.pred_titer} / ${p.pred_purity}%`}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <Loading />
+            )}
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

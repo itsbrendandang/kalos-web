@@ -2,7 +2,7 @@
 
 import { ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card } from "@/components/ui/card";
-import { CHART_THEME, tick, tip } from "@/components/charts";
+import { CHART_THEME, tip } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
 import { fmt } from "@/lib/utils";
 import { seqColor, SEQ_GRADIENT_CSS } from "@/components/dashboard/heat-scale";
@@ -44,23 +44,18 @@ export function RunLandscape({ d }: { d: PopulatedResult }) {
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 8, right: 14, bottom: 8, left: -6 }}>
               <CartesianGrid stroke={CHART_THEME.grid} />
+              {/* UMAP/PCA coordinates have no interpretable scale, so the axes carry
+                  no numeric ticks - only the grid, for relative spatial structure. */}
               <XAxis
                 type="number"
                 dataKey="x"
                 name="dim 1"
-                tick={tick}
+                tick={false}
                 tickLine={false}
                 axisLine={{ stroke: CHART_THEME.grid }}
+                height={8}
               />
-              <YAxis
-                type="number"
-                dataKey="y"
-                name="dim 2"
-                tick={tick}
-                tickLine={false}
-                axisLine={false}
-                width={40}
-              />
+              <YAxis type="number" dataKey="y" name="dim 2" tick={false} tickLine={false} axisLine={false} width={6} />
               <Tooltip {...tip} cursor={{ strokeDasharray: "3 3", stroke: CHART_THEME.grid }} />
               <Scatter data={points} isAnimationActive={false}>
                 {points.map((p, i) =>

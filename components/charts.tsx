@@ -4,6 +4,10 @@ import {
   AreaChart, Area, BarChart, Bar, ScatterChart, Scatter, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer,
 } from "recharts";
+import { fmt } from "@/lib/utils";
+
+/** Compact axis tick label - keeps long raw values (e.g. 22.0363) from clipping the gutter. */
+const fmtTick = (v: number) => fmt(v, 1);
 
 /**
  * Shared recharts theme, driven by the app-wide blue design tokens
@@ -113,8 +117,8 @@ export function PredScatter({ oof }: { oof: [number, number][] }) {
     <ResponsiveContainer width="100%" height={260}>
       <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <CartesianGrid stroke={GRID} />
-        <XAxis type="number" dataKey="measured" name="measured" domain={[lo, hi]} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("measured", "x")} />
-        <YAxis type="number" dataKey="predicted" name="predicted" domain={[lo, hi]} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("predicted", "y")} />
+        <XAxis type="number" dataKey="measured" name="measured" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("measured", "x")} />
+        <YAxis type="number" dataKey="predicted" name="predicted" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("predicted", "y")} />
         <ReferenceLine segment={[{ x: lo, y: lo }, { x: hi, y: hi }]} stroke={GRAY} strokeDasharray="5 5" ifOverflow="extendDomain" />
         <Tooltip {...tip} cursor={{ strokeDasharray: "3 3", stroke: GRID }} />
         <Scatter data={data} fill={ACCENT} isAnimationActive={false} />

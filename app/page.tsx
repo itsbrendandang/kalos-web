@@ -244,76 +244,96 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
   );
 }
 
+/** Grouping header: a bold label, an optional one-line descriptor, and a hairline
+ *  that runs to the edge - turns the long dashboard into scannable sections. */
+function SectionHead({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
+      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 function OverviewBody({ d }: { d: PopulatedResult }) {
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
+  const hasPredicted = Boolean(d.response_surface || d.correlation);
 
   return (
     <>
       <DatasetStrip d={d} />
       <KpiStrip d={d} />
 
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-        <Card className="flex flex-col">
-          <div className="text-[15px] font-semibold text-fg">Process drivers</div>
-          <p className="mt-1 text-[12px] leading-snug text-muted">
-            Signed correlation of each input with {d.target}, held out across recipe groups. Blue raises the outcome, gray lowers it.
-          </p>
-          {d.drivers.length ? (
-            <>
-              <div className="mt-3 flex flex-1 flex-col">
-                <DriversTornado drivers={d.drivers} target={d.target} />
-              </div>
-              <DriverInsights
-                target={d.target}
-                drivers={d.drivers}
-                n={d.n}
-                nonProducers={nonProducers}
-                provenance={d.provenance}
-                proposals={d.proposals}
-                proposalFeatures={d.proposal_features}
-              />
-            </>
-          ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
-          )}
-        </Card>
-
-        <ReliabilityPanel d={d} />
-      </div>
-
-      {d.embedding ? (
+      <section>
+        <SectionHead title="Model quality" sub="What the model learned, and how far to trust it." />
         <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-          <RunLandscape d={d} />
-          <TargetDistribution d={d} />
-        </div>
-      ) : (
-        <TargetDistribution d={d} />
-      )}
-
-      {d.response_surface && d.correlation ? (
-        <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-          <ResponseSurface d={d} />
-          <CorrelationHeatmap d={d} />
-        </div>
-      ) : (
-        <>
-          <ResponseSurface d={d} />
-          <CorrelationHeatmap d={d} />
-        </>
-      )}
-
-      <Card>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-[15px] font-semibold text-fg">Recommended next experiments</div>
-            <p className="mt-1 max-w-[68ch] text-[12px] leading-snug text-muted">
-              From your last analysis, ranked by the acquisition function. Predictions carry a{" "}
-              {d.conformal_q != null ? `+/- ${num(d.conformal_q, 2)}` : "n/a"} conformal band.
+          <Card className="flex flex-col">
+            <div className="text-[15px] font-semibold text-fg">Process drivers</div>
+            <p className="mt-1 text-[12px] leading-snug text-muted">
+              Signed correlation of each input with {d.target}, held out across recipe groups. Blue raises the outcome, gray lowers it.
             </p>
-          </div>
-          <span className="font-mono text-[11px] whitespace-nowrap text-muted">{d.proposals.length} proposals</span>
+            {d.drivers.length ? (
+              <>
+                <div className="mt-3 flex flex-1 flex-col">
+                  <DriversTornado drivers={d.drivers} target={d.target} />
+                </div>
+                <DriverInsights
+                  target={d.target}
+                  drivers={d.drivers}
+                  n={d.n}
+                  nonProducers={nonProducers}
+                  provenance={d.provenance}
+                  proposals={d.proposals}
+                  proposalFeatures={d.proposal_features}
+                />
+              </>
+            ) : (
+              <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
+            )}
+          </Card>
+
+          <ReliabilityPanel d={d} />
         </div>
-        <div className="mt-3">
+      </section>
+
+      <section>
+        <SectionHead title="Run structure" sub="Where the uploaded runs sit, and how the measured target is distributed." />
+        {d.embedding ? (
+          <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+            <RunLandscape d={d} />
+            <TargetDistribution d={d} />
+          </div>
+        ) : (
+          <TargetDistribution d={d} />
+        )}
+      </section>
+
+      {hasPredicted ? (
+        <section>
+          <SectionHead title="Predicted landscape" sub="The model's view of the recipe space, and how the inputs relate." />
+          {d.response_surface && d.correlation ? (
+            <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+              <ResponseSurface d={d} />
+              <CorrelationHeatmap d={d} />
+            </div>
+          ) : (
+            <>
+              <ResponseSurface d={d} />
+              <CorrelationHeatmap d={d} />
+            </>
+          )}
+        </section>
+      ) : null}
+
+      <section>
+        <SectionHead
+          title="Recommended actions"
+          sub={`The next batch to run, ranked by the acquisition function${
+            d.conformal_q != null ? ` · +/- ${num(d.conformal_q, 2)} conformal band` : ""
+          }.`}
+        />
+        <Card>
           {d.proposals.length ? (
             <Proposals
               cols={d.proposal_features}
@@ -324,8 +344,8 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
           )}
-        </div>
-      </Card>
+        </Card>
+      </section>
     </>
   );
 }

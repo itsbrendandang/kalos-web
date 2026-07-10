@@ -35,11 +35,12 @@
   --explore-deep: #52525b;
   --explore-soft: #ededed;
 
-  /* Status */
-  --green: #2e7d32;
+  /* Status - AA-checked against white (>=4.5:1): green 5.4:1, amber 5.4:1, red 4.6:1 */
+  --green: #1f7a34;
   --green-soft: #e8f5e9;
-  --amber: #e65100;
+  --amber: #9a5b00;
   --amber-soft: #fff3e0;
+  --red: #c0392b;
 
   /* Chrome */
   --sidebar: #0a1233;
@@ -75,6 +76,7 @@
   --color-green-soft: var(--green-soft);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
 
   --color-sidebar: var(--sidebar);
   --color-grid: var(--grid);

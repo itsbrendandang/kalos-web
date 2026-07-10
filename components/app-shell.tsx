@@ -7,6 +7,7 @@ import {
   Database,
   FlaskConical,
   LayoutDashboard,
+  LayoutGrid,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -16,6 +17,7 @@ const NAV: { href: string; label: string; short: string; helper: string; icon: L
   { href: "/", label: "Dashboard", short: "Home", helper: "Results summary", icon: LayoutDashboard },
   { href: "/analyze", label: "Run analysis", short: "Analyze", helper: "Upload run sheet", icon: FlaskConical },
   { href: "/optimize", label: "Optimize", short: "Optimize", helper: "Next experiments", icon: Sparkles },
+  { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
   { href: "/data", label: "Data room", short: "Data", helper: "Registry", icon: Database },
 ];
 
@@ -88,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Leaf size={20} />
             <span className="font-head font-bold">Kalos</span>
           </div>
-          <nav className="grid grid-cols-4 gap-1">
+          <nav className="grid grid-cols-5 gap-1">
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
               return (

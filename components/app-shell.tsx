@@ -6,9 +6,11 @@ import {
   ClipboardList,
   Database,
   FlaskConical,
+  FolderKanban,
   LayoutDashboard,
   LayoutGrid,
   Sparkles,
+  TestTubes,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,8 @@ const NAV: { href: string; label: string; short: string; helper: string; icon: L
   { href: "/analyze", label: "Run analysis", short: "Analyze", helper: "Upload run sheet", icon: FlaskConical },
   { href: "/optimize", label: "Optimize", short: "Optimize", helper: "Next experiments", icon: Sparkles },
   { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
+  { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
+  { href: "/voyager", label: "Projects", short: "Projects", helper: "Customer runs", icon: FolderKanban },
   { href: "/data", label: "Data room", short: "Data", helper: "Registry", icon: Database },
 ];
 
@@ -32,9 +36,11 @@ function Leaf({ size = 22 }: { size?: number }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
-  // The Voyager product surface carries its own chrome (see app/voyager/layout.tsx),
-  // so the optimizer sidebar is bypassed for those routes.
-  if (path.startsWith("/voyager")) return <>{children}</>;
+  // The Voyager product surface (app/voyager/layout.tsx) brings its own inner
+  // max-width/padding wrapper (`.voyager-root`), so the shell's content
+  // container is skipped there to avoid double padding - the sidebar/top nav
+  // chrome below is shared by every route, Voyager included.
+  const isVoyager = path.startsWith("/voyager");
   return (
     <div className="flex min-h-svh bg-bg">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card px-3 py-5 max-md:hidden">
@@ -90,7 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Leaf size={20} />
             <span className="font-head font-bold">Kalos</span>
           </div>
-          <nav className="grid grid-cols-5 gap-1">
+          <nav className="grid grid-cols-7 gap-1">
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
               return (
@@ -98,18 +104,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   key={n.href}
                   href={n.href}
                   className={cn(
-                    "flex h-12 flex-col items-center justify-center gap-1 rounded-[10px] text-[10.5px] font-semibold transition-colors",
+                    "flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 text-center text-[9.5px] leading-none font-semibold transition-colors",
                     active ? "bg-accent text-white" : "text-muted hover:bg-blue-soft hover:text-fg",
                   )}
                 >
-                  <n.icon className="size-4" />
-                  {n.short}
+                  <n.icon className="size-4 shrink-0" />
+                  <span className="w-full truncate">{n.short}</span>
                 </Link>
               );
             })}
           </nav>
         </div>
-        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 md:px-8 md:py-8">{children}</div>
+        {isVoyager ? (
+          children
+        ) : (
+          <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 md:px-8 md:py-8">{children}</div>
+        )}
       </main>
     </div>
   );

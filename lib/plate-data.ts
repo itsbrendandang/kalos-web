@@ -386,7 +386,10 @@ export function generatePlate(seed: number): PlateSummary {
     const d = w.metrics.deltaOD;
     if (d <= failThreshold) w.flags.push({ cat: "Growth", label: "Very low ΔOD" });
     else if (d < passThreshold) w.flags.push({ cat: "Growth", label: "Low ΔOD" });
-    if (d >= highOutlierThreshold) w.flags.push({ cat: "Growth", label: "High ΔOD (outlier growth)" });
+    // High-outlier only among passing wells: gating on passThreshold keeps the three growth
+    // branches mutually exclusive even under weak control separation (where highOutlierThreshold
+    // could otherwise dip below failThreshold and double-flag a low well as a high outlier).
+    else if (d >= highOutlierThreshold) w.flags.push({ cat: "Growth", label: "High ΔOD (outlier growth)" });
   });
   wellIds.forEach((id) => {
     if (rng() < 0.35) wells[id].flags.push({ cat: "Environment", label: "Incubator position drift (sim.)" });

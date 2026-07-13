@@ -1349,6 +1349,11 @@
   border-radius: 7px;
   cursor: pointer;
 }
+.voyager-root .btn-s:disabled,
+.voyager-root .rbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* ---- Reliability / status banners (tone variants) ---- */
 .voyager-root .v-tone-ok {

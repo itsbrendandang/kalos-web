@@ -1,8 +1,22 @@
+"use client";
+
+import { useRef, useState } from "react";
 import { FileText, Upload, Lock, ArrowRight, Check } from "lucide-react";
 import type { Project, Iteration } from "@/app/voyager/data";
 import { IllustrativeBanner } from "./illustrative-banner";
+import { useVoyagerStore } from "./store-context";
 
-function IterationCard({ it }: { it: Iteration }) {
+function IterationCard({
+  it,
+  stagedFile,
+  onBrowseClick,
+  onAdvance,
+}: {
+  it: Iteration;
+  stagedFile?: string | null;
+  onBrowseClick: () => void;
+  onAdvance: () => void;
+}) {
   return (
     <div className={`ic ${it.state}`}>
       <div className="ich">
@@ -85,8 +99,8 @@ function IterationCard({ it }: { it: Iteration }) {
           <div className="dz">
             <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
             <div className="dzt">Upload iteration {it.n} batch ticket when runs complete</div>
-            <div className="dzs">Results feed the next iteration immediately</div>
-            <button className="dzb">
+            <div className="dzs">{stagedFile ? `Selected: ${stagedFile}` : "Results feed the next iteration immediately"}</div>
+            <button className="dzb" onClick={onBrowseClick}>
               <Upload className="size-2.5" /> Browse files
             </button>
           </div>
@@ -95,7 +109,7 @@ function IterationCard({ it }: { it: Iteration }) {
               <Lock className="mr-1 inline size-[11px] align-[-2px]" />
               Iteration {it.n + 1} unlocks once results are ingested
             </div>
-            <button className="advbtn">
+            <button className="advbtn" onClick={onAdvance}>
               Advance to iter {it.n + 1} <ArrowRight className="size-[11px]" />
             </button>
           </div>
@@ -106,6 +120,21 @@ function IterationCard({ it }: { it: Iteration }) {
 }
 
 export function Phase1View({ project }: { project: Project }) {
+  const { advanceIteration } = useVoyagerStore();
+  const [stagedFile, setStagedFile] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) setStagedFile(file.name);
+    e.target.value = "";
+  }
+
+  function handleAdvance() {
+    advanceIteration(project.id);
+    setStagedFile(null);
+  }
+
   if (project.iterations.length === 0) {
     return (
       <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
@@ -119,8 +148,15 @@ export function Phase1View({ project }: { project: Project }) {
     <div>
       {!project.live ? <IllustrativeBanner /> : null}
       <div className="sh">Iterations — upload batch ticket after each run</div>
+      <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
       {project.iterations.map((it) => (
-        <IterationCard key={it.n} it={it} />
+        <IterationCard
+          key={it.n}
+          it={it}
+          stagedFile={it.state === "active" ? stagedFile : undefined}
+          onBrowseClick={() => fileInputRef.current?.click()}
+          onAdvance={handleAdvance}
+        />
       ))}
     </div>
   );

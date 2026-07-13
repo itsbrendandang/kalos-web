@@ -1,10 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FileText, Upload, ChevronDown, AlertTriangle, Info, RefreshCw, Play, Settings, FlaskConical, Flag } from "lucide-react";
 import type { Project, Candidate, PipelineStage } from "@/app/voyager/data";
 import { Phase2Live } from "./phase2-live";
 import { IllustrativeBanner } from "./illustrative-banner";
+import { useVoyagerStore } from "./store-context";
+
+/** A hidden file input + "Browse" button, staging the chosen filename into local state - no upload. */
+function FileBrowseButton({ label, onFileName }: { label: string; onFileName: (name: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,.yaml,.yml"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onFileName(file.name);
+          e.target.value = "";
+        }}
+      />
+      <button className="dzb" onClick={() => inputRef.current?.click()}>
+        <Upload className="size-2.5" /> {label}
+      </button>
+    </>
+  );
+}
 
 const DECISION_CLASS: Record<Candidate["decision"], string> = {
   promote: "pro",
@@ -150,6 +174,11 @@ const IDLE_STAGES: PipelineStage[] = [
 ];
 
 function SetupView({ project }: { project: Project }) {
+  const { runPipeline } = useVoyagerStore();
+  const [configFile, setConfigFile] = useState<string | null>(null);
+  const [experimentFile, setExperimentFile] = useState<string | null>(null);
+  const canRun = configFile != null;
+
   return (
     <div>
       <IllustrativeBanner />
@@ -167,19 +196,17 @@ function SetupView({ project }: { project: Project }) {
               <div className="dz">
                 <Settings className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
                 <div className="dzt">Upload pipeline config YAML</div>
-                <div className="dzs">Scale-up volumes · domain transfer · gating thresholds</div>
-                <button className="dzb">
-                  <Upload className="size-2.5" /> Browse
-                </button>
+                <div className="dzs">{configFile ? `Selected: ${configFile}` : "Scale-up volumes · domain transfer · gating thresholds"}</div>
+                <FileBrowseButton label="Browse" onFileName={setConfigFile} />
               </div>
             </div>
           </div>
-          <div className="run-bar opacity-50">
+          <div className={`run-bar ${canRun ? "" : "opacity-50"}`}>
             <div>
               <div className="rbt">Run scale-up pipeline</div>
-              <div className="rbs">Upload config to enable</div>
+              <div className="rbs">{canRun ? "Ready to run" : "Upload config to enable"}</div>
             </div>
-            <button className="rbtn opacity-60">
+            <button className="rbtn" disabled={!canRun} onClick={() => runPipeline(project.id, IDLE_STAGES)}>
               <Play className="size-[11px]" /> Run pipeline
             </button>
           </div>
@@ -187,10 +214,8 @@ function SetupView({ project }: { project: Project }) {
           <div className="dz mb-2">
             <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
             <div className="dzt">Upload experiment batch ticket</div>
-            <div className="dzs">CSV · parsed and saved to DB under this project</div>
-            <button className="dzb">
-              <Upload className="size-2.5" /> Browse files
-            </button>
+            <div className="dzs">{experimentFile ? `Selected: ${experimentFile}` : "CSV · parsed and saved to DB under this project"}</div>
+            <FileBrowseButton label="Browse files" onFileName={setExperimentFile} />
           </div>
           <div className="hist-box">
             <div className="hist-hd">Experiments in DB</div>
@@ -216,36 +241,45 @@ function SetupView({ project }: { project: Project }) {
 }
 
 function ResultsView({ project }: { project: Project }) {
+  const { runPipeline, markProjectComplete } = useVoyagerStore();
+  const [validationFile, setValidationFile] = useState<string | null>(null);
+
   return (
     <div>
       <IllustrativeBanner />
       <div className="two">
         <div>
           <div className="sh">Candidate decisions · run #{project.run?.number ?? 1}</div>
-          <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
-            Click a candidate to view full analysis before taking any lab action.
-          </div>
-          {project.candidates.map((c, i) => (
-            <CandidateCard key={c.id} c={c} defaultOpen={i === 0} />
-          ))}
+          {project.candidates.length > 0 ? (
+            <>
+              <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
+                Click a candidate to view full analysis before taking any lab action.
+              </div>
+              {project.candidates.map((c, i) => (
+                <CandidateCard key={c.id} c={c} defaultOpen={i === 0} />
+              ))}
+            </>
+          ) : (
+            <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
+              No candidates yet for this project - upload experiments and re-run the pipeline.
+            </div>
+          )}
           <div className="sh mt-3.5">Upload more experiments</div>
           <div className="dz mb-2">
             <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
             <div className="dzt">Upload validation batch ticket</div>
-            <div className="dzs">Each upload sharpens the next pipeline run</div>
-            <button className="dzb">
-              <Upload className="size-2.5" /> Browse files
-            </button>
+            <div className="dzs">{validationFile ? `Selected: ${validationFile}` : "Each upload sharpens the next pipeline run"}</div>
+            <FileBrowseButton label="Browse files" onFileName={setValidationFile} />
           </div>
           <div className="flex justify-end">
-            <button className="rbtn">
+            <button className="rbtn" onClick={() => runPipeline(project.id, IDLE_STAGES)}>
               <RefreshCw className="size-[11px]" /> Re-run pipeline
             </button>
           </div>
         </div>
         <div>
           <Pipeline stages={project.pipeline} badge={{ text: "Complete", tone: "complete" }} />
-          <button className="gbtn mt-3 w-full justify-center">
+          <button className="gbtn mt-3 w-full justify-center" onClick={() => markProjectComplete(project.id)}>
             <Flag className="size-[11px]" /> Mark project complete
           </button>
         </div>
@@ -256,6 +290,6 @@ function ResultsView({ project }: { project: Project }) {
 
 export function Phase2View({ project }: { project: Project }) {
   if (project.live) return <Phase2Live />;
-  const complete = project.run?.status === "complete" && project.candidates.length > 0;
+  const complete = project.run?.status === "complete";
   return complete ? <ResultsView project={project} /> : <SetupView project={project} />;
 }

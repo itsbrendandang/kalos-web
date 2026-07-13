@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { VesselTable } from "@/components/vessels/vessel-table";
 import { KineticOverlay } from "@/components/vessels/kinetic-overlay";
 import { CorrelationScatter } from "@/components/vessels/correlation-scatter";
+import { PageHeader, DemoBadge } from "@/components/page-header";
 import { VESSELS } from "@/lib/vessel-data";
 
 /**
@@ -27,20 +28,17 @@ export default function VesselsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg border border-border bg-blue-tint px-3.5 py-1.5 text-[12px] font-semibold text-blue-deep">
-        kalos vessel analysis · simulated 48-vessel ambr CHO run - titer, viability, VCD, lactate, glucose, pH.
-      </div>
+      <PageHeader
+        title="Vessel Workspace — ambr CHO Fed-Batch · 48 vessels"
+        desc="kalos vessel analysis · simulated 48-vessel ambr CHO run - titer, viability, VCD, lactate, glucose, pH."
+        action={<DemoBadge />}
+      />
 
-      <div>
-        <h1 className="font-head text-[19px] font-bold tracking-tight text-fg">
-          Vessel Workspace — ambr CHO Fed-Batch · 48 vessels
-        </h1>
-        <p className="mt-1.5 text-[12px] text-muted">
-          Click rows to change the selection - kinetic overlays and the correlation scatter follow along.{" "}
-          <span className="font-semibold text-fg">{selectedIds.size}</span> of {VESSELS.vessels.length} vessels
-          selected.
-        </p>
-      </div>
+      <p className="text-[12px] text-muted">
+        Click rows to change the selection - kinetic overlays and the correlation scatter follow along.{" "}
+        <span className="font-semibold text-fg">{selectedIds.size}</span> of {VESSELS.vessels.length} vessels
+        selected.
+      </p>
 
       <Card className="p-3.5">
         <VesselTable

@@ -271,7 +271,8 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
           <Card className="flex flex-col">
             <div className="text-[15px] font-semibold text-fg">Process drivers</div>
             <p className="mt-1 text-[12px] leading-snug text-muted">
-              Signed correlation of each input with {d.target}, held out across recipe groups. Blue raises the outcome, gray lowers it.
+              Signed correlation of each input with {d.target}, held out across recipe groups. Blue is associated
+              with higher {d.target}, gray with lower.
             </p>
             {d.drivers.length ? (
               <>

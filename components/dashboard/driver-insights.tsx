@@ -35,7 +35,9 @@ export function DriverInsights({
     modelRead.push(`${second.name} is the next largest driver (rho ${second.rho >= 0 ? "+" : ""}${second.rho.toFixed(2)}).`);
   }
   if (negativeAmongTop) {
-    modelRead.push(`${negativeAmongTop.name} lowers ${target} (rho ${negativeAmongTop.rho.toFixed(2)}).`);
+    modelRead.push(
+      `${negativeAmongTop.name} is associated with lower ${target} (rho ${negativeAmongTop.rho.toFixed(2)}).`,
+    );
   }
 
   const missingFeatures = (provenance ?? [])

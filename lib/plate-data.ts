@@ -109,9 +109,16 @@ export interface Well {
   /** Hourly OD reads, 0-24h (25 points), including read noise. */
   curve: number[];
   metrics: WellMetrics;
-  /** Pass/Warn/Fail terciles by deltaOD, only scored for experimental wells. */
+  /** Pass/Warn/Fail vs. the negative-control distribution, only scored for experimental wells. */
   status: WellStatus | null;
   flags: WellFlag[];
+}
+
+/** Units for the OD-based readings - shared across every well, so a real plate-reader payload
+ *  can be typechecked against the same basis instead of silently mixing absorbance scales. */
+export interface PlateUnits {
+  od: string;
+  deltaOD: string;
 }
 
 export interface PlateSummary {
@@ -128,10 +135,11 @@ export interface PlateSummary {
   duplicatePairCount: number;
   flagCatCounts: Record<FlagCategory, number>;
   flaggedWellCount: number;
-  /** Z' = 1 - 3(sigma+ + sigma-) / |mu+ - mu-|, from the 12 pos / 12 neg control wells. */
-  zPrime: number;
-  /** Positive-control coefficient of variation, percent. */
-  controlCV: number;
+  /** Z' = 1 - 3(sigma+ + sigma-) / |mu+ - mu-|, from the 12 pos / 12 neg control wells.
+   *  null when control separation is ~0 (degenerate - no meaningful Z' can be computed). */
+  zPrime: number | null;
+  /** Positive-control coefficient of variation, percent. null when the positive-control mean is ~0. */
+  controlCV: number | null;
   posMean: number;
   negMean: number;
   deltaMin: number;
@@ -139,6 +147,7 @@ export interface PlateSummary {
   defaultWellId: string;
   /** Shared Gompertz base params per replicate pair, used to draw the fit line. */
   pairBase: Record<string, GompertzParams>;
+  units: PlateUnits;
 }
 
 /** Hourly time axis for growth curves, 0-24h. */
@@ -156,10 +165,6 @@ function sd(a: number[]): number {
   const m = mean(a);
   return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1));
 }
-function percentile(sorted: number[], p: number): number {
-  return sorted[Math.floor(p * (sorted.length - 1))];
-}
-
 /** Builds one deterministic, seeded 96-well plate. Pure function of `seed`. */
 export function generatePlate(seed: number): PlateSummary {
   const rng = mulberry32(seed);
@@ -293,9 +298,15 @@ export function generatePlate(seed: number): PlateSummary {
     const w = wells[id];
     if (!pairBase[w.pairId]) pairBase[w.pairId] = gompertzParams(w);
   });
+  // Each well's own perturbed params - distinct from `pairBase`, which only exists to draw
+  // the pair's shared reference "Gompertz fit" line. growthRate/lag below are read from here
+  // (not from `pairBase`) so replicate A and B report independent kinetic metrics instead of
+  // both aliasing the same shared value.
+  const wellParams: Record<string, GompertzParams> = {};
   wellIds.forEach((id) => {
     const w = wells[id];
     const params = perturb(pairBase[w.pairId]);
+    wellParams[id] = params;
     w.curve = HOURS.map((t) => gompertz(t, params) + (rng() - 0.5) * 0.01);
   });
 
@@ -325,23 +336,31 @@ export function generatePlate(seed: number): PlateSummary {
   }
   wellIds.forEach((id) => {
     const w = wells[id];
-    const base = pairBase[w.pairId];
-    w.metrics = { ...computeMetrics(w.curve), growthRate: base.mu, lag: base.lag };
+    const params = wellParams[id];
+    w.metrics = { ...computeMetrics(w.curve), growthRate: params.mu, lag: params.lag };
   });
 
-  // --- status: Pass/Warn/Fail via deltaOD terciles (experimental wells only) ---
-  const expDeltasSorted = expIds
-    .map((id) => wells[id].metrics.deltaOD)
-    .slice()
-    .sort((a, b) => a - b);
-  const t33 = percentile(expDeltasSorted, 0.3333);
-  const t66 = percentile(expDeltasSorted, 0.6667);
+  // --- control stats (computed up front: status + growth flags are referenced against the
+  // negative/positive control distributions below, not against a rank within the plate) ---
+  const posDeltas = posControlIds.map((id) => wells[id].metrics.deltaOD);
+  const negDeltas = negControlIds.map((id) => wells[id].metrics.deltaOD);
+  const posMean = mean(posDeltas);
+  const posSD = sd(posDeltas);
+  const negMean = mean(negDeltas);
+  const negSD = sd(negDeltas);
+
+  // --- status: Pass/Warn/Fail vs. the negative-control (blank) distribution, not rank within
+  // the plate - a plate where every well clears the bar is all-pass, one where every well sits
+  // at background is all-fail, instead of always splitting into thirds regardless of the data.
+  const PASS_K = 3; // pass: >= k negative-control SDs above the blank mean
+  const passThreshold = negMean + PASS_K * negSD;
+  const failThreshold = negMean + negSD; // fail: at/near the blank, not distinguishable from background
   let passCount = 0;
   let warnCount = 0;
   let failCount = 0;
   expIds.forEach((id) => {
     const d = wells[id].metrics.deltaOD;
-    const status: WellStatus = d <= t33 ? "fail" : d <= t66 ? "warn" : "pass";
+    const status: WellStatus = d >= passThreshold ? "pass" : d <= failThreshold ? "fail" : "warn";
     wells[id].status = status;
     if (status === "pass") passCount++;
     else if (status === "warn") warnCount++;
@@ -359,16 +378,15 @@ export function generatePlate(seed: number): PlateSummary {
       });
     }
   });
-  const sortedExpByDelta = expIds.slice().sort((a, b) => wells[a].metrics.deltaOD - wells[b].metrics.deltaOD);
-  const nExp = sortedExpByDelta.length;
-  const veryLowCut = Math.floor(nExp * 0.12);
-  const lowCut = Math.floor(nExp * 0.32);
-  const highCut = Math.floor(nExp * 0.78);
-  sortedExpByDelta.forEach((id, i) => {
+  // Growth flags: the same control-referenced cutoffs as status (not fixed percentiles), plus
+  // a high-end cutoff for growth that rivals the positive control.
+  const highOutlierThreshold = posMean - posSD;
+  expIds.forEach((id) => {
     const w = wells[id];
-    if (i < veryLowCut) w.flags.push({ cat: "Growth", label: "Very low ΔOD" });
-    else if (i < lowCut) w.flags.push({ cat: "Growth", label: "Low ΔOD" });
-    else if (i >= highCut) w.flags.push({ cat: "Growth", label: "High ΔOD (outlier growth)" });
+    const d = w.metrics.deltaOD;
+    if (d <= failThreshold) w.flags.push({ cat: "Growth", label: "Very low ΔOD" });
+    else if (d < passThreshold) w.flags.push({ cat: "Growth", label: "Low ΔOD" });
+    if (d >= highOutlierThreshold) w.flags.push({ cat: "Growth", label: "High ΔOD (outlier growth)" });
   });
   wellIds.forEach((id) => {
     if (rng() < 0.35) wells[id].flags.push({ cat: "Environment", label: "Incubator position drift (sim.)" });
@@ -388,15 +406,14 @@ export function generatePlate(seed: number): PlateSummary {
     });
   });
 
-  // --- control summary + Z' ---
-  const posDeltas = posControlIds.map((id) => wells[id].metrics.deltaOD);
-  const negDeltas = negControlIds.map((id) => wells[id].metrics.deltaOD);
-  const posMean = mean(posDeltas);
-  const posSD = sd(posDeltas);
-  const negMean = mean(negDeltas);
-  const negSD = sd(negDeltas);
-  const zPrime = 1 - (3 * (posSD + negSD)) / Math.abs(posMean - negMean);
-  const controlCV = (posSD / posMean) * 100;
+  // --- Z' + control CV, guarded against near-zero control separation/means ---
+  const EPS = 1e-6;
+  const controlSeparation = Math.abs(posMean - negMean);
+  const zPrime =
+    !Number.isFinite(controlSeparation) || controlSeparation < EPS
+      ? null
+      : 1 - (3 * (posSD + negSD)) / controlSeparation;
+  const controlCV = !Number.isFinite(posMean) || Math.abs(posMean) < EPS ? null : (posSD / posMean) * 100;
 
   const allDeltas = wellIds.map((id) => wells[id].metrics.deltaOD);
   const deltaMin = Math.min(...allDeltas);
@@ -430,6 +447,7 @@ export function generatePlate(seed: number): PlateSummary {
     deltaMax,
     defaultWellId,
     pairBase,
+    units: { od: "AU (OD600)", deltaOD: "AU (OD600)" },
   };
 }
 

@@ -10,6 +10,7 @@ import { FlagSummary } from "@/components/plate/flag-summary";
 import { ControlSummary } from "@/components/plate/control-summary";
 import { WellDetail } from "@/components/plate/well-detail";
 import { GrowthCurve } from "@/components/plate/growth-curve";
+import { PageHeader, DemoBadge } from "@/components/page-header";
 import { PLATE } from "@/lib/plate-data";
 import { cn } from "@/lib/utils";
 
@@ -34,16 +35,15 @@ export default function PlatePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg border border-border bg-blue-tint px-3.5 py-1.5 text-[12px] font-semibold text-blue-deep">
-        kalos plate analysis · simulated 96-well nitrogen-source screen.
-      </div>
+      <PageHeader
+        title="Plate Summary — Nitrogen Source · PID-107 · E. coli · 2 plates"
+        desc="kalos plate analysis · simulated 96-well nitrogen-source screen."
+        action={<DemoBadge />}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-head text-[19px] font-bold tracking-tight text-fg">
-            Plate Summary — Nitrogen Source · PID-107 · E. coli · 2 plates
-          </h1>
-          <div className="mt-2.5 flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="inline-flex gap-0.5 rounded-[10px] border border-border bg-card p-0.5">
               {(["1", "2"] as const).map((p) => (
                 <button

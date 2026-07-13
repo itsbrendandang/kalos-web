@@ -80,6 +80,14 @@ export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle
               <tr
                 key={v.idx}
                 onClick={() => onToggle(v.idx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onToggle(v.idx);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
                 aria-pressed={selected}
                 className={cn(
                   "cursor-pointer border-b border-grid",

@@ -24,14 +24,17 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
   const data: PointDatum[] = vessels.map((v) => ({ idx: v.idx, qP: v.qP, finalTiter: v.finalTiter }));
   const xs = vessels.map((v) => v.qP);
   const ys = vessels.map((v) => v.finalTiter);
-  const { slope, intercept, r2 } = linearRegression(xs, ys);
+  const fit = linearRegression(xs, ys);
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
   const hasSelection = selectedIds.size > 0;
 
   function renderDot(props: ScatterShapeProps) {
+    // `props.payload` is `any`-typed by Recharts and can be undefined mid-render
+    // (e.g. during a data-prop update) - guard before reading off it.
+    const point = props.payload as PointDatum | undefined;
+    if (!point) return null;
     const { cx, cy } = props;
-    const point = props.payload as PointDatum;
     if (cx == null || cy == null) return null;
     const selected = !hasSelection || selectedIds.has(point.idx);
     return (
@@ -71,22 +74,34 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
             axisLine={false}
             width={34}
           />
-          <ReferenceLine
-            segment={[
-              { x: xMin, y: slope * xMin + intercept },
-              { x: xMax, y: slope * xMax + intercept },
-            ]}
-            stroke="var(--blue-deep)"
-            strokeDasharray="4 3"
-            ifOverflow="extendDomain"
-          />
+          {!fit.degenerate ? (
+            <ReferenceLine
+              segment={[
+                { x: xMin, y: fit.slope * xMin + fit.intercept },
+                { x: xMax, y: fit.slope * xMax + fit.intercept },
+              ]}
+              stroke="var(--blue-deep)"
+              strokeDasharray="4 3"
+              ifOverflow="extendDomain"
+            />
+          ) : null}
           <Tooltip {...tip} cursor={{ strokeDasharray: "3 3", stroke: CHART_THEME.grid }} />
           <Scatter data={data} shape={renderDot} isAnimationActive={false} />
         </ScatterChart>
       </ResponsiveContainer>
       <div className="tabular mt-1 font-mono text-[10px] text-muted">
-        y = {slope.toFixed(4)}x + {intercept.toFixed(3)} · R² = {r2.toFixed(3)}
+        {fit.degenerate ? (
+          "R² n/a - no variance in qP or titer for this selection"
+        ) : (
+          <>
+            y = {fit.slope.toFixed(4)}x + {fit.intercept.toFixed(3)} · R² = {fit.r2!.toFixed(3)}
+          </>
+        )}
       </div>
+      <p className="mt-1 text-[10px] leading-snug text-muted">
+        Descriptive OLS fit on simulated data - a within-plot correlation, not the Dashboard&rsquo;s held-out
+        cross-validated model.
+      </p>
     </div>
   );
 }

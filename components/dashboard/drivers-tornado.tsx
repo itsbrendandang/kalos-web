@@ -2,9 +2,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * Signed horizontal tornado for `drivers[]` (see lib/api.ts). Bars grow from
- * a shared center axis at 0: blue bars raise `target`, gray ("explore" tone)
- * bars lower it. The axis scale is derived from the data (max |rho| * 1.15),
- * not hardcoded, so it stays correct for any dataset the engine returns.
+ * a shared center axis at 0: blue bars are associated with higher `target`,
+ * gray ("explore" tone) bars with lower - a correlation, not a causal claim.
+ * The axis scale is derived from the data (max |rho| * 1.15), not hardcoded,
+ * so it stays correct for any dataset the engine returns.
  */
 export function DriversTornado({
   drivers,
@@ -29,11 +30,11 @@ export function DriversTornado({
         <div className="flex items-center gap-3 text-[11px] whitespace-nowrap text-muted">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-3 rounded-sm bg-accent" />
-            Raises
+            Higher {target}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-3 rounded-sm bg-explore" />
-            Lowers
+            Lower {target}
           </span>
         </div>
       </div>

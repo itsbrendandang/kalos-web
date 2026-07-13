@@ -79,6 +79,16 @@ export interface Vessel {
   series: VesselSeries;
 }
 
+/** Units for each kinetic channel - shared across every vessel in a workspace, so a real API's
+ *  payload can be typechecked against the same basis instead of silently mixing e.g. mg/L and g/L. */
+export interface VesselUnits {
+  titer: string;
+  vcd: string;
+  lactate: string;
+  glucose: string;
+  ph: string;
+}
+
 export interface VesselWorkspace {
   vessels: Vessel[];
   vesselIds: number[];
@@ -86,6 +96,7 @@ export interface VesselWorkspace {
   titerMax: number;
   /** The rows selected by default when the page mounts (mirrors the mockup's initial selection). */
   defaultSelectedIds: number[];
+  units: VesselUnits;
 }
 
 /** Builds one deterministic, seeded ambr vessel workspace. Pure function of `seedBase`. */
@@ -97,9 +108,16 @@ export function generateVessels(seedBase: number, n = 48): VesselWorkspace {
     // matches the mockup's generator and keeps every vessel reproducible in isolation.
     const r = mulberry32(seedBase + i * 7);
 
-    const qP = 8 + r() * 22;
-    const ivcdScale = 90 + r() * 40; // integral viable cell density proxy
-    const finalTiter = Number((((qP * ivcdScale) / 1000) * (0.93 + r() * 0.15)).toFixed(3)); // ~ qP*IVCD, correlated
+    // qP and finalTiter are drawn from a shared latent "productivity" factor plus
+    // INDEPENDENT per-vessel noise, not from one another - this keeps their correlation
+    // emergent (typically ~0.6-0.8) instead of algebraic (finalTiter used to be a direct
+    // scaled function of qP, which made the correlation scatter's R^2 circular/guaranteed).
+    // Real qP and titer must come from independent measurement channels (specific
+    // productivity assay vs. titer assay) so this same independence holds once a live
+    // ambr/bioreactor API replaces this seed data.
+    const productivity = r(); // shared latent factor, in [0, 1)
+    const qP = clamp(8 + productivity * 22 + (r() - 0.5) * 14, 3, 34); // independent qP noise
+    const finalTiter = Number(clamp(0.5 + productivity * 3.4 + (r() - 0.5) * 1.5, 0.1, 6).toFixed(3)); // independent titer noise
     const vcdPeak = 8 + r() * 16;
     const peakT = 168 + r() * 72;
     const viaEnd = 62 + r() * 26;
@@ -165,11 +183,21 @@ export function generateVessels(seedBase: number, n = 48): VesselWorkspace {
     titerMin: Math.min(...titers),
     titerMax: Math.max(...titers),
     defaultSelectedIds: vesselIds.slice(0, 23),
+    units: { titer: "g/L", vcd: "×10⁶ cells/mL", lactate: "g/L", glucose: "g/L", ph: "pH (unitless)" },
   };
 }
 
 /** OLS fit of y on x, plus R^2 - used for the titer-vs-qP correlation scatter. */
-export function linearRegression(xs: number[], ys: number[]): { slope: number; intercept: number; r2: number } {
+export interface LinearFit {
+  slope: number;
+  intercept: number;
+  /** null when the fit is degenerate (see `degenerate`) - never NaN/Infinity. */
+  r2: number | null;
+  /** true when x or y has ~zero variance, so no meaningful line/R^2 can be fit. */
+  degenerate: boolean;
+}
+
+export function linearRegression(xs: number[], ys: number[]): LinearFit {
   const n = xs.length;
   const mx = xs.reduce((a, b) => a + b, 0) / n;
   const my = ys.reduce((a, b) => a + b, 0) / n;
@@ -181,10 +209,14 @@ export function linearRegression(xs: number[], ys: number[]): { slope: number; i
     sxx += (xs[i] - mx) ** 2;
     syy += (ys[i] - my) ** 2;
   }
+  const EPS = 1e-9;
+  if (!Number.isFinite(sxx) || !Number.isFinite(syy) || sxx < EPS || syy < EPS) {
+    return { slope: 0, intercept: my, r2: null, degenerate: true };
+  }
   const slope = sxy / sxx;
   const intercept = my - slope * mx;
   const r2 = (sxy * sxy) / (sxx * syy);
-  return { slope, intercept, r2 };
+  return { slope, intercept, r2, degenerate: false };
 }
 
 const SEED = 480048; // ambr vessel workspace seed

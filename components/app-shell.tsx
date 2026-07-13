@@ -60,6 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={n.href}
                 href={n.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] transition-colors",
                   active ? "border border-blue-border bg-accent-soft font-semibold text-accent-hover" : "border border-transparent text-muted hover:border-border hover:bg-blue-soft hover:text-fg",
@@ -103,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={n.href}
                   href={n.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 text-center text-[9.5px] leading-none font-semibold transition-colors",
                     active ? "bg-accent text-white" : "text-muted hover:bg-blue-soft hover:text-fg",

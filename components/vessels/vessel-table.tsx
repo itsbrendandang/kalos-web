@@ -86,9 +86,11 @@ export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle
                     onToggle(v.idx);
                   }
                 }}
+                // Native <tr> role kept (no role="button") so screen readers still get table-row
+                // navigation; aria-selected (valid on a row) conveys the toggle state instead of
+                // aria-pressed, which would otherwise override the implicit row role.
                 tabIndex={0}
-                role="button"
-                aria-pressed={selected}
+                aria-selected={selected}
                 className={cn(
                   "cursor-pointer border-b border-grid",
                   selected ? "bg-blue-tint" : "hover:bg-blue-soft",

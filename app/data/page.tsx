@@ -2,11 +2,15 @@ import { Barcode, Shield, Search } from "lucide-react";
 import { Card, Kpi, SectionLabel } from "@/components/ui/card";
 import { PageHeader, DemoBadge } from "@/components/page-header";
 
-const DATASETS = [
-  { barcode: "KAL-DS-6C103E", name: "APR07", runs: 24, outputs: "Lipase_g.L / % Purity / Conc." },
-  { barcode: "KAL-DS-25B35F", name: "APR29", runs: 72, outputs: "Lipase_g.L / % Purity / Conc." },
-  { barcode: "KAL-DS-BEFF9A", name: "combined_APR", runs: 96, outputs: "Lipase_g.L / % Purity / Conc." },
+export const DATASETS = [
+  { barcode: "KAL-DS-7F21A0", name: "media-doe-2406", runs: 538, outputs: "Titer_g_L / Purity_pct" },
+  { barcode: "KAL-DS-3C88E1", name: "cho-fedbatch-2405", runs: 48, outputs: "Titer_g_L / Viability_pct / VCD" },
+  { barcode: "KAL-DS-9B04D7", name: "nsource-plate-2404", runs: 96, outputs: "dOD600 / Purity_pct" },
 ];
+
+// Single source of truth for the KPI + registry caption below, so they can never disagree.
+export const TOTAL_RUNS = DATASETS.reduce((sum, d) => sum + d.runs, 0);
+export const DATASET_COUNT = DATASETS.length;
 
 const FEATURES = [
   { icon: Barcode, title: "Stable barcodes", body: "Each dataset gets a KAL-DS-* barcode and each run a content-derived KAL-* barcode, so the same run always resolves to the same id." },
@@ -24,8 +28,8 @@ export default function DataPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Kpi hero label="Datasets" value={DATASETS.length} />
-        <Kpi label="Runs tracked" value={DATASETS.reduce((sum, d) => sum + d.runs, 0)} />
+        <Kpi hero label="Datasets" value={DATASET_COUNT} />
+        <Kpi label="Runs tracked" value={TOTAL_RUNS} />
         <Kpi label="Identity state" value="Anonymized" />
       </div>
 
@@ -57,8 +61,8 @@ export default function DataPage() {
           </table>
         </div>
         <p className="mt-3 text-[12px] text-muted">
-          166 runs across 3 datasets. Each run also carries its own <span className="font-mono text-fg">KAL-*</span> barcode.
-          New uploads appear here after analysis.
+          {TOTAL_RUNS} runs across {DATASET_COUNT} dataset{DATASET_COUNT === 1 ? "" : "s"}. Each run also carries its own{" "}
+          <span className="font-mono text-fg">KAL-*</span> barcode. New uploads appear here after analysis.
         </p>
       </Card>
 

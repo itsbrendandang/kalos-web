@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { CheckCircle2, Upload, X } from "lucide-react";
-import { runFile, type AnalyzeResult } from "@/lib/api";
+import { isReliable, runFile, type AnalyzeResult } from "@/lib/api";
 import { Card, SectionLabel, Kpi } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
@@ -44,8 +44,9 @@ export default function AnalyzePage() {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  const reliability =
-    res?.cv_spearman == null ? "n/a" : res.cv_spearman < 0.2 ? "Low" : res.cv_spearman < 0.5 ? "Moderate" : "Good";
+  // Reuses the same isReliable() predicate as the Dashboard (lib/api.ts) so a dataset
+  // never reads "reliable" here and "needs review" there - see app/page.tsx KpiStrip.
+  const reliability = res?.cv_spearman == null ? "n/a" : isReliable(res) ? "Reliable" : "Needs review";
 
   return (
     <div className="flex flex-col gap-7">

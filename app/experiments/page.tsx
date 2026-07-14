@@ -17,6 +17,7 @@ import {
   type Experiment,
   type ExperimentSummary,
 } from "@/lib/experiments";
+import { runWithReconcile } from "@/lib/reconcile";
 
 /** Experiments surface (M2 integration): a real list wired to the kalos
  *  portal's /api/experiments/* routes, with the "flag ready" and "run" /
@@ -59,18 +60,20 @@ export default function ExperimentsPage() {
   function withBusy(id: string, run: () => Promise<void>) {
     setBusyIds((prev) => new Set(prev).add(id));
     setActionErr("");
-    run()
-      .catch((e) => {
-        setActionErr(e instanceof ExperimentApiError ? e.message : "Experiments service unavailable. Try again in a moment.");
-      })
-      .finally(() => {
+    runWithReconcile(
+      run,
+      () => {
         setBusyIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
           return next;
         });
         refresh();
-      });
+      },
+      (e) => {
+        setActionErr(e instanceof ExperimentApiError ? e.message : "Experiments service unavailable. Try again in a moment.");
+      },
+    );
   }
 
   function optimisticStatus(id: string, status: ExperimentSummary["status"]) {
@@ -102,14 +105,16 @@ export default function ExperimentsPage() {
     setRunAllBusy(true);
     setActionErr("");
     setExperiments((prev) => prev?.map((e) => (e.status === "READY" ? { ...e, status: "PROCESSING" } : e)) ?? prev);
-    runReady()
-      .catch((e) => {
-        setActionErr(e instanceof ExperimentApiError ? e.message : "Experiments service unavailable. Try again in a moment.");
-      })
-      .finally(() => {
+    runWithReconcile(
+      runReady,
+      () => {
         setRunAllBusy(false);
         refresh();
-      });
+      },
+      (e) => {
+        setActionErr(e instanceof ExperimentApiError ? e.message : "Experiments service unavailable. Try again in a moment.");
+      },
+    );
   }
 
   const readyCount = experiments?.filter((e) => e.status === "READY").length ?? 0;

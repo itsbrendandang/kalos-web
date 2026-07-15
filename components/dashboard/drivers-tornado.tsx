@@ -45,7 +45,7 @@ export function DriversTornado({
           const positive = dr.rho >= 0;
           return (
             <div key={dr.name} className="grid min-h-[20px] flex-1 grid-cols-[128px_1fr] items-center gap-3">
-              <div className="truncate pr-1 text-right text-[12px] text-fg" title={dr.name}>
+              <div className="truncate pr-1 text-[12px] text-fg" title={dr.name}>
                 {dr.name}
               </div>
               <div className="relative h-5">

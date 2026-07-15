@@ -41,7 +41,7 @@ export function CorrelationHeatmap({ d }: { d: PopulatedResult }) {
           ))}
           {matrix.map((row, i) => (
             <Fragment key={`row-${i}`}>
-              <div className="flex items-center justify-end truncate pr-1 text-right text-[10px] text-muted" title={labels[i]}>
+              <div className="flex items-center justify-end truncate pr-1 text-[10px] text-muted" title={labels[i]}>
                 {abbrev(labels[i], 12)}
               </div>
               {row.map((v, j) => (

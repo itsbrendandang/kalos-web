@@ -25,9 +25,9 @@ const CHANNEL_GROUPS: { label: string; key: "titer" | "via" | "vcd" | "lac" | "g
 // Fixed row heights (26px / 24px) so the second sticky header row's `top` offset
 // lines up exactly under the first, with no gap or overlap while scrolling.
 const HEAD_TH =
-  "sticky top-0 z-10 h-[26px] border-r border-b border-border bg-blue-tint px-2.5 text-left align-middle text-[10px] leading-none font-semibold tracking-[0.03em] text-muted uppercase";
+  "sticky top-0 z-10 h-[26px] border-r border-b border-border bg-blue-tint px-2.5 align-middle text-[10px] leading-none font-semibold tracking-[0.03em] text-muted uppercase";
 const SUBHEAD_TH =
-  "sticky top-[26px] z-10 h-[24px] border-r border-b border-border bg-card px-2.5 text-left align-middle text-[10px] leading-none font-semibold text-muted";
+  "sticky top-[26px] z-10 h-[24px] border-r border-b border-border bg-card px-2.5 align-middle text-[10px] leading-none font-semibold text-muted";
 
 /**
  * One row per ambr vessel: metadata + inline per-channel kinetic sparklines.
@@ -98,8 +98,8 @@ export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle
               >
                 <td
                   className={cn(
-                    "border-r border-grid px-2.5 py-1 font-mono text-[11px] text-muted",
-                    selected && "shadow-[inset_3px_0_0_var(--blue)]",
+                    "border-r border-l-[3px] border-grid px-2.5 py-1 font-mono text-[11px] text-muted",
+                    selected ? "border-l-blue" : "border-l-transparent",
                   )}
                 >
                   {v.idx}

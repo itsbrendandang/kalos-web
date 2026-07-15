@@ -55,6 +55,26 @@ export type RunReadySummary = {
   error?: string | null;
 };
 
+/** The `AnalyzeResult` sections that a DONE experiment's rendered detail view
+ *  depends on. `drivers`, `oof`, and `proposals` are typed as always-present
+ *  on `AnalyzeResult` (lib/api.ts), but that type only describes what a fresh
+ *  engine run returns - a DONE experiment's *persisted* result can predate
+ *  the current schema (see the field comments in lib/api.ts acknowledging
+ *  schema growth) and simply lack one of these arrays at runtime. */
+export type ResultSection = "drivers" | "oof" | "proposals";
+
+/** Which of `result`'s chart-backing sections are missing (not an array).
+ *  Callers must check this before handing the field to a chart - e.g.
+ *  `DriversBar` does `[...drivers].reverse()` with no guard and throws on
+ *  `undefined`. */
+export function missingResultSections(result: AnalyzeResult): ResultSection[] {
+  const missing: ResultSection[] = [];
+  if (!Array.isArray(result.drivers)) missing.push("drivers");
+  if (!Array.isArray(result.oof)) missing.push("oof");
+  if (!Array.isArray(result.proposals)) missing.push("proposals");
+  return missing;
+}
+
 /** Thrown by every function below on a non-2xx response. Carries the HTTP
  *  status and, when the portal sent one, its documented `{ error }` message. */
 export class ExperimentApiError extends Error {
@@ -67,7 +87,17 @@ export class ExperimentApiError extends Error {
 }
 
 async function handle<T>(r: Response): Promise<T> {
-  if (r.ok) return (await r.json()) as T;
+  if (r.ok) {
+    const body: unknown = await r.json();
+    // The cast below trusts the portal's documented response shape - this is
+    // not full runtime validation, just a guard against the degenerate case
+    // (empty body, or a bare JSON primitive) that would otherwise smuggle a
+    // useless value through as if it were a valid T.
+    if (body === null || typeof body !== "object") {
+      throw new ExperimentApiError(`experiments service returned an unexpected body for a ${r.status} response`, r.status);
+    }
+    return body as T;
+  }
   let message = `experiments service responded ${r.status}`;
   try {
     const body: unknown = await r.json();

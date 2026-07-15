@@ -14,6 +14,7 @@ import { isReliable } from "@/lib/api";
 import {
   ExperimentApiError,
   getExperiment,
+  missingResultSections,
   patchStatus,
   runExperiment,
   type Experiment,
@@ -175,6 +176,7 @@ function Body({ exp }: { exp: Experiment }) {
   }
 
   const reliability = result.cv_spearman == null ? "n/a" : isReliable(result) ? "Reliable" : "Needs review";
+  const missing = missingResultSections(result);
 
   return (
     <Card>
@@ -191,11 +193,11 @@ function Body({ exp }: { exp: Experiment }) {
       <div className="mb-5 grid gap-5 lg:grid-cols-2">
         <div>
           <SectionLabel>Drivers: dark bars raise, light bars lower {result.target}</SectionLabel>
-          <DriversBar drivers={result.drivers} />
+          {missing.includes("drivers") ? <StaleSectionNote /> : <DriversBar drivers={result.drivers} />}
         </div>
         <div>
           <SectionLabel>Predicted vs measured (out-of-fold)</SectionLabel>
-          <PredScatter oof={result.oof} />
+          {missing.includes("oof") ? <StaleSectionNote /> : <PredScatter oof={result.oof} />}
         </div>
       </div>
 
@@ -213,7 +215,9 @@ function Body({ exp }: { exp: Experiment }) {
       ) : null}
 
       <SectionLabel>Recommended next experiments</SectionLabel>
-      {result.proposals.length ? (
+      {missing.includes("proposals") ? (
+        <StaleSectionNote />
+      ) : result.proposals.length ? (
         <Proposals
           cols={result.proposal_features}
           rows={result.proposals}
@@ -225,4 +229,11 @@ function Body({ exp }: { exp: Experiment }) {
       )}
     </Card>
   );
+}
+
+/** Shown in place of a chart/table section whose backing field is missing
+ *  from a persisted result (see `missingResultSections` in lib/experiments.ts) -
+ *  a graceful note instead of passing `undefined` into a chart that throws. */
+function StaleSectionNote() {
+  return <p className="py-10 text-center text-[12px] text-muted">This result predates the current analysis schema.</p>;
 }

@@ -120,7 +120,7 @@ export function DriverInsights({
               watchOuts.map((w) => (
                 <div key={w.label} className="flex items-center justify-between gap-2">
                   <span className="text-muted">{w.label}</span>
-                  <span className="text-explore-deep">{w.value}</span>
+                  <span className="text-right text-explore-deep">{w.value}</span>
                 </div>
               ))
             ) : (

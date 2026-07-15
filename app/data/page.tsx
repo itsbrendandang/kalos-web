@@ -42,10 +42,10 @@ export default function DataPage() {
           <table className="tabular w-full border-collapse text-sm">
             <thead>
               <tr className="text-[10px] text-muted uppercase">
-                <th className="border-b border-border px-3 py-2">Barcode</th>
-                <th className="border-b border-border px-3 py-2">Dataset</th>
-                <th className="border-b border-border px-3 py-2">Runs</th>
-                <th className="border-b border-border px-3 py-2">Outputs</th>
+                <th className="border-b border-border px-3 py-2 text-left">Barcode</th>
+                <th className="border-b border-border px-3 py-2 text-left">Dataset</th>
+                <th className="border-b border-border px-3 py-2 text-right">Runs</th>
+                <th className="border-b border-border px-3 py-2 text-left">Outputs</th>
               </tr>
             </thead>
             <tbody>
@@ -53,7 +53,7 @@ export default function DataPage() {
                 <tr key={d.barcode}>
                   <td className="border-b border-border/60 px-3 py-2 font-mono text-[12px] text-accent-hover">{d.barcode}</td>
                   <td className="border-b border-border/60 px-3 py-2 font-mono text-[12px]">{d.name}</td>
-                  <td className="tabular border-b border-border/60 px-3 py-2 font-mono text-[12px]">{d.runs}</td>
+                  <td className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]">{d.runs}</td>
                   <td className="border-b border-border/60 px-3 py-2 text-[12px] text-muted">{d.outputs}</td>
                 </tr>
               ))}

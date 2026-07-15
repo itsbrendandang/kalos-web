@@ -32,10 +32,10 @@ export function ExperimentTable({
       <table className="w-full min-w-[640px] border-separate border-spacing-y-1.5 text-[13px]">
         <thead>
           <tr className="text-[10px] text-muted uppercase">
-            <th className="px-3 py-1.5">Name</th>
-            <th className="px-3 py-1.5">Status</th>
-            <th className="px-3 py-1.5">Updated</th>
-            <th className="px-3 py-1.5">Actions</th>
+            <th className="px-3 py-1.5 text-left">Name</th>
+            <th className="px-3 py-1.5 text-left">Status</th>
+            <th className="px-3 py-1.5 text-left">Updated</th>
+            <th className="px-3 py-1.5 text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -78,7 +78,7 @@ function ExperimentRow({
       <td className="border-y border-border/70 bg-card px-3 py-2.5 font-mono text-[12px] text-muted group-hover:bg-blue-soft">
         {ago(exp.updated_at)}
       </td>
-      <td className="rounded-r-xl border-y border-r border-border/70 bg-card px-3 py-2.5 group-hover:bg-blue-soft">
+      <td className="rounded-r-xl border-y border-r border-border/70 bg-card px-3 py-2.5 text-right group-hover:bg-blue-soft">
         <RowActions status={exp.status} busy={busy} onFlagReady={onFlagReady} onRun={onRun} />
       </td>
     </tr>

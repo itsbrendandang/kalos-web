@@ -243,7 +243,6 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-satoshi), system-ui, sans-serif;
-  text-align: center;
 }
 
 ::selection {

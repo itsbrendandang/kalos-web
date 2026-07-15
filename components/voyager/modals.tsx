@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Pencil, Plus, X } from "lucide-react";
-import type { Customer, Project } from "@/app/voyager/data";
+import type { Customer, Project, ProjectStatus } from "@/app/voyager/data";
+import { useVoyagerStore } from "./store-context";
 
 export type ModalState =
   | { kind: "add-customer" }
@@ -13,6 +14,17 @@ export type ModalState =
 
 function statusValue(s: Project["status"]): string {
   return { drafting: "Drafting", in_progress: "In Progress", completed: "Completed", terminated: "Terminated" }[s];
+}
+
+const STATUS_BY_LABEL: Record<string, ProjectStatus> = {
+  Drafting: "drafting",
+  "In Progress": "in_progress",
+  Completed: "completed",
+  Terminated: "terminated",
+};
+
+function statusFromLabel(label: string): ProjectStatus {
+  return STATUS_BY_LABEL[label] ?? "in_progress";
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -134,142 +146,206 @@ function Shell({
 
 const STATUS_OPTIONS = ["Drafting", "In Progress", "Completed", "Terminated"];
 
-export function VoyagerModal({ state, onClose }: { state: ModalState; onClose: () => void }) {
-  if (!state) return null;
+function AddCustomerModal({ onClose }: { onClose: () => void }) {
+  const { addCustomer } = useVoyagerStore();
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const valid = name.trim().length > 0;
 
-  if (state.kind === "add-customer") {
-    return (
-      <Shell title="Add customer" subtitle="Creates a new customer workspace" onClose={onClose}>
-        <div className="fg">
-          <div className="fl">Customer name</div>
-          <input className="fi" placeholder="e.g. Acme Biopharma" autoFocus />
-        </div>
-        <div className="fg">
-          <div className="fl">Customer address</div>
-          <input className="fi" placeholder="123 Science Park, Cambridge, MA 02139" />
-        </div>
-        <div className="macts">
-          <button className="btn-c" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn-s" onClick={onClose}>
-            Create customer
-          </button>
-        </div>
-      </Shell>
-    );
+  function submit() {
+    if (!valid) return;
+    addCustomer({ name: name.trim(), address: address.trim() });
+    onClose();
   }
 
-  if (state.kind === "edit-customer") {
-    const c = state.customer;
-    return (
-      <Shell title="Edit customer" subtitle={c.name} onClose={onClose}>
-        <div className="fg">
-          <div className="fl">Customer name</div>
-          <input className="fi" defaultValue={c.name} />
-        </div>
-        <div className="fg">
-          <div className="fl">Customer address</div>
-          <input className="fi" defaultValue={c.address} />
-        </div>
-        <div className="my-3 h-px bg-[color:var(--v-border)]" />
-        <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.7px] text-[color:var(--v-muted)]">
-          Projects
-        </div>
-        {c.projects.map((p) => (
-          <div
-            key={p.id}
-            className="mb-1.5 flex items-center gap-2 rounded-[7px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-2 py-1.5"
-          >
-            <span
-              className={`size-[5px] shrink-0 rounded-full ${
-                p.stage.kind === "phase2" ? "v-stage-dot--phase2" : "v-stage-dot--phase1"
-              }`}
-            />
-            <span className="flex-1 text-[12px] font-medium text-[color:var(--v-ink)]">{p.name}</span>
-            <span
-              className={`rounded-full px-[5px] py-0.5 text-[9px] font-medium ${
-                p.stage.kind === "phase2" ? "v-stage-pill--phase2" : "v-stage-pill--phase1"
-              }`}
-            >
-              {p.stage.kind === "phase2" ? "Phase 2" : "Phase 1"}
-            </span>
-          </div>
-        ))}
-        <div className="macts mt-3">
-          <button className="btn-c" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn-s" onClick={onClose}>
-            Save changes
-          </button>
-        </div>
-      </Shell>
-    );
-  }
-
-  if (state.kind === "add-project") {
-    return (
-      <Shell title="Add project" subtitle={state.customerName} onClose={onClose}>
-        <div className="fg">
-          <div className="fl">Project name</div>
-          <input className="fi" placeholder="e.g. CHO Cell Yield Optimization" autoFocus />
-        </div>
-        <div className="fg">
-          <div className="fl">Project objective</div>
-          <input className="fi" placeholder="What is this project trying to achieve?" />
-        </div>
-        <div className="fg">
-          <div className="fl">Project status</div>
-          <select className="fsel" defaultValue="In Progress">
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
-          </select>
-          <div className="fhint">Status can be updated at any time. Setting to Completed triggers report generation.</div>
-        </div>
-        <div className="macts">
-          <button className="btn-c" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn-s" onClick={onClose}>
-            Create project
-          </button>
-        </div>
-      </Shell>
-    );
-  }
-
-  const p = state.project;
   return (
-    <Shell title="Edit project" subtitle={`${p.customerName} · ${p.name}`} onClose={onClose}>
+    <Shell title="Add customer" subtitle="Creates a new customer workspace" onClose={onClose}>
       <div className="fg">
-        <div className="fl">Project name</div>
-        <input className="fi" defaultValue={p.name} />
+        <div className="fl">Customer name</div>
+        <input className="fi" placeholder="e.g. Acme Biopharma" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="fg">
-        <div className="fl">Project objective</div>
-        <input className="fi" defaultValue={p.objective} />
-      </div>
-      <div className="fg">
-        <div className="fl">Project status</div>
-        <select className="fsel" defaultValue={statusValue(p.status)}>
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-        <div className="fhint">Setting to Completed triggers automatic report generation. Not permanent; can be changed back.</div>
+        <div className="fl">Customer address</div>
+        <input
+          className="fi"
+          placeholder="123 Science Park, Cambridge, MA 02139"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
       </div>
       <div className="macts">
         <button className="btn-c" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn-s" onClick={onClose}>
+        <button className="btn-s" onClick={submit} disabled={!valid}>
+          Create customer
+        </button>
+      </div>
+    </Shell>
+  );
+}
+
+function EditCustomerModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const { updateCustomer } = useVoyagerStore();
+  const [name, setName] = useState(customer.name);
+  const [address, setAddress] = useState(customer.address);
+  const valid = name.trim().length > 0;
+
+  function submit() {
+    if (!valid) return;
+    updateCustomer(customer.id, { name: name.trim(), address: address.trim() });
+    onClose();
+  }
+
+  return (
+    <Shell title="Edit customer" subtitle={customer.name} onClose={onClose}>
+      <div className="fg">
+        <div className="fl">Customer name</div>
+        <input className="fi" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="fg">
+        <div className="fl">Customer address</div>
+        <input className="fi" value={address} onChange={(e) => setAddress(e.target.value)} />
+      </div>
+      <div className="my-3 h-px bg-[color:var(--v-border)]" />
+      <div className="mb-1.5 text-[10px] font-medium uppercase text-[color:var(--v-muted)]">Projects</div>
+      {customer.projects.map((p) => (
+        <div
+          key={p.id}
+          className="mb-1.5 flex items-center gap-2 rounded-[7px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-2 py-1.5"
+        >
+          <span
+            className={`size-[5px] shrink-0 rounded-full ${
+              p.stage.kind === "phase2" ? "v-stage-dot--phase2" : "v-stage-dot--phase1"
+            }`}
+          />
+          <span className="flex-1 text-[12px] font-medium text-[color:var(--v-ink)]">{p.name}</span>
+          <span
+            className={`rounded-full px-[5px] py-0.5 text-[9px] font-medium ${
+              p.stage.kind === "phase2" ? "v-stage-pill--phase2" : "v-stage-pill--phase1"
+            }`}
+          >
+            {p.stage.kind === "phase2" ? "Phase 2" : "Phase 1"}
+          </span>
+        </div>
+      ))}
+      <div className="macts mt-3">
+        <button className="btn-c" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn-s" onClick={submit} disabled={!valid}>
           Save changes
         </button>
       </div>
     </Shell>
   );
+}
+
+function AddProjectModal({ customerName, onClose }: { customerName: string; onClose: () => void }) {
+  const { addProject } = useVoyagerStore();
+  const [name, setName] = useState("");
+  const [objective, setObjective] = useState("");
+  const [status, setStatus] = useState("In Progress");
+  const valid = name.trim().length > 0;
+
+  function submit() {
+    if (!valid) return;
+    addProject(customerName, { name: name.trim(), objective: objective.trim(), status: statusFromLabel(status) });
+    onClose();
+  }
+
+  return (
+    <Shell title="Add project" subtitle={customerName} onClose={onClose}>
+      <div className="fg">
+        <div className="fl">Project name</div>
+        <input
+          className="fi"
+          placeholder="e.g. CHO Cell Yield Optimization"
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div className="fg">
+        <div className="fl">Project objective</div>
+        <input
+          className="fi"
+          placeholder="What is this project trying to achieve?"
+          value={objective}
+          onChange={(e) => setObjective(e.target.value)}
+        />
+      </div>
+      <div className="fg">
+        <div className="fl">Project status</div>
+        <select className="fsel" value={status} onChange={(e) => setStatus(e.target.value)}>
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+        <div className="fhint">Status can be updated at any time.</div>
+      </div>
+      <div className="macts">
+        <button className="btn-c" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn-s" onClick={submit} disabled={!valid}>
+          Create project
+        </button>
+      </div>
+    </Shell>
+  );
+}
+
+function EditProjectModal({ project, onClose }: { project: Project; onClose: () => void }) {
+  const { updateProject } = useVoyagerStore();
+  const [name, setName] = useState(project.name);
+  const [objective, setObjective] = useState(project.objective);
+  const [status, setStatus] = useState(statusValue(project.status));
+  const valid = name.trim().length > 0;
+
+  function submit() {
+    if (!valid) return;
+    updateProject(project.id, { name: name.trim(), objective: objective.trim(), status: statusFromLabel(status) });
+    onClose();
+  }
+
+  return (
+    <Shell title="Edit project" subtitle={`${project.customerName} · ${project.name}`} onClose={onClose}>
+      <div className="fg">
+        <div className="fl">Project name</div>
+        <input className="fi" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="fg">
+        <div className="fl">Project objective</div>
+        <input className="fi" value={objective} onChange={(e) => setObjective(e.target.value)} />
+      </div>
+      <div className="fg">
+        <div className="fl">Project status</div>
+        <select className="fsel" value={status} onChange={(e) => setStatus(e.target.value)}>
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+        <div className="fhint">Not permanent; can be changed back.</div>
+      </div>
+      <div className="macts">
+        <button className="btn-c" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn-s" onClick={submit} disabled={!valid}>
+          Save changes
+        </button>
+      </div>
+    </Shell>
+  );
+}
+
+export function VoyagerModal({ state, onClose }: { state: ModalState; onClose: () => void }) {
+  if (!state) return null;
+  if (state.kind === "add-customer") return <AddCustomerModal onClose={onClose} />;
+  if (state.kind === "edit-customer") return <EditCustomerModal customer={state.customer} onClose={onClose} />;
+  if (state.kind === "add-project") return <AddProjectModal customerName={state.customerName} onClose={onClose} />;
+  return <EditProjectModal project={state.project} onClose={onClose} />;
 }
 
 export { Pencil, Plus };

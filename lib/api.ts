@@ -42,6 +42,19 @@ export type Reliability = {
   unmodeled: string[];
 };
 
+/**
+ * One input column's fate through the data-cleaning pipeline. Status is
+ * typed as `string` (not a strict union) because the engine payload isn't
+ * runtime-validated here - known values are handled explicitly by callers,
+ * with an honest fallback for anything unrecognized.
+ */
+export type ProvenanceEntry = {
+  name: string;
+  status: string;
+  coerced_cells: number;
+  non_null: number;
+};
+
 export type AnalyzeResult = {
   n: number;
   d: number;
@@ -60,6 +73,41 @@ export type AnalyzeResult = {
   proposal_features: string[];
   proposals: Proposal[];
   oof: [number, number][];
+  /**
+   * Optional low-dimensional projection of every run, positioned by recipe
+   * similarity - each point is `[x, y, target]`. Absent on analyses run
+   * before the engine started returning it; callers must render nothing
+   * rather than fabricate a placeholder when this is missing.
+   */
+  embedding?: { method: string; points: [number, number, number][] };
+  /**
+   * Spearman correlation among the kept features and the target (the same rho
+   * the drivers use). `labels` are features first then the target; `matrix` is
+   * the symmetric correlation grid. Absent on analyses run before the engine
+   * returned it - render nothing rather than fabricate.
+   */
+  correlation?: { labels: string[]; matrix: number[][] };
+  /**
+   * The GP-predicted target across the two strongest drivers, other inputs held
+   * at their median. This is a MODEL prediction (surrogate posterior mean), not
+   * measured data - the UI must label it as such. `z[i][j]` is the prediction at
+   * `(x_vals[j], y_vals[i])`; `runs` are observed rows `[x, y, target]` projected
+   * onto the two axes for overlay. Absent on older analyses.
+   */
+  response_surface?: {
+    x_feature: string;
+    y_feature: string;
+    x_vals: number[];
+    y_vals: number[];
+    z: number[][];
+    runs: [number, number, number][];
+  };
+  /** Per-column data-cleaning trail (kept/dropped/target), for traceability. */
+  provenance?: ProvenanceEntry[];
+  /** Engine run metadata, surfaced for traceability when present. */
+  seed?: number;
+  timestamp?: number;
+  engine_version?: string;
   error?: string;
 };
 
@@ -103,5 +151,21 @@ export const getLatest = (): Promise<LatestResult> =>
     if (!r.ok) throw new Error(`engine responded ${r.status}`);
     return r.json();
   });
+
+/** The populated (has-data) shape of the latest analysis. */
+export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
+
+/**
+ * The single canonical "is this model trustworthy" verdict. Every place the UI
+ * claims reliability (the dataset pill, the KPI sub-copy) must use this so the
+ * page never contradicts itself: the model is reliable only when the held-out
+ * correlation clears the floor AND its 95% CI excludes zero.
+ */
+export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
+  const rel = d.reliability;
+  if (rel) return rel.clears_floor && rel.ci_excludes_zero;
+  const ci = d.cv_ci95 ?? null;
+  return d.cv_spearman != null && ci != null && ci[0] > 0;
+}
 
 export { API };

@@ -1,4 +1,5 @@
 import { Tag } from "@/components/ui/card";
+import { num } from "@/lib/utils";
 
 type Row = { vals: number[]; mode: "explore" | "exploit"; reason: string };
 
@@ -15,27 +16,38 @@ export function Proposals<T extends Row>({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="tabular w-full border-collapse font-mono text-xs">
+      <table className="tabular w-full min-w-[620px] border-separate border-spacing-y-1 font-mono text-xs">
         <thead>
-          <tr className="text-[10px] tracking-wide text-muted uppercase">
-            <th className="border-b border-border px-2 py-1.5 text-left"></th>
+          <tr className="text-[10px] text-muted uppercase">
+            <th className="px-2 py-1.5 text-left"></th>
             {cols.map((c) => (
-              <th key={c} className="border-b border-border px-2 py-1.5 text-right">{c}</th>
+              <th key={c} className="px-2 py-1.5 text-right">
+                {c}
+              </th>
             ))}
-            <th className="border-b border-border px-2 py-1.5 text-right">{predHead}</th>
-            <th className="border-b border-border px-2 py-1.5 text-left">why</th>
+            <th className="px-2 py-1.5 text-right">{predHead}</th>
+            <th className="px-2 py-1.5 text-left">why</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i}>
-              <td className="border-b border-border/60 px-2 py-1.5 text-left text-muted">#{i + 1}</td>
+            <tr key={i} className="group">
+              <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-muted group-hover:bg-blue-soft">
+                #{i + 1}
+              </td>
               {r.vals.map((v, j) => (
-                <td key={j} className="border-b border-border/60 px-2 py-1.5 text-right">{v}</td>
+                <td key={j} className="border-y border-border/70 bg-card px-2 py-2 text-right group-hover:bg-blue-soft">
+                  {num(v, 2)}
+                </td>
               ))}
-              <td className="border-b border-border/60 px-2 py-1.5 text-right">{predFn(r)}</td>
-              <td className="border-b border-border/60 px-2 py-1.5 text-left">
-                <Tag mode={r.mode} /> <span className="text-muted">{r.reason}</span>
+              <td className="border-y border-border/70 bg-card px-2 py-2 text-right font-semibold text-fg group-hover:bg-blue-soft">
+                {predFn(r)}
+              </td>
+              <td className="rounded-r-xl border-y border-r border-border/70 bg-card px-2 py-2 text-left group-hover:bg-blue-soft">
+                <span className="inline-flex items-center gap-1.5">
+                  <Tag mode={r.mode} />
+                  <span className="text-muted">{r.reason}</span>
+                </span>
               </td>
             </tr>
           ))}

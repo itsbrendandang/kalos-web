@@ -8,6 +8,8 @@ import type { Project } from "@/app/voyager/data";
 import { Phase1View } from "./phase1-view";
 import { Phase2View } from "./phase2-view";
 import { LinkageTree } from "./linkage-tree";
+import { VoyagerModal, type ModalState } from "./modals";
+import { useVoyagerStore } from "./store-context";
 
 type Tab = "phase1" | "phase2" | "tree";
 
@@ -24,9 +26,27 @@ function subtitle(p: Project): string {
   }
 }
 
-export function ProjectWorkspace({ project }: { project: Project }) {
+export function ProjectWorkspace({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>(project.defaultTab);
+  const store = useVoyagerStore();
+  const project = store.getProject(projectId);
+  // Tab defaults from the project's own defaultTab; falls back to "phase1"
+  // for the render before the project resolves (see the guard below).
+  const [tab, setTab] = useState<Tab>(project?.defaultTab ?? "phase1");
+  const [modal, setModal] = useState<ModalState>(null);
+
+  if (!project) {
+    return (
+      <div>
+        <button className="bb" onClick={() => router.push("/voyager")}>
+          <ArrowLeft className="size-3" /> All projects
+        </button>
+        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
+          Project not found.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -48,7 +68,7 @@ export function ProjectWorkspace({ project }: { project: Project }) {
           <div className="mt-0.5 text-[12px] text-[color:var(--v-muted)]">{subtitle(project)}</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <button className="gbtn">
+          <button className="gbtn" onClick={() => setModal({ kind: "edit-project", project })}>
             <Pencil className="size-[11px]" /> Edit
           </button>
           {project.report ? (
@@ -76,6 +96,8 @@ export function ProjectWorkspace({ project }: { project: Project }) {
       {tab === "phase1" ? <Phase1View project={project} /> : null}
       {tab === "phase2" ? <Phase2View project={project} /> : null}
       {tab === "tree" && project.hasTree ? <LinkageTree variant={project.hasTree} /> : null}
+
+      <VoyagerModal state={modal} onClose={() => setModal(null)} />
     </div>
   );
 }

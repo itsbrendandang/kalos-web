@@ -2,14 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sparkles, FlaskConical, Database, type LucideIcon } from "lucide-react";
+import {
+  ClipboardList,
+  Database,
+  FlaskConical,
+  FolderKanban,
+  LayoutDashboard,
+  LayoutGrid,
+  Sparkles,
+  TestTubes,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/optimize", label: "Optimize", icon: Sparkles },
-  { href: "/analyze", label: "Analyze", icon: FlaskConical },
-  { href: "/data", label: "Data", icon: Database },
+const NAV: { href: string; label: string; short: string; helper: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Dashboard", short: "Home", helper: "Results summary", icon: LayoutDashboard },
+  { href: "/analyze", label: "Run analysis", short: "Analyze", helper: "Upload run sheet", icon: FlaskConical },
+  { href: "/optimize", label: "Optimize", short: "Optimize", helper: "Next experiments", icon: Sparkles },
+  { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
+  { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
+  { href: "/voyager", label: "Projects", short: "Projects", helper: "Customer runs", icon: FolderKanban },
+  { href: "/data", label: "Data room", short: "Data", helper: "Registry", icon: Database },
 ];
 
 function Leaf({ size = 22 }: { size?: number }) {
@@ -23,15 +36,22 @@ function Leaf({ size = 22 }: { size?: number }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
-  // The Voyager product surface carries its own chrome (see app/voyager/layout.tsx),
-  // so the optimizer sidebar is bypassed for those routes.
-  if (path.startsWith("/voyager")) return <>{children}</>;
+  // The Voyager product surface (app/voyager/layout.tsx) brings its own inner
+  // max-width/padding wrapper (`.voyager-root`), so the shell's content
+  // container is skipped there to avoid double padding - the sidebar/top nav
+  // chrome below is shared by every route, Voyager included.
+  const isVoyager = path.startsWith("/voyager");
   return (
-    <div className="flex min-h-svh">
-      <aside className="flex w-56 shrink-0 flex-col bg-sidebar px-3 py-5 max-md:hidden">
+    <div className="flex min-h-svh bg-bg">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card px-3 py-5 max-md:hidden">
         <div className="mb-7 flex items-center gap-2.5 px-2">
-          <Leaf />
-          <span className="font-head text-[17px] font-bold text-white">Kalos</span>
+          <span className="grid size-9 place-items-center rounded-xl bg-accent">
+            <Leaf />
+          </span>
+          <div>
+            <div className="font-head text-[17px] font-bold text-fg">Kalos</div>
+            <div className="text-[11px] text-muted">Client dashboard</div>
+          </div>
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map((n) => {
@@ -40,28 +60,68 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={n.href}
                 href={n.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[13px] transition-colors",
-                  active ? "bg-accent font-semibold text-white" : "text-white/60 hover:bg-white/10 hover:text-white",
+                  "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] transition-colors",
+                  active ? "border border-blue-border bg-accent-soft font-semibold text-accent-hover" : "border border-transparent text-muted hover:border-border hover:bg-blue-soft hover:text-fg",
                 )}
               >
                 <n.icon className="size-4 shrink-0" />
-                {n.label}
+                <span className="min-w-0">
+                  <span className="block">{n.label}</span>
+                  <span className={cn("block text-[11px] font-normal", active ? "text-accent-hover/75" : "text-muted")}>
+                    {n.helper}
+                  </span>
+                </span>
               </Link>
             );
           })}
         </nav>
-        <div className="mt-auto px-2 font-mono text-[10px] tracking-wide text-white/45">
-          powered by BoTorch + ESM-2
+
+        <div className="mt-auto rounded-2xl border border-border bg-blue-soft p-3">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-fg">
+            <ClipboardList className="size-3.5" />
+            Typical workflow
+          </div>
+          <div className="space-y-1.5 text-[11px] text-muted">
+            <div>1. Upload run sheet</div>
+            <div>2. Review model reliability</div>
+            <div>3. Select next experiments</div>
+          </div>
         </div>
       </aside>
 
       <main className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 border-b border-border px-5 py-3 md:hidden">
-          <Leaf size={20} />
-          <span className="font-head font-bold">Kalos</span>
+        <div className="sticky top-0 z-20 border-b border-border bg-card/95 px-4 py-3 backdrop-blur md:hidden">
+          <div className="mb-3 flex items-center gap-2">
+            <Leaf size={20} />
+            <span className="font-head font-bold">Kalos</span>
+          </div>
+          <nav className="grid grid-cols-7 gap-1">
+            {NAV.map((n) => {
+              const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+              return (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 text-center text-[9.5px] leading-none font-semibold transition-colors",
+                    active ? "bg-accent text-white" : "text-muted hover:bg-blue-soft hover:text-fg",
+                  )}
+                >
+                  <n.icon className="size-4 shrink-0" />
+                  <span className="w-full truncate">{n.short}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        <div className="mx-auto max-w-5xl px-6 py-8">{children}</div>
+        {isVoyager ? (
+          children
+        ) : (
+          <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 md:px-8 md:py-8">{children}</div>
+        )}
       </main>
     </div>
   );

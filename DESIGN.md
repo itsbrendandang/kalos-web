@@ -43,8 +43,9 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 | `--blue-hover-bg` | `#f4f6ff` | Hover background for ghost/ dashed controls |
 | `--accent` / `--accent-hover` / `--accent-soft` | alias `--blue` / `--blue-hover` / `--blue-tint` | Semantic accent, used throughout the optimizer surface (`bg-accent`, `text-accent-hover`, `bg-accent-soft`) |
 | `--explore` / `--explore-deep` / `--explore-soft` | `#9ca3af` / `#52525b` / `#ededed` | Neutral "exploratory" or secondary tone, kept distinct from the blue brand color so explore/exploit contrast stays legible on charts and tags |
-| `--green` / `--green-soft` | `#2e7d32` / `#e8f5e9` | Success / "promote" / "complete" states |
-| `--amber` / `--amber-soft` | `#e65100` / `#fff3e0` | Warning / "hold" states |
+| `--green` / `--green-soft` | `#1f7a34` / `#e8f5e9` | Success / "promote" / "complete" states. AA-checked, ~5.4:1 on white |
+| `--amber` / `--amber-soft` | `#9a5b00` / `#fff3e0` | Warning / "hold" states. AA-checked, ~5.4:1 on white |
+| `--red` | `#c0392b` | Fail / error status. AA-checked, ~4.6:1 on white |
 | `--sidebar` | `#0a1233` | Dark sidebar background (optimizer nav) |
 | `--grid` | `#e5e9f7` | Chart gridlines |
 | `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | Secondary / tertiary caption text on the Voyager surface. Both clear WCAG AA (>= 4.5:1) on white. They replaced low-opacity ink (`rgba(17,17,17,.3-.4)`), which read 2.3-2.6:1 and failed AA at caption sizes. Use these for muted text under `.voyager-root`, never a raw low-opacity ink. |
@@ -78,18 +79,15 @@ keeps its own "Live · engine" badge instead.
 
 Type:
 
-- Optimizer surface: Sora (`--font-sora`, headings) + Plus Jakarta Sans
-  (`--font-jakarta`, body) + JetBrains Mono (`--font-jbmono`, tabular/mono
-  data), all self-hosted via `next/font/google` in `app/layout.tsx`.
-- Voyager surface: Manrope (`--font-voyager`), self-hosted via
-  `next/font/google` in `app/voyager/layout.tsx`, standing in for Satoshi
-  (the original prototype's typeface). Satoshi font files are not checked
-  into this repo and were not downloaded from an unverified source, so
-  Manrope remains the typeface until real Satoshi font files are sourced and
-  added under version control. See the `TODO: self-host Satoshi` comment in
-  `app/voyager/layout.tsx` for the swap path (the exported `--font-voyager`
-  variable name should not change, so no other file needs to change when
-  Satoshi lands).
+- Satoshi is the single app-wide typeface, matching the Voyager v3 prototype.
+  It is self-hosted via `next/font/local` from the variable font under
+  `app/fonts/Satoshi-Variable.woff2` (Fontshare Font License, `SATOSHI-LICENSE.txt`
+  alongside it).
+- Optimizer surface: Satoshi drives both `--font-head` (headings) and
+  `--font-sans` (body) via `--font-satoshi` in `app/layout.tsx`; JetBrains Mono
+  (`--font-jbmono`, tabular/mono data) via `next/font/google`.
+- Voyager surface: Satoshi is exported as `--font-voyager` in
+  `app/voyager/layout.tsx`, so `voyager.css` needs no change.
 - Base sizes stay small and dense (11px-19px) across both surfaces, matching
   the original Voyager product screens: `10px` eyebrow/uppercase labels,
   `11px`-`13px` body and controls, `14px`-`19px` headings/titles, `26px`+

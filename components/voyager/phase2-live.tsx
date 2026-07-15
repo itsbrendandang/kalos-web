@@ -215,11 +215,10 @@ export function Phase2Live() {
   if (data == null && offline)
     return (
       <Notice>
-        Could not reach the engine. Start it in the <code className="font-mono">kalos</code> repo with{" "}
-        <code className="font-mono">python -m kalos.portal</code> (serves port 8050), then Refresh.
+        The analysis service is unavailable. Try Refresh again in a moment or contact Kalos support.
       </Notice>
     );
-  if (data == null) return <Notice>Scoring the latest dataset…</Notice>;
+  if (data == null) return <Notice>Scoring the latest dataset...</Notice>;
   if (!data.has_data)
     return <Notice>No dataset analyzed yet. Upload a run sheet on the optimizer&apos;s Analyze view, then return here.</Notice>;
 

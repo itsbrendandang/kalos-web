@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Building2, Pencil, Plus } from "lucide-react";
-import { CUSTOMERS, type Customer } from "./data";
+import type { Customer } from "./data";
 import { ProjectCard, AddProjectCard } from "@/components/voyager/project-card";
 import { VoyagerModal, type ModalState } from "@/components/voyager/modals";
+import { useVoyagerStore } from "@/components/voyager/store-context";
 
 export default function VoyagerProjectsPage() {
   const [modal, setModal] = useState<ModalState>(null);
+  const { customers } = useVoyagerStore();
 
   return (
     <div>
@@ -22,7 +24,7 @@ export default function VoyagerProjectsPage() {
         </button>
       </div>
 
-      {CUSTOMERS.map((c) => (
+      {customers.map((c) => (
         <CustomerSection key={c.id} customer={c} onModal={setModal} />
       ))}
 

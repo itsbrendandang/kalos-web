@@ -6,9 +6,9 @@ type Size = "default" | "sm";
 
 const variants: Record<Variant, string> = {
   default:
-    "bg-accent text-white shadow-[0_1px_2px_rgba(32,74,244,.25)] hover:bg-accent-hover",
-  outline: "border border-border bg-card hover:bg-bg",
-  ghost: "hover:bg-bg",
+    "border border-accent bg-accent text-white hover:border-accent-hover hover:bg-accent-hover",
+  outline: "border border-border bg-card text-fg hover:border-blue-border hover:bg-blue-soft",
+  ghost: "text-fg hover:bg-blue-soft",
 };
 const sizes: Record<Size, string> = {
   default: "h-9 px-4 text-[13px]",

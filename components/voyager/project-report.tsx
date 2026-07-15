@@ -3,7 +3,27 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, FileType, Table } from "lucide-react";
 import type { Project, ReportData } from "@/app/voyager/data";
+import { buildProjectReportCsv } from "@/lib/voyager-store";
 import { IllustrativeBanner } from "./illustrative-banner";
+import { useVoyagerStore } from "./store-context";
+
+function slugify(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "project";
+}
+
+/** Builds the CSV, triggers a real client-side download via a Blob + object URL, no upload/server involved. */
+function downloadReportCsv(project: Project) {
+  const csv = buildProjectReportCsv(project);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${slugify(project.name)}-report.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 const DECISION_CLASS = { promote: "pro", hold: "hld", retire: "ret" } as const;
 const DECISION_LABEL = { promote: "Promote", hold: "Hold", retire: "Retire" } as const;
@@ -50,10 +70,23 @@ function ScaleUpCurve({ points }: { points: ReportData["scaleUp"] }) {
   );
 }
 
-export function ProjectReport({ project }: { project: Project }) {
+export function ProjectReport({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const r = project.report;
-  if (!r) return null;
+  const store = useVoyagerStore();
+  const project = store.getProject(projectId);
+  const r = project?.report;
+  if (!project || !r) {
+    return (
+      <div>
+        <button className="bb" onClick={() => router.push("/voyager")}>
+          <ArrowLeft className="size-3" /> All projects
+        </button>
+        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
+          Report not found.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -72,10 +105,10 @@ export function ProjectReport({ project }: { project: Project }) {
           <h1 className="v-title">{project.name} · Final report</h1>
         </div>
         <div className="ml-auto flex gap-1.5">
-          <button className="rbtn">
+          <button className="rbtn" onClick={() => window.print()}>
             <FileType className="size-[11px]" /> Export PDF
           </button>
-          <button className="gbtn">
+          <button className="gbtn" onClick={() => downloadReportCsv(project)}>
             <Table className="size-[11px]" /> Export CSV
           </button>
         </div>

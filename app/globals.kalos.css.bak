@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+/*
+ * Kalos design system - unified blue token set, now with a shadcn-shaped
+ * semantic layer and a real dark mode.
+ *
+ * The whole app (optimizer surface + Voyager product surface) shares one
+ * source of truth for color, radius, and type. Tokens are defined once here
+ * and consumed via Tailwind v4's @theme inline, so every surface reads the
+ * same palette. See DESIGN.md at the repo root for the full rationale.
+ *
+ * Two token layers live side by side:
+ *  1. The original kalos tokens (--bg, --fg, --card, --muted, --border,
+ *     --blue*, --accent*, --explore*, --green/--amber/--red, --sidebar,
+ *     --grid). Every existing component already reads these, so their
+ *     *meaning* never changes - only their *value* flips in `.dark`.
+ *  2. The shadcn-standard semantic names (--background, --foreground,
+ *     --primary, --secondary, --popover, --destructive, --input, --ring,
+ *     --chart-1..5, --radius) for any component built or pulled in against
+ *     that convention going forward. Where a shadcn name is a pure synonym
+ *     for an existing kalos token (e.g. --primary = the kalos blue), it is
+ *     wired as an alias so both names always agree and dark mode only has
+ *     to be taught once.
+ */
+:root {
+  color-scheme: light;
+
+  /* Base surfaces */
+  --bg: #f6f8fc;
+  --card: #ffffff;
+  --fg: #101828;
+  --muted: #667085;
+  --border: #d9e2f2;
+
+  /* Blue scale (primary brand color, ported from the Voyager product surface) */
+  --blue: #204af4;
+  --blue-hover: #1434b5;
+  --blue-deep: #061c72;
+  --blue-soft: #f8faff;
+  --blue-tint: #eef1fe;
+  --blue-border: #c8d0fa;
+  --blue-hover-bg: #f4f6ff;
+
+  /* Semantic accent = blue everywhere in the app */
+  --accent: var(--blue);
+  --accent-hover: var(--blue-hover);
+  --accent-soft: var(--blue-tint);
+
+  /* Secondary "explore" tone (neutral gray, used for exploratory/low-emphasis states) */
+  --explore: #9ca3af;
+  --explore-deep: #52525b;
+  --explore-soft: #ededed;
+
+  /* Status - AA-checked against white (>=4.5:1): green 5.4:1, amber 5.4:1, red 4.6:1 */
+  --green: #1f7a34;
+  --green-soft: #e8f5e9;
+  --amber: #9a5b00;
+  --amber-soft: #fff3e0;
+  --red: #c0392b;
+
+  /* Chrome */
+  --sidebar: #0a1233;
+  --grid: #e5e9f7;
+
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  /*
+   * shadcn-standard semantic tokens (light). Most are aliases onto the
+   * tokens above so there is exactly one source of truth per color; the
+   * ones that are genuinely new surfaces get their own value.
+   *
+   * NOTE on --accent / --muted: stock shadcn defines `--accent` as a
+   * neutral hover-gray and `--muted` as a neutral surface color. This app
+   * already uses `--accent` (blue) and `--muted` (gray text, aliased above
+   * to `--muted-foreground` below) for load-bearing utilities across
+   * dozens of components (buttons, active nav, KPI heroes, status chips).
+   * Redefining those two identifiers to stock shadcn gray semantics would
+   * silently turn primary buttons and active nav gray app-wide, which
+   * contradicts "keep the kalos identity." So this app deliberately keeps
+   * `--accent` = blue and `--muted` = gray text, and does not introduce a
+   * second, differently-valued `--accent`/`--muted` surface color - a
+   * future shadcn-generated component that wants the stock neutral hover
+   * surface should reach for `--secondary` / `--secondary-foreground`
+   * instead, which are wired below with no naming collision.
+   */
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card-foreground: var(--fg);
+  --popover: var(--card);
+  --popover-foreground: var(--fg);
+
+  --primary: var(--blue);
+  --primary-foreground: #ffffff;
+
+  --secondary: #eef1f5;
+  --secondary-foreground: var(--fg);
+
+  --muted-foreground: var(--muted);
+
+  --destructive: var(--red);
+  --destructive-foreground: #ffffff;
+
+  --input: var(--border);
+  --ring: var(--primary);
+
+  /* Generic radius for shadcn-convention components. Kept separate from
+   * --radius-card / --radius-control (which drive the existing rounded-2xl
+   * / rounded-[10px] usage across the app) so this addition can't shift
+   * Tailwind's built-in rounded-sm/md/lg/xl scale under any existing
+   * component. */
+  --radius: 0.75rem;
+
+  /*
+   * CVD-safe single-hue blue ramp for multi-series charts, light -> dark,
+   * monotonically decreasing luminance. Anchored on the same three colors
+   * as the dashboard heat scale (components/dashboard/heat-scale.ts):
+   * --blue-tint -> --blue -> --blue-deep, so heatmaps and charts read as
+   * one system.
+   */
+  --chart-1: #b0bffb;
+  --chart-2: #5e7cf7;
+  --chart-3: #1d45e7;
+  --chart-4: #1333b3;
+  --chart-5: #09217f;
+}
+
+/*
+ * Dark mode. Toggled by adding `.dark` to <html> (see app/layout.tsx for the
+ * no-flash inline script and components/theme-toggle.tsx for the toggle).
+ * Every token whose *value* needs to change for a dark surface is
+ * overridden here; tokens that are pure aliases (e.g. --primary: var(--blue))
+ * automatically follow without repeating them.
+ */
+.dark {
+  color-scheme: dark;
+
+  --bg: #10141e;
+  --card: #161b29;
+  --fg: #eef1f7;
+  --muted: #9aa5ba;
+  --border: #262d40;
+
+  /* Blue nudged up in lightness so it stays vivid (and white button text
+   * stays >=4.5:1 AA) against the dark surfaces above; the original light
+   * blue becomes the hover/pressed shade, one step darker. */
+  --blue: #3259f5;
+  --blue-hover: #204af4;
+  --blue-deep: #8fb0ff;
+  --blue-soft: #141a2c;
+  --blue-tint: #1b2340;
+  --blue-border: #33406e;
+  --blue-hover-bg: #1a2036;
+
+  --explore-deep: #b6bcc9;
+  --explore-soft: #232733;
+
+  /* Status colors re-picked (not just lightened) so they clear >=4.5:1 AA
+   * against both --bg and --card here - verified 5.4-8.4:1, see DESIGN.md. */
+  --green: #34c77a;
+  --green-soft: #10301f;
+  --amber: #e0a530;
+  --amber-soft: #362408;
+  --red: #f16354;
+
+  --grid: #232a3d;
+
+  --secondary: #1c2233;
+
+  /* Same single-hue blue family, shifted lighter overall so the ramp still
+   * reads clearly against the dark bg/card surfaces above. */
+  --chart-1: #cddcff;
+  --chart-2: #9db8ff;
+  --chart-3: #6f92fa;
+  --chart-4: #3f66f2;
+  --chart-5: #2a50d1;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  --color-blue: var(--blue);
+  --color-blue-hover: var(--blue-hover);
+  --color-blue-deep: var(--blue-deep);
+  --color-blue-soft: var(--blue-soft);
+  --color-blue-tint: var(--blue-tint);
+  --color-blue-border: var(--blue-border);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-explore: var(--explore);
+  --color-explore-deep: var(--explore-deep);
+  --color-explore-soft: var(--explore-soft);
+
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
+
+  --color-sidebar: var(--sidebar);
+  --color-grid: var(--grid);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+
+  --font-head: var(--font-satoshi);
+  --font-sans: var(--font-satoshi);
+  --font-mono: var(--font-jbmono);
+
+  /* shadcn-standard semantic utilities (bg-primary, text-muted-foreground,
+   * bg-chart-1, etc.) - additive, none of these names were in use before
+   * this change. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-satoshi), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--blue-tint);
+  color: var(--blue-deep);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* No shadows anywhere in the kalos UI - flat surfaces only, borders carry
+ * separation instead of elevation. Belt-and-suspenders on top of removing
+ * shadow-* utilities from components: guarantees nothing (a third-party
+ * component, a browser default, a future PR) reintroduces one. */
+*,
+*::before,
+*::after {
+  box-shadow: none !important;
+}

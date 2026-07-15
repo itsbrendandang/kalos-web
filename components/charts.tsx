@@ -121,7 +121,7 @@ export function PredScatter({ oof }: { oof: [number, number][] }) {
         <YAxis type="number" dataKey="predicted" name="predicted" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("predicted", "y")} />
         <ReferenceLine segment={[{ x: lo, y: lo }, { x: hi, y: hi }]} stroke={GRAY} strokeDasharray="5 5" ifOverflow="extendDomain" />
         <Tooltip {...tip} cursor={{ strokeDasharray: "3 3", stroke: GRID }} />
-        <Scatter data={data} fill={ACCENT} isAnimationActive={false} />
+        <Scatter data={data} fill={ACCENT} fillOpacity={0.4} stroke={ACCENT} strokeOpacity={0.55} strokeWidth={0.5} isAnimationActive={false} />
       </ScatterChart>
     </ResponsiveContainer>
   );

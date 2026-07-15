@@ -61,7 +61,7 @@ export function TargetDistribution({ d }: { d: PopulatedResult }) {
       </p>
 
       <div className="mt-3 flex flex-1 flex-col rounded-[10px] border border-border bg-bg p-3">
-        <div className="min-h-[160px] flex-1">
+        <div className="h-[200px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />

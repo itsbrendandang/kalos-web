@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV: { href: string; label: string; short: string; helper: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", short: "Home", helper: "Results summary", icon: LayoutDashboard },
@@ -50,10 +51,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="grid size-9 place-items-center rounded-xl bg-accent">
             <Leaf />
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="font-head text-[17px] font-bold text-fg">Kalos</div>
             <div className="text-[11px] text-muted">Client dashboard</div>
           </div>
+          <ThemeToggle />
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map((n) => {
@@ -98,6 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mb-3 flex items-center gap-2">
             <Leaf size={20} />
             <span className="font-head font-bold">Kalos</span>
+            <ThemeToggle className="ml-auto" />
           </div>
           <nav className="grid grid-cols-8 gap-1">
             {NAV.map((n) => {

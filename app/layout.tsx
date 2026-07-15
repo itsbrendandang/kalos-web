@@ -20,9 +20,22 @@ export const metadata: Metadata = {
   description: "Bayesian optimization for bioprocess development",
 };
 
+// Sets `dark` on <html> before first paint, based on a saved preference or
+// the OS setting, so there is no flash of the wrong theme. Runs
+// synchronously as the browser parses <head>, ahead of hydration - see
+// node_modules/next/dist/docs/01-app/02-guides/preventing-flash-before-hydration.md.
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark")}catch(e){}})()`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${satoshi.variable} ${jbmono.variable} antialiased`}>
+    <html
+      lang="en"
+      className={`${satoshi.variable} ${jbmono.variable} antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
+      </head>
       <body>
         <AppShell>{children}</AppShell>
       </body>

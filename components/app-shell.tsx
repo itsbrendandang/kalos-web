@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   ClipboardList,
   Database,
   FlaskConical,
@@ -18,7 +19,8 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV: { href: string; label: string; short: string; helper: string; icon: LucideIcon }[] = [
-  { href: "/", label: "Dashboard", short: "Home", helper: "Results summary", icon: LayoutDashboard },
+  { href: "/", label: "Operations", short: "Ops", helper: "Live experiments", icon: Activity },
+  { href: "/results", label: "Results", short: "Results", helper: "Model + analysis", icon: LayoutDashboard },
   { href: "/analyze", label: "Run analysis", short: "Analyze", helper: "Upload run sheet", icon: FlaskConical },
   { href: "/experiments", label: "Experiments", short: "Experiments", helper: "Portal run queue", icon: ListChecks },
   { href: "/optimize", label: "Optimize", short: "Optimize", helper: "Next experiments", icon: Sparkles },

@@ -68,6 +68,17 @@ customers/projects API, so these screens are illustrative and do not call it;
 the types are shaped so a real API can drop in without touching the views.
 The completed-projects home variant is not yet wired.
 
+## Planning
+
+`/planning` is a Kanban board for experiment/planning tasks moving through
+To Do → Draft → In Progress → Review Requested → Completed, with a Table
+view (the same tasks grouped by column) and a Gantt view stub ("coming
+soon"). Cards drag between columns via native HTML5 drag-and-drop (no added
+dependency); a lightweight inline input adds a new card to a column without
+a modal. Task data is a static mock in `lib/mock/planning.ts`, pending a
+real task/experiment-status source - swap that module for a real client the
+same way `lib/experiments.ts` already does for the Experiments surface.
+
 ## Run it
 
 The engine API must be running first (in the `kalos` repo):

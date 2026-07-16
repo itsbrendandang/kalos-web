@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   ListChecks,
   Sparkles,
+  SquareKanban,
   TestTubes,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const NAV: { href: string; label: string; short: string; helper: string; icon: L
   { href: "/results", label: "Results", short: "Results", helper: "Model + analysis", icon: LayoutDashboard },
   { href: "/analyze", label: "Run analysis", short: "Analyze", helper: "Upload run sheet", icon: FlaskConical },
   { href: "/experiments", label: "Experiments", short: "Experiments", helper: "Portal run queue", icon: ListChecks },
+  { href: "/planning", label: "Planning", short: "Plan", helper: "Kanban board", icon: SquareKanban },
   { href: "/optimize", label: "Optimize", short: "Optimize", helper: "Next experiments", icon: Sparkles },
   { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
   { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },

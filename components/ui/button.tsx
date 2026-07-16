@@ -6,7 +6,7 @@ type Size = "default" | "sm";
 
 const variants: Record<Variant, string> = {
   default:
-    "border border-accent bg-accent text-white hover:border-accent-hover hover:bg-accent-hover",
+    "border border-accent bg-accent text-[color:var(--primary-foreground)] hover:border-accent-hover hover:bg-accent-hover",
   outline: "border border-border bg-card text-fg hover:border-blue-border hover:bg-blue-soft",
   ghost: "text-fg hover:bg-blue-soft",
 };

@@ -31,8 +31,8 @@ const NAV: { href: string; label: string; short: string; helper: string; icon: L
 function Leaf({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 21c0-5 0-7-3-10S4 7 4 7s4 1 6 3 2 5 2 5z" fill="var(--blue-border)" />
-      <path d="M12 21c0-4 1-6 3.5-8.5S20 9 20 9s-1 4-3.5 6.5S12 21 12 21z" fill="#ffffff" />
+      <path d="M12 21c0-5 0-7-3-10S4 7 4 7s4 1 6 3 2 5 2 5z" fill="var(--primary-foreground)" opacity="0.7" />
+      <path d="M12 21c0-4 1-6 3.5-8.5S20 9 20 9s-1 4-3.5 6.5S12 21 12 21z" fill="var(--primary-foreground)" />
     </svg>
   );
 }
@@ -112,7 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 text-center text-[9.5px] leading-none font-semibold transition-colors",
-                    active ? "bg-accent text-white" : "text-muted hover:bg-blue-soft hover:text-fg",
+                    active ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:bg-blue-soft hover:text-fg",
                   )}
                 >
                   <n.icon className="size-4 shrink-0" />

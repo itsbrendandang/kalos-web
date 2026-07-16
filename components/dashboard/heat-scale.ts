@@ -1,12 +1,19 @@
 /**
  * Shared color ramps for the dashboard heat visuals (run landscape, response
- * surface, correlation), built on the blue tokens in DESIGN.md / app/globals.css.
- * Interpolation needs literal RGB because CSS custom properties can't be mixed
- * numerically in JS - keep these in sync if the tokens ever change.
+ * surface, correlation), built on the --chart-1 data-viz token in
+ * DESIGN.md / app/globals.css. Interpolation needs literal RGB because CSS
+ * custom properties can't be mixed numerically in JS - keep these in sync if
+ * the tokens ever change.
+ *
+ * 2026-07-16: the shadcn neutral migration took brand CHROME (--blue/--accent)
+ * to grayscale, but data visualizations intentionally keep color - these
+ * ramps are anchored on --chart-1 (indigo, oklch(0.652 0.124 284.594)) rather
+ * than the old brand blue, so heatmaps/kinetics/UMAP stay colored and legible
+ * instead of turning monochrome along with the chrome.
  */
-const BLUE_TINT: [number, number, number] = [238, 241, 254]; // --blue-tint
-const BLUE: [number, number, number] = [32, 74, 244]; // --blue
-const BLUE_DEEP: [number, number, number] = [6, 28, 114]; // --blue-deep
+const BLUE_TINT: [number, number, number] = [236, 237, 252]; // light tint of --chart-1's hue
+const BLUE: [number, number, number] = [136, 132, 216]; // --chart-1
+const BLUE_DEEP: [number, number, number] = [47, 38, 103]; // deep shade of --chart-1's hue
 const GRAY: [number, number, number] = [82, 82, 91]; // --explore-deep
 const WHITE: [number, number, number] = [255, 255, 255];
 

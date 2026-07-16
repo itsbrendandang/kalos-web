@@ -37,16 +37,16 @@ export function Kpi({
           : "border-border bg-blue-soft",
       )}
     >
-      <div className={cn("text-[11px] font-medium", hero ? "text-white" : "text-muted")}>{label}</div>
+      <div className={cn("text-[11px] font-medium", hero ? "text-[color:var(--primary-foreground)]" : "text-muted")}>{label}</div>
       <div
         className={cn(
           "tabular mt-1.5 font-mono text-[23px] leading-none font-semibold",
-          hero ? "text-white" : "text-fg",
+          hero ? "text-[color:var(--primary-foreground)]" : "text-fg",
         )}
       >
         {value}
       </div>
-      {hint ? <div className={cn("mt-0.5 text-[11px]", hero ? "text-white/85" : "text-muted")}>{hint}</div> : null}
+      {hint ? <div className={cn("mt-0.5 text-[11px]", hero ? "text-[color:var(--primary-foreground)]/85" : "text-muted")}>{hint}</div> : null}
     </div>
   );
 }
@@ -89,7 +89,7 @@ export function Tag({ mode }: { mode: "explore" | "exploit" }) {
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-        mode === "exploit" ? "bg-accent text-white" : "bg-explore-soft text-explore-deep ring-1 ring-border",
+        mode === "exploit" ? "bg-accent text-[color:var(--primary-foreground)]" : "bg-explore-soft text-explore-deep ring-1 ring-border",
       )}
     >
       {mode}

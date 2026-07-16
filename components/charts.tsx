@@ -10,17 +10,23 @@ import { fmt } from "@/lib/utils";
 const fmtTick = (v: number) => fmt(v, 1);
 
 /**
- * Shared recharts theme, driven by the app-wide blue design tokens
+ * Shared recharts theme, driven by the app-wide design tokens
  * (app/globals.css). Every chart on every surface reads from this object so
  * series color, grid, axis, and tooltip styling stay in sync across the app.
  * See DESIGN.md for the token reference.
+ *
+ * `series` intentionally points at --chart-1 (a colored data-viz token), not
+ * the neutral --blue/--accent chrome color: the 2026-07-16 shadcn neutral
+ * migration took the brand chrome to grayscale but kept data visualization
+ * colored, so series stay distinguishable from `seriesDown` (--explore,
+ * neutral gray) instead of collapsing into black-vs-gray.
  */
 export const CHART_THEME = {
-  series: "var(--blue)",
+  series: "var(--chart-1)",
   seriesDown: "var(--explore)",
   grid: "var(--grid)",
   axis: "var(--muted)",
-  hoverCursor: "rgba(32, 74, 244, 0.06)",
+  hoverCursor: "color-mix(in oklch, var(--chart-1) 6%, transparent)",
   tooltip: {
     border: "var(--border)",
     background: "var(--card)",

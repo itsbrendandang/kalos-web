@@ -2,8 +2,11 @@ import { cn } from "@/lib/utils";
 
 /**
  * Signed horizontal tornado for `drivers[]` (see lib/api.ts). Bars grow from
- * a shared center axis at 0: blue bars are associated with higher `target`,
- * gray ("explore" tone) bars with lower - a correlation, not a causal claim.
+ * a shared center axis at 0: chart-1-colored bars are associated with higher
+ * `target`, gray ("explore" tone) bars with lower - a correlation, not a
+ * causal claim. Uses --chart-1 (a colored data-viz token) rather than the
+ * now-neutral --accent so the two directions stay visually distinguishable
+ * post the shadcn neutral chrome migration.
  * The axis scale is derived from the data (max |rho| * 1.15), not hardcoded,
  * so it stays correct for any dataset the engine returns.
  */
@@ -29,7 +32,7 @@ export function DriversTornado({
         </span>
         <div className="flex items-center gap-3 text-[11px] whitespace-nowrap text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-3 rounded-sm bg-accent" />
+            <span className="inline-block h-2 w-3 rounded-sm bg-chart-1" />
             Higher {target}
           </span>
           <span className="flex items-center gap-1.5">
@@ -53,14 +56,14 @@ export function DriversTornado({
                 <div
                   className={cn(
                     "absolute top-1/2 h-2.5 -translate-y-1/2",
-                    positive ? "left-1/2 rounded-r-[4px] bg-accent" : "right-1/2 rounded-l-[4px] bg-explore",
+                    positive ? "left-1/2 rounded-r-[4px] bg-chart-1" : "right-1/2 rounded-l-[4px] bg-explore",
                   )}
                   style={{ width: `${pct}%` }}
                 />
                 <div
                   className={cn(
                     "tabular absolute top-1/2 -translate-y-1/2 font-mono text-[11px] whitespace-nowrap",
-                    positive ? "text-accent-text" : "text-explore-deep",
+                    positive ? "text-chart-1-ink" : "text-explore-deep",
                   )}
                   style={positive ? { left: `calc(50% + ${pct}% + 6px)` } : { right: `calc(50% + ${pct}% + 6px)` }}
                 >

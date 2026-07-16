@@ -19,7 +19,7 @@ import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { cn, fmt, num } from "@/lib/utils";
 
 const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-white transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
+  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 function ago(ts?: number) {
   if (!ts) return "";

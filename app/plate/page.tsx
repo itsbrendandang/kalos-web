@@ -52,7 +52,7 @@ export default function PlatePage() {
                   onClick={() => setActivePlate(p)}
                   className={cn(
                     "rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
-                    activePlate === p ? "bg-accent text-white" : "text-muted hover:text-fg",
+                    activePlate === p ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:text-fg",
                   )}
                 >
                   Plate {p === "1" ? "01" : "02"}

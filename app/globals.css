@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 /*
- * Kalos design system - unified blue token set, now with a shadcn-shaped
- * semantic layer and a real dark mode.
+ * Kalos design system - stock shadcn NEUTRAL grayscale chrome, with a
+ * shadcn-shaped semantic layer and a real dark mode.
+ *
+ * 2026-07-16: migrated off the kalos blue brand to the stock shadcn
+ * "neutral" palette (see the shadcn oklch values below). CHROME (buttons,
+ * nav, borders, surfaces, the --blue/--accent* family) is now fully
+ * achromatic. DATA (--chart-1..5, and the sequential/diverging ramps in
+ * components/dashboard/heat-scale.ts) intentionally keeps color - only the
+ * brand identity went gray, not the data visualizations.
  *
  * The whole app (optimizer surface + Voyager product surface) shares one
  * source of truth for color, radius, and type. Tokens are defined once here
@@ -13,60 +20,67 @@
  *  1. The original kalos tokens (--bg, --fg, --card, --muted, --border,
  *     --blue*, --accent*, --explore*, --green/--amber/--red, --sidebar,
  *     --grid). Every existing component already reads these, so their
- *     *meaning* never changes - only their *value* flips in `.dark`.
+ *     *meaning* never changes - only their *value* flips in `.dark`. The
+ *     --blue* family is kept as a name for backward compatibility with
+ *     every component that reads it, but its *value* is now the neutral
+ *     shadcn --primary gray, not a hue.
  *  2. The shadcn-standard semantic names (--background, --foreground,
  *     --primary, --secondary, --popover, --destructive, --input, --ring,
  *     --chart-1..5, --radius) for any component built or pulled in against
  *     that convention going forward. Where a shadcn name is a pure synonym
- *     for an existing kalos token (e.g. --primary = the kalos blue), it is
+ *     for an existing kalos token (e.g. --primary = the kalos "blue"), it is
  *     wired as an alias so both names always agree and dark mode only has
  *     to be taught once.
  */
 :root {
   color-scheme: light;
 
-  /* Base surfaces */
-  --bg: #f6f8fc;
-  --card: #ffffff;
-  --fg: #101828;
-  --muted: #667085;
-  --border: #d9e2f2;
+  /* Base surfaces. --bg is a hair off stock shadcn's pure-white background
+   * (oklch(1 0 0)) so that nested `bg-bg` panels stay visible against
+   * `bg-card` (which stays pure white) - --card carries the stock value. */
+  --bg: oklch(0.985 0 0);
+  --card: oklch(1 0 0);
+  --fg: oklch(0.145 0 0);
+  --muted: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
 
-  /* Blue scale (primary brand color, ported from the Voyager product surface) */
-  --blue: #204af4;
-  --blue-hover: #1434b5;
-  --blue-deep: #061c72;
-  --blue-soft: #f8faff;
-  --blue-tint: #eef1fe;
-  --blue-border: #c8d0fa;
-  --blue-hover-bg: #f4f6ff;
+  /* "Blue" scale - kept as a token name for backward compatibility, but its
+   * value is now the neutral shadcn --primary gray (near-black), not a hue. */
+  --blue: oklch(0.205 0 0);
+  --blue-hover: oklch(0.145 0 0);
+  --blue-deep: oklch(0.205 0 0);
+  --blue-soft: oklch(0.97 0 0);
+  --blue-tint: oklch(0.97 0 0);
+  --blue-border: oklch(0.922 0 0);
+  --blue-hover-bg: oklch(0.97 0 0);
 
-  /* Semantic accent = blue everywhere in the app */
+  /* Semantic accent = the neutral "blue" everywhere in the app */
   --accent: var(--blue);
   --accent-hover: var(--blue-hover);
   --accent-soft: var(--blue-tint);
   /* Accent-colored TEXT/icons on page/card/tint surfaces. Split from
    * --accent-hover (which is the interactive-fill hover BACKGROUND, and must
-   * hold white text) because in dark mode no single blue can both read as text
-   * on a dark surface AND carry white text as a fill. In light mode this equals
-   * the old accent-hover value, so the light theme is unchanged. */
-  --accent-text: var(--blue-hover);
+   * hold white text) because in dark mode no single neutral can both read as
+   * text on a dark surface AND carry white text as a fill. */
+  --accent-text: oklch(0.205 0 0);
 
   /* Secondary "explore" tone (neutral gray, used for exploratory/low-emphasis states) */
   --explore: #9ca3af;
   --explore-deep: #52525b;
   --explore-soft: #ededed;
 
-  /* Status - AA-checked against white (>=4.5:1): green 5.4:1, amber 5.4:1, red 4.6:1 */
+  /* Status - AA-checked against white (>=4.5:1): green 5.4:1, amber 5.4:1, red 4.6:1
+   * Unchanged by the neutral migration - status colors carry meaning. */
   --green: #1f7a34;
   --green-soft: #e8f5e9;
   --amber: #9a5b00;
   --amber-soft: #fff3e0;
   --red: #c0392b;
 
-  /* Chrome */
-  --sidebar: #0a1233;
-  --grid: #e5e9f7;
+  /* Chrome. --sidebar has no live consumer today (the sidebar chrome uses
+   * bg-card directly) - kept neutral in step with --bg for when it is. */
+  --sidebar: oklch(0.985 0 0);
+  --grid: oklch(0.922 0 0);
 
   --radius-card: 16px;
   --radius-control: 10px;
@@ -78,16 +92,13 @@
    *
    * NOTE on --accent / --muted: stock shadcn defines `--accent` as a
    * neutral hover-gray and `--muted` as a neutral surface color. This app
-   * already uses `--accent` (blue) and `--muted` (gray text, aliased above
-   * to `--muted-foreground` below) for load-bearing utilities across
-   * dozens of components (buttons, active nav, KPI heroes, status chips).
-   * Redefining those two identifiers to stock shadcn gray semantics would
-   * silently turn primary buttons and active nav gray app-wide, which
-   * contradicts "keep the kalos identity." So this app deliberately keeps
-   * `--accent` = blue and `--muted` = gray text, and does not introduce a
-   * second, differently-valued `--accent`/`--muted` surface color - a
-   * future shadcn-generated component that wants the stock neutral hover
-   * surface should reach for `--secondary` / `--secondary-foreground`
+   * already uses `--accent` (now neutral) and `--muted` (gray text, aliased
+   * above to `--muted-foreground` below) for load-bearing utilities across
+   * dozens of components (buttons, active nav, KPI heroes, status chips), so
+   * it keeps those two identifiers with their existing meaning rather than
+   * introducing a second, differently-valued `--accent`/`--muted` surface
+   * color - a future shadcn-generated component that wants the stock neutral
+   * hover surface should reach for `--secondary` / `--secondary-foreground`
    * instead, which are wired below with no naming collision.
    */
   --background: var(--bg);
@@ -97,18 +108,20 @@
   --popover-foreground: var(--fg);
 
   --primary: var(--blue);
-  --primary-foreground: #ffffff;
+  --primary-foreground: oklch(0.985 0 0);
 
-  --secondary: #eef1f5;
+  --secondary: oklch(0.97 0 0);
   --secondary-foreground: var(--fg);
 
   --muted-foreground: var(--muted);
 
-  --destructive: var(--red);
-  --destructive-foreground: #ffffff;
+  /* Stock shadcn destructive red - independent of the kalos --red status
+   * token above, which stays exactly as it was. */
+  --destructive: oklch(0.637 0.208 25.331);
+  --destructive-foreground: oklch(0.985 0 0);
 
   --input: var(--border);
-  --ring: var(--primary);
+  --ring: oklch(0.87 0 0);
 
   /* Generic radius for shadcn-convention components. Kept separate from
    * --radius-card / --radius-control (which drive the existing rounded-2xl
@@ -118,17 +131,22 @@
   --radius: 0.75rem;
 
   /*
-   * CVD-safe single-hue blue ramp for multi-series charts, light -> dark,
-   * monotonically decreasing luminance. Anchored on the same three colors
-   * as the dashboard heat scale (components/dashboard/heat-scale.ts):
-   * --blue-tint -> --blue -> --blue-deep, so heatmaps and charts read as
-   * one system.
+   * Stock shadcn colored chart palette for multi-series/categorical data viz
+   * (recharts series, donut segments, etc.). Deliberately NOT neutralized -
+   * only the brand chrome went gray, data keeps color so series stay
+   * distinguishable. Same 5 hues in light and dark (not overridden below).
    */
-  --chart-1: #b0bffb;
-  --chart-2: #5e7cf7;
-  --chart-3: #1d45e7;
-  --chart-4: #1333b3;
-  --chart-5: #09217f;
+  --chart-1: oklch(0.652 0.124 284.594);
+  --chart-2: oklch(0.779 0.097 155.935);
+  --chart-3: oklch(0.858 0.141 81.233);
+  --chart-4: oklch(0.738 0.16 21.742);
+  --chart-5: oklch(0.821 0.072 214.103);
+
+  /* --chart-1 as a text/ink color (same hue, darkened) - --chart-1 itself
+   * only clears ~3.3:1 against white/--card, which is fine for a bar fill
+   * but fails AA for text. Used where a chart-1-colored series needs a
+   * legible label (e.g. the drivers tornado's "higher target" values). */
+  --chart-1-ink: oklch(0.42 0.14 284.594);
 }
 
 /*
@@ -136,56 +154,65 @@
  * no-flash inline script and components/theme-toggle.tsx for the toggle).
  * Every token whose *value* needs to change for a dark surface is
  * overridden here; tokens that are pure aliases (e.g. --primary: var(--blue))
- * automatically follow without repeating them.
+ * automatically follow without repeating them. --chart-1..5 are not
+ * overridden - they use the same colored values in both modes.
  */
 .dark {
   color-scheme: dark;
 
-  --bg: #10141e;
-  --card: #161b29;
-  --fg: #eef1f7;
-  --muted: #9aa5ba;
-  --border: #262d40;
+  --bg: oklch(0.145 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --fg: oklch(0.985 0 0);
+  --muted: oklch(0.712 0.013 286.067);
+  --border: oklch(0.274 0.005 286.033);
 
-  /* Blue nudged up in lightness so it stays vivid (and white button text
-   * stays >=4.5:1 AA) against the dark surfaces above; the original light
-   * blue becomes the hover/pressed shade, one step darker. */
-  --blue: #3259f5;
-  --blue-hover: #204af4;
-  --blue-deep: #8fb0ff;
-  --blue-soft: #141a2c;
-  --blue-tint: #1b2340;
-  --blue-border: #33406e;
-  --blue-hover-bg: #1a2036;
+  /* "Blue" flips to near-white (the neutral shadcn --primary in dark mode);
+   * hover is one step down. */
+  --blue: oklch(0.985 0 0);
+  --blue-hover: oklch(0.922 0 0);
+  --blue-deep: oklch(0.985 0 0);
+  --blue-soft: oklch(0.274 0.005 286.033);
+  --blue-tint: oklch(0.274 0.005 286.033);
+  --blue-border: oklch(0.274 0.005 286.033);
+  --blue-hover-bg: oklch(0.274 0.005 286.033);
 
-  /* Accent text decoupled from --accent-hover in dark mode: the hover fill
-   * (#204af4) reads white text at 6.27:1 but fails as text on the dark
-   * surfaces (2.5-2.9:1). This lighter brand blue clears AA everywhere it is
-   * used as text - >=5.36:1 on --bg/--card/--blue-tint (active-nav tint). */
-  --accent-text: #6f93ff;
+  /* Critical for the button-text contract: the fill (--blue/--primary) is
+   * near-white in dark mode, so its "on-fill" text/icon color must flip to
+   * near-black here, or hardcoded-white button labels (now routed through
+   * --primary-foreground) would be invisible against it.
+   * Hex, not oklch(0.205 0 0): that exact oklch triple collided with other
+   * tokens' oklch(0.985 0 0) light value during the build's light-dark()
+   * folding pass and silently vanished from the compiled .dark rule (verified
+   * by inspecting the built CSS directly) - hex sidesteps the collision.
+   * Same color as --primary/--blue's light-mode value (oklch(0.205 0 0)). */
+  --primary-foreground: #171717;
+
+  /* Accent text decoupled from --accent-hover in dark mode, same rationale
+   * as before: the hover fill is a light gray fill color, which can't also
+   * double as legible text on the dark page/card surfaces. */
+  --accent-text: oklch(0.985 0 0);
 
   --explore-deep: #b6bcc9;
   --explore-soft: #232733;
 
   /* Status colors re-picked (not just lightened) so they clear >=4.5:1 AA
-   * against both --bg and --card here - verified 5.4-8.4:1, see DESIGN.md. */
+   * against both --bg and --card here - verified 5.4-8.4:1, see DESIGN.md.
+   * Unchanged by the neutral migration. */
   --green: #34c77a;
   --green-soft: #10301f;
   --amber: #e0a530;
   --amber-soft: #362408;
   --red: #f16354;
 
-  --grid: #232a3d;
+  --grid: oklch(0.274 0.005 286.033);
 
-  --secondary: #1c2233;
+  --sidebar: oklch(0.21 0.006 285.885);
 
-  /* Same single-hue blue family, shifted lighter overall so the ramp still
-   * reads clearly against the dark bg/card surfaces above. */
-  --chart-1: #cddcff;
-  --chart-2: #9db8ff;
-  --chart-3: #6f92fa;
-  --chart-4: #3f66f2;
-  --chart-5: #2a50d1;
+  --secondary: oklch(0.274 0.005 286.033);
+
+  --ring: oklch(0.37 0.012 285.805);
+
+  --chart-1-ink: oklch(0.82 0.1 284.594);
 }
 
 @theme inline {
@@ -250,6 +277,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-1-ink: var(--chart-1-ink);
 }
 
 body {

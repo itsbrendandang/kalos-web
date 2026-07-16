@@ -1,3 +1,5 @@
+import { Loader2 } from "lucide-react";
+
 export function PageHeader({
   eyebrow,
   title,
@@ -29,6 +31,15 @@ export function DemoBadge() {
   );
 }
 
-export function Loading() {
-  return <div className="py-10 text-center font-mono text-xs text-muted">Running analysis...</div>;
+export function Loading({ label = "Running analysis" }: { label?: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center justify-center gap-2 py-10 font-mono text-xs text-muted"
+    >
+      <Loader2 className="size-3.5 shrink-0 animate-spin text-accent-text" aria-hidden />
+      <span>{label}…</span>
+    </div>
+  );
 }

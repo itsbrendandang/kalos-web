@@ -45,6 +45,12 @@
   --accent: var(--blue);
   --accent-hover: var(--blue-hover);
   --accent-soft: var(--blue-tint);
+  /* Accent-colored TEXT/icons on page/card/tint surfaces. Split from
+   * --accent-hover (which is the interactive-fill hover BACKGROUND, and must
+   * hold white text) because in dark mode no single blue can both read as text
+   * on a dark surface AND carry white text as a fill. In light mode this equals
+   * the old accent-hover value, so the light theme is unchanged. */
+  --accent-text: var(--blue-hover);
 
   /* Secondary "explore" tone (neutral gray, used for exploratory/low-emphasis states) */
   --explore: #9ca3af;
@@ -152,6 +158,12 @@
   --blue-border: #33406e;
   --blue-hover-bg: #1a2036;
 
+  /* Accent text decoupled from --accent-hover in dark mode: the hover fill
+   * (#204af4) reads white text at 6.27:1 but fails as text on the dark
+   * surfaces (2.5-2.9:1). This lighter brand blue clears AA everywhere it is
+   * used as text - >=5.36:1 on --bg/--card/--blue-tint (active-nav tint). */
+  --accent-text: #6f93ff;
+
   --explore-deep: #b6bcc9;
   --explore-soft: #232733;
 
@@ -193,6 +205,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
 
   --color-explore: var(--explore);
   --color-explore-deep: var(--explore-deep);

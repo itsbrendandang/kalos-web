@@ -67,13 +67,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] transition-colors",
-                  active ? "border border-blue-border bg-accent-soft font-semibold text-accent-hover" : "border border-transparent text-muted hover:border-border hover:bg-blue-soft hover:text-fg",
+                  active ? "border border-blue-border bg-accent-soft font-semibold text-accent-text" : "border border-transparent text-muted hover:border-border hover:bg-blue-soft hover:text-fg",
                 )}
               >
                 <n.icon className="size-4 shrink-0" />
                 <span className="min-w-0">
                   <span className="block">{n.label}</span>
-                  <span className={cn("block text-[11px] font-normal", active ? "text-accent-hover/75" : "text-muted")}>
+                  <span className={cn("block text-[11px] font-normal", active ? "text-accent-text" : "text-muted")}>
                     {n.helper}
                   </span>
                 </span>

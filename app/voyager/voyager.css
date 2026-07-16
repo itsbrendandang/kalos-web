@@ -43,7 +43,12 @@
   --b5: var(--v-blue);
   --b7: var(--v-blue-7-text);
   --b9: var(--v-blue-9);
-  --bg: var(--v-bg);
+  /* NOTE: do NOT re-alias --bg here. `--v-bg: var(--bg)` above already captures
+     the app's page background; adding `--bg: var(--v-bg)` created a cycle
+     (--bg -> --v-bg -> --bg) that CSS resolves to an invalid value, so every
+     `background: var(--bg)` in the rules below rendered transparent (the
+     add-project modal was an invisible panel). Letting --bg inherit the global
+     token fixes all of them. */
   --sf: var(--v-surface);
 
   /* Status tones (reliability banners, exploit/explore chips, warnings) */
@@ -1259,7 +1264,7 @@
 .voyager-root .modal-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(17, 17, 17, 0.28);
+  background: rgba(9, 11, 15, 0.55);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1267,12 +1272,13 @@
   z-index: 50;
 }
 .voyager-root .modal {
-  background: var(--bg);
-  border: 0.5px solid var(--p2);
+  background: var(--sf);
+  border: 1px solid var(--p2);
   border-radius: 12px;
   width: 100%;
   max-width: 440px;
   overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
 }
 .voyager-root .mhdr {
   padding: 15px 18px;
@@ -1315,7 +1321,7 @@
   font-weight: 500;
   letter-spacing: 0.7px;
   text-transform: uppercase;
-  color: rgba(17, 17, 17, 0.38);
+  color: var(--v-muted);
 }
 .voyager-root .fi,
 .voyager-root .fsel {

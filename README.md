@@ -6,21 +6,48 @@ on a single unified blue design system, consuming the Kalos engine API.
 
 ## Views
 
-- **Overview**: your last analyzed dataset at a glance - model reliability (honest
-  held-out rank correlation + 95% CI), what drives the outcome, predicted-vs-measured,
-  a run landscape (a low-dimensional projection of every run, positioned by recipe
-  similarity and colored by target - only shown when the engine returns an
-  `embedding`), a histogram of measured target values with non-producers called out,
-  and the ranked next experiments. Reads `GET /api/latest`; shows an upload prompt
-  until you analyze a dataset (it is not a demo).
-- **Optimize** - the live engine: single- and multi-objective optimization, the
-  convergence curve, the titer-vs-purity Pareto front, and proposed next
-  experiments (each with a predicted value, an uncertainty, and an
-  explore/exploit reason).
-- **Analyze** - drop a CSV/TSV/Excel run sheet; the engine fits, cross-validates
-  honestly, ranks the drivers, and recommends the next batch.
-- **Data** - the barcode registry: every dataset and run under a stable,
-  anonymized barcode.
+- **Experiments** (`/`) - the single hub for planning, running, and tracking every
+  experiment.
+  A Live / Board / Table view switcher sits under the header, driven by the
+  `?view=live|board|table` search param (default `live`), so each view is
+  directly linkable and the back button moves between them.
+  - **Live** (`?view=live`) - the operations view: summary tiles, in-flight run
+    cards (attention-needed first), the next batch to run, and recently
+    completed runs.
+  - **Board** (`?view=board`) - a Kanban board of experiment/planning tasks
+    moving through To Do -> Draft -> In Progress -> Review Requested ->
+    Completed, with a Table sub-view (the same tasks grouped by column) and a
+    Gantt sub-view stub ("coming soon"), switched via the same toolbar. Cards
+    drag between columns via native HTML5 drag-and-drop (no added dependency);
+    a lightweight inline input adds a new card to a column without a modal.
+    Task data is a static mock in `lib/mock/planning.ts`, pending a real
+    task/experiment-status source.
+  - **Table** (`?view=table`) - the real experiment queue wired to the Kalos
+    portal: upload a run sheet, flag it ready, and run the engine on demand or
+    for every ready experiment at once.
+- **Results** (`/results`) - your last analyzed dataset at a glance: model
+  reliability (honest held-out rank correlation + 95% CI), what drives the
+  outcome, predicted-vs-measured, a run landscape (a low-dimensional
+  projection of every run, positioned by recipe similarity and colored by
+  target - only shown when the engine returns an `embedding`), a histogram of
+  measured target values with non-producers called out, and Recommended
+  actions - the optimizer's next-best experiments, ranked by the acquisition
+  function (`#next-experiments`; this is where the old standalone Optimize
+  page folded in). Reads `GET /api/latest`; shows an upload prompt until you
+  analyze a dataset (it is not a demo).
+- **Analyze** (`/analyze`) - drop a CSV/TSV/Excel run sheet; the engine fits,
+  cross-validates honestly, ranks the drivers, and recommends the next batch.
+  Reached via the "Run analysis" action button on the Experiments hub and on
+  Results, not a standalone nav entry.
+- **Data** (`/data`) - the data catalog: every dataset and run under a stable,
+  anonymized barcode, with a searchable/sortable registry table and a
+  per-dataset drill-down (sample runs, output ranges, provenance). Mock
+  registry data lives in `lib/mock/registry.ts` (`DATASETS` and
+  `RUNS_BY_DATASET`).
+
+The old `/planning`, `/experiments`, and `/optimize` routes redirect to
+`/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,
+so existing links and bookmarks still resolve.
 
 ## Design system
 

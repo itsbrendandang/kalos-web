@@ -135,7 +135,7 @@ export function ExperimentDetail({ id }: { id: string }) {
 
 function BackLink() {
   return (
-    <Link href="/experiments" className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-semibold text-accent-text hover:underline">
+    <Link href="/?view=table" className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-semibold text-accent-text hover:underline">
       <ArrowLeft className="size-3.5" />
       Back to experiments
     </Link>
@@ -222,7 +222,7 @@ function Body({ exp }: { exp: Experiment }) {
           cols={result.proposal_features}
           rows={result.proposals}
           predHead={`pred. ${result.target}`}
-          predFn={(p) => `${fmt(p.pred, 2)} +/- ${fmt(p.std, 2)}`}
+          predFn={(p) => `${fmt(p.pred, 2)} ± ${fmt(p.std, 2)}`}
         />
       ) : (
         <p className="py-10 text-center text-[12px] text-muted">no proposals</p>

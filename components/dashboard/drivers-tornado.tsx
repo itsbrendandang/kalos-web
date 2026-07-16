@@ -2,8 +2,11 @@ import { cn } from "@/lib/utils";
 
 /**
  * Signed horizontal tornado for `drivers[]` (see lib/api.ts). Bars grow from
- * a shared center axis at 0: blue bars are associated with higher `target`,
- * gray ("explore" tone) bars with lower - a correlation, not a causal claim.
+ * a shared center axis at 0: chart-1-colored bars are associated with higher
+ * `target`, gray ("explore" tone) bars with lower - a correlation, not a
+ * causal claim. Uses --chart-1 (a colored data-viz token) rather than the
+ * now-neutral --accent so the two directions stay visually distinguishable
+ * post the shadcn neutral chrome migration.
  * The axis scale is derived from the data (max |rho| * 1.15), not hardcoded,
  * so it stays correct for any dataset the engine returns.
  */
@@ -22,14 +25,14 @@ export function DriversTornado({
   const scale = maxAbs > 0 ? maxAbs * 1.15 : 1;
 
   return (
-    <div className="flex h-full flex-col rounded-[10px] border border-border bg-bg p-3">
+    <div className="flex flex-col rounded-[10px] border border-border bg-bg p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-muted">
           Signed correlation with {target}
         </span>
         <div className="flex items-center gap-3 text-[11px] whitespace-nowrap text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-3 rounded-sm bg-accent" />
+            <span className="inline-block h-2 w-3 rounded-sm bg-chart-1" />
             Higher {target}
           </span>
           <span className="flex items-center gap-1.5">
@@ -39,12 +42,12 @@ export function DriversTornado({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-1 flex-col gap-2">
+      <div className="mt-3 flex flex-col gap-2.5">
         {drivers.map((dr) => {
           const pct = (Math.abs(dr.rho) / scale) * 50;
           const positive = dr.rho >= 0;
           return (
-            <div key={dr.name} className="grid min-h-[20px] flex-1 grid-cols-[128px_1fr] items-center gap-3">
+            <div key={dr.name} className="grid h-11 grid-cols-[128px_1fr] items-center gap-3">
               <div className="truncate pr-1 text-right text-[12px] text-fg" title={dr.name}>
                 {dr.name}
               </div>
@@ -53,14 +56,14 @@ export function DriversTornado({
                 <div
                   className={cn(
                     "absolute top-1/2 h-2.5 -translate-y-1/2",
-                    positive ? "left-1/2 rounded-r-[4px] bg-accent" : "right-1/2 rounded-l-[4px] bg-explore",
+                    positive ? "left-1/2 rounded-r-[4px] bg-chart-1" : "right-1/2 rounded-l-[4px] bg-explore",
                   )}
                   style={{ width: `${pct}%` }}
                 />
                 <div
                   className={cn(
                     "tabular absolute top-1/2 -translate-y-1/2 font-mono text-[11px] whitespace-nowrap",
-                    positive ? "text-accent-text" : "text-explore-deep",
+                    positive ? "text-chart-1-ink" : "text-explore-deep",
                   )}
                   style={positive ? { left: `calc(50% + ${pct}% + 6px)` } : { right: `calc(50% + ${pct}% + 6px)` }}
                 >

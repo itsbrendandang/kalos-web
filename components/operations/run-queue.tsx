@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/card";
-import { num } from "@/lib/utils";
+import { cn, num } from "@/lib/utils";
 
 export type QueueRow = {
   id: string;
@@ -20,12 +20,16 @@ export function RunQueue({ rows }: { rows: QueueRow[] }) {
   if (!rows.length) {
     return <p className="py-10 text-center text-[12px] text-muted">nothing queued</p>;
   }
+  // Proposals aren't assigned to a vessel yet, so the column would be all "-".
+  // Only show it when at least one row actually carries a vessel (e.g. mock
+  // queued runs), otherwise it's dead placeholder noise.
+  const showVessel = rows.some((r) => Boolean(r.vessel));
   return (
     <div className="overflow-x-auto">
       <table className="tabular w-full min-w-[640px] border-separate border-spacing-y-1.5 font-mono text-xs">
         <thead>
           <tr className="text-[10px] text-muted uppercase">
-            <th className="px-2 py-1.5 text-left">Vessel</th>
+            {showVessel ? <th className="px-2 py-1.5 text-left">Vessel</th> : null}
             <th className="px-2 py-1.5 text-left">Recipe</th>
             <th className="px-2 py-1.5 text-right">Predicted</th>
             <th className="px-2 py-1.5 text-left">Why</th>
@@ -35,10 +39,17 @@ export function RunQueue({ rows }: { rows: QueueRow[] }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="group">
-              <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2.5 text-left text-fg group-hover:bg-blue-soft">
-                {r.vessel ?? "-"}
-              </td>
-              <td className="border-y border-border/70 bg-card px-2 py-2.5 text-left text-muted group-hover:bg-blue-soft">
+              {showVessel ? (
+                <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2.5 text-left text-fg group-hover:bg-blue-soft">
+                  {r.vessel ?? "-"}
+                </td>
+              ) : null}
+              <td
+                className={cn(
+                  "border-y border-border/70 bg-card px-2 py-2.5 text-left text-muted group-hover:bg-blue-soft",
+                  !showVessel && "rounded-l-xl border-l",
+                )}
+              >
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                   {r.recipe.map((c) => (
                     <span key={c.label}>

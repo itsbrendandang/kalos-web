@@ -21,11 +21,14 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 type NavItem = { href: string; label: string; short: string; helper: string; icon: LucideIcon };
 
-// Grouped by where the item sits in the experiment lifecycle so a scientist
-// reads the nav as a workflow (watch the lab -> plan work -> analyze results ->
-// the data behind it), not as one flat wall of ten links. The desktop sidebar
-// renders the section labels; the compact mobile bar flattens them.
-const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
+// The internal scientist workflow is grouped by lifecycle stage (watch the lab
+// -> plan work -> analyze results -> the data behind it) so the nav reads as a
+// workflow, not a flat wall of links. "Clients" is split off with a divider:
+// it's the client-facing surface (Bioqore's customers viewing their own runs),
+// a different audience from the internal tool, so it doesn't belong inside
+// "Plan". The desktop sidebar renders the section labels; the compact mobile
+// bar flattens them.
+const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
   {
     label: "Monitor",
     items: [
@@ -38,7 +41,6 @@ const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/planning", label: "Planning", short: "Plan", helper: "Kanban board", icon: SquareKanban },
       { href: "/experiments", label: "Experiments", short: "Experiments", helper: "Portal run queue", icon: ListChecks },
-      { href: "/voyager", label: "Projects", short: "Projects", helper: "Customer runs", icon: FolderKanban },
     ],
   },
   {
@@ -53,6 +55,11 @@ const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
   {
     label: "Data",
     items: [{ href: "/data", label: "Data room", short: "Data", helper: "Registry", icon: Database }],
+  },
+  {
+    label: "Clients",
+    divided: true,
+    items: [{ href: "/voyager", label: "Projects", short: "Projects", helper: "Client portal", icon: FolderKanban }],
   },
 ];
 
@@ -89,7 +96,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {NAV_SECTIONS.map((section) => (
-            <div key={section.label} className="flex flex-col gap-1">
+            <div
+              key={section.label}
+              className={cn("flex flex-col gap-1", section.divided && "mt-1 border-t border-border pt-4")}
+            >
               <div className="px-3 pb-0.5 text-[10px] font-semibold tracking-[0.08em] text-muted uppercase">
                 {section.label}
               </div>

@@ -16,7 +16,7 @@ export function RunCard({ run }: { run: PipelineRun }) {
 
   return (
     <Card className={cn("flex flex-col gap-3", attention && "border-l-4 border-l-amber")}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2.5">
           <span
             aria-hidden

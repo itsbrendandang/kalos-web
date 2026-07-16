@@ -39,8 +39,11 @@ on a single unified blue design system, consuming the Kalos engine API.
   cross-validates honestly, ranks the drivers, and recommends the next batch.
   Reached via the "Run analysis" action button on the Experiments hub and on
   Results, not a standalone nav entry.
-- **Data** (`/data`) - the barcode registry: every dataset and run under a
-  stable, anonymized barcode.
+- **Data** (`/data`) - the data catalog: every dataset and run under a stable,
+  anonymized barcode, with a searchable/sortable registry table and a
+  per-dataset drill-down (sample runs, output ranges, provenance). Mock
+  registry data lives in `lib/mock/registry.ts` (`DATASETS` and
+  `RUNS_BY_DATASET`).
 
 The old `/planning`, `/experiments`, and `/optimize` routes redirect to
 `/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,

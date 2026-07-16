@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { DATASET_COUNT, DATASETS, TOTAL_RUNS } from "@/app/data/page";
+import { DATASET_COUNT, DATASETS, TOTAL_RUNS } from "@/lib/mock/registry";
 
 // Regression guard: the KPI ("Runs tracked") and the registry caption below the
 // table must always agree, because both are derived from the same DATASETS

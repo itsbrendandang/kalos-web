@@ -267,7 +267,7 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
 
       <section>
         <SectionHead title="Model quality" sub="What the model learned, and how far to trust it." />
-        <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+        <div className="grid items-start gap-4 lg:grid-cols-[1.85fr_0.95fr]">
           <Card className="flex flex-col">
             <div className="text-[15px] font-semibold text-fg">Process drivers</div>
             <p className="mt-1 text-[12px] leading-snug text-muted">
@@ -276,7 +276,7 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
             </p>
             {d.drivers.length ? (
               <>
-                <div className="mt-3 flex flex-1 flex-col">
+                <div className="mt-3">
                   <DriversTornado drivers={d.drivers} target={d.target} />
                 </div>
                 <DriverInsights

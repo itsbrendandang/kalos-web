@@ -22,7 +22,7 @@ export function DriversTornado({
   const scale = maxAbs > 0 ? maxAbs * 1.15 : 1;
 
   return (
-    <div className="flex h-full flex-col rounded-[10px] border border-border bg-bg p-3">
+    <div className="flex flex-col rounded-[10px] border border-border bg-bg p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-muted">
           Signed correlation with {target}
@@ -39,12 +39,12 @@ export function DriversTornado({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-1 flex-col gap-2">
+      <div className="mt-3 flex flex-col gap-2.5">
         {drivers.map((dr) => {
           const pct = (Math.abs(dr.rho) / scale) * 50;
           const positive = dr.rho >= 0;
           return (
-            <div key={dr.name} className="grid min-h-[20px] flex-1 grid-cols-[128px_1fr] items-center gap-3">
+            <div key={dr.name} className="grid h-11 grid-cols-[128px_1fr] items-center gap-3">
               <div className="truncate pr-1 text-right text-[12px] text-fg" title={dr.name}>
                 {dr.name}
               </div>

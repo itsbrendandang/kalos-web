@@ -48,7 +48,7 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         <div className="flex min-h-[96px] flex-col justify-center rounded-[10px] border border-border p-3">
           <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Conformal band</div>
           <div className="tabular mt-1 font-mono text-[22px] font-semibold text-fg">
-            {d.conformal_q != null ? `+/- ${num(d.conformal_q, 2)}` : "n/a"}
+            {d.conformal_q != null ? `± ${num(d.conformal_q, 2)}` : "n/a"}
           </div>
           <div className="mt-0.5 text-[12px] text-muted">distribution-free residual band</div>
         </div>

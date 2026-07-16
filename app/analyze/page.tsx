@@ -178,7 +178,7 @@ export default function AnalyzePage() {
             cols={res.proposal_features}
             rows={res.proposals}
             predHead={`pred. ${res.target}`}
-            predFn={(p) => `${p.pred} +/- ${p.std}`}
+            predFn={(p) => `${p.pred} ± ${p.std}`}
           />
         </Card>
       ) : null}

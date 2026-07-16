@@ -77,7 +77,7 @@ export function OperationsView() {
 
   const queueRows = hasRealProposals ? proposalsToQueueRows(populated as PopulatedResult) : queuedRunsToQueueRows(runsByStatus("queued"));
   const queueSub = hasRealProposals
-    ? `From the last analysis${populated?.conformal_q != null ? ` · +/- ${num(populated.conformal_q, 2)} conformal band` : ""}`
+    ? `From the last analysis${populated?.conformal_q != null ? ` · ± ${num(populated.conformal_q, 2)} conformal band` : ""}`
     : "Portal proposals unavailable - showing the scheduled queue.";
 
   return (

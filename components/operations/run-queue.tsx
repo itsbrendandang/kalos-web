@@ -69,8 +69,8 @@ export function RunQueue({ rows }: { rows: QueueRow[] }) {
   );
 }
 
-/** Formats a predicted value +/- sigma the same way the Results proposals
+/** Formats a predicted value ± sigma the same way the Results proposals
  *  table does (see components/proposals.tsx), for parity across both pages. */
 export function fmtPredicted(value: number, sigma: number): string {
-  return sigma > 0 ? `${num(value, 2)} +/- ${num(sigma, 2)}` : num(value, 2);
+  return sigma > 0 ? `${num(value, 2)} ± ${num(sigma, 2)}` : num(value, 2);
 }

@@ -331,7 +331,7 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
         <SectionHead
           title="Recommended actions"
           sub={`The next batch to run, ranked by the acquisition function${
-            d.conformal_q != null ? ` · +/- ${num(d.conformal_q, 2)} conformal band` : ""
+            d.conformal_q != null ? ` · ± ${num(d.conformal_q, 2)} conformal band` : ""
           }.`}
         />
         <p className="mb-3 text-[12.5px] leading-5 text-muted">
@@ -343,7 +343,7 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
               cols={d.proposal_features}
               rows={d.proposals}
               predHead={`pred. ${d.target}`}
-              predFn={(p) => `${num(p.pred, 2)} +/- ${num(p.std, 2)}`}
+              predFn={(p) => `${num(p.pred, 2)} ± ${num(p.std, 2)}`}
             />
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no proposals</p>

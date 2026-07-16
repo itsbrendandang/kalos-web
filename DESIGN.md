@@ -109,11 +109,34 @@ query - so it can be toggled independently of the OS setting and persisted.
   point of use, an alias defined once in `:root` (e.g. `--primary: var(--blue)`)
   automatically follows `--blue`'s `.dark` value with no duplicate rule
   needed.
-- **Not yet covered**: the Voyager-only status tones defined directly in
-  `app/voyager/voyager.css` (`--v-warn-*`, decision-card promote/hold/retire
-  colors) and `--v-muted`/`--v-faint` do not have `.dark` overrides yet. They
-  live in a separate stylesheet outside this pass's scope; flagged here as
-  follow-up rather than silently left inconsistent.
+- **Voyager blue-accent AA tuning pass** (`app/voyager/voyager.css`): the
+  Voyager surface aliased its accent *text* onto `--v-blue-7` (`= --blue-hover`),
+  which flips to `#204af4` in dark mode and read only 2.46-2.93:1 as text on the
+  tint/card/bg surfaces - failing AA - everywhere it was used for text (phase
+  labels, chip/badge/pill labels, advisory text, the "Live · engine" pill).
+  Mirroring the main app's `--accent-text` split, `--v-blue-7` is now a FILL
+  alias only (the `.v-btn-primary:hover` background, which must hold white text)
+  and a separate `--v-blue-7-text: var(--accent-text)` carries every text usage.
+  In light mode both still resolve to `--blue-hover`, so the light theme is
+  unchanged; in dark mode the text alias is `#6f93ff` and clears 5.36-6.39:1 on
+  every surface it lands on (verified against the live rendered cascade, not
+  eyeballed).
+- **Explore badge** (`.dcb--explore`): its ink (`--v-explore-badge-ink`) was
+  `--blue-hover` on a `--blue-border` (`#33406e`) background, only 1.59:1 in dark
+  mode; even swapping to `--accent-text` reached just 3.47:1. The ink is now
+  `--blue-deep` (dark `#8fb0ff`, the system's designated "emphasis blue text on
+  dark"), which clears 4.68:1 while keeping the `--blue-border` badge visibly
+  distinct (1.73:1) from its `--blue-soft` explore row - a darker `--blue-tint`
+  badge would have hit 5.36:1 text but nearly vanished into that row (1.12:1).
+  Light mode improves to 9.78:1 (from 6.33:1), no regression.
+- **Not yet covered**: the remaining Voyager-only status tones defined directly
+  in `app/voyager/voyager.css` (`--v-warn-*`/`--v-bad-*` banner tones, the
+  green exploit badge and the amber/orange decision-card promote/hold/retire
+  colors) and `--v-muted`/`--v-faint` do not have `.dark` overrides yet - they
+  still render their light-mode values on dark surfaces (all currently
+  >= 4.5:1, so legible, just visually untuned). They live in a separate
+  stylesheet outside this pass's AA scope; flagged here as follow-up rather than
+  silently left inconsistent.
 
 ## shadcn semantic tokens
 

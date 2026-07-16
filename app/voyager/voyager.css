@@ -13,7 +13,16 @@
   --v-ink: var(--fg);
   --v-border: var(--border);
   --v-blue: var(--blue);
+  /* --v-blue-7 is a FILL only (the primary-button hover background at
+     .v-btn-primary:hover), which must hold white text. --v-blue-7-text is the
+     accent-colored TEXT alias, split off for the same reason the main app split
+     --accent-text from --accent-hover (app/globals.css): in dark mode no single
+     blue can both read as text on a dark surface AND carry white text as a fill.
+     In light mode both resolve to --blue-hover, so the light theme is unchanged;
+     in dark mode --accent-text (#6f93ff) clears >=5.36:1 as text everywhere it
+     is used, while the fill stays on --blue-hover (#204af4, holds white text). */
   --v-blue-7: var(--blue-hover);
+  --v-blue-7-text: var(--accent-text);
   --v-blue-9: var(--blue-deep);
   --v-bg: var(--bg);
   --v-surface: var(--card);
@@ -32,7 +41,7 @@
   --ink: var(--v-ink);
   --p2: var(--v-border);
   --b5: var(--v-blue);
-  --b7: var(--v-blue-7);
+  --b7: var(--v-blue-7-text);
   --b9: var(--v-blue-9);
   --bg: var(--v-bg);
   --sf: var(--v-surface);
@@ -52,7 +61,14 @@
   --v-exploit-badge-ink: #1b5e20;
   --v-explore-bg: var(--blue-soft);
   --v-explore-badge-bg: var(--blue-border);
-  --v-explore-badge-ink: var(--blue-hover);
+  /* Explore badge ink. --blue-hover read only 1.59:1 on the --blue-border badge
+     in dark mode; --accent-text reached just 3.47:1 (still failing AA). Using
+     --blue-deep (dark #8fb0ff, the system's designated "emphasis blue text on
+     dark") clears 4.68:1 on --blue-border while keeping the --blue-border badge
+     visibly distinct (1.73:1) from its --blue-soft explore row - a darker
+     --blue-tint badge would have hit 5.36:1 text but nearly vanished into that
+     row (1.12:1). Light mode: 9.78:1, up from 6.33:1, no regression. */
+  --v-explore-badge-ink: var(--blue-deep);
   --v-done-badge-bg: var(--green);
   --v-done-badge-ink: #ffffff;
 
@@ -154,7 +170,7 @@
   color: var(--v-green);
 }
 .v-phase--p2 {
-  color: var(--v-blue-7);
+  color: var(--v-blue-7-text);
 }
 .v-phase--done,
 .v-phase--draft {
@@ -201,7 +217,7 @@
 .v-add-card:hover {
   border-color: var(--v-blue);
   background: var(--v-hover);
-  color: var(--v-blue-7);
+  color: var(--v-blue-7-text);
 }
 
 /* ---- Workspace shared ---- */
@@ -1402,7 +1418,7 @@
 }
 .voyager-root .v-pipeline-badge--run {
   background: var(--v-blue-tint);
-  color: var(--v-blue-7);
+  color: var(--v-blue-7-text);
 }
 .voyager-root .v-pipeline-badge--idle {
   background: #f0f0f0;
@@ -1416,7 +1432,7 @@
 }
 .voyager-root .v-stage-pill--phase2 {
   background: var(--v-blue-tint);
-  color: var(--v-blue-7);
+  color: var(--v-blue-7-text);
 }
 .voyager-root .v-stage-pill--phase1 {
   background: var(--v-ok-bg);

@@ -60,7 +60,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
           <div className="flex items-center gap-2">
             <h1 className="v-title">{project.name}</h1>
             {project.live ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--v-blue-tint)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--v-blue-7)]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--v-blue-tint)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--v-blue-7-text)]">
                 <Activity className="size-2.5" /> Live · engine
               </span>
             ) : null}

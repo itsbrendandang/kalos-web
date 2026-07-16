@@ -11,7 +11,7 @@ function abbrev(name: string, max = 6): string {
 
 /**
  * Spearman correlation heatmap over the kept features and the target
- * (`d.correlation`). Blue = positive, gray = negative, near-white ~0 - the same
+ * (`d.correlation`). Color = positive, gray = negative, near-white ~0 - the same
  * sign convention as the drivers tornado, so the two read consistently. Renders
  * nothing when the analysis predates the field.
  */
@@ -25,7 +25,7 @@ export function CorrelationHeatmap({ d }: { d: PopulatedResult }) {
     <Card className="flex h-full flex-col">
       <div className="text-[15px] font-semibold text-fg">Feature correlation</div>
       <p className="mt-1 text-[12px] leading-snug text-muted">
-        Spearman correlation among the inputs and {d.target}. Blue is positive, gray is negative.
+        Spearman correlation among the inputs and {d.target}. Color is positive, gray is negative.
       </p>
 
       <div className="mt-3 flex flex-1 flex-col justify-center overflow-x-auto rounded-[10px] border border-border bg-bg p-3">

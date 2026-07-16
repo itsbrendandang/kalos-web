@@ -3,16 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   ClipboardList,
   Database,
-  FlaskConical,
   FolderKanban,
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
-  Sparkles,
-  SquareKanban,
   TestTubes,
   type LucideIcon,
 } from "lucide-react";
@@ -22,33 +18,27 @@ import { ThemeToggle } from "@/components/theme-toggle";
 type NavItem = { href: string; label: string; short: string; helper: string; icon: LucideIcon };
 
 // The internal scientist workflow is grouped by lifecycle stage (watch the lab
-// -> plan work -> analyze results -> the data behind it) so the nav reads as a
-// workflow, not a flat wall of links. "Clients" is split off with a divider:
-// it's the client-facing surface (Bioqore's customers viewing their own runs),
-// a different audience from the internal tool, so it doesn't belong inside
-// "Plan". The desktop sidebar renders the section labels; the compact mobile
-// bar flattens them.
+// -> analyze results -> the data behind it) so the nav reads as a workflow,
+// not a flat wall of links. Experiments is the single hub for planning,
+// running, and tracking runs (Live / Board / Table views live at "/"), so
+// Operations/Planning/Optimize are no longer separate destinations, and Run
+// analysis is an action button rather than a nav entry. "Clients" is split
+// off with a divider: it's the client-facing surface (Bioqore's customers
+// viewing their own runs), a different audience from the internal tool, so it
+// doesn't belong inside "Analyze". The desktop sidebar renders the section
+// labels; the compact mobile bar flattens them.
 const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
   {
     label: "Monitor",
     items: [
-      { href: "/", label: "Operations", short: "Ops", helper: "Live experiments", icon: Activity },
+      { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board · Table", icon: ListChecks },
       { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
-    ],
-  },
-  {
-    label: "Plan",
-    items: [
-      { href: "/planning", label: "Planning", short: "Plan", helper: "Kanban board", icon: SquareKanban },
-      { href: "/experiments", label: "Experiments", short: "Experiments", helper: "Portal run queue", icon: ListChecks },
     ],
   },
   {
     label: "Analyze",
     items: [
-      { href: "/analyze", label: "Run analysis", short: "Analyze", helper: "Upload run sheet", icon: FlaskConical },
-      { href: "/results", label: "Results", short: "Results", helper: "Model + analysis", icon: LayoutDashboard },
-      { href: "/optimize", label: "Optimize", short: "Optimize", helper: "Next experiments", icon: Sparkles },
+      { href: "/results", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
       { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
     ],
   },
@@ -149,7 +139,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="font-head font-bold">Kalos</span>
             <ThemeToggle className="ml-auto" />
           </div>
-          <nav className="grid grid-cols-8 gap-1">
+          <nav className="grid grid-cols-6 gap-1">
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
               return (

@@ -327,13 +327,16 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
         </section>
       ) : null}
 
-      <section>
+      <section id="next-experiments">
         <SectionHead
           title="Recommended actions"
           sub={`The next batch to run, ranked by the acquisition function${
             d.conformal_q != null ? ` · +/- ${num(d.conformal_q, 2)} conformal band` : ""
           }.`}
         />
+        <p className="mb-3 text-[12.5px] leading-5 text-muted">
+          The optimizer&rsquo;s next-best experiments, chosen to balance expected improvement against uncertainty.
+        </p>
         <Card>
           {d.proposals.length ? (
             <Proposals

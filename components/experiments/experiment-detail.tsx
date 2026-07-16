@@ -135,7 +135,7 @@ export function ExperimentDetail({ id }: { id: string }) {
 
 function BackLink() {
   return (
-    <Link href="/experiments" className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-semibold text-accent-text hover:underline">
+    <Link href="/?view=table" className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-semibold text-accent-text hover:underline">
       <ArrowLeft className="size-3.5" />
       Back to experiments
     </Link>

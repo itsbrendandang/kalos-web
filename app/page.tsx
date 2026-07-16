@@ -1,116 +1,93 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Upload } from "lucide-react";
 import { PageHeader, Loading } from "@/components/page-header";
-import { SummaryTiles } from "@/components/operations/summary-tiles";
-import { RunCard } from "@/components/operations/run-card";
-import { RunQueue, fmtPredicted, type QueueRow } from "@/components/operations/run-queue";
-import { CompletedList } from "@/components/operations/completed-list";
-import { getLatest, type LatestResult, type PopulatedResult } from "@/lib/api";
-import { PIPELINE_SUMMARY, runsByStatus, type PipelineRun } from "@/lib/mock/pipeline";
-import { num } from "@/lib/utils";
+import { OperationsView } from "@/components/operations/operations-view";
+import { PlanningBoard } from "@/components/planning/planning-board";
+import { ExperimentsQueue } from "@/components/experiments/experiments-queue";
+import { cn } from "@/lib/utils";
 
-/** Grouping header: a bold label, an optional one-line descriptor, and a
- *  hairline that runs to the edge (same pattern as app/results/page.tsx). */
-function SectionHead({ title, sub }: { title: string; sub?: string }) {
+const BTN_ACCENT =
+  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
+
+type HubView = "live" | "board" | "table";
+
+const VIEWS: { key: HubView; label: string }[] = [
+  { key: "live", label: "Live" },
+  { key: "board", label: "Board" },
+  { key: "table", label: "Table" },
+];
+
+function parseView(raw: string | null): HubView {
+  return raw === "board" || raw === "table" ? raw : "live";
+}
+
+/** The view switcher tabs, styled after the segmented-button pattern in
+ *  components/planning/board-toolbar.tsx. Plain links (not buttons with
+ *  onClick state) so the selected view lives in the URL - shareable, and the
+ *  back button moves between views. */
+function HubTabs({ view }: { view: HubView }) {
   return (
-    <div className="mb-3 flex items-center gap-3">
-      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
-      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
-      <div className="h-px flex-1 bg-border" />
+    <div className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-blue-soft p-1">
+      {VIEWS.map((v) => (
+        <Link
+          key={v.key}
+          href={v.key === "live" ? "/" : `/?view=${v.key}`}
+          aria-pressed={view === v.key}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors",
+            view === v.key ? "bg-card text-fg shadow-sm" : "text-muted hover:text-fg",
+          )}
+        >
+          {v.label}
+        </Link>
+      ))}
     </div>
   );
 }
 
-/** Real portal proposals (from GET /api/latest) as queue rows. */
-function proposalsToQueueRows(d: PopulatedResult): QueueRow[] {
-  return d.proposals.map((p, i) => ({
-    id: `proposal-${i}`,
-    recipe: d.proposal_features.map((f, j) => ({ label: f, value: num(p.vals[j], 2) })),
-    pred: { value: fmtPredicted(p.pred, p.std), mode: p.mode, why: p.reason },
-  }));
-}
-
-/** Fallback: the mock queued runs (recipe + predicted mirror the portal shape). */
-function queuedRunsToQueueRows(runs: PipelineRun[]): QueueRow[] {
-  return runs.map((r) => ({
-    id: r.id,
-    vessel: r.vessel,
-    recipe: Object.entries(r.recipe ?? {}).map(([label, value]) => ({ label, value: num(value, 1) })),
-    pred: r.predicted
-      ? { value: fmtPredicted(r.predicted.value, r.predicted.sigma), mode: r.predicted.mode, why: r.predicted.why }
-      : { value: "-", mode: "exploit" as const, why: "" },
-  }));
-}
-
-export default function Operations() {
-  const [data, setData] = useState<LatestResult | null>(null);
-  const [err, setErr] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getLatest()
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {
-        if (!cancelled) setErr(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const attention = runsByStatus("attention");
-  const running = runsByStatus("running");
-  const nowRunning = [...attention, ...running];
-  const completed = runsByStatus("completed");
-
-  const loadingPortal = data == null && !err;
-  const populated = data && data.has_data ? data : null;
-  const hasRealProposals = Boolean(populated && populated.proposals.length > 0);
-
-  const queueRows = hasRealProposals ? proposalsToQueueRows(populated as PopulatedResult) : queuedRunsToQueueRows(runsByStatus("queued"));
-  const queueSub = hasRealProposals
-    ? `From the last analysis${populated?.conformal_q != null ? ` · +/- ${num(populated.conformal_q, 2)} conformal band` : ""}`
-    : "Portal proposals unavailable - showing the scheduled queue.";
+/** Reads the ?view= search param and renders the matching view. Split out
+ *  from the page so the useSearchParams() call - and only that call - sits
+ *  inside the Suspense boundary Next.js requires for it. */
+function HubBody() {
+  const searchParams = useSearchParams();
+  const view = parseView(searchParams.get("view"));
 
   return (
     <div className="flex flex-col gap-6">
+      <HubTabs view={view} />
+      {view === "live" ? <OperationsView /> : null}
+      {view === "board" ? <PlanningBoard /> : null}
+      {view === "table" ? <ExperimentsQueue /> : null}
+    </div>
+  );
+}
+
+/** Experiments hub: the single landing surface that replaces the old
+ *  Operations / Planning / Experiments three-way split. One header, one nav
+ *  entry, three views (Live · Board · Table) switched by the `view` search
+ *  param - each view's body is unchanged, just relocated. */
+export default function ExperimentsHubPage() {
+  return (
+    <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Live lab"
-        title="Operations"
-        desc="Experiments in flight, what needs attention, and what's queued to run next."
+        eyebrow="Lab"
+        title="Experiments"
+        desc="Plan, run, and track every experiment."
+        action={
+          <Link href="/analyze" className={BTN_ACCENT}>
+            <Upload />
+            Run analysis
+          </Link>
+        }
       />
 
-      <SummaryTiles
-        running={PIPELINE_SUMMARY.running}
-        attention={PIPELINE_SUMMARY.attention}
-        queued={PIPELINE_SUMMARY.queued}
-        completedToday={PIPELINE_SUMMARY.completedToday}
-      />
-
-      <section>
-        <SectionHead title="Now running" sub="What's in flight, attention-needed runs first." />
-        <div className="grid gap-4 lg:grid-cols-2">
-          {nowRunning.map((r) => (
-            <RunCard key={r.id} run={r} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionHead title="Next batch to run" sub={queueSub} />
-        <Card>{loadingPortal ? <Loading label="Checking the portal" /> : <RunQueue rows={queueRows} />}</Card>
-      </section>
-
-      <section>
-        <SectionHead title="Recently completed" />
-        <Card>
-          <CompletedList runs={completed} />
-        </Card>
-      </section>
+      <Suspense fallback={<Loading label="Loading view" />}>
+        <HubBody />
+      </Suspense>
     </div>
   );
 }

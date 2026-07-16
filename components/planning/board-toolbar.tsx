@@ -1,18 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChartGantt, LayoutGrid, RefreshCw, Settings, Table2, TriangleAlert } from "lucide-react";
+import { RefreshCw, Settings, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickAdd } from "@/components/planning/quick-add";
 
-export type BoardView = "table" | "gantt" | "kanban";
 export type WeekFilter = "week" | "all";
-
-const VIEWS: { key: BoardView; label: string; icon: typeof Table2 }[] = [
-  { key: "table", label: "Table", icon: Table2 },
-  { key: "gantt", label: "Gantt", icon: ChartGantt },
-  { key: "kanban", label: "Kanban", icon: LayoutGrid },
-];
 
 function SegmentButton({
   active,
@@ -39,33 +32,23 @@ function SegmentButton({
 }
 
 export function BoardToolbar({
-  view,
-  onViewChange,
   overdueCount,
   filter,
   onFilterChange,
   onRefresh,
   onAddTask,
 }: {
-  view: BoardView;
-  onViewChange: (view: BoardView) => void;
   overdueCount: number;
   filter: WeekFilter;
   onFilterChange: (filter: WeekFilter) => void;
   onRefresh: () => void;
   onAddTask: (title: string) => void;
 }) {
+  // The hub's Live / Board / Table tabs own view switching now, so this toolbar
+  // dropped its own Table/Gantt/Kanban segment - it carries only the board's
+  // own controls (overdue count, week filter, refresh, Add Task).
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-blue-soft p-1">
-        {VIEWS.map((v) => (
-          <SegmentButton key={v.key} active={view === v.key} onClick={() => onViewChange(v.key)}>
-            <v.icon className="size-3.5" />
-            {v.label}
-          </SegmentButton>
-        ))}
-      </div>
-
+    <div className="flex flex-wrap items-center justify-end gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={cn(

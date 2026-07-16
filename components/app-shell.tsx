@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <n.icon className="size-4 shrink-0" />
                 <span className="min-w-0">
                   <span className="block">{n.label}</span>
-                  <span className={cn("block text-[11px] font-normal", active ? "text-accent-text/75" : "text-muted")}>
+                  <span className={cn("block text-[11px] font-normal", active ? "text-accent-text" : "text-muted")}>
                     {n.helper}
                   </span>
                 </span>

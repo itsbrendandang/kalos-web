@@ -68,7 +68,7 @@ function ExperimentRow({
   return (
     <tr className="group">
       <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-3 py-2.5 group-hover:bg-blue-soft">
-        <Link href={`/experiments/${exp.id}`} className="font-semibold text-fg hover:text-accent-hover hover:underline">
+        <Link href={`/experiments/${exp.id}`} className="font-semibold text-fg hover:text-accent-text hover:underline">
           {exp.name}
         </Link>
       </td>

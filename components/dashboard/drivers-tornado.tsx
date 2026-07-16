@@ -60,7 +60,7 @@ export function DriversTornado({
                 <div
                   className={cn(
                     "tabular absolute top-1/2 -translate-y-1/2 font-mono text-[11px] whitespace-nowrap",
-                    positive ? "text-accent-hover" : "text-explore-deep",
+                    positive ? "text-accent-text" : "text-explore-deep",
                   )}
                   style={positive ? { left: `calc(50% + ${pct}% + 6px)` } : { right: `calc(50% + ${pct}% + 6px)` }}
                 >

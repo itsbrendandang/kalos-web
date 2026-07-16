@@ -12,7 +12,7 @@ export const EXPERIMENT_STATUS_LABEL: Record<ExperimentStatus, string> = {
 
 const STATUS_TEXT: Record<ExperimentStatus, string> = {
   DRAFT: "text-muted",
-  READY: "text-accent-hover",
+  READY: "text-accent-text",
   PROCESSING: "text-amber",
   DONE: "text-green",
   FAILED: "text-red",

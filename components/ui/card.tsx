@@ -71,7 +71,7 @@ export function StatCard({
         <span
           className={cn(
             "grid size-8 shrink-0 place-items-center rounded-lg border",
-            tone === "accent" ? "bg-accent-soft text-accent-hover" : "bg-explore-soft text-explore-deep",
+            tone === "accent" ? "bg-accent-soft text-accent-text" : "bg-explore-soft text-explore-deep",
             tone === "accent" ? "border-blue-border" : "border-border",
           )}
         >

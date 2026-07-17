@@ -203,12 +203,14 @@ function KpiCell({
 function KpiStrip({ d }: { d: PopulatedResult }) {
   const rho = d.cv_spearman;
   const reliable = isReliable(d);
-  const sigDriver = d.drivers.find((dr) => dr.significant);
-  const leadDriver = sigDriver ?? d.drivers[0];
   const unit = parseUnit(d.target);
-
+  // Four tiles, read left to right as a sentence: where you are (best) -> can you
+  // trust it (reliability) -> how much data (runs/inputs) -> what's next
+  // (proposals). The old "Top driver" tile was dropped: it made an odd 5th cell
+  // (the orphan wrap) AND headlined a driver the tornado below already reports
+  // honestly - a single lead correlation doesn't belong in the KPI row.
   return (
-    <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-5 xl:divide-x">
+    <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
       <KpiCell
         label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
         value={
@@ -222,24 +224,27 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
       <KpiCell
         label="Model reliability"
         value={rho != null ? rho.toFixed(2) : "n/a"}
-        sub={rho != null ? (reliable ? "Held-out Spearman, reliable" : "Held-out Spearman, needs review") : "not scored (too few groups)"}
+        sub={
+          rho != null ? (
+            <span
+              className={cn(
+                "inline-flex items-center rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
+                reliable ? "bg-green-soft text-green" : "bg-amber-soft text-amber",
+              )}
+            >
+              {reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"}
+            </span>
+          ) : (
+            "not scored (too few groups)"
+          )
+        }
       />
       <KpiCell
         label="Runs / inputs"
         value={`${d.n} / ${d.d}`}
         sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
       />
-      <KpiCell
-        label={sigDriver ? "Top driver" : "Largest lead"}
-        mono={false}
-        value={leadDriver ? leadDriver.name : "-"}
-        sub={
-          leadDriver
-            ? `rho ${leadDriver.rho >= 0 ? "+" : ""}${leadDriver.rho.toFixed(2)}${sigDriver ? "" : " · not significant"}`
-            : ""
-        }
-      />
-      <KpiCell label="Proposals ready" value={d.proposals.length} sub="From the last analysis" />
+      <KpiCell label="Proposals ready" value={d.proposals.length} sub="Next batch to run" />
     </div>
   );
 }

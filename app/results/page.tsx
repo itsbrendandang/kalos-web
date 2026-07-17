@@ -12,11 +12,12 @@ import { ServiceUnavailable } from "@/components/service-unavailable";
 import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel } from "@/components/dashboard/reliability-panel";
+import { ReliabilityVerdict } from "@/components/dashboard/reliability-verdict";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
-import { cn, fmt, num } from "@/lib/utils";
+import { cn, fmt, num, parseUnit } from "@/lib/utils";
 
 const BTN_ACCENT =
   "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
@@ -28,12 +29,6 @@ function ago(ts?: number) {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
-}
-
-/** Pulls a trailing unit like "mg/L" out of a target name such as "Lipase conc. (mg/L)". */
-function parseUnit(target: string): string {
-  const m = target.match(/\(([^)]+)\)\s*$/);
-  return m ? m[1] : "";
 }
 
 export default function Results() {
@@ -208,7 +203,8 @@ function KpiCell({
 function KpiStrip({ d }: { d: PopulatedResult }) {
   const rho = d.cv_spearman;
   const reliable = isReliable(d);
-  const topDriver = d.drivers[0];
+  const sigDriver = d.drivers.find((dr) => dr.significant);
+  const leadDriver = sigDriver ?? d.drivers[0];
   const unit = parseUnit(d.target);
 
   return (
@@ -234,10 +230,14 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
         sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
       />
       <KpiCell
-        label="Top driver"
+        label={sigDriver ? "Top driver" : "Largest lead"}
         mono={false}
-        value={topDriver ? topDriver.name : "-"}
-        sub={topDriver ? `rho ${topDriver.rho >= 0 ? "+" : ""}${topDriver.rho.toFixed(2)}` : ""}
+        value={leadDriver ? leadDriver.name : "-"}
+        sub={
+          leadDriver
+            ? `rho ${leadDriver.rho >= 0 ? "+" : ""}${leadDriver.rho.toFixed(2)}${sigDriver ? "" : " · not significant"}`
+            : ""
+        }
       />
       <KpiCell label="Proposals ready" value={d.proposals.length} sub="From the last analysis" />
     </div>
@@ -267,12 +267,13 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
 
       <section>
         <SectionHead title="Model quality" sub="What the model learned, and how far to trust it." />
-        <div className="grid items-start gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+        <ReliabilityVerdict d={d} />
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.85fr_0.95fr]">
           <Card className="flex flex-col">
             <div className="text-[15px] font-semibold text-fg">Process drivers</div>
             <p className="mt-1 text-[12px] leading-snug text-muted">
-              Signed correlation of each input with {d.target}, held out across recipe groups. The colored bars are
-              associated with higher {d.target}, gray with lower.
+              Signed correlation of each input with {d.target}, held out across recipe groups. Colored bars are
+              statistically distinguishable from noise (95% CI excludes zero); gray bars are within noise.
             </p>
             {d.drivers.length ? (
               <>
@@ -287,6 +288,7 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
                   provenance={d.provenance}
                   proposals={d.proposals}
                   proposalFeatures={d.proposal_features}
+                  clearsFloor={d.reliability?.clears_floor ?? null}
                 />
               </>
             ) : (

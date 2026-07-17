@@ -1,6 +1,6 @@
 import { PredScatter } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
-import { cn, num } from "@/lib/utils";
+import { cn, num, parseUnit } from "@/lib/utils";
 
 /** Known engine "not modeled" labels, mapped to an honest one-line description. */
 const UNMODELED_NOTES: Record<string, string> = {
@@ -27,6 +27,7 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         : `Below ${rel.spearman_floor.toFixed(2)} floor`
       : null;
   const unmodeled = rel?.unmodeled ?? [];
+  const unit = parseUnit(d.target);
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-4">
@@ -44,6 +45,9 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
           <div className="tabular mt-0.5 font-mono text-[12px] text-muted">
             {ci ? `95% CI ${ci[0].toFixed(2)} to ${ci[1].toFixed(2)}` : "not scored (too few groups)"}
           </div>
+          <div className="mt-1 text-[11px] leading-snug text-muted">
+            Rank agreement: how well predicted order matches measured order (0 = no better than chance, 1 = perfect).
+          </div>
         </div>
         <div className="flex min-h-[96px] flex-col justify-center rounded-[10px] border border-border p-3">
           <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Conformal band</div>
@@ -51,6 +55,15 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
             {d.conformal_q != null ? `± ${num(d.conformal_q, 2)}` : "n/a"}
           </div>
           <div className="mt-0.5 text-[12px] text-muted">distribution-free residual band</div>
+          {d.conformal_q != null
+            ? (() => {
+                const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
+                const gloss = `A single prediction can be off by ±${num(d.conformal_q, 2)}${
+                  unit ? ` ${unit}` : ""
+                } (95%). Compare to your ${targetName} range to judge if that's usable.`;
+                return <div className="mt-1 text-[11px] leading-snug text-muted">{gloss}</div>;
+              })()
+            : null}
         </div>
       </div>
 

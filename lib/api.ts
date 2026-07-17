@@ -32,6 +32,19 @@ export type MultiRun = {
   proposals: MultiProposal[];
 };
 
+/**
+ * One input's correlation with the target, plus enough uncertainty
+ * information for the UI to say whether it's a real finding or noise.
+ * `significant` is true iff `ci95` excludes zero at the 95% level - the
+ * engine computes this, the UI must never re-derive or override it.
+ */
+export type Driver = {
+  name: string;
+  rho: number;
+  ci95: [number, number];
+  significant: boolean;
+};
+
 export type Reliability = {
   spearman: number | null;
   ci95: [number, number] | null;
@@ -69,7 +82,7 @@ export type AnalyzeResult = {
   conformal_q?: number | null;
   reliability?: Reliability;
   best: number;
-  drivers: { name: string; rho: number }[];
+  drivers: Driver[];
   proposal_features: string[];
   proposals: Proposal[];
   oof: [number, number][];

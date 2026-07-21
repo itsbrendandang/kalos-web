@@ -11,7 +11,7 @@ import { Proposals } from "@/components/proposals";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
-import { ReliabilityPanel } from "@/components/dashboard/reliability-panel";
+import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
 import { ReliabilityVerdict } from "@/components/dashboard/reliability-verdict";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
@@ -303,6 +303,7 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
 
           <ReliabilityPanel d={d} />
         </div>
+        <ModelCoverage d={d} />
       </section>
 
       <section>

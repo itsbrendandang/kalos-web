@@ -25,6 +25,10 @@ import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
+import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
+import { RunLandscape } from "@/components/dashboard/run-landscape";
+import { ResponseSurface } from "@/components/dashboard/response-surface";
+import { ScaleUpTimeline } from "@/components/scale-up-timeline";
 import { cn, num, parseUnit } from "@/lib/utils";
 
 const BTN_ACCENT =
@@ -148,6 +152,7 @@ function DecideBody({
   const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
   const active: ActiveCampaign | null = campaign?.has_campaign ? campaign : null;
+  const hasPredicted = Boolean(d.response_surface || d.correlation);
 
   function toggle(i: number) {
     setQueued((prev) => {
@@ -220,11 +225,6 @@ function DecideBody({
           <TrustChip reliable={reliable} spearman={d.reliability?.spearman ?? d.cv_spearman} />
         </div>
       </Card>
-
-      {/* Compact trajectory: measured best-so-far by round, not a prediction */}
-      {active && active.history.length >= 2 ? (
-        <ProgressPanel active={active} targetName={targetName} unit={unit} />
-      ) : null}
 
       {/* HERO: the recommended batch */}
       <section>
@@ -303,7 +303,24 @@ function DecideBody({
       {/* Compact trust line: the honest verdict, subordinate to the decision */}
       <TrustLine d={d} reliable={reliable} />
 
-      {/* Everything else: collapsed by default */}
+      {/* Optimization progress: measured best-so-far by round, not a prediction */}
+      {active && active.history.length >= 2 ? (
+        <ProgressPanel active={active} targetName={targetName} unit={unit} />
+      ) : null}
+
+      {/* Scale-up timeline: PROJECTED marquee, demoted below the loop. Derived
+          from the top-ranked proposal's recipe - guard for the empty-proposals
+          case since there is no recipe to project from. */}
+      {d.proposals.length ? (
+        <ScaleUpTimeline
+          bestRecipe={Object.fromEntries(d.proposal_features.map((f, i) => [f, d.proposals[0].vals[i]]))}
+          bestValue={active?.best ?? d.best}
+          targetName={targetName}
+          unit={unit}
+        />
+      ) : null}
+
+      {/* Supporting analysis: collapsed by default, lazy-mounted on first open */}
       <Details summary="Process drivers — what moves the target">
         <Card className="flex flex-col">
           <p className="text-[12px] leading-snug text-muted">
@@ -338,7 +355,40 @@ function DecideBody({
       </Details>
 
       <Details summary="Run structure — where the measured runs sit">
-        <TargetDistribution d={d} />
+        {d.embedding ? (
+          <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+            <RunLandscape d={d} />
+            <TargetDistribution d={d} />
+          </div>
+        ) : (
+          <TargetDistribution d={d} />
+        )}
+      </Details>
+
+      {hasPredicted ? (
+        <Details summary="Predicted landscape — response surface & feature correlation">
+          {d.response_surface && d.correlation ? (
+            <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+              <ResponseSurface d={d} />
+              <CorrelationHeatmap d={d} />
+            </div>
+          ) : (
+            <>
+              <ResponseSurface d={d} />
+              <CorrelationHeatmap d={d} />
+            </>
+          )}
+        </Details>
+      ) : null}
+
+      {/* Coming next: PLACEHOLDER - text only, no numbers, no chart shapes, no skeletons */}
+      <Details summary="Coming next">
+        <ul className="flex flex-col gap-1.5 px-3 py-2 text-[12px] text-muted">
+          <li>Live batch curves — awaiting bioreactor telemetry</li>
+          <li>Digital twin — live process model</li>
+          <li>Scientific alerts — live sensors</li>
+          <li>Cost &amp; ROI — cost feed</li>
+        </ul>
       </Details>
     </div>
   );
@@ -590,14 +640,27 @@ function PendingRunRow({
   );
 }
 
+/**
+ * A collapsed-by-default disclosure whose children mount lazily - only after
+ * it is opened for the first time, then they stay mounted (no unmount on
+ * close). Recharts' ResponsiveContainer measures its parent on mount, so
+ * mounting these hidden (the plain `<details>` default) is wasted work every
+ * page load; opening on demand is the honest cost to pay, not upfront.
+ */
 function Details({ summary, children }: { summary: string; children: React.ReactNode }) {
+  const [opened, setOpened] = useState(false);
   return (
-    <details className="group rounded-2xl border border-border bg-card open:bg-transparent">
+    <details
+      className="group rounded-2xl border border-border bg-card open:bg-transparent"
+      onToggle={(e) => {
+        if (e.currentTarget.open) setOpened(true);
+      }}
+    >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13px] font-semibold text-fg [&::-webkit-details-marker]:hidden">
         {summary}
         <ChevronDown className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-1 pb-1">{children}</div>
+      <div className="px-1 pb-1">{opened ? children : null}</div>
     </details>
   );
 }

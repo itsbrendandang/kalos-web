@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
+import { ProgressChart } from "@/components/charts";
 import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
@@ -220,6 +221,11 @@ function DecideBody({
         </div>
       </Card>
 
+      {/* Compact trajectory: measured best-so-far by round, not a prediction */}
+      {active && active.history.length >= 2 ? (
+        <ProgressPanel active={active} targetName={targetName} unit={unit} />
+      ) : null}
+
       {/* HERO: the recommended batch */}
       <section>
         <div className="mb-3 flex items-baseline gap-3">
@@ -345,6 +351,38 @@ function Stat({ label, value, sub, mono }: { label: string; value: string; sub?:
       <div className={cn("mt-0.5 text-[20px] font-semibold text-fg", mono && "tabular font-mono")}>{value}</div>
       {sub ? <div className="text-[11px] text-muted">{sub}</div> : null}
     </div>
+  );
+}
+
+/**
+ * Best-measured-so-far by round - a slim trajectory chart, not a forecast.
+ * Only rendered by the caller when there are >= 2 history points (a single
+ * point isn't a trajectory). Nulls (a round with no measured base rows yet)
+ * are filtered before plotting, per the CAMPAIGN_LOOP.md history contract.
+ */
+function ProgressPanel({ active, targetName, unit }: { active: ActiveCampaign; targetName: string; unit: string }) {
+  const points = active.history
+    .filter((h): h is { round: number; best: number; n_base: number } => h.best != null)
+    .map((h) => ({ round: h.round, best: h.best }));
+  if (points.length < 2) return null;
+  const current = points[points.length - 1].best;
+
+  return (
+    <Card className="flex flex-col gap-2 p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <div className="text-[13px] font-semibold text-fg">Best {targetName} so far</div>
+          <div className="text-[11px] text-muted">measured, over {points.length} rounds</div>
+        </div>
+        <div className="tabular font-mono text-[20px] font-semibold text-fg">
+          {num(current, 2)}
+          {unit ? <span className="ml-1 text-[12px] font-normal text-muted">{unit}</span> : null}
+        </div>
+      </div>
+      <div className="h-[110px] w-full">
+        <ProgressChart data={points} />
+      </div>
+    </Card>
   );
 }
 

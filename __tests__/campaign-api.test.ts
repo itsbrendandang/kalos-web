@@ -26,6 +26,11 @@ describe("campaign client (lib/api.ts)", () => {
       n_base: 40,
       best: 5.9,
       round: 2,
+      history: [
+        { round: 0, best: 4.6, n_base: 36 },
+        { round: 1, best: 5.2, n_base: 38 },
+        { round: 2, best: 5.9, n_base: 40 },
+      ],
       pending: [],
       n_awaiting: 0,
       n_measured: 0,
@@ -37,6 +42,9 @@ describe("campaign client (lib/api.ts)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(`${API}/api/campaign`);
     expect(result).toEqual(campaign);
+    if (result.has_campaign) {
+      expect(result.history).toEqual(campaign.history);
+    }
   });
 
   it("getCampaign returns {has_campaign:false} before any upload", async () => {
@@ -121,6 +129,12 @@ describe("campaign client (lib/api.ts)", () => {
       n_base: 41,
       best: 6.1,
       round: 3,
+      history: [
+        { round: 0, best: 4.6, n_base: 39 },
+        { round: 1, best: 5.2, n_base: 40 },
+        { round: 2, best: 5.9, n_base: 40 },
+        { round: 3, best: 6.1, n_base: 41 },
+      ],
       pending: [],
       n_awaiting: 0,
       n_measured: 0,

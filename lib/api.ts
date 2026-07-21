@@ -208,6 +208,13 @@ export type Campaign =
       n_base: number;
       best: number | null;
       round: number;
+      /**
+       * The progress trajectory: one { round, best, n_base } point per round
+       * (round 0 = the seeded base, then one per re-analyze). `best` is the
+       * measured best-so-far (non-decreasing), not a prediction - see
+       * kalos/docs/CAMPAIGN_LOOP.md.
+       */
+      history: { round: number; best: number | null; n_base: number }[];
       pending: CampaignRun[];
       n_awaiting: number;
       n_measured: number;

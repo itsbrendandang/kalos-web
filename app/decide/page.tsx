@@ -3,7 +3,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, FlaskConical, RefreshCw, Upload } from "lucide-react";
-import { getLatest, isReliable, type LatestResult, type PopulatedResult, type Proposal } from "@/lib/api";
+import {
+  getCampaign,
+  getLatest,
+  isReliable,
+  logResult,
+  reanalyze,
+  startRuns,
+  type Campaign,
+  type CampaignRun,
+  type LatestResult,
+  type PopulatedResult,
+  type Proposal,
+} from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
@@ -27,6 +39,7 @@ const BTN_ACCENT =
  */
 export default function Decide() {
   const [data, setData] = useState<LatestResult | null>(null);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
 
@@ -34,7 +47,9 @@ export default function Decide() {
     setBusy(true);
     setErr(false);
     try {
-      setData(await getLatest());
+      const [d, c] = await Promise.all([getLatest(), getCampaign()]);
+      setData(d);
+      setCampaign(c);
     } catch {
       setErr(true);
     } finally {
@@ -43,8 +58,12 @@ export default function Decide() {
   }
   useEffect(() => {
     let cancelled = false;
-    getLatest()
-      .then((d) => !cancelled && setData(d))
+    Promise.all([getLatest(), getCampaign()])
+      .then(([d, c]) => {
+        if (cancelled) return;
+        setData(d);
+        setCampaign(c);
+      })
       .catch(() => !cancelled && setErr(true));
     return () => {
       cancelled = true;
@@ -90,18 +109,44 @@ export default function Decide() {
           to get a recommended batch.
         </Card>
       ) : (
-        <DecideBody d={data} />
+        <DecideBody
+          d={data}
+          campaign={campaign}
+          onStarted={setCampaign}
+          onReanalyzed={(analysis, c) => {
+            setData(analysis);
+            setCampaign(c);
+          }}
+        />
       )}
     </div>
   );
 }
 
-function DecideBody({ d }: { d: PopulatedResult }) {
+/** The active (has-data) campaign shape - what the panel and re-propose action need. */
+type ActiveCampaign = Extract<Campaign, { has_campaign: true }>;
+
+function DecideBody({
+  d,
+  campaign,
+  onStarted,
+  onReanalyzed,
+}: {
+  d: PopulatedResult;
+  campaign: Campaign | null;
+  onStarted: (c: Campaign) => void;
+  onReanalyzed: (analysis: PopulatedResult, campaign: Campaign) => void;
+}) {
   const [queued, setQueued] = useState<Set<number>>(new Set());
+  const [startBusy, setStartBusy] = useState(false);
+  const [startErr, setStartErr] = useState(false);
+  const [reanalyzeBusy, setReanalyzeBusy] = useState(false);
+  const [reanalyzeErr, setReanalyzeErr] = useState(false);
   const reliable = isReliable(d);
   const unit = parseUnit(d.target);
   const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
+  const active: ActiveCampaign | null = campaign?.has_campaign ? campaign : null;
 
   function toggle(i: number) {
     setQueued((prev) => {
@@ -112,12 +157,63 @@ function DecideBody({ d }: { d: PopulatedResult }) {
     });
   }
 
+  async function handleStart() {
+    const recipes = [...queued].map((i) => {
+      const p = d.proposals[i];
+      return {
+        recipe: Object.fromEntries(d.proposal_features.map((f, fi) => [f, p.vals[fi]])),
+        pred: p.pred,
+        std: p.std,
+        mode: p.mode,
+        reason: p.reason,
+      };
+    });
+    setStartBusy(true);
+    setStartErr(false);
+    try {
+      await startRuns(recipes);
+      onStarted(await getCampaign());
+      setQueued(new Set());
+    } catch {
+      setStartErr(true);
+    } finally {
+      setStartBusy(false);
+    }
+  }
+
+  async function handleLogResult(id: string, value: number) {
+    await logResult(id, value);
+    onStarted(await getCampaign());
+  }
+
+  async function handleReanalyze() {
+    setReanalyzeBusy(true);
+    setReanalyzeErr(false);
+    try {
+      const { analysis, campaign: c } = await reanalyze();
+      onReanalyzed(analysis, c);
+      setQueued(new Set());
+    } catch {
+      setReanalyzeErr(true);
+    } finally {
+      setReanalyzeBusy(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Campaign strip: target, best-so-far, evidence, and the trust chip */}
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
         <Stat label="Optimizing" value={targetName} sub={`maximize${unit ? ` (${unit})` : ""}`} />
-        <Stat label="Best so far" value={num(d.best, 2)} sub={`across ${d.n} runs`} mono />
+        <Stat label="Best so far" value={num(active?.best ?? d.best, 2)} sub={`across ${d.n} runs`} mono />
+        {active ? (
+          <Stat
+            label="Round"
+            value={String(active.round)}
+            sub={`${active.n_awaiting} awaiting result${active.n_awaiting === 1 ? "" : "s"}`}
+            mono
+          />
+        ) : null}
         <Stat label="Batch ready" value={String(d.proposals.length)} sub="recommended runs" mono />
         <div className="ml-auto">
           <TrustChip reliable={reliable} spearman={d.reliability?.spearman ?? d.cv_spearman} />
@@ -156,17 +252,47 @@ function DecideBody({ d }: { d: PopulatedResult }) {
               <span className="font-semibold">{queued.size}</span> run{queued.size > 1 ? "s" : ""} queued for this
               cycle.
             </span>
-            <button
-              type="button"
-              className={BTN_ACCENT}
-              onClick={() => alert(`Queued ${queued.size} run(s). (Prototype - wiring to the run store is next.)`)}
-            >
+            <button type="button" className={BTN_ACCENT} onClick={handleStart} disabled={startBusy}>
               <FlaskConical />
-              Start {queued.size} run{queued.size > 1 ? "s" : ""}
+              {startBusy ? "Starting..." : `Start ${queued.size} run${queued.size > 1 ? "s" : ""}`}
             </button>
           </div>
         ) : null}
+        {startErr ? <p className="mt-2 text-[12px] text-amber">Couldn&apos;t start those runs. Try again.</p> : null}
       </section>
+
+      {/* Active campaign: the recipes started this round, and the loop's close */}
+      {active && active.pending.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <div className="mb-1 flex items-baseline gap-3">
+            <h2 className="text-[15px] font-semibold text-fg">In progress this round</h2>
+            <span className="text-[12px] text-muted">
+              {active.n_awaiting} awaiting result{active.n_awaiting === 1 ? "" : "s"} · {active.n_measured} measured
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {active.pending.map((run) => (
+              <PendingRunRow key={run.id} run={run} features={d.proposal_features} unit={unit} onLogResult={handleLogResult} />
+            ))}
+          </div>
+          <div className="flex items-center justify-between rounded-[10px] border border-accent/40 bg-blue-tint px-4 py-2.5 text-[13px]">
+            <span className="text-fg">
+              <span className="font-semibold">{active.n_measured}</span> result{active.n_measured === 1 ? "" : "s"} logged
+              this round.
+            </span>
+            <button
+              type="button"
+              className={BTN_ACCENT}
+              onClick={handleReanalyze}
+              disabled={reanalyzeBusy || active.n_measured === 0}
+            >
+              <RefreshCw />
+              {reanalyzeBusy ? "Re-analyzing..." : `Re-propose with ${active.n_measured} result${active.n_measured === 1 ? "" : "s"}`}
+            </button>
+          </div>
+          {reanalyzeErr ? <p className="text-[12px] text-amber">Re-analysis failed. Try again.</p> : null}
+        </section>
+      ) : null}
 
       {/* Compact trust line: the honest verdict, subordinate to the decision */}
       <TrustLine d={d} reliable={reliable} />
@@ -332,6 +458,95 @@ function ProposalCard({
           <FlaskConical />
           {queued ? "Queued" : "Queue this run"}
         </button>
+      </div>
+    </Card>
+  );
+}
+
+function PendingRunRow({
+  run,
+  features,
+  unit,
+  onLogResult,
+}: {
+  run: CampaignRun;
+  features: string[];
+  unit: string;
+  onLogResult: (id: string, value: number) => Promise<void>;
+}) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const parsed = Number(value);
+  const canSubmit = value.trim() !== "" && Number.isFinite(parsed);
+
+  async function submit() {
+    if (!canSubmit) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      await onLogResult(run.id, parsed);
+      setValue("");
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3.5">
+      <span
+        className={cn(
+          "rounded-lg border px-2 py-0.5 text-[11px] font-medium",
+          run.mode === "explore"
+            ? "border-explore-soft bg-explore-soft text-explore-deep"
+            : "border-green-soft bg-green-soft text-green",
+        )}
+      >
+        {run.mode}
+      </span>
+
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {features.map((f) => (
+          <div key={f} className="text-[12px] whitespace-nowrap">
+            <span className="text-muted">{f}</span>{" "}
+            <span className="tabular font-mono font-semibold text-fg">{num(run.recipe[f], 2)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-[12px] whitespace-nowrap text-muted">
+        predicted{" "}
+        <span className="tabular font-mono font-semibold text-fg">
+          {num(run.pred, 2)} <span className="font-normal text-muted">± {num(run.std, 2)}</span>
+        </span>
+        {unit ? ` ${unit}` : ""}
+      </div>
+
+      <div className="ml-auto flex items-center gap-2">
+        {run.awaiting ? (
+          <>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="measured value"
+              aria-label={`Measured ${unit || "value"} for this recipe`}
+              className="h-8 w-32 rounded-[8px] border border-border bg-card px-2 text-[13px] text-fg tabular font-mono focus:border-accent focus:outline-none"
+              disabled={busy}
+            />
+            <Button size="sm" onClick={submit} disabled={!canSubmit || busy}>
+              {busy ? "..." : "Log result"}
+            </Button>
+          </>
+        ) : (
+          <span className="rounded-lg border border-green-soft bg-green-soft px-2 py-1 text-[12px] font-medium text-green">
+            logged {run.result != null ? num(run.result, 2) : "—"}
+          </span>
+        )}
+        {failed ? <span className="text-[11px] text-amber">failed - retry</span> : null}
       </div>
     </Card>
   );

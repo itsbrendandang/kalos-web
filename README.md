@@ -35,6 +35,15 @@ on a single unified blue design system, consuming the Kalos engine API.
   function (`#next-experiments`; this is where the old standalone Optimize
   page folded in). Reads `GET /api/latest`; shows an upload prompt until you
   analyze a dataset (it is not a demo).
+- **Decide** (`/decide`) - the decision-first campaign surface and the closed
+  optimization loop. The recommended batch is the hero (each experiment's recipe,
+  predicted value + uncertainty, and why); the honest reliability verdict is a
+  compact chip, and the diagnostics (drivers, reliability detail, run structure)
+  collapse behind disclosures. Queue proposals and Start them, log each run's
+  measured outcome, then Re-propose - which folds the results into the dataset
+  and returns the next batch. Wired to the engine's `/api/campaign*` endpoints
+  (see `docs/CAMPAIGN_LOOP.md` in the engine repo); best-so-far and round come
+  from the live campaign, never a prediction.
 - **Analyze** (`/analyze`) - drop a CSV/TSV/Excel run sheet; the engine fits,
   cross-validates honestly, ranks the drivers, and recommends the next batch.
   Reached via the "Run analysis" action button on the Experiments hub and on

@@ -181,4 +181,88 @@ export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "c
   return d.cv_spearman != null && ci != null && ci[0] > 0;
 }
 
+// --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------
+// The closed optimization loop behind /decide: propose -> run -> log outcome
+// -> re-propose. A campaign is one target plus a growing (recipe -> outcome)
+// table; `/api/campaign` reflects it, `/api/campaign/reanalyze` is the loop
+// closing (folds measured runs into the base data and re-runs `_analyze`).
+
+/** One recipe started from a proposed batch, awaiting or holding a measured outcome. */
+export type CampaignRun = {
+  id: string;
+  recipe: Record<string, number>;
+  pred: number;
+  std: number;
+  mode: "explore" | "exploit";
+  reason: string;
+  result: number | null;
+  awaiting: boolean;
+};
+
+export type Campaign =
+  | { has_campaign: false }
+  | {
+      has_campaign: true;
+      target: string;
+      features: string[];
+      n_base: number;
+      best: number | null;
+      round: number;
+      pending: CampaignRun[];
+      n_awaiting: number;
+      n_measured: number;
+    };
+
+export const getCampaign = (): Promise<Campaign> =>
+  fetch(`${API}/api/campaign`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
+
+/** A recipe about to be started, in the shape POST /api/campaign/start expects. */
+export type StartRecipe = {
+  recipe: Record<string, number>;
+  pred: number;
+  std: number;
+  mode: string;
+  reason: string;
+};
+
+export async function startRuns(recipes: StartRecipe[]): Promise<void> {
+  const r = await fetch(`${API}/api/campaign/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipes }),
+  });
+  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+}
+
+export async function logResult(id: string, value: number): Promise<void> {
+  const r = await fetch(`${API}/api/campaign/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, value }),
+  });
+  if (!r.ok) {
+    // The documented 400 body is { error }; fall back to a status-based
+    // message for anything else (network hiccup, unexpected 5xx shape).
+    let message = `engine responded ${r.status}`;
+    try {
+      const body: unknown = await r.json();
+      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
+        message = (body as { error: string }).error;
+      }
+    } catch {
+      // Body wasn't JSON - keep the status-based message.
+    }
+    throw new Error(message);
+  }
+}
+
+export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
+  const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST" });
+  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  return r.json();
+}
+
 export { API };

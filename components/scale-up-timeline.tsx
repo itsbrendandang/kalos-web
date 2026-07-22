@@ -86,7 +86,7 @@ export function ScaleUpTimeline({
   };
 
   return (
-    <Card className="border-dashed border-[color:var(--chart-1)]/35 bg-card">
+    <Card className="border border-dashed border-[color:var(--chart-1)]/35 bg-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export function ScaleUpTimeline({
       </div>
 
       {/* Horizontal stepper - overflow-x-auto + min-w mirrors correlation-heatmap.tsx */}
-      <div ref={containerRef} className="mt-4 overflow-x-auto rounded-[10px] border border-border bg-bg p-3">
+      <div ref={containerRef} className="mt-4 overflow-x-auto rounded-[10px] bg-bg p-3">
         <div className="min-w-[560px]">
           <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} preserveAspectRatio="none" className="h-[58px] w-full" aria-hidden="true">
             {paths
@@ -168,7 +168,7 @@ export function ScaleUpTimeline({
                     aria-controls={panelId}
                     aria-label={`${meta.label}: projected ${targetName} ${num(point.yield.value, 1)}${unit ? ` ${unit}` : ""}, plus or minus ${num(point.yield.band, 1)}. Activate for purity, cost, and time detail.`}
                     onClick={() => setOpenStage(isOpen ? null : meta.stage)}
-                    className="flex w-full flex-col items-center gap-0.5 rounded-[10px] border border-border bg-card px-2 py-2.5 text-center transition-colors hover:border-[color:var(--chart-1)]/40 focus-visible:outline-none"
+                    className="flex w-full flex-col items-center gap-0.5 rounded-[10px] bg-blue-soft px-2 py-2.5 text-center transition-colors hover:bg-blue-soft/70 focus-visible:outline-none"
                   >
                     <span className="text-[9.5px] font-semibold tracking-wide text-muted uppercase">{meta.label}</span>
                     <span className="text-[9.5px] text-muted">{meta.volumeLabel}</span>

@@ -210,7 +210,7 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
   // (the orphan wrap) AND headlined a driver the tornado below already reports
   // honestly - a single lead correlation doesn't belong in the KPI row.
   return (
-    <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 xl:grid-cols-4">
       <KpiCell
         label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
         value={

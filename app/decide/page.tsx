@@ -651,16 +651,16 @@ function Details({ summary, children }: { summary: string; children: React.React
   const [opened, setOpened] = useState(false);
   return (
     <details
-      className="group rounded-2xl border border-border bg-card open:bg-transparent"
+      className="group border-t border-border"
       onToggle={(e) => {
         if (e.currentTarget.open) setOpened(true);
       }}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13px] font-semibold text-fg [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-4 text-[13px] font-semibold text-fg [&::-webkit-details-marker]:hidden">
         {summary}
         <ChevronDown className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-1 pb-1">{opened ? children : null}</div>
+      <div className="pb-2">{opened ? children : null}</div>
     </details>
   );
 }

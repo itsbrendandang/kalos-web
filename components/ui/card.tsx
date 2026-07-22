@@ -1,11 +1,23 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * Minimal, borderless surface (see the design direction: no shadows, no boxes).
+ * A Card is now an open section - it carries padding for rhythm but no border or
+ * fill, so content is grouped by whitespace and the occasional hairline divider
+ * rather than a bordered box. Pass `bordered` for the rare case that genuinely
+ * needs an outline (e.g. an inline callout).
+ */
+export function Card({
+  className,
+  bordered = false,
+  ...props
+}: React.ComponentProps<"div"> & { bordered?: boolean }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card p-5",
+        "rounded-xl p-6",
+        bordered && "border border-border",
         className,
       )}
       {...props}
@@ -31,10 +43,8 @@ export function Kpi({
   return (
     <div
       className={cn(
-        "min-h-[96px] rounded-xl border px-4 py-3.5",
-        hero
-          ? "border-accent-hover bg-accent-hover"
-          : "border-border bg-blue-soft",
+        "min-h-[96px] rounded-xl px-4 py-3.5",
+        hero ? "bg-accent-hover" : "bg-blue-soft",
       )}
     >
       <div className={cn("text-[11px] font-medium", hero ? "text-[color:var(--primary-foreground)]" : "text-muted")}>{label}</div>
@@ -65,14 +75,13 @@ export function StatCard({
   tone?: "accent" | "explore";
 }) {
   return (
-    <Card className="min-h-[132px] p-4">
+    <Card className="min-h-[132px] rounded-xl bg-blue-soft p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="text-[10.5px] font-semibold text-muted uppercase">{label}</div>
         <span
           className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-lg border",
+            "grid size-8 shrink-0 place-items-center rounded-lg",
             tone === "accent" ? "bg-accent-soft text-accent-text" : "bg-explore-soft text-explore-deep",
-            tone === "accent" ? "border-blue-border" : "border-border",
           )}
         >
           <Icon className="size-4" />

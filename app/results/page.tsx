@@ -350,8 +350,13 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
             <Proposals
               cols={d.proposal_features}
               rows={d.proposals}
-              predHead={`pred. ${d.target}`}
-              predFn={(p) => `${num(p.pred, 2)} ± ${num(p.std, 2)}`}
+              predHead={`pred. ${d.target} · vs best`}
+              predFn={(p) => {
+                const band = d.conformal_q ?? p.std;
+                const delta = p.pred - d.best;
+                const v = p.pred - band >= d.best ? "beats" : p.pred + band <= d.best ? "below" : "~best";
+                return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})`;
+              }}
             />
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no proposals</p>

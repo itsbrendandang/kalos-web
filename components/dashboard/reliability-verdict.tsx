@@ -20,19 +20,40 @@ export function ReliabilityVerdict({ d }: { d: PopulatedResult }) {
   const { spearman, ci95, spearman_floor, clears_floor } = rel;
   const includesZero = ci95[0] <= 0 && ci95[1] >= 0;
 
+  // How many recommended recipes are actually predicted to beat the incumbent,
+  // using the conformal band - so a reliable ranking doesn't get overstated as
+  // "act on these" when none of them clears the current best.
+  const band = d.conformal_q ?? null;
+  const beats = d.proposals.filter((p) => p.pred - (band ?? p.std) >= d.best).length;
+  const nProps = d.proposals.length;
+  // The verdict is only "green" when the model both ranks reliably AND is
+  // proposing something it believes beats the current best.
+  const strong = clears_floor && beats > 0;
+
   return (
     <div
       className={cn(
         "rounded-2xl border p-4 text-[13px] leading-relaxed",
-        clears_floor
+        strong
           ? "border-l-4 border-green/30 border-l-green bg-green-soft text-green"
           : "border-l-4 border-amber/30 border-l-amber bg-amber-soft text-amber",
       )}
     >
       {clears_floor ? (
         <>
-          The model ranks recipes reliably (rank agreement {spearman.toFixed(2)}, floor {spearman_floor.toFixed(2)}).
-          Drivers and recommendations are safe to act on.
+          The model ranks recipes reliably (rank agreement {spearman.toFixed(2)}, floor {spearman_floor.toFixed(2)}) -
+          drivers are trustworthy.{" "}
+          {beats > 0 ? (
+            <>
+              {beats} of {nProps} recommendations {beats === 1 ? "is" : "are"} predicted to beat your current best; the
+              wide ± bands mean read the order as a guide, not a guarantee.
+            </>
+          ) : (
+            <>
+              But none of the recommended recipes is predicted to beat your current best - they are exploration around
+              it, not confident bets.
+            </>
+          )}
         </>
       ) : (
         <>

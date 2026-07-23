@@ -226,6 +226,9 @@ function DecideBody({
         </div>
       </Card>
 
+      {/* Honest lead: what this batch actually buys you, before the recipes. */}
+      <HonestVerdict d={d} best={active?.best ?? d.best} band={d.conformal_q ?? null} unit={unit} />
+
       {/* HERO: the recommended batch */}
       <section>
         <div className="mb-3 flex items-baseline gap-3">
@@ -244,6 +247,8 @@ function DecideBody({
                 p={p}
                 features={d.proposal_features}
                 unit={unit}
+                best={active?.best ?? d.best}
+                band={d.conformal_q ?? null}
                 queued={queued.has(i)}
                 onToggle={() => toggle(i)}
               />
@@ -300,24 +305,23 @@ function DecideBody({
         </section>
       ) : null}
 
-      {/* Compact trust line: the honest verdict, subordinate to the decision */}
-      <TrustLine d={d} reliable={reliable} />
-
       {/* Optimization progress: measured best-so-far by round, not a prediction */}
       {active && active.history.length >= 2 ? (
         <ProgressPanel active={active} targetName={targetName} unit={unit} />
       ) : null}
 
-      {/* Scale-up timeline: PROJECTED marquee, demoted below the loop. Derived
-          from the top-ranked proposal's recipe - guard for the empty-proposals
-          case since there is no recipe to project from. */}
+      {/* Scale-up projection: demoted behind a disclosure and labelled as NOT
+          from the client's data - it is physics/literature priors, so it must
+          not sit in the decision hero pretending to be a result. */}
       {d.proposals.length ? (
-        <ScaleUpTimeline
-          bestRecipe={Object.fromEntries(d.proposal_features.map((f, i) => [f, d.proposals[0].vals[i]]))}
-          bestValue={active?.best ?? d.best}
-          targetName={targetName}
-          unit={unit}
-        />
+        <Details summary="Projected scale-up — physics priors, not from your data">
+          <ScaleUpTimeline
+            bestRecipe={Object.fromEntries(d.proposal_features.map((f, i) => [f, d.proposals[0].vals[i]]))}
+            bestValue={active?.best ?? d.best}
+            targetName={targetName}
+            unit={unit}
+          />
+        </Details>
       ) : null}
 
       {/* Supporting analysis: collapsed by default, lazy-mounted on first open */}
@@ -451,35 +455,63 @@ function TrustChip({ reliable, spearman }: { reliable: boolean; spearman: number
   );
 }
 
-function TrustLine({ d, reliable }: { d: PopulatedResult; reliable: boolean }) {
+/** The elevated, honest lead for /decide: what this batch actually buys you,
+ * stated against the incumbent and the model's real confidence - not a
+ * confident-looking ranked list papering over wide uncertainty. */
+function HonestVerdict({
+  d,
+  best,
+  band,
+  unit,
+}: {
+  d: PopulatedResult;
+  best: number;
+  band: number | null;
+  unit: string;
+}) {
   const rel = d.reliability;
-  if (!rel || rel.spearman == null || rel.ci95 == null) return null;
-  const includesZero = rel.ci95[0] <= 0 && rel.ci95[1] >= 0;
+  const props = d.proposals;
+  if (!props.length) return null;
+  const beats = props.filter((p) => p.pred - (band ?? p.std) >= best).length;
+  const reliable = rel?.clears_floor ?? false;
+  const rho = rel?.spearman ?? d.cv_spearman;
+  const good = reliable && beats > 0;
+  const bestStr = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
   return (
     <div
       className={cn(
-        "rounded-2xl border border-l-4 p-4 text-[13px] leading-relaxed",
-        reliable
-          ? "border-green/30 border-l-green bg-green-soft text-green"
-          : "border-amber/30 border-l-amber bg-amber-soft text-amber",
+        "rounded-2xl border-l-4 p-4 text-[13px] leading-relaxed",
+        good ? "border-l-green bg-green-soft text-green" : "border-l-amber bg-amber-soft text-amber",
       )}
     >
-      {reliable ? (
-        <>
-          The model ranks recipes reliably (rank agreement {rel.spearman.toFixed(2)}, above the{" "}
-          {rel.spearman_floor.toFixed(2)} floor). These picks are optimized bets, not just exploration.
-        </>
-      ) : (
-        <>
-          These are <span className="font-semibold">exploration picks to gather signal</span>, not optimized bets.
-          Held-out rank agreement is {rel.spearman.toFixed(2)} (95% range {rel.ci95[0].toFixed(2)} to{" "}
-          {rel.ci95[1].toFixed(2)}
-          {includesZero ? ", which includes zero" : ""}) — below the {rel.spearman_floor.toFixed(2)} trust floor.
-          Running them is how the model earns confidence.
-        </>
-      )}
+      <p className="font-semibold">
+        {good
+          ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}.`
+          : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} — this batch is exploration, not a confident bet.`}
+      </p>
+      <p className="mt-1 opacity-90">
+        {reliable
+          ? `The model ranks recipes with ${rho != null ? `ρ ${rho.toFixed(2)}` : "moderate"} agreement — a genuine head start over guessing. But the ± bands are wide, so read the order as a guide, not a guarantee.`
+          : `Rank agreement is ${rho != null ? rho.toFixed(2) : "low"}${rel ? ` (below the ${rel.spearman_floor.toFixed(2)} floor)` : ""} and the ± bands are wide. On data this noisy, undirected search is competitive — running these earns the model confidence; expect a modest head start, not certainty.`}
+      </p>
+      {rel?.unmodeled?.length ? (
+        <p className="mt-1.5 text-[12px] opacity-75">
+          The engine does not model {rel.unmodeled.join(" · ")} — use your own judgment there.
+        </p>
+      ) : null}
     </div>
   );
+}
+
+/** The honest, per-recipe read against the incumbent, using the conformal band:
+ * only if the whole band sits above the current best is it "likely" better;
+ * if it sits below, the recipe is predicted worse; otherwise it's a coin-flip
+ * the model can't call. This is what stops five wide-banded predictions from
+ * reading as a confident ranked list. */
+function recipeVerdict(pred: number, band: number, best: number) {
+  if (pred - band >= best) return { label: "likely beats best", tone: "good" as const };
+  if (pred + band <= best) return { label: "below current best", tone: "weak" as const };
+  return { label: "coin-flip vs best", tone: "neutral" as const };
 }
 
 function ProposalCard({
@@ -487,6 +519,8 @@ function ProposalCard({
   p,
   features,
   unit,
+  best,
+  band,
   queued,
   onToggle,
 }: {
@@ -494,24 +528,29 @@ function ProposalCard({
   p: Proposal;
   features: string[];
   unit: string;
+  best: number;
+  band: number | null;
   queued: boolean;
   onToggle: () => void;
 }) {
+  const bandV = band ?? p.std;
+  const delta = p.pred - best;
+  const v = recipeVerdict(p.pred, bandV, best);
+  const toneClass =
+    v.tone === "good" ? "bg-green-soft text-green" : v.tone === "weak" ? "bg-amber-soft text-amber" : "bg-bg text-muted";
   return (
-    <Card className={cn("flex flex-col gap-3 transition-colors", queued && "border-accent/50 bg-blue-tint")}>
+    <Card className={cn("flex flex-col gap-3 transition-colors", queued && "bg-blue-tint")}>
       <div className="flex items-start justify-between gap-2">
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-bg font-mono text-[11px] font-semibold text-accent-text">
           {rank}
         </span>
         <span
           className={cn(
-            "rounded-lg border px-2 py-0.5 text-[11px] font-medium",
-            p.mode === "explore"
-              ? "border-explore-soft bg-explore-soft text-explore-deep"
-              : "border-green-soft bg-green-soft text-green",
+            "rounded-lg px-2 py-0.5 text-[11px] font-medium",
+            p.mode === "exploit" ? "bg-green-soft text-green" : "bg-explore-soft text-explore-deep",
           )}
         >
-          {p.mode}
+          {p.mode === "exploit" ? "best bet" : "exploration"}
         </span>
       </div>
 
@@ -524,15 +563,30 @@ function ProposalCard({
         ))}
       </div>
 
-      <div className="mt-auto border-t border-border pt-3">
+      <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-3">
+        {/* The number that matters: predicted change vs the recipe you already have. */}
         <div className="flex items-baseline justify-between">
-          <span className="text-[11px] text-muted">predicted</span>
-          <span className="tabular font-mono text-[14px] font-semibold text-fg">
-            {num(p.pred, 2)} <span className="text-muted">± {num(p.std, 2)}</span>
-            {unit ? <span className="ml-1 text-[11px] font-normal text-muted">{unit}</span> : null}
+          <span className="text-[11px] text-muted">vs current best</span>
+          <span
+            className={cn(
+              "tabular font-mono text-[16px] font-semibold",
+              delta > 0 ? "text-green" : "text-muted",
+            )}
+          >
+            {delta >= 0 ? "+" : "−"}
+            {num(Math.abs(delta), 2)}
+            {unit ? <span className="ml-1 text-[10px] font-normal text-muted">{unit}</span> : null}
           </span>
         </div>
-        <p className="mt-1.5 text-[12px] leading-snug text-muted">{p.reason}</p>
+        <div className="flex items-center justify-between gap-2">
+          <span className="tabular font-mono text-[11px] text-muted">
+            predicts {num(p.pred, 2)} ± {num(bandV, 2)}
+          </span>
+          <span className={cn("rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold whitespace-nowrap", toneClass)}>
+            {v.label}
+          </span>
+        </div>
+        <p className="mt-0.5 text-[12px] leading-snug text-muted">{p.reason}</p>
         <button
           type="button"
           onClick={onToggle}

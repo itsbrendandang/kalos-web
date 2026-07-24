@@ -40,6 +40,16 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 
 ## Color roles
 
+> Superseded in part (2026-07-24, confirmed by owner): the app chrome is
+> **achromatic neutral**, not brand blue. The `--blue*` / `--accent*` / `--sidebar`
+> hex values and the entire **Dark** column in the table below are historical
+> (pre-`main #15` "neutral theme" migration) and do NOT match the shipped code,
+> where `--blue`/`--accent` resolve to `oklch(0.205 0 0)` gray. Trust the
+> "2026-07-24 consolidation" section below and `app/globals.css` `:root` for the
+> live values. The `--bg` / `--card` / `--fg` / `--muted` / `--border` /
+> `--blue-soft` light rows ARE current. Neutral is the intended baseline; the
+> blue rows are kept only as history until this table is rewritten.
+
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
 | `--bg` | `#f6f8fc` | `#10141e` | Page background |

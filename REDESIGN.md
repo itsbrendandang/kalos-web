@@ -135,6 +135,8 @@ Resolved 2026-07-24: `/results` is the single authoritative readout; Analyze is 
 
 ### 5.3 Clarify Dashboard vs Optimize
 
+Reconciled 2026-07-24: on this branch there is no standalone interactive Optimize page. `/optimize` is a redirect to `/results#next-experiments`, and the proposals were folded into the Results readout's "Recommended from your last analysis" section (see `components/analysis-readout.tsx`). The disambiguation that shipped is therefore a single labeled section on Results, not two competing surfaces. The original two-surface plan below is kept as history.
+
 Both surface "recommended next experiments," which is the second source of confusion.
 Distinguish them by verb, not by data:
 
@@ -172,7 +174,7 @@ Becomes purely the input surface (see 5.2).
 
 ### 6.3 Optimize (`/optimize`)
 
-Reframed as the interactive workspace, not a second report.
+Not built as a standalone page. `/optimize` redirects to `/results#next-experiments`; the proposals live in the Results readout (see 5.3 reconciliation note). The interactive-workspace plan below is history.
 
 - Keep the two panels: single-objective and two-objective optimization, with convergence curve, Pareto front, and proposed batch.
 - Section labels change to make it read as an active run ("proposed this run"), distinct from the Dashboard's standing recommendation.

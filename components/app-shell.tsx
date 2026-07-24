@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Atom,
   ClipboardList,
   Database,
   FolderKanban,
@@ -40,6 +41,7 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
     items: [
       { href: "/results", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
       { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
+      { href: "/simulate", label: "In-silico optimizer", short: "Simulate", helper: "Synthetic BO benchmark", icon: Atom },
     ],
   },
   {

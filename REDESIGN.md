@@ -112,24 +112,26 @@ This is the substance of the redesign.
 
 Four primary items, renamed and reordered to match the read-then-act flow (matches WIP):
 
-1. Dashboard (`/`) — helper "Results summary". The authoritative read surface.
+1. Results (`/results`) — helper "Results summary". The authoritative read surface, where `AnalysisReadout` renders.
 2. Run analysis (`/analyze`) — helper "Upload run sheet". The action that produces a result.
 3. Optimize (`/optimize`) — helper "Next experiments". The interactive engine.
 4. Data room (`/data`) — helper "Registry". The dataset and barcode registry.
+
+Note on `/`: on the current branch the index route (`/`) is the Experiments hub (Live / Board / Table view switcher), not the readout. The authoritative results readout lives at `/results`. This was reconciled 2026-07-24 (see 9.1) so the doc matches the shipped IA; the earlier draft assumed `/` was the readout.
 
 Voyager (`/voyager`) stays a separate product surface with its own top-nav chrome, reached outside this sidebar (see 5.4).
 
 ### 5.2 Resolve the Dashboard vs Analyze duplication
 
-Today Analyze uploads a file and then renders a full results dashboard inline, duplicating `/`.
+Today Analyze uploads a file and then renders a full results dashboard inline, duplicating the readout.
 Redesign:
 
 - Analyze is the input surface. It owns the upload dropzone, the run-sheet checklist, target selection, and validation feedback. It does the job of getting a clean dataset into the engine and nothing more.
-- On a successful analysis, Analyze shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) and a single primary action: "View results" linking to `/`.
-- The full readout (reliability, drivers, predicted-vs-measured, proposals) renders only on the Dashboard, via the shared `AnalysisReadout` component.
+- On a successful analysis, Analyze shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) and a single primary action: "View results" linking to `/results`.
+- The full readout (reliability, drivers, predicted-vs-measured, proposals) renders only on the results page (`/results`), via the shared `AnalysisReadout` component.
 - Result: one authoritative results page. Analyze stops being a second dashboard.
 
-Alternative if Brendan prefers inline results on Analyze: keep the readout on Analyze but have `/` become a lighter "latest + history" landing that links into it. This is the inverse of the recommendation and is listed as a decision below. The recommended direction is Dashboard-as-home because it matches the "read before act" principle and the existing `GET /api/latest` model.
+Resolved 2026-07-24: `/results` is the single authoritative readout; Analyze is input-only and links to it. This satisfies the "read before act" principle and the existing `GET /api/latest` model. The inverse (results inline on Analyze) was rejected.
 
 ### 5.3 Clarify Dashboard vs Optimize
 
@@ -150,9 +152,9 @@ Decide and document the relationship rather than leaving it implicit.
 
 ## 6. Page-by-page spec
 
-### 6.1 Dashboard (`/`)
+### 6.1 Results (`/results`)
 
-The home and the single authoritative readout.
+The single authoritative readout.
 
 - Keep the three empty/error states: `ServiceUnavailable` (engine down), `Loading`, and `StartAnalysisCard` (no data yet). These are good and stay.
 - When data exists, render: the dataset summary strip, the four stat cards (best, reliability with CI, runs/inputs, top driver), then the shared `AnalysisReadout` (predicted-vs-measured, "run this next", drivers, recommended-from-last-analysis).
@@ -165,7 +167,7 @@ The home and the single authoritative readout.
 Becomes purely the input surface (see 5.2).
 
 - Keep the dropzone, the run-sheet checklist card, target selection, and inline validation errors.
-- Replace the inline full-results render with a compact success confirmation plus a primary "View results" link to `/`.
+- Replace the inline full-results render with a compact success confirmation plus a primary "View results" link to `/results`.
 - Preserve the amber validation-error card styling.
 
 ### 6.3 Optimize (`/optimize`)
@@ -217,7 +219,7 @@ Each step leaves the app building and passing, per the standing instruction neve
 
 All four were confirmed to the recommended direction. These are now binding for the section 6 build.
 
-1. **Analyze results home — Dashboard-only.** The Dashboard (`/`) is the single authoritative readout via the shared `AnalysisReadout`. Analyze becomes input-only and, on success, shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) plus a single "View results" link to `/`. The inverse (results on Analyze) is rejected.
+1. **Analyze results home — single readout at `/results`.** `/results` is the single authoritative readout via the shared `AnalysisReadout`. Analyze becomes input-only and, on success, shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) plus a single "View results" link to `/results`. The inverse (results on Analyze) is rejected. Implementation note (2026-07-24): the original draft named `/` as the readout, but `/` is the Experiments hub on this branch, so the readout home is `/results`; the sections above were reconciled to match what shipped.
 2. **Voyager scope — styling pass only.** Voyager stays a separate customer-facing product surface on the shared design system. In scope for a token/banner consistency pass only (5.4): no IA change, no data change, no merge into the sidebar app.
 3. **Audience — both, scientist-first.** The redesign serves internal scientists and prospective enterprise-pharma customers, but the honest optimizer surface leads and the illustrative Voyager surface is clearly secondary. Density, honesty, and daily-use speed win ties; the customer-facing narrative is preserved but never foregrounded over the real optimizer readout.
 4. **Engine credit — Data room.** Move "powered by BoTorch + ESM-2" out of the primary sidebar and into the Data room (6.4). Not an About affordance, not dropped.

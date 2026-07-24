@@ -1278,7 +1278,6 @@
   width: 100%;
   max-width: 440px;
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
 }
 .voyager-root .mhdr {
   padding: 15px 18px;

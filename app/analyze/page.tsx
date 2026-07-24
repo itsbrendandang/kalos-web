@@ -1,14 +1,19 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, Upload, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Upload, X } from "lucide-react";
 import { isReliable, runFile, type AnalyzeResult } from "@/lib/api";
-import { Card, SectionLabel, Kpi } from "@/components/ui/card";
+import { Card, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
-import { DriversBar, PredScatter } from "@/components/charts";
-import { Proposals } from "@/components/proposals";
-import { cn, fmt } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+
+// Matches the ad hoc accent-link literal used for the same "primary CTA as a
+// link" need on app/page.tsx and app/results/page.tsx (REDESIGN 4.4 flags
+// this for a future shared `Button` variant; out of scope for this page).
+const BTN_ACCENT =
+  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 export default function AnalyzePage() {
   const [res, setRes] = useState<AnalyzeResult | null>(null);
@@ -129,15 +134,47 @@ export default function AnalyzePage() {
       ) : null}
 
       {res ? (
-        <Card>
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="font-mono text-xs text-muted">
-              {file?.name} / {res.n} rows / {res.d} inputs{res.group_col ? ` / grouped by ${res.group_col}` : ""}
+        <Card className="overflow-hidden p-0">
+          <div className="grid md:grid-cols-[1fr_300px]">
+            <div className="p-6">
+              <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent-text">
+                <CheckCircle2 className="size-6" />
+              </span>
+              <h2 className="font-head text-[22px] font-semibold">Analysis complete</h2>
+              <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
+                {file?.name} parsed into {res.n} runs across {res.d} inputs
+                {res.group_col ? `, grouped by ${res.group_col}` : ""}, fit against {res.target}.
+              </p>
+              <div className="mt-4">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                    reliability === "Reliable"
+                      ? "border-green/30 bg-green-soft text-green"
+                      : reliability === "Needs review"
+                        ? "border-amber/30 bg-amber-soft text-amber"
+                        : "border-border bg-blue-soft text-muted",
+                  )}
+                  title="How well the model predicted runs it had never seen. Higher = more trustworthy suggestions."
+                >
+                  Model reliability: {reliability}
+                </span>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Link href="/results" className={BTN_ACCENT}>
+                  View results
+                  <ArrowRight />
+                </Link>
+                <Button variant="ghost" size="sm" onClick={reset}>
+                  <X />
+                  Analyze another file
+                </Button>
+              </div>
             </div>
-            <label className="ml-auto flex items-center gap-2 text-[11px] text-muted">
-              maximize
+            <div className="border-t border-border bg-blue-soft p-5 md:border-t-0 md:border-l">
+              <SectionLabel>Maximize</SectionLabel>
               <select
-                className="min-h-[28px] rounded-lg border border-border bg-card px-2 py-1.5 font-mono text-[11px] text-fg"
+                className="min-h-[32px] w-full rounded-lg border border-border bg-card px-2 py-1.5 font-mono text-[11px] text-fg"
                 value={res.target}
                 onChange={(e) => file && analyze(file, e.target.value)}
               >
@@ -145,41 +182,11 @@ export default function AnalyzePage() {
                   <option key={t}>{t}</option>
                 ))}
               </select>
-            </label>
-            <Button variant="ghost" size="sm" onClick={reset}>
-              <X />
-              Clear
-            </Button>
-          </div>
-
-          <div className="mb-5 grid gap-3 sm:grid-cols-3">
-            <Kpi hero label={`Best ${res.target}`} value={fmt(res.best, 3)} />
-            <Kpi
-              label={<span title="How well the model predicted runs it had never seen. Higher = more trustworthy suggestions.">Model reliability</span>}
-              value={reliability}
-              hint={res.cv_spearman != null ? `held-out corr ${res.cv_spearman.toFixed(2)}` : "too few runs"}
-            />
-            <Kpi label="Runs / inputs" value={`${res.n}/${res.d}`} />
-          </div>
-
-          <div className="mb-5 grid gap-5 lg:grid-cols-2">
-            <div>
-              <SectionLabel>Drivers: dark bars raise, light bars lower {res.target}</SectionLabel>
-              <DriversBar drivers={res.drivers} />
-            </div>
-            <div>
-              <SectionLabel>Predicted vs measured (out-of-fold)</SectionLabel>
-              <PredScatter oof={res.oof} />
+              <p className="mt-2 text-[11px] leading-snug text-muted">
+                Re-fits the model against a different target column without re-uploading.
+              </p>
             </div>
           </div>
-
-          <SectionLabel>Recommended next experiments</SectionLabel>
-          <Proposals
-            cols={res.proposal_features}
-            rows={res.proposals}
-            predHead={`pred. ${res.target}`}
-            predFn={(p) => `${p.pred} ± ${p.std}`}
-          />
         </Card>
       ) : null}
     </div>

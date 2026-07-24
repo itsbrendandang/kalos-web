@@ -72,6 +72,43 @@ Voyager product screens.
 All contrast ratios above were computed against both `--bg` and `--card` in
 each mode using the standard WCAG relative-luminance formula, not eyeballed.
 
+### 2026-07-24 consolidation: the softened-neutral baseline
+
+`redesign/consolidation` merged in the `feat/satoshi-font` direction and
+formalized it as the documented baseline (REDESIGN.md 4.1), rather than
+leaving it an uncommitted WIP diff. Five base-surface tokens moved off pure
+achromatic gray to a hair of blue tint: `--bg` (`#f6f8fc`), `--fg`
+(`#101828`), `--muted` (`#667085`), `--border` (`#d9e2f2`), and `--blue-soft`
+(`#f8faff`) - the values already recorded in the table above. Recomputed
+against the standard WCAG relative-luminance formula (not eyeballed):
+
+| Pair | Ratio | AA minimum (normal/caption text) | Result |
+| --- | --- | --- | --- |
+| `--fg` (`#101828`) on `--bg` (`#f6f8fc`) | 16.69:1 | 4.5:1 | Clears with wide margin |
+| `--muted` (`#667085`) on `--bg` (`#f6f8fc`) | 4.68:1 | 4.5:1 | Clears at 10-11px caption sizes |
+| `--fg` on `--card` (`#ffffff`) | 17.75:1 | 4.5:1 | Clears with wide margin |
+| `--muted` on `--card` | 4.97:1 | 4.5:1 | Clears at 10-11px caption sizes |
+
+`--muted` on `--bg` is the tighter pair - caption-size body copy at 4.68:1
+still clears the 4.5:1 AA floor for normal text (not just the relaxed 3:1
+large-text floor), so no caption anywhere in the app drops below AA under the
+softened background.
+
+The brand blue/accent scale (`--blue`, `--blue-hover`, `--blue-deep`,
+`--blue-tint`, `--blue-border`, `--accent-text`), `--chart-1`...`--chart-5`,
+and `--sidebar` are unchanged by this merge, per REDESIGN.md 4.1 ("the brand
+blue scale ... are unchanged. No new hue is introduced."): `app/globals.css`
+still carries the 2026-07-16 neutral-chrome migration (main #15, "Design
+overhaul: neutral theme, Experiments hub, Kanban, data catalog") - CHROME
+(buttons, active nav, `--accent*`) stays achromatic gray, while
+`--chart-1`...`--chart-5` and `components/dashboard/heat-scale.ts` keep the
+colored data-viz ramp. The rows above for `--blue`/`--blue-hover`/
+`--blue-deep`/`--accent-text`/`--sidebar` and their dark-mode values predate
+that migration and do not match the current chrome; reconciling that
+documentation gap (blue-hex rows vs. the achromatic code, and the dark-mode
+column throughout this table) is out of scope for this merge and is flagged
+here as follow-up rather than silently left inconsistent.
+
 `components/voyager/illustrative-banner.tsx` reuses the `--v-warn-*` tokens for
 the "Sample data - illustrative, not a real analysis" disclaimer shown on every
 non-live Voyager screen (Phase 1, Phase 2 setup/results, and the final report -
@@ -292,8 +329,10 @@ bar-chart fills) and are not colors.
 
 ## Fonts, one more time
 
-Do not download font files from unverified sources. If self-hosting Satoshi
-becomes a priority, source the licensed files first, add them under
-`public/fonts/` (or similar, checked into the repo), then switch
-`app/voyager/layout.tsx` from `next/font/google` (Manrope) to
-`next/font/local`, keeping the `--font-voyager` CSS variable name.
+Do not download font files from unverified sources. Satoshi is self-hosted
+app-wide as of the 2026-07-24 consolidation: both `app/layout.tsx` (optimizer
+surface, `--font-satoshi`) and `app/voyager/layout.tsx` (`--font-voyager`)
+load the same licensed variable font
+(`app/fonts/Satoshi-Variable.woff2`, Fontshare Font License) via
+`next/font/local`, so there is exactly one font file and one license on disk
+for both surfaces.

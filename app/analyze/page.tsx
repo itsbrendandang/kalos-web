@@ -5,15 +5,9 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Upload, X } from "lucide-react";
 import { isReliable, runFile, type AnalyzeResult } from "@/lib/api";
 import { Card, SectionLabel } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
 import { cn } from "@/lib/utils";
-
-// Matches the ad hoc accent-link literal used for the same "primary CTA as a
-// link" need on app/page.tsx and app/results/page.tsx (REDESIGN 4.4 flags
-// this for a future shared `Button` variant; out of scope for this page).
-const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 export default function AnalyzePage() {
   const [res, setRes] = useState<AnalyzeResult | null>(null);
@@ -161,7 +155,7 @@ export default function AnalyzePage() {
                 </span>
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Link href="/results" className={BTN_ACCENT}>
+                <Link href="/results" className={buttonVariants()}>
                   View results
                   <ArrowRight />
                 </Link>

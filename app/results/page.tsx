@@ -5,14 +5,11 @@ import Link from "next/link";
 import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
 import { getLatest, isReliable, type LatestResult, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { AnalysisReadout } from "@/components/analysis-readout";
 import { cn, fmt, parseUnit } from "@/lib/utils";
-
-const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 function ago(ts?: number) {
   if (!ts) return "";
@@ -65,7 +62,7 @@ export default function Results() {
               <RefreshCw />
               {busy ? "..." : "Refresh"}
             </Button>
-            <Link href="/analyze" className={BTN_ACCENT}>
+            <Link href="/analyze" className={buttonVariants()}>
               <Upload />
               Run analysis
             </Link>
@@ -109,7 +106,7 @@ function StartAnalysisCard() {
           <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
             Start with an experiment table: one run per row, recipe inputs in columns, and at least one measured output.
           </p>
-          <Link href="/analyze" className={`${BTN_ACCENT} mt-5`}>
+          <Link href="/analyze" className={buttonVariants({ className: "mt-5" })}>
             <Upload />
             Upload run sheet
           </Link>

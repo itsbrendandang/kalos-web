@@ -102,7 +102,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
 
       <section id="next-experiments">
         <SectionHead
-          title="Recommended actions"
+          title="Recommended from your last analysis"
           sub={`The next batch to run, ranked by the acquisition function${
             d.conformal_q != null ? ` · ± ${num(d.conformal_q, 2)} conformal band` : ""
           }.`}

@@ -14,13 +14,24 @@
   --v-border: var(--border);
   --v-blue: var(--blue);
   /* --v-blue-7 is a FILL only (the primary-button hover background at
-     .v-btn-primary:hover), which must hold white text. --v-blue-7-text is the
-     accent-colored TEXT alias, split off for the same reason the main app split
-     --accent-text from --accent-hover (app/globals.css): in dark mode no single
-     blue can both read as text on a dark surface AND carry white text as a fill.
-     In light mode both resolve to --blue-hover, so the light theme is unchanged;
-     in dark mode --accent-text (#6f93ff) clears >=5.36:1 as text everywhere it
-     is used, while the fill stays on --blue-hover (#204af4, holds white text). */
+     .v-btn-primary:hover); --v-blue-7-text is the accent-colored TEXT alias,
+     split off for the same reason the main app split --accent-text from
+     --accent-hover (app/globals.css): a single token can't both read as text
+     on a page/card surface AND carry a hardcoded-white label as a fill.
+     Re-verified against the current neutral tokens (app/globals.css's
+     2026-07-16 migration off the blue hue): in light mode both still
+     resolve to --blue-hover unchanged; in dark mode --blue/--blue-deep/
+     --blue-hover all flip to near-white (oklch L 0.92-0.99), so any fill
+     built on them must pair with var(--primary-foreground) - which flips to
+     near-black (#171717) alongside them - never a hardcoded #fff (see the
+     NOTE below; this was found unfixed on this pass and corrected). */
+  /* NOTE (dark-mode contrast): every ported-prototype rule below that fills
+     with --b5/--v-blue or --b9/--v-blue-9 pairs it with
+     var(--primary-foreground), not a hardcoded #fff. --blue/--blue-deep flip
+     to near-white in dark mode (app/globals.css's neutral migration), so a
+     literal white label would vanish against them - --primary-foreground is
+     the shared token already built to flip alongside --blue/--primary (see
+     app/globals.css), which is exactly the fill these aliases point at. */
   --v-blue-7: var(--blue-hover);
   --v-blue-7-text: var(--accent-text);
   --v-blue-9: var(--blue-deep);
@@ -66,13 +77,14 @@
   --v-exploit-badge-ink: #1b5e20;
   --v-explore-bg: var(--blue-soft);
   --v-explore-badge-bg: var(--blue-border);
-  /* Explore badge ink. --blue-hover read only 1.59:1 on the --blue-border badge
-     in dark mode; --accent-text reached just 3.47:1 (still failing AA). Using
-     --blue-deep (dark #8fb0ff, the system's designated "emphasis blue text on
-     dark") clears 4.68:1 on --blue-border while keeping the --blue-border badge
-     visibly distinct (1.73:1) from its --blue-soft explore row - a darker
-     --blue-tint badge would have hit 5.36:1 text but nearly vanished into that
-     row (1.12:1). Light mode: 9.78:1, up from 6.33:1, no regression. */
+  /* Explore badge ink, using --blue-deep, the system's designated "emphasis
+     text on a tint/border surface" token. The specific ratios this alias was
+     originally picked over (--blue-hover vs --accent-text vs --blue-deep)
+     predate the 2026-07-16 neutral migration and no longer apply now that
+     --blue/--blue-deep/--blue-hover are all achromatic; re-verified against
+     the current tokens, --blue-deep on --blue-border clears >14:1 in dark
+     mode (oklch L 0.985 text on L 0.274 badge) and stays high in light mode,
+     so the alias is kept as-is. */
   --v-explore-badge-ink: var(--blue-deep);
   --v-done-badge-bg: var(--green);
   --v-done-badge-ink: #ffffff;
@@ -118,7 +130,7 @@
 }
 .v-btn-primary {
   background: var(--v-blue);
-  color: #fff;
+  color: var(--primary-foreground);
   border: none;
   font-size: 12px;
   padding: 7px 13px;
@@ -272,7 +284,7 @@
 }
 .voyager-root .phtab.on {
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
   border-color: var(--b5);
 }
 .voyager-root .two {
@@ -290,7 +302,7 @@
   align-items: center;
   gap: 5px;
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
   font-size: 12px;
   font-weight: 500;
   padding: 7px 13px;
@@ -317,7 +329,7 @@
 }
 .voyager-root .rbtn {
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
   border: none;
   font-size: 11px;
   font-weight: 500;
@@ -364,11 +376,11 @@
 }
 .voyager-root .done .icnum {
   background: var(--b9);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .voyager-root .active .icnum {
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .voyager-root .locked .icnum {
   background: var(--p2);
@@ -565,7 +577,7 @@
 }
 .voyager-root .advbtn {
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
   border: none;
   font-size: 11px;
   font-weight: 500;
@@ -715,11 +727,11 @@
 }
 .voyager-root .done .snum {
   background: var(--b9);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .voyager-root .run .snum {
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .voyager-root .pend .snum {
   background: var(--p2);
@@ -1327,7 +1339,11 @@
   height: 33px;
   border: 0.5px solid var(--p2);
   border-radius: 7px;
-  background: white;
+  /* Was a literal `white`: --ink (the field's own text color) flips to
+     near-white in dark mode, so a hardcoded-white field was unreadable
+     white-on-white there. --v-surface flips with the theme (white in light
+     mode, matching before; the dark card surface in dark mode). */
+  background: var(--v-surface);
   font-size: 12px;
   padding: 0 9px;
   outline: none;
@@ -1362,7 +1378,7 @@
 }
 .voyager-root .btn-s {
   background: var(--b5);
-  color: #fff;
+  color: var(--primary-foreground);
   border: none;
   font-size: 11px;
   font-weight: 500;

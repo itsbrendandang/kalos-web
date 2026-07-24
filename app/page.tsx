@@ -8,10 +8,8 @@ import { PageHeader, Loading } from "@/components/page-header";
 import { OperationsView } from "@/components/operations/operations-view";
 import { PlanningBoard } from "@/components/planning/planning-board";
 import { ExperimentsQueue } from "@/components/experiments/experiments-queue";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 type HubView = "live" | "board" | "table";
 
@@ -78,7 +76,7 @@ export default function ExperimentsHubPage() {
         title="Experiments"
         desc="Plan, run, and track every experiment."
         action={
-          <Link href="/analyze" className={BTN_ACCENT}>
+          <Link href="/analyze" className={buttonVariants()}>
             <Upload />
             Run analysis
           </Link>

@@ -41,7 +41,7 @@ export function QuickAdd({
     return (
       <Button
         type="button"
-        variant={triggerClassName ? "ghost" : "default"}
+        variant={triggerClassName ? "ghost" : "accent"}
         size={triggerClassName ? "sm" : "default"}
         onClick={() => setAdding(true)}
         className={triggerClassName}

@@ -17,7 +17,7 @@ import {
   type Proposal,
 } from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { ProgressChart } from "@/components/charts";
@@ -30,9 +30,6 @@ import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { ScaleUpTimeline } from "@/components/scale-up-timeline";
 import { cn, num, parseUnit } from "@/lib/utils";
-
-const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
 
 /**
  * Decision-first landing (prototype). The scientist's job is "what do I run
@@ -87,7 +84,7 @@ export default function Decide() {
               <RefreshCw />
               {busy ? "..." : "Refresh"}
             </Button>
-            <Link href="/analyze" className={BTN_ACCENT}>
+            <Link href="/analyze" className={buttonVariants()}>
               <Upload />
               New run sheet
             </Link>
@@ -263,10 +260,10 @@ function DecideBody({
               <span className="font-semibold">{queued.size}</span> run{queued.size > 1 ? "s" : ""} queued for this
               cycle.
             </span>
-            <button type="button" className={BTN_ACCENT} onClick={handleStart} disabled={startBusy}>
+            <Button onClick={handleStart} disabled={startBusy}>
               <FlaskConical />
               {startBusy ? "Starting..." : `Start ${queued.size} run${queued.size > 1 ? "s" : ""}`}
-            </button>
+            </Button>
           </div>
         ) : null}
         {startErr ? <p className="mt-2 text-[12px] text-amber">Couldn&apos;t start those runs. Try again.</p> : null}
@@ -291,15 +288,10 @@ function DecideBody({
               <span className="font-semibold">{active.n_measured}</span> result{active.n_measured === 1 ? "" : "s"} logged
               this round.
             </span>
-            <button
-              type="button"
-              className={BTN_ACCENT}
-              onClick={handleReanalyze}
-              disabled={reanalyzeBusy || active.n_measured === 0}
-            >
+            <Button onClick={handleReanalyze} disabled={reanalyzeBusy || active.n_measured === 0}>
               <RefreshCw />
               {reanalyzeBusy ? "Re-analyzing..." : `Re-propose with ${active.n_measured} result${active.n_measured === 1 ? "" : "s"}`}
-            </button>
+            </Button>
           </div>
           {reanalyzeErr ? <p className="text-[12px] text-amber">Re-analysis failed. Try again.</p> : null}
         </section>

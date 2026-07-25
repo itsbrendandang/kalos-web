@@ -8,6 +8,7 @@ import type { Project } from "@/app/voyager/data";
 import { Phase1View } from "./phase1-view";
 import { Phase2View } from "./phase2-view";
 import { LinkageTree } from "./linkage-tree";
+import { IllustrativeBanner } from "./illustrative-banner";
 import { VoyagerModal, type ModalState } from "./modals";
 import { useVoyagerStore } from "./store-context";
 
@@ -95,7 +96,15 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
 
       {tab === "phase1" ? <Phase1View project={project} /> : null}
       {tab === "phase2" ? <Phase2View project={project} /> : null}
-      {tab === "tree" && project.hasTree ? <LinkageTree variant={project.hasTree} /> : null}
+      {tab === "tree" && project.hasTree ? (
+        <>
+          {/* The lineage tree is always fixed seed data (see linkage-tree.tsx),
+              never engine output, so it carries the same disclaimer as the
+              Phase 1/2 tabs whenever the project itself isn't live. */}
+          {!project.live ? <IllustrativeBanner /> : null}
+          <LinkageTree variant={project.hasTree} />
+        </>
+      ) : null}
 
       <VoyagerModal state={modal} onClose={() => setModal(null)} />
     </div>

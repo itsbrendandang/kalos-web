@@ -1,11 +1,14 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "default" | "outline" | "ghost";
+type Variant = "accent" | "outline" | "ghost";
 type Size = "default" | "sm";
 
+const BASE =
+  "inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold whitespace-nowrap transition-colors disabled:opacity-55 disabled:cursor-wait [&_svg]:size-4 [&_svg]:shrink-0";
+
 const variants: Record<Variant, string> = {
-  default:
+  accent:
     "border border-accent bg-accent text-[color:var(--primary-foreground)] hover:border-accent-hover hover:bg-accent-hover",
   outline: "border border-border bg-card text-fg hover:border-blue-border hover:bg-blue-soft",
   ghost: "text-fg hover:bg-blue-soft",
@@ -15,21 +18,24 @@ const sizes: Record<Size, string> = {
   sm: "h-8 px-3 text-xs",
 };
 
+/** Composes the same class recipe <Button> renders with, for the rare spots
+ *  that need the identical look on an element <Button> can't be - namely a
+ *  Next.js <Link> (client-side routing needs a real anchor). Keeps the accent
+ *  CTA classes defined once instead of duplicated as ad hoc string literals
+ *  (REDESIGN 4.4). */
+export function buttonVariants({
+  variant = "accent",
+  size = "default",
+  className,
+}: { variant?: Variant; size?: Size; className?: string } = {}) {
+  return cn(BASE, variants[variant], sizes[size], className);
+}
+
 export function Button({
   className,
-  variant = "default",
+  variant = "accent",
   size = "default",
   ...props
 }: React.ComponentProps<"button"> & { variant?: Variant; size?: Size }) {
-  return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold whitespace-nowrap transition-colors disabled:opacity-55 disabled:cursor-wait [&_svg]:size-4 [&_svg]:shrink-0",
-        variants[variant],
-        sizes[size],
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <button className={buttonVariants({ variant, size, className })} {...props} />;
 }

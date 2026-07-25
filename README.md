@@ -77,10 +77,10 @@ and type scale.
 A customer-facing product surface lives under `/voyager`, with its own
 top-nav chrome and a denser layout than the rest of the app. It shares the
 same blue tokens as the optimizer surface (aliased in `app/voyager/voyager.css`
-under `.voyager-root`) and currently stands in Satoshi (the original
-prototype's typeface) with Manrope, self-hosted via `next/font/google`; see
-`DESIGN.md` for the font swap plan. The optimizer sidebar is bypassed for
-these routes in `components/app-shell.tsx`.
+under `.voyager-root`) and renders in Satoshi, the original prototype's
+typeface, self-hosted via `next/font/local`; see `DESIGN.md` for the token
+reference. The optimizer sidebar is bypassed for these routes in
+`components/app-shell.tsx`.
 
 - **`/voyager`** - Projects home: customers and their projects, each tagged by
   workflow stage. Add/Edit customer and project modals open here.

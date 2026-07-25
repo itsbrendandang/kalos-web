@@ -35,24 +35,23 @@
 :root {
   color-scheme: light;
 
-  /* Base surfaces. --bg is a hair off stock shadcn's pure-white background
-   * (oklch(1 0 0)) so that nested `bg-bg` panels stay visible against
-   * `bg-card` (which stays pure white) - --card carries the stock value. */
-  --bg: oklch(0.985 0 0);
+  /* Base surfaces. Softened toward blue per the feat/satoshi-font direction
+   * (REDESIGN.md 4.1): --bg/--fg/--muted/--border move off pure achromatic
+   * gray to a hair of blue tint, without reintroducing brand blue into
+   * chrome - the --blue/--accent* family below stays exactly as the
+   * 2026-07-16 neutral migration left it. --card stays stock pure white. */
+  --bg: #f6f8fc;
   --card: oklch(1 0 0);
-  --fg: oklch(0.145 0 0);
-  --muted: oklch(0.556 0 0);
-  /* Softened toward the background so the few remaining outlined containers
-   * recede to barely-there hairlines - the minimal, borderless direction. Inputs
-   * keep a usable edge via --input below. */
-  --border: oklch(0.945 0 0);
+  --fg: #101828;
+  --muted: #667085;
+  --border: #d9e2f2;
 
   /* "Blue" scale - kept as a token name for backward compatibility, but its
-   * value is now the neutral shadcn --primary gray (near-black), not a hue. */
+   * value is the neutral shadcn --primary gray (near-black), not a hue. */
   --blue: oklch(0.205 0 0);
   --blue-hover: oklch(0.145 0 0);
   --blue-deep: oklch(0.205 0 0);
-  --blue-soft: oklch(0.97 0 0);
+  --blue-soft: #f8faff;
   --blue-tint: oklch(0.97 0 0);
   --blue-border: oklch(0.922 0 0);
   --blue-hover-bg: oklch(0.97 0 0);

@@ -58,6 +58,14 @@ function StatusPill({ status }: { status: DatasetRecord["status"] }) {
   );
 }
 
+/** Engine credit, relocated here from the primary nav (see REDESIGN.md 6.4):
+ *  the Data room is the registry/provenance surface, so this is where the
+ *  model that consumes the registry gets attributed rather than in chrome
+ *  that's visible on every route. */
+function EngineCredit() {
+  return <p className="text-center font-mono text-[10px] tracking-wide text-muted">powered by BoTorch + ESM-2</p>;
+}
+
 /** Honest empty state: the registry has no live source yet, so with demo mode off
  *  it renders nothing fabricated rather than a list of simulated datasets. */
 function NoLiveRegistry() {
@@ -73,6 +81,7 @@ function NoLiveRegistry() {
           <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview the registry with demo data.
         </p>
       </Card>
+      <EngineCredit />
     </div>
   );
 }
@@ -245,6 +254,8 @@ export default function DataPage() {
       </Card>
 
       {selectedDataset ? <DatasetDetail dataset={selectedDataset} onClose={() => setSelected(null)} /> : null}
+
+      <EngineCredit />
     </div>
   );
 }

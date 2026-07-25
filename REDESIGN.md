@@ -1,13 +1,13 @@
 # Kalos web redesign plan
 
-Status: draft for review.
+Status: locked. Owner-call decisions resolved 2026-07-24; ready to build.
 Owner: Brendan.
 Branch context: builds on the in-flight work in `feat/satoshi-font`, which already moved the app off the dark optimizer sidebar onto a light, unified blue surface.
 Companion doc: `DESIGN.md` holds the current token reference; this plan proposes the changes to it.
 
 This is a plan, not code.
 Nothing here has been implemented beyond what already exists on `feat/satoshi-font`.
-Open decisions that need Brendan's call are collected in the "Decisions needed" section and must be resolved before the page work starts.
+The four owner-call decisions that gate the page work are resolved in section 9; the recommended direction was confirmed on all four.
 
 ## 1. Why redesign
 
@@ -112,26 +112,30 @@ This is the substance of the redesign.
 
 Four primary items, renamed and reordered to match the read-then-act flow (matches WIP):
 
-1. Dashboard (`/`) — helper "Results summary". The authoritative read surface.
+1. Results (`/results`) — helper "Results summary". The authoritative read surface, where `AnalysisReadout` renders.
 2. Run analysis (`/analyze`) — helper "Upload run sheet". The action that produces a result.
 3. Optimize (`/optimize`) — helper "Next experiments". The interactive engine.
 4. Data room (`/data`) — helper "Registry". The dataset and barcode registry.
+
+Note on `/`: on the current branch the index route (`/`) is the Experiments hub (Live / Board / Table view switcher), not the readout. The authoritative results readout lives at `/results`. This was reconciled 2026-07-24 (see 9.1) so the doc matches the shipped IA; the earlier draft assumed `/` was the readout.
 
 Voyager (`/voyager`) stays a separate product surface with its own top-nav chrome, reached outside this sidebar (see 5.4).
 
 ### 5.2 Resolve the Dashboard vs Analyze duplication
 
-Today Analyze uploads a file and then renders a full results dashboard inline, duplicating `/`.
+Today Analyze uploads a file and then renders a full results dashboard inline, duplicating the readout.
 Redesign:
 
 - Analyze is the input surface. It owns the upload dropzone, the run-sheet checklist, target selection, and validation feedback. It does the job of getting a clean dataset into the engine and nothing more.
-- On a successful analysis, Analyze shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) and a single primary action: "View results" linking to `/`.
-- The full readout (reliability, drivers, predicted-vs-measured, proposals) renders only on the Dashboard, via the shared `AnalysisReadout` component.
+- On a successful analysis, Analyze shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) and a single primary action: "View results" linking to `/results`.
+- The full readout (reliability, drivers, predicted-vs-measured, proposals) renders only on the results page (`/results`), via the shared `AnalysisReadout` component.
 - Result: one authoritative results page. Analyze stops being a second dashboard.
 
-Alternative if Brendan prefers inline results on Analyze: keep the readout on Analyze but have `/` become a lighter "latest + history" landing that links into it. This is the inverse of the recommendation and is listed as a decision below. The recommended direction is Dashboard-as-home because it matches the "read before act" principle and the existing `GET /api/latest` model.
+Resolved 2026-07-24: `/results` is the single authoritative readout; Analyze is input-only and links to it. This satisfies the "read before act" principle and the existing `GET /api/latest` model. The inverse (results inline on Analyze) was rejected.
 
 ### 5.3 Clarify Dashboard vs Optimize
+
+Reconciled 2026-07-24: on this branch there is no standalone interactive Optimize page. `/optimize` is a redirect to `/results#next-experiments`, and the proposals were folded into the Results readout's "Recommended from your last analysis" section (see `components/analysis-readout.tsx`). The disambiguation that shipped is therefore a single labeled section on Results, not two competing surfaces. The original two-surface plan below is kept as history.
 
 Both surface "recommended next experiments," which is the second source of confusion.
 Distinguish them by verb, not by data:
@@ -150,9 +154,9 @@ Decide and document the relationship rather than leaving it implicit.
 
 ## 6. Page-by-page spec
 
-### 6.1 Dashboard (`/`)
+### 6.1 Results (`/results`)
 
-The home and the single authoritative readout.
+The single authoritative readout.
 
 - Keep the three empty/error states: `ServiceUnavailable` (engine down), `Loading`, and `StartAnalysisCard` (no data yet). These are good and stay.
 - When data exists, render: the dataset summary strip, the four stat cards (best, reliability with CI, runs/inputs, top driver), then the shared `AnalysisReadout` (predicted-vs-measured, "run this next", drivers, recommended-from-last-analysis).
@@ -165,12 +169,12 @@ The home and the single authoritative readout.
 Becomes purely the input surface (see 5.2).
 
 - Keep the dropzone, the run-sheet checklist card, target selection, and inline validation errors.
-- Replace the inline full-results render with a compact success confirmation plus a primary "View results" link to `/`.
+- Replace the inline full-results render with a compact success confirmation plus a primary "View results" link to `/results`.
 - Preserve the amber validation-error card styling.
 
 ### 6.3 Optimize (`/optimize`)
 
-Reframed as the interactive workspace, not a second report.
+Not built as a standalone page. `/optimize` redirects to `/results#next-experiments`; the proposals live in the Results readout (see 5.3 reconciliation note). The interactive-workspace plan below is history.
 
 - Keep the two panels: single-objective and two-objective optimization, with convergence curve, Pareto front, and proposed batch.
 - Section labels change to make it read as an active run ("proposed this run"), distinct from the Dashboard's standing recommendation.
@@ -213,11 +217,11 @@ Each step leaves the app building and passing, per the standing instruction neve
 - Responsive check at mobile width, including the renamed 4-up nav.
 - Per the repo's `AGENTS.md`, any Next.js 16 code work must consult `node_modules/next/dist/docs/` first, since this is not the Next.js in the model's training data.
 
-## 9. Decisions needed
+## 9. Decisions (resolved 2026-07-24)
 
-These change what gets built and should be resolved before section 6 work starts.
+All four were confirmed to the recommended direction. These are now binding for the section 6 build.
 
-1. **Analyze results home.** Recommended: Dashboard is the single readout and Analyze becomes input-only (5.2). Confirm, or choose the inverse (results live on Analyze, Dashboard becomes a lighter landing).
-2. **Voyager scope.** Recommended: Voyager stays a separate product surface, styling-consistency pass only (5.4). Confirm it is in scope for this redesign at all, or defer it.
-3. **Motivation and audience.** OPINIONS.md is empty and no explicit brief exists. The goals in section 2 are inferred from the code and the WIP direction. Confirm they match the intent, especially whether this redesign is for internal scientists, prospective enterprise-pharma customers, or both, since that changes how much the illustrative Voyager surface should be foregrounded.
-4. **Engine credit placement.** Move "powered by BoTorch + ESM-2" to the Data room, an About affordance, or drop it. Minor, but it leaves the sidebar either way.
+1. **Analyze results home — single readout at `/results`.** `/results` is the single authoritative readout via the shared `AnalysisReadout`. Analyze becomes input-only and, on success, shows a compact confirmation (dataset name, n runs, d inputs, target, reliability headline) plus a single "View results" link to `/results`. The inverse (results on Analyze) is rejected. Implementation note (2026-07-24): the original draft named `/` as the readout, but `/` is the Experiments hub on this branch, so the readout home is `/results`; the sections above were reconciled to match what shipped.
+2. **Voyager scope — styling pass only.** Voyager stays a separate customer-facing product surface on the shared design system. In scope for a token/banner consistency pass only (5.4): no IA change, no data change, no merge into the sidebar app.
+3. **Audience — both, scientist-first.** The redesign serves internal scientists and prospective enterprise-pharma customers, but the honest optimizer surface leads and the illustrative Voyager surface is clearly secondary. Density, honesty, and daily-use speed win ties; the customer-facing narrative is preserved but never foregrounded over the real optimizer readout.
+4. **Engine credit — Data room.** Move "powered by BoTorch + ESM-2" out of the primary sidebar and into the Data room (6.4). Not an About affordance, not dropped.

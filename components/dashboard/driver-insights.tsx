@@ -1,10 +1,19 @@
-import type { Proposal, ProvenanceEntry } from "@/lib/api";
+import type { Driver, Proposal, ProvenanceEntry } from "@/lib/api";
+
+/** Signed 2-decimal rho, e.g. "+0.52" or "-0.28". */
+function signed(v: number): string {
+  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
+}
 
 /**
  * "Model read" / "Watch-outs" / "Next actions" copy under the drivers
  * tornado. Every line here is derived from real fields on the current
  * analysis (drivers, oof, provenance, proposals) - nothing is a fixed
  * ideal range or a number specific to one dataset.
+ *
+ * The model-read copy is significance-aware: it only calls an input a
+ * "driver" when its 95% CI excludes zero. Everything else is described as
+ * a lead or as "not yet significant" - never stated as fact.
  */
 export function DriverInsights({
   target,
@@ -14,30 +23,44 @@ export function DriverInsights({
   provenance,
   proposals,
   proposalFeatures,
+  clearsFloor,
 }: {
   target: string;
-  drivers: { name: string; rho: number }[];
+  drivers: Driver[];
   n: number;
   nonProducers: number;
   provenance?: ProvenanceEntry[];
   proposals: Proposal[];
   proposalFeatures: string[];
+  /** Whether the held-out reliability clears its trust floor; null if not scored. */
+  clearsFloor: boolean | null;
 }) {
   const top = drivers[0];
-  const second = drivers[1];
-  const negativeAmongTop = drivers.slice(0, 3).find((dr) => dr.rho < 0 && dr.name !== second?.name);
+  const sig = drivers.filter((dr) => dr.significant);
+  const notSig = drivers.filter((dr) => !dr.significant);
 
   const modelRead: string[] = [];
-  if (top) {
-    modelRead.push(`${top.name} carries the strongest signal (rho ${top.rho >= 0 ? "+" : ""}${top.rho.toFixed(2)}).`);
-  }
-  if (second) {
-    modelRead.push(`${second.name} is the next largest driver (rho ${second.rho >= 0 ? "+" : ""}${second.rho.toFixed(2)}).`);
-  }
-  if (negativeAmongTop) {
-    modelRead.push(
-      `${negativeAmongTop.name} is associated with lower ${target} (rho ${negativeAmongTop.rho.toFixed(2)}).`,
-    );
+  if (sig.length === 0) {
+    if (top) {
+      modelRead.push(
+        `No input is statistically distinguishable from noise at n=${n} - every driver's 95% CI includes zero. ` +
+          `The largest correlation (${top.name}, rho ${signed(top.rho)}) is a lead worth testing, not a confirmed driver.`,
+      );
+    }
+  } else {
+    sig.forEach((dr, i) => {
+      const direction = dr.rho >= 0 ? "higher" : "lower";
+      modelRead.push(
+        i === 0
+          ? `${dr.name} is a confirmed driver, associated with ${direction} ${target} (rho ${signed(dr.rho)}, 95% CI excludes zero).`
+          : `${dr.name} is also significant, associated with ${direction} ${target} (rho ${signed(dr.rho)}).`,
+      );
+    });
+    if (notSig.length) {
+      modelRead.push(
+        `${notSig.map((dr) => dr.name).join(", ")} ${notSig.length === 1 ? "is" : "are"} not yet significant (95% CI includes zero).`,
+      );
+    }
   }
 
   const missingFeatures = (provenance ?? [])
@@ -72,6 +95,9 @@ export function DriverInsights({
   }
 
   const nextActions: string[] = [];
+  if (sig.length === 0 && clearsFloor === false) {
+    nextActions.push("This round is about learning - run the batch to gather signal before trusting any driver.");
+  }
   if (proposals.length > 0) {
     nextActions.push(
       `Run the ${proposals.length} proposed recipe${proposals.length === 1 ? "" : "s"} below${
@@ -79,8 +105,8 @@ export function DriverInsights({
       }.`,
     );
   }
-  if (top && proposalFeatures.includes(top.name)) {
-    nextActions.push(`${top.name} is varied directly in this batch, the strongest lever available.`);
+  if (sig[0] && proposalFeatures.includes(sig[0].name)) {
+    nextActions.push(`${sig[0].name} is varied directly in this batch, the strongest confirmed lever available.`);
   }
   if (nonProducers > 0) {
     nextActions.push(

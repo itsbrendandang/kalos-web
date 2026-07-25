@@ -19,3 +19,9 @@ export function num(n: number, digits = 2): string {
   if (n == null || Number.isNaN(n)) return "—";
   return n.toFixed(digits);
 }
+
+/** Pulls a trailing unit like "mg/L" out of a target name such as "Lipase conc. (mg/L)". */
+export function parseUnit(target: string): string {
+  const m = target.match(/\(([^)]+)\)\s*$/);
+  return m ? m[1] : "";
+}

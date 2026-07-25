@@ -19,7 +19,7 @@ function baseResult(): AnalyzeResult {
     features: ["temp", "ph", "feed"],
     cv_spearman: 0.6,
     best: 4.2,
-    drivers: [{ name: "temp", rho: 0.5 }],
+    drivers: [{ name: "temp", rho: 0.5, ci95: [0.1, 0.8], significant: true }],
     proposal_features: ["temp", "ph", "feed"],
     proposals: [{ vals: [1, 2, 3], pred: 4.1, std: 0.2, mode: "exploit", reason: "near optimum" }],
     oof: [[3.9, 4.0]],

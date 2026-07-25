@@ -76,6 +76,41 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
   );
 }
 
+/**
+ * Best-measured-so-far vs. round, for the campaign progress strip on /decide.
+ * Deliberately plain (no yLabel/axis titles) so it stays compact under a
+ * header that already states the target and unit - see the ProgressPanel
+ * wrapper in app/decide/page.tsx.
+ */
+export function ProgressChart({ data }: { data: { round: number; best: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 4, right: 10, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id="progress-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={ACCENT} stopOpacity={0.2} />
+            <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis dataKey="round" allowDecimals={false} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={44} domain={["auto", "auto"]} tickFormatter={fmtTick} />
+        <Tooltip {...tip} formatter={(v) => fmt(Number(v), 2)} labelFormatter={(r) => `round ${r}`} />
+        <Area
+          type="monotone"
+          dataKey="best"
+          stroke={ACCENT}
+          strokeWidth={2.5}
+          fill="url(#progress-fill)"
+          dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
+          activeDot={{ r: 4 }}
+          isAnimationActive={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function ParetoChart({ all, pareto }: { all: { titer: number; purity: number }[]; pareto: { titer: number; purity: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>

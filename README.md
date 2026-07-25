@@ -35,6 +35,21 @@ on a single unified blue design system, consuming the Kalos engine API.
   function (`#next-experiments`; this is where the old standalone Optimize
   page folded in). Reads `GET /api/latest`; shows an upload prompt until you
   analyze a dataset (it is not a demo).
+- **Decide** (`/decide`) - the decision cockpit and the closed optimization loop.
+  The recommended batch is the hero (each experiment's recipe, predicted value +
+  uncertainty, and why); the honest reliability verdict is a compact chip. Queue
+  proposals and Start them, log each run's measured outcome, then Re-propose -
+  which folds the results into the dataset and returns the next batch, with a
+  best-so-far progress chart. Wired to the engine's `/api/campaign*` endpoints
+  (see `docs/CAMPAIGN_LOOP.md` in the engine repo); best-so-far and round come
+  from the live campaign, never a prediction. Below the loop, a **scale-up
+  timeline** projects the path from 96-well plate to production vessels across
+  branching multi-objective paths (max-yield / min-cost / fastest), with
+  confidence bands that widen with scale - clearly labeled "projected" (physics/
+  literature priors, not measured; `lib/scaleup-projection.ts`). Diagnostics
+  (drivers, reliability, run structure, predicted landscape) collapse behind
+  lazy-mounted disclosures, and a "Coming next" section names what unlocks with
+  live process data. Full design + honesty tiers in `docs/DECIDE_COCKPIT.md`.
 - **Analyze** (`/analyze`) - drop a CSV/TSV/Excel run sheet; the engine fits,
   cross-validates honestly, ranks the drivers, and recommends the next batch.
   Reached via the "Run analysis" action button on the Experiments hub and on
@@ -62,10 +77,10 @@ and type scale.
 A customer-facing product surface lives under `/voyager`, with its own
 top-nav chrome and a denser layout than the rest of the app. It shares the
 same blue tokens as the optimizer surface (aliased in `app/voyager/voyager.css`
-under `.voyager-root`) and currently stands in Satoshi (the original
-prototype's typeface) with Manrope, self-hosted via `next/font/google`; see
-`DESIGN.md` for the font swap plan. The optimizer sidebar is bypassed for
-these routes in `components/app-shell.tsx`.
+under `.voyager-root`) and renders in Satoshi, the original prototype's
+typeface, self-hosted via `next/font/local`; see `DESIGN.md` for the token
+reference. The optimizer sidebar is bypassed for these routes in
+`components/app-shell.tsx`.
 
 - **`/voyager`** - Projects home: customers and their projects, each tagged by
   workflow stage. Add/Edit customer and project modals open here.

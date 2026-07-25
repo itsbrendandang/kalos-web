@@ -5,21 +5,11 @@ import Link from "next/link";
 import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
 import { getLatest, isReliable, type LatestResult, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
-import { Proposals } from "@/components/proposals";
 import { ServiceUnavailable } from "@/components/service-unavailable";
-import { DriversTornado } from "@/components/dashboard/drivers-tornado";
-import { DriverInsights } from "@/components/dashboard/driver-insights";
-import { ReliabilityPanel } from "@/components/dashboard/reliability-panel";
-import { RunLandscape } from "@/components/dashboard/run-landscape";
-import { TargetDistribution } from "@/components/dashboard/target-distribution";
-import { ResponseSurface } from "@/components/dashboard/response-surface";
-import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
-import { cn, fmt, num } from "@/lib/utils";
-
-const BTN_ACCENT =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold whitespace-nowrap text-[color:var(--primary-foreground)] transition-colors hover:border-accent-hover hover:bg-accent-hover [&_svg]:size-4 [&_svg]:shrink-0";
+import { AnalysisReadout } from "@/components/analysis-readout";
+import { cn, fmt, parseUnit } from "@/lib/utils";
 
 function ago(ts?: number) {
   if (!ts) return "";
@@ -28,12 +18,6 @@ function ago(ts?: number) {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
-}
-
-/** Pulls a trailing unit like "mg/L" out of a target name such as "Lipase conc. (mg/L)". */
-function parseUnit(target: string): string {
-  const m = target.match(/\(([^)]+)\)\s*$/);
-  return m ? m[1] : "";
 }
 
 export default function Results() {
@@ -78,7 +62,7 @@ export default function Results() {
               <RefreshCw />
               {busy ? "..." : "Refresh"}
             </Button>
-            <Link href="/analyze" className={BTN_ACCENT}>
+            <Link href="/analyze" className={buttonVariants()}>
               <Upload />
               Run analysis
             </Link>
@@ -122,7 +106,7 @@ function StartAnalysisCard() {
           <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
             Start with an experiment table: one run per row, recipe inputs in columns, and at least one measured output.
           </p>
-          <Link href="/analyze" className={`${BTN_ACCENT} mt-5`}>
+          <Link href="/analyze" className={buttonVariants({ className: "mt-5" })}>
             <Upload />
             Upload run sheet
           </Link>
@@ -208,11 +192,14 @@ function KpiCell({
 function KpiStrip({ d }: { d: PopulatedResult }) {
   const rho = d.cv_spearman;
   const reliable = isReliable(d);
-  const topDriver = d.drivers[0];
   const unit = parseUnit(d.target);
-
+  // Four tiles, read left to right as a sentence: where you are (best) -> can you
+  // trust it (reliability) -> how much data (runs/inputs) -> what's next
+  // (proposals). The old "Top driver" tile was dropped: it made an odd 5th cell
+  // (the orphan wrap) AND headlined a driver the tornado below already reports
+  // honestly - a single lead correlation doesn't belong in the KPI row.
   return (
-    <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-5 xl:divide-x">
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 xl:grid-cols-4">
       <KpiCell
         label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
         value={
@@ -226,130 +213,37 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
       <KpiCell
         label="Model reliability"
         value={rho != null ? rho.toFixed(2) : "n/a"}
-        sub={rho != null ? (reliable ? "Held-out Spearman, reliable" : "Held-out Spearman, needs review") : "not scored (too few groups)"}
+        sub={
+          rho != null ? (
+            <span
+              className={cn(
+                "inline-flex items-center rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
+                reliable ? "bg-green-soft text-green" : "bg-amber-soft text-amber",
+              )}
+            >
+              {reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"}
+            </span>
+          ) : (
+            "not scored (too few groups)"
+          )
+        }
       />
       <KpiCell
         label="Runs / inputs"
         value={`${d.n} / ${d.d}`}
         sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
       />
-      <KpiCell
-        label="Top driver"
-        mono={false}
-        value={topDriver ? topDriver.name : "-"}
-        sub={topDriver ? `rho ${topDriver.rho >= 0 ? "+" : ""}${topDriver.rho.toFixed(2)}` : ""}
-      />
-      <KpiCell label="Proposals ready" value={d.proposals.length} sub="From the last analysis" />
-    </div>
-  );
-}
-
-/** Grouping header: a bold label, an optional one-line descriptor, and a hairline
- *  that runs to the edge - turns the long dashboard into scannable sections. */
-function SectionHead({ title, sub }: { title: string; sub?: string }) {
-  return (
-    <div className="mb-3 flex items-center gap-3">
-      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
-      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
-      <div className="h-px flex-1 bg-border" />
+      <KpiCell label="Proposals ready" value={d.proposals.length} sub="Next batch to run" />
     </div>
   );
 }
 
 function OverviewBody({ d }: { d: PopulatedResult }) {
-  const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
-  const hasPredicted = Boolean(d.response_surface || d.correlation);
-
   return (
     <>
       <DatasetStrip d={d} />
       <KpiStrip d={d} />
-
-      <section>
-        <SectionHead title="Model quality" sub="What the model learned, and how far to trust it." />
-        <div className="grid items-start gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-          <Card className="flex flex-col">
-            <div className="text-[15px] font-semibold text-fg">Process drivers</div>
-            <p className="mt-1 text-[12px] leading-snug text-muted">
-              Signed correlation of each input with {d.target}, held out across recipe groups. The colored bars are
-              associated with higher {d.target}, gray with lower.
-            </p>
-            {d.drivers.length ? (
-              <>
-                <div className="mt-3">
-                  <DriversTornado drivers={d.drivers} target={d.target} />
-                </div>
-                <DriverInsights
-                  target={d.target}
-                  drivers={d.drivers}
-                  n={d.n}
-                  nonProducers={nonProducers}
-                  provenance={d.provenance}
-                  proposals={d.proposals}
-                  proposalFeatures={d.proposal_features}
-                />
-              </>
-            ) : (
-              <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
-            )}
-          </Card>
-
-          <ReliabilityPanel d={d} />
-        </div>
-      </section>
-
-      <section>
-        <SectionHead title="Run structure" sub="Where the uploaded runs sit, and how the measured target is distributed." />
-        {d.embedding ? (
-          <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-            <RunLandscape d={d} />
-            <TargetDistribution d={d} />
-          </div>
-        ) : (
-          <TargetDistribution d={d} />
-        )}
-      </section>
-
-      {hasPredicted ? (
-        <section>
-          <SectionHead title="Predicted landscape" sub="The model's view of the recipe space, and how the inputs relate." />
-          {d.response_surface && d.correlation ? (
-            <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-              <ResponseSurface d={d} />
-              <CorrelationHeatmap d={d} />
-            </div>
-          ) : (
-            <>
-              <ResponseSurface d={d} />
-              <CorrelationHeatmap d={d} />
-            </>
-          )}
-        </section>
-      ) : null}
-
-      <section id="next-experiments">
-        <SectionHead
-          title="Recommended actions"
-          sub={`The next batch to run, ranked by the acquisition function${
-            d.conformal_q != null ? ` · ± ${num(d.conformal_q, 2)} conformal band` : ""
-          }.`}
-        />
-        <p className="mb-3 text-[12.5px] leading-5 text-muted">
-          The optimizer&rsquo;s next-best experiments, chosen to balance expected improvement against uncertainty.
-        </p>
-        <Card>
-          {d.proposals.length ? (
-            <Proposals
-              cols={d.proposal_features}
-              rows={d.proposals}
-              predHead={`pred. ${d.target}`}
-              predFn={(p) => `${num(p.pred, 2)} ± ${num(p.std, 2)}`}
-            />
-          ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
-          )}
-        </Card>
-      </section>
+      <AnalysisReadout d={d} />
     </>
   );
 }

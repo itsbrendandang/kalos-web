@@ -1,6 +1,6 @@
 import { PredScatter } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
-import { cn, num } from "@/lib/utils";
+import { cn, num, parseUnit } from "@/lib/utils";
 
 /** Known engine "not modeled" labels, mapped to an honest one-line description. */
 const UNMODELED_NOTES: Record<string, string> = {
@@ -26,7 +26,7 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         ? `Above ${rel.spearman_floor.toFixed(2)} floor`
         : `Below ${rel.spearman_floor.toFixed(2)} floor`
       : null;
-  const unmodeled = rel?.unmodeled ?? [];
+  const unit = parseUnit(d.target);
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-4">
@@ -44,6 +44,9 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
           <div className="tabular mt-0.5 font-mono text-[12px] text-muted">
             {ci ? `95% CI ${ci[0].toFixed(2)} to ${ci[1].toFixed(2)}` : "not scored (too few groups)"}
           </div>
+          <div className="mt-1 text-[11px] leading-snug text-muted">
+            Rank agreement: how well predicted order matches measured order (0 = no better than chance, 1 = perfect).
+          </div>
         </div>
         <div className="flex min-h-[96px] flex-col justify-center rounded-[10px] border border-border p-3">
           <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Conformal band</div>
@@ -51,6 +54,15 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
             {d.conformal_q != null ? `± ${num(d.conformal_q, 2)}` : "n/a"}
           </div>
           <div className="mt-0.5 text-[12px] text-muted">distribution-free residual band</div>
+          {d.conformal_q != null
+            ? (() => {
+                const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
+                const gloss = `A single prediction can be off by ±${num(d.conformal_q, 2)}${
+                  unit ? ` ${unit}` : ""
+                } (95%). Compare to your ${targetName} range to judge if that's usable.`;
+                return <div className="mt-1 text-[11px] leading-snug text-muted">{gloss}</div>;
+              })()
+            : null}
         </div>
       </div>
 
@@ -81,9 +93,53 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         </div>
       </div>
 
-      <div className="mt-4">
+    </div>
+  );
+}
+
+/**
+ * Full-width "Model coverage" footer for the Model-quality section: how the
+ * held-out evaluation was done (cross-validation) and what the engine does not
+ * model yet. Split out of `ReliabilityPanel` so the narrow right rail carries
+ * only the trust story (Spearman, conformal band, predicted-vs-measured) and
+ * these wider caveat blocks get horizontal room instead of stacking tall in a
+ * 360px column. Laid on the SAME `1.85fr / 0.95fr` rhythm as the section above,
+ * so the not-modeled cards align under Process drivers and cross-validation
+ * aligns under Model reliability.
+ */
+export function ModelCoverage({ d }: { d: PopulatedResult }) {
+  const unmodeled = d.reliability?.unmodeled ?? [];
+
+  return (
+    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.85fr_0.95fr]">
+      <div>
+        <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Not modeled yet</div>
+        {unmodeled.length ? (
+          <div className="mt-2 grid gap-2.5 sm:grid-cols-3">
+            {unmodeled.map((item) => (
+              <div key={item} className="flex flex-col rounded-[10px] border border-border bg-card p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-medium text-fg capitalize">{item}</span>
+                  <span className="rounded-lg border border-border bg-bg px-2 py-0.5 text-[11px] whitespace-nowrap text-explore-deep">
+                    not modeled
+                  </span>
+                </div>
+                <p className="mt-1 text-[12px] leading-snug text-muted">
+                  {UNMODELED_NOTES[item] ?? "Not yet modeled by the engine."}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 rounded-[10px] border border-border bg-card py-6 text-center text-[12px] text-muted">
+            no unmodeled items reported
+          </p>
+        )}
+      </div>
+
+      <div>
         <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Cross-validation</div>
-        <div className="mt-2 flex flex-col divide-y divide-border rounded-[10px] border border-border">
+        <div className="mt-2 flex flex-col divide-y divide-border rounded-[10px] border border-border bg-card">
           {d.cv_n_groups != null ? (
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-[12px] text-muted">Recipe groups</span>
@@ -100,29 +156,6 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
               <span className="tabular font-mono text-[12px] font-semibold text-fg">{d.group_col}</span>
             </div>
           ) : null}
-        </div>
-      </div>
-
-      <div className="mt-4 flex min-h-0 flex-1 flex-col">
-        <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Not modeled yet</div>
-        <div className="mt-2 flex flex-1 flex-col gap-2.5">
-          {unmodeled.length ? (
-            unmodeled.map((item) => (
-              <div key={item} className="flex flex-1 flex-col justify-center rounded-[10px] border border-border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-medium text-fg capitalize">{item}</span>
-                  <span className="rounded-lg border border-border bg-bg px-2 py-0.5 text-[11px] whitespace-nowrap text-explore-deep">
-                    not modeled
-                  </span>
-                </div>
-                <p className="mt-1 text-[12px] leading-snug text-muted">
-                  {UNMODELED_NOTES[item] ?? "Not yet modeled by the engine."}
-                </p>
-              </div>
-            ))
-          ) : (
-            <p className="py-6 text-center text-[12px] text-muted">no unmodeled items reported</p>
-          )}
         </div>
       </div>
     </div>

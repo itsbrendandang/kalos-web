@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Search, X } from "lucide-react";
+import { Download, PlugZap, Search, X } from "lucide-react";
 import { Card, Kpi, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, DemoBadge } from "@/components/page-header";
@@ -14,6 +14,7 @@ import {
   type DatasetRecord,
 } from "@/lib/mock/registry";
 import { cn } from "@/lib/utils";
+import { DEMO_MODE } from "@/lib/demo";
 
 type SortKey = "runs-desc" | "runs-asc" | "name" | "added";
 
@@ -57,6 +58,34 @@ function StatusPill({ status }: { status: DatasetRecord["status"] }) {
   );
 }
 
+/** Engine credit, relocated here from the primary nav (see REDESIGN.md 6.4):
+ *  the Data room is the registry/provenance surface, so this is where the
+ *  model that consumes the registry gets attributed rather than in chrome
+ *  that's visible on every route. */
+function EngineCredit() {
+  return <p className="text-center font-mono text-[10px] tracking-wide text-muted">powered by BoTorch + ESM-2</p>;
+}
+
+/** Honest empty state: the registry has no live source yet, so with demo mode off
+ *  it renders nothing fabricated rather than a list of simulated datasets. */
+function NoLiveRegistry() {
+  return (
+    <div className="flex flex-col gap-7">
+      <PageHeader eyebrow="Data room" title="Bioprocessing data registry"
+        desc="Every uploaded dataset and run is organized under a stable barcode, with identity stripped on the way in." />
+      <Card className="flex flex-col items-center gap-1.5 py-10 text-center">
+        <PlugZap className="size-5 text-muted" />
+        <div className="text-[13.5px] font-semibold text-fg">No live datasets</div>
+        <p className="max-w-[46ch] text-[12px] leading-5 text-muted">
+          No live data registry is connected yet. Set{" "}
+          <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview the registry with demo data.
+        </p>
+      </Card>
+      <EngineCredit />
+    </div>
+  );
+}
+
 export default function DataPage() {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("runs-desc");
@@ -83,6 +112,8 @@ export default function DataPage() {
   function toggleSelect(barcode: string) {
     setSelected((cur) => (cur === barcode ? null : barcode));
   }
+
+  if (!DEMO_MODE) return <NoLiveRegistry />;
 
   return (
     <div className="flex flex-col gap-7">
@@ -223,6 +254,8 @@ export default function DataPage() {
       </Card>
 
       {selectedDataset ? <DatasetDetail dataset={selectedDataset} onClose={() => setSelected(null)} /> : null}
+
+      <EngineCredit />
     </div>
   );
 }

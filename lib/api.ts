@@ -32,6 +32,19 @@ export type MultiRun = {
   proposals: MultiProposal[];
 };
 
+/**
+ * One input's correlation with the target, plus enough uncertainty
+ * information for the UI to say whether it's a real finding or noise.
+ * `significant` is true iff `ci95` excludes zero at the 95% level - the
+ * engine computes this, the UI must never re-derive or override it.
+ */
+export type Driver = {
+  name: string;
+  rho: number;
+  ci95: [number, number];
+  significant: boolean;
+};
+
 export type Reliability = {
   spearman: number | null;
   ci95: [number, number] | null;
@@ -69,7 +82,7 @@ export type AnalyzeResult = {
   conformal_q?: number | null;
   reliability?: Reliability;
   best: number;
-  drivers: { name: string; rho: number }[];
+  drivers: Driver[];
   proposal_features: string[];
   proposals: Proposal[];
   oof: [number, number][];
@@ -166,6 +179,97 @@ export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "c
   if (rel) return rel.clears_floor && rel.ci_excludes_zero;
   const ci = d.cv_ci95 ?? null;
   return d.cv_spearman != null && ci != null && ci[0] > 0;
+}
+
+// --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------
+// The closed optimization loop behind /decide: propose -> run -> log outcome
+// -> re-propose. A campaign is one target plus a growing (recipe -> outcome)
+// table; `/api/campaign` reflects it, `/api/campaign/reanalyze` is the loop
+// closing (folds measured runs into the base data and re-runs `_analyze`).
+
+/** One recipe started from a proposed batch, awaiting or holding a measured outcome. */
+export type CampaignRun = {
+  id: string;
+  recipe: Record<string, number>;
+  pred: number;
+  std: number;
+  mode: "explore" | "exploit";
+  reason: string;
+  result: number | null;
+  awaiting: boolean;
+};
+
+export type Campaign =
+  | { has_campaign: false }
+  | {
+      has_campaign: true;
+      target: string;
+      features: string[];
+      n_base: number;
+      best: number | null;
+      round: number;
+      /**
+       * The progress trajectory: one { round, best, n_base } point per round
+       * (round 0 = the seeded base, then one per re-analyze). `best` is the
+       * measured best-so-far (non-decreasing), not a prediction - see
+       * kalos/docs/CAMPAIGN_LOOP.md.
+       */
+      history: { round: number; best: number | null; n_base: number }[];
+      pending: CampaignRun[];
+      n_awaiting: number;
+      n_measured: number;
+    };
+
+export const getCampaign = (): Promise<Campaign> =>
+  fetch(`${API}/api/campaign`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
+
+/** A recipe about to be started, in the shape POST /api/campaign/start expects. */
+export type StartRecipe = {
+  recipe: Record<string, number>;
+  pred: number;
+  std: number;
+  mode: string;
+  reason: string;
+};
+
+export async function startRuns(recipes: StartRecipe[]): Promise<void> {
+  const r = await fetch(`${API}/api/campaign/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipes }),
+  });
+  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+}
+
+export async function logResult(id: string, value: number): Promise<void> {
+  const r = await fetch(`${API}/api/campaign/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, value }),
+  });
+  if (!r.ok) {
+    // The documented 400 body is { error }; fall back to a status-based
+    // message for anything else (network hiccup, unexpected 5xx shape).
+    let message = `engine responded ${r.status}`;
+    try {
+      const body: unknown = await r.json();
+      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
+        message = (body as { error: string }).error;
+      }
+    } catch {
+      // Body wasn't JSON - keep the status-based message.
+    }
+    throw new Error(message);
+  }
+}
+
+export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
+  const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST" });
+  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  return r.json();
 }
 
 export { API };

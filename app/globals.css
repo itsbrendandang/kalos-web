@@ -40,21 +40,21 @@
    * gray to a hair of blue tint, without reintroducing brand blue into
    * chrome - the --blue/--accent* family below stays exactly as the
    * 2026-07-16 neutral migration left it. --card stays stock pure white. */
-  --bg: #f6f8fc;
-  --card: oklch(1 0 0);
-  --fg: #101828;
-  --muted: #667085;
-  --border: #d9e2f2;
+  --bg: #f1f2eb;
+  --card: #fcfdf9;
+  --fg: #14231c;
+  --muted: #59685f;
+  --border: #dde3da;
 
   /* "Blue" scale - kept as a token name for backward compatibility, but its
    * value is the neutral shadcn --primary gray (near-black), not a hue. */
-  --blue: oklch(0.205 0 0);
-  --blue-hover: oklch(0.145 0 0);
-  --blue-deep: oklch(0.205 0 0);
-  --blue-soft: #f8faff;
-  --blue-tint: oklch(0.97 0 0);
-  --blue-border: oklch(0.922 0 0);
-  --blue-hover-bg: oklch(0.97 0 0);
+  --blue: #159a6e;
+  --blue-hover: #0e7653;
+  --blue-deep: #0b5d42;
+  --blue-soft: #f5f7f1;
+  --blue-tint: #dff1e9;
+  --blue-border: #b9dccc;
+  --blue-hover-bg: #eaf3ed;
 
   /* Semantic accent = the neutral "blue" everywhere in the app */
   --accent: var(--blue);
@@ -64,25 +64,25 @@
    * --accent-hover (which is the interactive-fill hover BACKGROUND, and must
    * hold white text) because in dark mode no single neutral can both read as
    * text on a dark surface AND carry white text as a fill. */
-  --accent-text: oklch(0.205 0 0);
+  --accent-text: #0b6849;
 
   /* Secondary "explore" tone (neutral gray, used for exploratory/low-emphasis states) */
-  --explore: #9ca3af;
-  --explore-deep: #52525b;
-  --explore-soft: #ededed;
+  --explore: #b96f2b;
+  --explore-deep: #7f4617;
+  --explore-soft: #f7e9d7;
 
   /* Status - AA-checked against white (>=4.5:1): green 5.4:1, amber 5.4:1, red 4.6:1
    * Unchanged by the neutral migration - status colors carry meaning. */
-  --green: #1f7a34;
-  --green-soft: #e8f5e9;
-  --amber: #9a5b00;
-  --amber-soft: #fff3e0;
-  --red: #c0392b;
+  --green: #0e7653;
+  --green-soft: #dff1e9;
+  --amber: #8b4f18;
+  --amber-soft: #f7e9d7;
+  --red: #a33a32;
 
   /* Chrome. --sidebar has no live consumer today (the sidebar chrome uses
    * bg-card directly) - kept neutral in step with --bg for when it is. */
-  --sidebar: oklch(0.985 0 0);
-  --grid: oklch(0.922 0 0);
+  --sidebar: #13271f;
+  --grid: #dce4dc;
 
   --radius-card: 16px;
   --radius-control: 10px;
@@ -110,9 +110,9 @@
   --popover-foreground: var(--fg);
 
   --primary: var(--blue);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.97 0 0);
+  --secondary: #eef2ec;
   --secondary-foreground: var(--fg);
 
   --muted-foreground: var(--muted);
@@ -124,8 +124,8 @@
 
   /* Inputs keep a slightly firmer edge than the softened --border so form
    * affordances stay legible in the otherwise borderless UI. */
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.87 0 0);
+  --input: #ccd6cd;
+  --ring: #159a6e;
 
   /* Generic radius for shadcn-convention components. Kept separate from
    * --radius-card / --radius-control (which drive the existing rounded-2xl
@@ -140,17 +140,17 @@
    * only the brand chrome went gray, data keeps color so series stay
    * distinguishable. Same 5 hues in light and dark (not overridden below).
    */
-  --chart-1: oklch(0.652 0.124 284.594);
-  --chart-2: oklch(0.779 0.097 155.935);
-  --chart-3: oklch(0.858 0.141 81.233);
-  --chart-4: oklch(0.738 0.16 21.742);
-  --chart-5: oklch(0.821 0.072 214.103);
+  --chart-1: #159a6e;
+  --chart-2: #b96f2b;
+  --chart-3: #397e8a;
+  --chart-4: #7563a8;
+  --chart-5: #b34b43;
 
   /* --chart-1 as a text/ink color (same hue, darkened) - --chart-1 itself
    * only clears ~3.3:1 against white/--card, which is fine for a bar fill
    * but fails AA for text. Used where a chart-1-colored series needs a
    * legible label (e.g. the drivers tornado's "higher target" values). */
-  --chart-1-ink: oklch(0.42 0.14 284.594);
+  --chart-1-ink: #0b6849;
 }
 
 /*
@@ -164,21 +164,21 @@
 .dark {
   color-scheme: dark;
 
-  --bg: oklch(0.145 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --fg: oklch(0.985 0 0);
-  --muted: oklch(0.712 0.013 286.067);
-  --border: oklch(0.248 0.004 286.033);  /* softened toward --card so boxes recede (dark) */
+  --bg: #0e1713;
+  --card: #14211b;
+  --fg: #eef5f0;
+  --muted: #a9b9af;
+  --border: #2a3d33;
 
   /* "Blue" flips to near-white (the neutral shadcn --primary in dark mode);
    * hover is one step down. */
-  --blue: oklch(0.985 0 0);
-  --blue-hover: oklch(0.922 0 0);
-  --blue-deep: oklch(0.985 0 0);
-  --blue-soft: oklch(0.274 0.005 286.033);
-  --blue-tint: oklch(0.274 0.005 286.033);
-  --blue-border: oklch(0.274 0.005 286.033);
-  --blue-hover-bg: oklch(0.274 0.005 286.033);
+  --blue: #4cc79a;
+  --blue-hover: #6bd7ae;
+  --blue-deep: #8be1c0;
+  --blue-soft: #18271f;
+  --blue-tint: #17382b;
+  --blue-border: #2c624d;
+  --blue-hover-bg: #1d3428;
 
   /* Critical for the button-text contract: the fill (--blue/--primary) is
    * near-white in dark mode, so its "on-fill" text/icon color must flip to
@@ -189,34 +189,35 @@
    * folding pass and silently vanished from the compiled .dark rule (verified
    * by inspecting the built CSS directly) - hex sidesteps the collision.
    * Same color as --primary/--blue's light-mode value (oklch(0.205 0 0)). */
-  --primary-foreground: #171717;
+  --primary-foreground: #0b1b14;
 
   /* Accent text decoupled from --accent-hover in dark mode, same rationale
    * as before: the hover fill is a light gray fill color, which can't also
    * double as legible text on the dark page/card surfaces. */
-  --accent-text: oklch(0.985 0 0);
+  --accent-text: #73dab3;
 
-  --explore-deep: #b6bcc9;
-  --explore-soft: #232733;
+  --explore: #e2a15e;
+  --explore-deep: #efb97f;
+  --explore-soft: #402b18;
 
   /* Status colors re-picked (not just lightened) so they clear >=4.5:1 AA
    * against both --bg and --card here - verified 5.4-8.4:1, see DESIGN.md.
    * Unchanged by the neutral migration. */
-  --green: #34c77a;
-  --green-soft: #10301f;
-  --amber: #e0a530;
-  --amber-soft: #362408;
-  --red: #f16354;
+  --green: #65d7ab;
+  --green-soft: #17382b;
+  --amber: #e2a15e;
+  --amber-soft: #402b18;
+  --red: #ef7a70;
 
-  --grid: oklch(0.274 0.005 286.033);
+  --grid: #294036;
 
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: #0a120f;
 
-  --secondary: oklch(0.274 0.005 286.033);
+  --secondary: #1b2c24;
 
-  --ring: oklch(0.37 0.012 285.805);
+  --ring: #4cc79a;
 
-  --chart-1-ink: oklch(0.82 0.1 284.594);
+  --chart-1-ink: #73dab3;
 }
 
 @theme inline {
@@ -288,6 +289,7 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-satoshi), system-ui, sans-serif;
+  min-height: 100svh;
 }
 
 ::selection {
@@ -304,12 +306,21 @@ body {
   outline-offset: 2px;
 }
 
-/* No shadows anywhere in the kalos UI - flat surfaces only, borders carry
- * separation instead of elevation. Belt-and-suspenders on top of removing
- * shadow-* utilities from components: guarantees nothing (a third-party
- * component, a browser default, a future PR) reintroduces one. */
-*,
-*::before,
-*::after {
-  box-shadow: none !important;
+button,
+a,
+input,
+select,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

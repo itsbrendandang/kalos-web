@@ -16,8 +16,8 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl p-6",
-        bordered && "border border-border",
+        "rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(20,35,28,0.04),0_14px_34px_rgba(20,35,28,0.055)]",
+        bordered && "border-blue-border",
         className,
       )}
       {...props}
@@ -26,7 +26,7 @@ export function Card({
 }
 
 export function SectionLabel({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("mb-2 text-[12px] font-semibold text-fg", className)} {...props} />;
+  return <div className={cn("mb-2 text-[13px] font-semibold text-fg", className)} {...props} />;
 }
 
 export function Kpi({
@@ -43,8 +43,8 @@ export function Kpi({
   return (
     <div
       className={cn(
-        "min-h-[96px] rounded-xl px-4 py-3.5",
-        hero ? "bg-accent-hover" : "bg-blue-soft",
+        "min-h-[104px] rounded-xl border px-4 py-4",
+        hero ? "border-accent-hover bg-accent-hover shadow-[0_10px_26px_rgba(14,118,83,0.2)]" : "border-border bg-blue-soft",
       )}
     >
       <div className={cn("text-[11px] font-medium", hero ? "text-[color:var(--primary-foreground)]" : "text-muted")}>{label}</div>
@@ -80,8 +80,8 @@ export function StatCard({
         <div className="text-[10.5px] font-semibold text-muted uppercase">{label}</div>
         <span
           className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-lg",
-            tone === "accent" ? "bg-accent-soft text-accent-text" : "bg-explore-soft text-explore-deep",
+          "grid size-8 shrink-0 place-items-center rounded-lg border",
+            tone === "accent" ? "border-blue-border bg-accent-soft text-accent-text" : "border-explore/20 bg-explore-soft text-explore-deep",
           )}
         >
           <Icon className="size-4" />

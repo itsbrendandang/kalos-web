@@ -12,11 +12,11 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex flex-wrap items-end justify-between gap-5 border-b border-border pb-6">
       <div className="min-w-0">
-        {eyebrow ? <div className="mb-1 text-[11px] font-semibold text-accent-text">{eyebrow}</div> : null}
-        <h1 className="font-head text-[26px] leading-tight font-semibold">{title}</h1>
-        {desc ? <p className="mt-1.5 max-w-[68ch] text-[13.5px] leading-5 text-muted">{desc}</p> : null}
+        {eyebrow ? <div className="mb-2 text-[11px] font-bold tracking-[0.12em] text-accent-text uppercase">{eyebrow}</div> : null}
+        <h1 className="font-head text-[32px] leading-[1.08] font-semibold tracking-[-0.03em] md:text-[38px]">{title}</h1>
+        {desc ? <p className="mt-2 max-w-[68ch] text-[14px] leading-6 text-muted md:text-[15px]">{desc}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>

@@ -205,7 +205,7 @@ export function OperationsView() {
             completedToday={doneToday.length}
           />
           <section>
-            <SectionHead title="In progress" sub="Live experiment jobs from the kalos portal." />
+            <SectionHead title="In progress" sub="Live experiment jobs from the Bioqore portal." />
             <Card>
               <LiveExperimentList rows={[...attentionLive, ...runningLive]} empty="nothing in progress" />
             </Card>

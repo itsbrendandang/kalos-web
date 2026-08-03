@@ -16,7 +16,7 @@ const satoshi = localFont({
 const jbmono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono", weight: ["500", "600"] });
 
 export const metadata: Metadata = {
-  title: "Kalos",
+  title: "Bioqore",
   description: "Bayesian optimization for bioprocess development",
 };
 

@@ -30,7 +30,7 @@ export default function AnalyzePage() {
         setRes(d);
       }
     } catch {
-      setErr("Analysis service unavailable. Try again in a moment or contact Kalos support.");
+      setErr("Analysis service unavailable. Try again in a moment or contact Bioqore support.");
     } finally {
       setBusy(false);
     }

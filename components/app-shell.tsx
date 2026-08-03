@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Leaf />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="font-head text-[18px] leading-none font-bold tracking-[-0.02em]">Kalos</div>
+            <div className="font-head text-[18px] leading-none font-bold tracking-[-0.02em]">Bioqore</div>
             <div className="mt-1 text-[10px] font-semibold tracking-[0.08em] text-[#8da197] uppercase">Experiment intelligence</div>
           </div>
           <ThemeToggle className="size-10 border-white/10 text-[#b7c8bf] hover:border-white/20 hover:bg-white/10 hover:text-white" />
@@ -130,7 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-card/95 px-4 backdrop-blur-md md:hidden">
           <span className="grid size-9 place-items-center rounded-xl bg-sidebar text-white"><Leaf size={19} /></span>
           <div className="ml-3">
-            <div className="font-head text-[17px] leading-none font-bold tracking-[-0.02em]">Kalos</div>
+            <div className="font-head text-[17px] leading-none font-bold tracking-[-0.02em]">Bioqore</div>
             <div className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-accent-text">
               <span className="size-1.5 rounded-full bg-accent" /> Local workspace
             </div>

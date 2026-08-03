@@ -53,7 +53,7 @@ export default function VesselsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Vessel Workspace - ambr CHO Fed-Batch · 48 vessels"
-        desc="kalos vessel analysis · simulated 48-vessel ambr CHO run - titer, viability, VCD, lactate, glucose, pH."
+        desc="Bioqore vessel analysis · simulated 48-vessel ambr CHO run - titer, viability, VCD, lactate, glucose, pH."
         action={<DemoBadge />}
       />
 

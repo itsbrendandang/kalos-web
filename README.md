@@ -1,8 +1,8 @@
-# Kalos web
+# Bioqore web
 
-The production front end for [Kalos](https://github.com/itsbrendandang/kalos) - a
+The production front end for [Bioqore](https://github.com/itsbrendandang/kalos) - a
 Bayesian-optimization platform for bioprocess development. Next.js 16 + Tailwind v4,
-on a single unified blue design system, consuming the Kalos engine API.
+on a single unified blue design system, consuming the Bioqore engine API.
 
 ## Views
 
@@ -22,7 +22,7 @@ on a single unified blue design system, consuming the Kalos engine API.
     a lightweight inline input adds a new card to a column without a modal.
     Task data is a static mock in `lib/mock/planning.ts`, pending a real
     task/experiment-status source.
-  - **Table** (`?view=table`) - the real experiment queue wired to the Kalos
+  - **Table** (`?view=table`) - the real experiment queue wired to the Bioqore
     portal: upload a run sheet, flag it ready, and run the engine on demand or
     for every ready experiment at once.
 - **Results** (`/results`) - your last analyzed dataset at a glance: model

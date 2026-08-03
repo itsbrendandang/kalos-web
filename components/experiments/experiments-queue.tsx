@@ -126,7 +126,7 @@ export function ExperimentsQueue() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[64ch] text-[13px] leading-5 text-muted">
-          The kalos portal&rsquo;s experiment queue: upload a run sheet, flag it ready, and run the Bayesian engine on
+          The Bioqore portal&rsquo;s experiment queue: upload a run sheet, flag it ready, and run the Bayesian engine on
           demand or for every ready experiment at once.
         </p>
         <div className="flex shrink-0 items-center gap-2">
@@ -158,7 +158,7 @@ export function ExperimentsQueue() {
           onRetry={refresh}
           busy={busy}
           title="Experiments service unavailable"
-          body="The dashboard could not reach the kalos portal's experiments API. Try again in a moment."
+          body="The dashboard could not reach the Bioqore portal's experiments API. Try again in a moment."
         />
       ) : experiments == null ? (
         <Loading />

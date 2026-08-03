@@ -113,7 +113,7 @@ export default function Simulate() {
           onRetry={refresh}
           busy={busy}
           title="Engine unavailable"
-          body="The dashboard could not reach the kalos engine to run the in-silico optimizer. Try again in a moment."
+          body="The dashboard could not reach the Bioqore engine to run the in-silico optimizer. Try again in a moment."
         />
       ) : loading ? (
         <Loading label="Running the optimizer" />

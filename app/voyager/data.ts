@@ -461,7 +461,7 @@ export const CUSTOMERS: Customer[] = [
   {
     id: "c3",
     name: "Bioqore R&D",
-    address: "Internal · scored live by the kalos engine",
+    address: "Internal · scored live by the Bioqore engine",
     projects: [P_LIVE],
   },
 ];

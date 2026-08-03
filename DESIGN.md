@@ -1,6 +1,6 @@
-# Kalos design system
+# Bioqore design system
 
-Kalos is a scientific optimization workspace for bioprocess development teams.
+Bioqore is a scientific optimization workspace for bioprocess development teams.
 It helps scientists move through one closed loop: prepare data, understand the
 model, choose the next experiments, run them, and learn from the results.
 
@@ -8,7 +8,7 @@ model, choose the next experiments, run them, and learn from the results.
 
 **Serious scientific intelligence that feels calm, trustworthy, and easy to act on.**
 
-Kalos should feel like a well-run lab: warm, precise, legible, and quietly
+Bioqore should feel like a well-run lab: warm, precise, legible, and quietly
 confident. It must never feel like a generic SaaS dashboard or a dark terminal.
 
 ## Product principles

@@ -37,7 +37,7 @@ export default function PlatePage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Plate Summary — Nitrogen Source · PID-107 · E. coli · 2 plates"
-        desc="kalos plate analysis · simulated 96-well nitrogen-source screen."
+        desc="Bioqore plate analysis · simulated 96-well nitrogen-source screen."
         action={<DemoBadge />}
       />
 
@@ -192,7 +192,7 @@ export default function PlatePage() {
       ) : (
         <Card className="py-16 text-center text-[13px] text-muted">
           Dose-response view is not included in this demo - this screen would plot ΔOD vs. dose per nitrogen source,
-          pulled from the full kalos plate-analysis pipeline.
+          pulled from the full Bioqore plate-analysis pipeline.
         </Card>
       )}
     </div>

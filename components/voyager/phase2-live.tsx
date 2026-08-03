@@ -102,7 +102,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-[9px] border-[0.5px] border-[color:var(--v-blue-border)] bg-[var(--v-blue-tint)] px-3 py-2">
           <Activity className="size-3.5 text-[color:var(--v-blue-7-text)]" />
-          <span className="text-[12px] font-medium text-[color:var(--v-blue-7-text)]">Live · scored by the kalos engine</span>
+          <span className="text-[12px] font-medium text-[color:var(--v-blue-7-text)]">Live · scored by the Bioqore engine</span>
           <span className="font-mono text-[11px] text-[color:var(--v-blue-7-text)]">
             {d.n} runs · {d.d} inputs · maximize {d.target}
           </span>
@@ -215,7 +215,7 @@ export function Phase2Live() {
   if (data == null && offline)
     return (
       <Notice>
-        The analysis service is unavailable. Try Refresh again in a moment or contact Kalos support.
+        The analysis service is unavailable. Try Refresh again in a moment or contact Bioqore support.
       </Notice>
     );
   if (data == null) return <Notice>Scoring the latest dataset...</Notice>;

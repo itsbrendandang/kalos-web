@@ -77,7 +77,7 @@ export function ExperimentDetail({ id }: { id: string }) {
           onRetry={refresh}
           busy={busy}
           title="Experiments service unavailable"
-          body="The dashboard could not reach the kalos portal's experiments API. Try again in a moment."
+          body="The dashboard could not reach the Bioqore portal's experiments API. Try again in a moment."
         />
       </div>
     );

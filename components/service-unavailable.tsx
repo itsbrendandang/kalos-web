@@ -6,7 +6,7 @@ export function ServiceUnavailable({
   onRetry,
   busy,
   title = "Analysis service unavailable",
-  body = "The dashboard could not reach the analysis service. Try again in a moment or contact Kalos support.",
+  body = "The dashboard could not reach the analysis service. Try again in a moment or contact Bioqore support.",
 }: {
   onRetry: () => void;
   busy: boolean;

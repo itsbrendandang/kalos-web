@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { PlugZap } from "lucide-react";
+import { ArrowRight, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Loading, DemoBadge } from "@/components/page-header";
 import { SummaryTiles } from "@/components/operations/summary-tiles";
@@ -67,13 +67,24 @@ function queuedRunsToQueueRows(runs: PipelineRun[]): QueueRow[] {
  *  off - shown instead of ever rendering fabricated runs as if they were real. */
 function NoLiveData({ what }: { what: string }) {
   return (
-    <Card className="flex flex-col items-center gap-1.5 py-10 text-center">
-      <PlugZap className="size-5 text-muted" />
-      <div className="text-[13.5px] font-semibold text-fg">No live {what}</div>
-      <p className="max-w-[46ch] text-[12px] leading-5 text-muted">
-        Connect a run store to see this here. Set <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to
-        preview this board with demo data instead.
-      </p>
+    <Card className="grid gap-6 overflow-hidden p-0 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="p-6 md:p-8">
+        <div className="mb-4 grid size-11 place-items-center rounded-xl bg-accent-soft text-accent-text"><Upload className="size-5" /></div>
+        <div className="font-head text-[20px] font-semibold tracking-[-0.02em] text-fg">Start with a measured run sheet</div>
+        <p className="mt-2 max-w-[54ch] text-[14px] leading-6 text-muted">
+          There are no live {what} yet. Upload experimental conditions and outcomes to validate the model and generate a ranked next batch.
+        </p>
+        <Link href="/analyze" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-[10px] bg-accent px-4 text-[13px] font-semibold text-white shadow-[0_5px_14px_rgba(21,154,110,0.2)] hover:bg-accent-hover">
+          Analyze run sheet <ArrowRight className="size-4" />
+        </Link>
+      </div>
+      <div className="hidden h-full min-w-52 items-center justify-center border-l border-border bg-blue-soft px-8 md:flex">
+        <div className="space-y-3 text-[12px] text-muted">
+          <div><span className="mr-2 font-mono text-accent-text">01</span> Fit honestly</div>
+          <div><span className="mr-2 font-mono text-accent-text">02</span> Check reliability</div>
+          <div><span className="mr-2 font-mono text-accent-text">03</span> Choose the next batch</div>
+        </div>
+      </div>
     </Card>
   );
 }

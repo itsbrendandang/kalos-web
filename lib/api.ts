@@ -45,6 +45,24 @@ export type Driver = {
   significant: boolean;
 };
 
+/**
+ * One input's relative importance from the fitted GP's own ARD (automatic
+ * relevance determination) lengthscales - a MODEL-derived estimate, distinct
+ * from `Driver.rho` (a raw-data Spearman correlation computed without ever
+ * fitting the surrogate). `importance` is unitless and only meaningful
+ * relative to the other entries in the same `effects` list, not as an
+ * absolute score.
+ */
+export type GpMainEffect = { name: string; importance: number };
+
+/**
+ * `available: false` covers the real cases the engine has for not exposing
+ * this (too few points to fit a stable GP, a kernel without per-dimension
+ * lengthscales, etc.) - `reason` is engine-authored and must be shown
+ * verbatim rather than replaced with a generic "no data" message.
+ */
+export type GpMainEffects = { available: true; effects: GpMainEffect[] } | { available: false; reason: string };
+
 export type Reliability = {
   spearman: number | null;
   ci95: [number, number] | null;
@@ -117,6 +135,15 @@ export type AnalyzeResult = {
   };
   /** Per-column data-cleaning trail (kept/dropped/target), for traceability. */
   provenance?: ProvenanceEntry[];
+  /**
+   * GP ARD-based relative feature importance - a MODEL estimate (reads the
+   * fitted surrogate's per-dimension lengthscales), complementary to
+   * `drivers` (a raw-data statistic, no model fit involved). Absent on
+   * analyses run before the engine started returning it; callers must
+   * render nothing (or the honest `available:false` reason) rather than
+   * fabricate a chart.
+   */
+  gp_main_effects?: GpMainEffects;
   /** Engine run metadata, surfaced for traceability when present. */
   seed?: number;
   timestamp?: number;
@@ -197,6 +224,33 @@ export type CampaignRun = {
   reason: string;
   result: number | null;
   awaiting: boolean;
+  /**
+   * Unix-epoch seconds. The engine's pending-run record has always carried
+   * these (kalos/portal/campaign.py's `run` dict), but no client type
+   * declared them until the Map tab's replay footer needed real elapsed
+   * time instead of round-index spacing - see lib/workspace/graph/replay.ts.
+   * Optional because a demo/mock CampaignRun (or an older cached response)
+   * may not have them; callers must treat their absence as "not
+   * instrumented," never default to Date.now() or a fabricated date.
+   */
+  created_at?: number;
+  measured_at?: number | null;
+  /**
+   * Real, engine-reported lineage the GP conditioned on when it proposed
+   * this recipe - NOT declared anywhere in kalos today (see
+   * ENGINE_RECON.md section 3: run ids are discarded on fold, so no run,
+   * folded or pending, can currently be tied back to a specific parent).
+   * These fields are typed here so the Map tab's Lineage lens can read them
+   * the moment the engine adds them, through the same adapter seam, without
+   * a second migration - until then they are always absent, and the UI must
+   * render that absence honestly (see lib/workspace/graph/build-lineage.ts).
+   * `parent_row_count` is the TRUE total number of rows this run descended
+   * from; `parent_ids` is only the subset of those rows that can be named
+   * (folded rows with a traceable id) - `parent_row_count` is almost always
+   * larger than `parent_ids.length`. Never infer one from the other.
+   */
+  parent_ids?: string[];
+  parent_row_count?: number | null;
 };
 
 export type Campaign =
@@ -218,6 +272,18 @@ export type Campaign =
       pending: CampaignRun[];
       n_awaiting: number;
       n_measured: number;
+      /**
+       * The folded (already-measured, already-in-the-base-data) side of
+       * lineage - as opposed to `pending`, which is the not-yet-folded
+       * side. Not served by the engine today (`commit_fold` discards a
+       * run's id when it folds it into `base_rows` - see
+       * kalos/portal/campaign.py and ENGINE_RECON.md section 3), so this is
+       * always absent. Typed here, optional, for the same forward-
+       * compatibility reason as CampaignRun's `parent_ids` above - see
+       * lib/workspace/graph/lineage-adapter.ts for the one place that reads
+       * it and degrades honestly when it is missing.
+       */
+      lineage?: { folded_rows: { run_id: string; created_at: number; measured_at: number | null }[] };
     };
 
 export const getCampaign = (): Promise<Campaign> =>
@@ -271,5 +337,32 @@ export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
   return r.json();
 }
+
+/** One calendar day's run count for the campaign activity strip. `runs` counts
+ *  runs MEASURED that day (a result logged via `POST /api/campaign/result`),
+ *  not wells - the engine has no well/plate-capacity concept (see
+ *  lib/workspace/log-types.ts). */
+export type CampaignActivityDay = { date: string; runs: number };
+
+export type CampaignActivity =
+  | { has_campaign: false }
+  | {
+      has_campaign: true;
+      id: string;
+      days: CampaignActivityDay[];
+      stats: { days_running: number; days_with_runs: number; longest_pause_days: number };
+      /**
+       * Engine-authored coverage caveat (e.g. the rows from the original
+       * upload have no per-row timestamp, so they cannot appear in `days`),
+       * or null when the engine has nothing to caveat. Render verbatim.
+       */
+      note: string | null;
+    };
+
+export const getCampaignActivity = (): Promise<CampaignActivity> =>
+  fetch(`${API}/api/campaign/activity`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
 
 export { API };

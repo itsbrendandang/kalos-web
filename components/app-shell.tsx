@@ -73,6 +73,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // container is skipped there to avoid double padding - the sidebar/top nav
   // chrome below is shared by every route, Voyager included.
   const isVoyager = path.startsWith("/voyager");
+  // The campaign workspace (/c/[campaignId], feat/campaign-workspace-redesign)
+  // brings its own full-bleed shell - a campaign rail that replaces this
+  // sidebar as primary navigation, a 56px workspace header, and an Ask
+  // panel - see components/workspace/workspace-shell.tsx. Rendering it
+  // inside this shared sidebar/mobile-bar chrome would nest one nav inside
+  // another, so it's skipped entirely for this route family, the same way
+  // Voyager already opts out of the content max-width wrapper above.
+  if (path === "/c" || path.startsWith("/c/")) return <>{children}</>;
   return (
     <div className="flex min-h-svh bg-bg">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card px-3 py-5 max-md:hidden">

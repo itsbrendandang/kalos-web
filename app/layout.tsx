@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Mono, JetBrains_Mono, Newsreader } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
@@ -14,6 +14,37 @@ const satoshi = localFont({
   display: "swap",
 });
 const jbmono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono", weight: ["500", "600"] });
+
+// Newsreader and IBM Plex Mono for the campaign-workspace redesign (reading
+// copy and data/mono roles respectively - see DESIGN.md "Fonts, one more
+// time"). These are loaded via next/font/google, NOT next/font/local, even
+// though DESIGN.md's existing rule is "self-host, do not download font files
+// from unverified sources." Do not "fix" this back to a localFont + .woff2
+// download: next/font/google already downloads the font files and CSS at
+// BUILD time and self-hosts them from this app's own origin - the browser
+// never makes a request to Google, exactly like the JetBrains Mono line
+// above. It satisfies the self-hosting requirement without needing us to
+// go source a .woff2 file from a third party and vendor it (and its
+// license) into app/fonts/ by hand. Newsreader is a variable optical-size
+// font; the opsz axis is requested to match the design's own Google Fonts
+// import (`opsz,wght@6..72`), so headline vs. caption sizes get distinct
+// optical cuts instead of one cut scaled uniformly. next/font/google only
+// allows requesting extra axes when weight is left as "variable" (the
+// default) rather than a fixed list of stops - the design's 400/500/600
+// weights are still fully reachable, since a variable font accepts any
+// font-weight in its range, not just discrete stops.
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-ibmplexmono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Kalos",
@@ -30,7 +61,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="en"
-      className={`${satoshi.variable} ${jbmono.variable} antialiased`}
+      className={`${satoshi.variable} ${jbmono.variable} ${newsreader.variable} ${ibmPlexMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

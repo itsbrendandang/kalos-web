@@ -125,6 +125,51 @@ non-live Voyager screen (Phase 1, Phase 2 setup/results, and the final report -
 anywhere `project.live` is not true). The live, engine-backed Phase 2 view
 keeps its own "Live · engine" badge instead.
 
+## Campaign-workspace foundation tokens
+
+Added ahead of the campaign-workspace/Map redesign (`feat/campaign-workspace-redesign`), before any product UI is built on top of them. Same rule as every token above: light value and an independently-picked dark value, no literal hex in components.
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--canvas` | `#eaeef5` | `#030306` | Workspace backdrop behind white/card planes. Deliberately distinct from `--bg` - not a merge, not an alias. |
+| `--node-stroke` | `#8690a2` | `#98a2b3` (the mock's original value, kept) | Graph node strokes and SOP node strokes (Map tab). Close to but NOT the same value as `--explore` (`#9ca3af`) - a separate token, not a retune of `--explore`. |
+| `--action` | `#343434` | `#65666c` | Filled-button/badge fill for the campaign workspace (buttons, round-hub discs, active pills). |
+| `--activity-0` .. `--activity-4` | `#eef1f5`, `#dbe7dd`, `#b3d1ba`, `#6da77f`, `#1f7a34` | `#232327`, `#16351f`, `#1b5c33`, `#24894a`, `#34c77a` | The Log tab's activity-strip ramp, quiet (0) to busy (4). Five discrete buckets, not an interpolated gradient. Level 4 is exactly `--green` in each mode so the busiest day speaks the same language the rest of the surface uses for "good"; levels 0-3 walk down from it. Deliberately NOT aliases of `--blue-tint` / `--green`: a heatmap bucket is its own role, and folding it into a chrome token would silently retune the ramp the next time that chrome token moves. |
+| `--activity-future` | `#d9e2f2` | `#2e2e33` | Dashed outline of a day that has not happened yet (the trailing partial week). Its own token rather than `--border`: identical in light, but `--border` is tuned to recede against a dark card, which makes a 15px dashed square vanish there. |
+
+Real WCAG contrast ratios (computed, not eyeballed - script and full output kept alongside this branch's handoff notes, not committed to the repo):
+
+- `--canvas`: light is `1.09:1` against `--bg` and `1.164:1` against `--card` - a small, deliberate step, not a duplicate. The first dark value (`#101012`) only reached `1.073:1` against dark `--card` (`#18181b`), so the planes barely read as floating and the workspace looked flat. Retuned to `#030306`, which restores the light relationship numerically: `1.163:1` against dark `--card` and `1.04:1` against dark `--bg` (`#0a0a0a`), i.e. `--canvas` is the darkest of the three surfaces in dark mode exactly as it is the darkest of the three in light mode. Text that sits directly on the canvas (the Log tab's round-divider row) only gains from the change: `--fg` `19.7:1`, `--muted` `8.0:1`, `--green` `9.4:1`, `--amber` `9.4:1`.
+- `--activity-0` .. `--activity-4`: light steps sit at `1.13`, `1.27`, `1.65`, `2.81`, `5.40` against `--card` (white), stepping `1.12 / 1.29 / 1.70 / 1.92` from each level to the next. The dark ramp was re-picked against dark `--card` rather than inverted: `1.13`, `1.32`, `2.22`, `4.01`, `8.10` against the card, stepping `1.17 / 1.68 / 1.81 / 2.02`. Same shape of progression, so a busy week reads as busy in both themes.
+- `--activity-future`: `1.303:1` against white in light, `1.312:1` against dark `--card` in dark. Dark `--border` would have reached only `1.10:1` there, and the dashed not-yet-happened cells would have read as absent rather than pending.
+- `--node-stroke`: **light retuned.** The mock's literal value `#98a2b3` measured `2.575:1` against `--card`, `2.422:1` against `--bg` and `2.213:1` against `--canvas` - below the WCAG 1.4.11 non-text 3:1 guideline on every light surface. It was carried unchanged for a while on the grounds that the mock's hex is adopted as-is, but this token is the entire outline of a `measured-run` node and of every SOP node: failing 3:1 means those marks have no reliable edge, which is a legibility bug rather than a stylistic preference. Light is now `#8690a2`, which measures `3.219:1` against `--card` (the graph canvas's own surface, and the only one node line-art is drawn on) and `3.027:1` against `--bg`, clearing the floor on both. Against `--canvas` it reaches `2.766:1` and still would not clear; recorded rather than papered over, since nothing draws node line-art on `--canvas` and going dark enough to clear it (`#7e8899` or below) starts making a 1.2px hairline read with the weight of body text. Dark is deliberately **unchanged** at `#98a2b3` - same reasoning already documented above for `--explore` ("already legible on dark surfaces, unchanged"), measuring `6.879:1` against dark `--card` and `7.69:1` against dark `--bg`. The two modes now hold different values because they had different problems, not because one was mechanically inverted.
+- `--action`: light `#343434` holds white text at `12.45:1` (AA). Dark cannot mechanically invert toward white the way `--blue` does, because this token must carry white button/badge text at AA in **both** modes - a near-white dark value could never do that. `#65666c` was picked instead: white text on it measures `5.72:1` (AA), and the fill itself clears the WCAG 1.4.11 3:1 non-text guideline against dark `--bg` (`3.46:1`), dark `--card` (`3.10:1`), and dark `--canvas` (`3.32:1`), so the button still visibly separates from the dark chrome instead of nearly vanishing the way the literal light-mode `#343434` would on a near-black page.
+
+A dev-only `/_tokens` route (`app/%5Ftokens/page.tsx` - the URL-encoded form of `app/_tokens`, since Next.js treats a literal `_tokens` folder as private/non-routable) renders every token above, light and dark side by side via a locally-scoped `.dark` wrapper, plus the type specimen below. It is unlinked from `NAV_SECTIONS` (same "real route, not in the nav" pattern as `/decide`) and carries an explicit "not a product surface" banner.
+
+### `#343434` vs `--blue`/`--accent`/`--primary`: two tokens, not one, for now
+
+The redesign's primary action color (`#343434`) was adopted as its own new token, `--action`, rather than changing the value of `--blue`/`--accent`/`--primary` (which stays `oklch(0.205 0 0)` = `#171717`). Retuning `--blue` would have visibly lightened every primary button and active-nav state on every page still on the old IA, mid-migration. `--action` and `--blue` are two names for "the app's dark neutral action color" that happen to disagree slightly right now by design; once the old IA is fully retired onto the new workspace, they should converge onto one value - tracked as follow-up, not done in this pass.
+
+### `#b45309` rejected; `--amber` unchanged
+
+The redesign mock's warning color (`#b45309`, Tailwind's `amber-700`) was **not** adopted. The repo's existing `--amber` (`#9a5b00`) is kept as-is - it is already AA-verified (5.4:1 light, 7.9:1 dark, see the color-roles table above) and introducing a second, unverified warning hue would fragment the status-color system for no real gain. Every warning surface in the campaign workspace (the "Needs your call" banner, failed-run graph strokes, etc.) routes through the existing `--amber`/`--amber-soft`, not a new token.
+
+### `#3b5b8c` rejected as a hue; SOP stays achromatic
+
+The redesign mock colors SOP governance edges and citations with `#3b5b8c`, a genuine blue hue. That conflicts with the achromatic-chrome rule from the 2026-07-16 neutral migration (see "Color roles" above): chrome stays achromatic, only `--chart-1`...`--chart-5` and the heat-scale ramp are allowed to carry color. `#3b5b8c` was rejected as a hue rather than added as an exception. SOP elements (SOP nodes, SOP governance edges, SOP citation cards) are distinguished from ordinary chrome by **shape and weight, not color**: the achromatic `--node-stroke` value plus a dashed stroke (`stroke-dasharray`) and a heavier stroke weight where the mock used a distinct color. This keeps the "only data-viz keeps color" rule intact instead of quietly amending it for one feature.
+
+## Fonts: Newsreader and IBM Plex Mono
+
+Two fonts were added for the campaign-workspace redesign, both self-hosted via `next/font/google` in `app/layout.tsx`:
+
+- **Newsreader** (weights 400/500/600, `opsz` axis requested to match the design's own Google Fonts import `opsz,wght@6..72`) - reading copy: verdict headlines, answers, graph captions, "what this taught" prose. Exposed as `--font-serif` (Tailwind utility `font-serif`).
+- **IBM Plex Mono** (weights 400/500/600) - data, IDs, filenames, axis and node labels. Exposed as `--font-plex-mono` (Tailwind utility `font-plex-mono`).
+
+Both are loaded via `next/font/google`, not `next/font/local`, even though the "Fonts, one more time" rule below says "do not download font files from unverified sources" and Satoshi/JetBrains Mono otherwise set the precedent of self-hosting. This is not an exception to that rule: `next/font/google` already downloads the font files and CSS **at build time** and self-hosts them from the app's own origin - the browser makes zero requests to Google, exactly like the existing JetBrains Mono line in `app/layout.tsx`. It satisfies "self-host" without needing anyone to go source `.woff2` files from a third party and vendor them (plus a license file) into `app/fonts/` by hand, which is what would otherwise be required to add two more typefaces from scratch. See the comment above the `newsreader`/`ibmPlexMono` declarations in `app/layout.tsx` for the same explanation in-line, so a future reader does not "fix" this back to a local-font download.
+
+**`--font-mono` stays JetBrains Mono, not IBM Plex Mono.** There are 100+ existing `font-mono` call sites across the app (tables, KPI values, chart axes). Repointing `--font-mono` at IBM Plex Mono would have silently reflowed every one of those pages mid-migration. IBM Plex Mono instead lands as its own token, `--font-plex-mono`, so new campaign-workspace surfaces opt into it explicitly while the rest of the app keeps rendering JetBrains Mono unchanged. Once the old IA is retired and every surface has migrated to the new design, `--font-mono` can be repointed at IBM Plex Mono and `--font-plex-mono` retired - not done here.
+
 ## Dark mode
 
 Dark mode is a `.dark` class on `<html>`, not a `prefers-color-scheme` media
@@ -346,3 +391,15 @@ load the same licensed variable font
 (`app/fonts/Satoshi-Variable.woff2`, Fontshare Font License) via
 `next/font/local`, so there is exactly one font file and one license on disk
 for both surfaces.
+
+Newsreader and IBM Plex Mono (added for the campaign-workspace redesign) are
+self-hosted a different way: via `next/font/google` rather than
+`next/font/local`. This is not an exception to "do not download font files
+from unverified sources" - `next/font/google` performs that download itself,
+at build time, from Google's own hosting, and serves the result from the
+app's own origin with zero runtime requests to Google. It reaches the same
+self-hosted end state as the Satoshi/JetBrains Mono `.woff2` files without
+requiring anyone to manually source and vendor two more font files (and their
+licenses) into `app/fonts/`. See "Campaign-workspace foundation tokens"
+above for the full reasoning, and the comment above the `newsreader` /
+`ibmPlexMono` declarations in `app/layout.tsx`.

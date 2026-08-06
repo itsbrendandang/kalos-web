@@ -88,6 +88,92 @@
   --radius-control: 10px;
 
   /*
+   * Campaign-workspace redesign foundation tokens (feat/campaign-workspace-
+   * redesign). Added ahead of the workspace/Map build so every new surface
+   * routes through a token with a real, independently-picked dark value -
+   * same rule as every token above. Literal hex, matching the convention
+   * neighbouring same-role tokens use (--bg/--fg/--muted/--border/--explore/
+   * --green/--amber/--red are all literal hex; only the pure --blue-family
+   * grays use oklch(L 0 0)).
+   *
+   * --canvas is the workspace backdrop behind white/card "planes" (the
+   * campaign rail, header, and content cards all sit on it). It is
+   * deliberately distinct from --bg - do not merge them - because the
+   * workspace wants a slightly receded backdrop so its white planes read as
+   * floating, independent of whatever --bg is doing on every other page.
+   * Light value #eaeef5 is a hair darker than --bg (#f6f8fc); the dark value
+   * is picked to sit the same way relative to --bg/--card in dark (a small,
+   * deliberate step, not a mechanical invert - see contrast numbers at
+   * /_tokens and DESIGN.md).
+   */
+  --canvas: #eaeef5;
+
+  /* Mid-grey for graph node strokes and SOP node strokes (Map tab). Close to
+   * but NOT the same value as --explore (#9ca3af) - a separate token because
+   * it serves a different role (graph line-art, not a status/exploratory
+   * tag) and the two happening to be visually similar is coincidental, not a
+   * reason to collapse them.
+   *
+   * Darkened from the mock's literal #98a2b3, which measured 2.58:1 against
+   * --card - below the 3:1 WCAG 1.4.11 floor for non-text UI, and this token
+   * IS the entire outline of a measured-run node, so failing it means the
+   * node has no reliable edge. #8690a2 measures 3.22:1 against --card (the
+   * graph's own surface) and 3.03:1 against --bg, so it clears the floor on
+   * both light planes rather than only the one it is used on today. Against
+   * --canvas (#eaeef5) it reaches 2.77:1 and still would not clear, which is
+   * recorded rather than papered over: nothing draws node line-art on
+   * --canvas, and darkening far enough to clear that third surface would
+   * push the graph's hairlines toward reading as body text. DARK IS
+   * UNTOUCHED - see the dark block, where the original value already
+   * measures 6.88:1. */
+  --node-stroke: #8690a2;
+
+  /* Primary action fill for the campaign workspace (buttons, round-hub
+   * discs, active pills). #343434 as adopted from the redesign. Deliberately
+   * a NEW token, NOT a change to --blue/--accent/--primary (which stays
+   * oklch(0.205 0 0) = #171717): retuning --blue would visibly lighten every
+   * primary button and active-nav state on every existing page mid-
+   * migration. --action and --blue are two names for "the app's dark neutral
+   * action color" that happen to disagree slightly right now; once the old
+   * IA is retired and every surface is on the new design, they should
+   * converge onto one value - tracked as follow-up, not done here. */
+  --action: #343434;
+
+  /* Activity-strip ramp, quiet (level 0) to busy (level 4). Five discrete
+   * steps, NOT an interpolated gradient - the cell fill is a bucket, so the
+   * token set is a bucket set. Level 4 is exactly --green (the campaign's
+   * success/best color) so the busiest day reads in the same language the
+   * rest of the surface uses for "good"; levels 0-3 walk down from it toward
+   * a neutral empty-day tile. Light values are the design handoff's own ramp
+   * (#eef1f5 .. #1f7a34). Levels 0 and 4 are deliberately NOT aliases of
+   * --blue-tint / --green: a heatmap bucket is its own role, and folding it
+   * into a chrome token would silently retune the ramp the next time that
+   * chrome token moves. */
+  --activity-0: #eef1f5;
+  --activity-1: #dbe7dd;
+  --activity-2: #b3d1ba;
+  --activity-3: #6da77f;
+  --activity-4: #1f7a34;
+
+  /* Outline of a day that has not happened yet (the dashed cells in the
+   * trailing partial week). Its own token rather than --border: the two are
+   * the same value in light, but --border is tuned to recede against a dark
+   * card, which makes a 15px dashed square vanish there. This one is tuned to
+   * stay legible on the card in both modes at the same 1.30:1 the light
+   * value carries. */
+  --activity-future: #d9e2f2;
+
+  /* Faintest graph edge (Map tab, Lineage lens "run-to-run neighbour" line).
+   * Deliberately a hair fainter than --border (#d9e2f2), which the same
+   * graph reuses for its "hub-to-run" edges - the two edge roles are meant
+   * to read at different weights (see DESIGN_SPEC.md's edge vocabulary
+   * table), so they need two tokens, not one, even though the source
+   * mockup's literal values (#dbe3ee for hub-to-run, #e6ebf3 for
+   * run-to-run) are close enough to fold the former into --border without a
+   * visible loss. #e6ebf3 is the mock's adopted light value. */
+  --edge-faint: #e6ebf3;
+
+  /*
    * shadcn-standard semantic tokens (light). Most are aliases onto the
    * tokens above so there is exactly one source of truth per color; the
    * ones that are genuinely new surfaces get their own value.
@@ -217,6 +303,68 @@
   --ring: oklch(0.37 0.012 285.805);
 
   --chart-1-ink: oklch(0.82 0.1 284.594);
+
+  /* Campaign-workspace foundation tokens, dark values - each picked
+   * independently against the actual dark surfaces (verified at /_tokens,
+   * numbers also in DESIGN.md), not mechanically inverted or lightened:
+   *
+   * --canvas: in light, #eaeef5 sits 1.16:1 below --card (#ffffff) and
+   * 1.09:1 below --bg (#f6f8fc) - the card planes visibly float off the
+   * backdrop. The first dark value (#101012) only reached 1.07:1 against
+   * dark --card (#18181b), so the planes barely separated. #030306 restores
+   * the LIGHT relationship numerically: 1.16:1 against dark --card (matching
+   * light's 1.164:1) and 1.04:1 below dark --bg, i.e. --canvas is the
+   * darkest of the three surfaces in dark mode exactly as it is the darkest
+   * of the three in light mode. Text that sits directly on the canvas (the
+   * round divider row) only gains contrast from the change: --fg 19.7:1,
+   * --muted 8.0:1, --green 9.4:1, --amber 9.4:1, all well clear of AA.
+   * The hair of blue in the third channel mirrors light --canvas's own blue
+   * tint rather than dropping to a flat neutral.
+   *
+   * --node-stroke: dark keeps #98a2b3, the mock's original value, which
+   * light no longer uses. Same reasoning DESIGN.md already documents for
+   * --explore ("already 6.8-7.3:1 on dark surfaces, unchanged"): it
+   * measures 6.88:1 against dark --card and 7.69:1 against dark --bg,
+   * comfortably legible as a graph-node stroke, so the light retune to
+   * #8690a2 (which fixes a genuine 2.58:1 failure there) is deliberately
+   * NOT mirrored here - it would only darken a stroke that already reads.
+   *
+   * --action: does NOT flip toward white the way --blue does, because this
+   * token must hold WHITE button/badge text at AA in both modes (a filled
+   * CTA), which a near-white dark-mode value could never do. #65666c is a
+   * lighter step of the same neutral-charcoal family: white text on it
+   * measures 5.72:1 (AA), and the fill itself clears 3:1 against dark --bg
+   * (3.46:1), dark --card (3.10:1), and dark --canvas (3.32:1) so the
+   * button still visibly pops off the dark chrome instead of nearly
+   * vanishing the way a literal dark #343434 would on a near-black page. */
+  --canvas: #030306;
+  --node-stroke: #98a2b3;
+  --action: #65666c;
+
+  /* Activity ramp, dark. Re-picked against the dark card (#18181b), not
+   * inverted: level 0 is a faint neutral tile a hair above the card
+   * (1.13:1, the same "just visible" step the light level 0 has against
+   * white), and levels 1-4 climb through the dark --green family to land
+   * exactly on dark --green (#34c77a) at level 4 - the same anchoring rule
+   * the light ramp uses. Step-to-step ratios (1.17, 1.68, 1.81, 2.02) track
+   * the light ramp's own progression (1.12, 1.29, 1.70, 1.92), so a busy
+   * week reads as busy in both themes. */
+  --activity-0: #232327;
+  --activity-1: #16351f;
+  --activity-2: #1b5c33;
+  --activity-3: #24894a;
+  --activity-4: #34c77a;
+  /* 1.31:1 against dark --card, matching the light value's 1.30:1 against
+   * white. Dark --border would only reach 1.10:1 here and the dashed
+   * not-yet-happened cells would read as absent instead of pending. */
+  --activity-future: #2e2e33;
+
+  /* --edge-faint: computed, not eyeballed. Dark --card is #18181b, dark
+   * --border is #212123 (1.10:1 against card). #1d1d20 sits a hair closer
+   * to --card than --border does (1.05:1 against card), the same "fainter
+   * than border" relationship the light values carry (1.20:1 vs 1.30:1
+   * against white). */
+  --edge-faint: #1d1d20;
 }
 
 @theme inline {
@@ -251,12 +399,37 @@
   --color-sidebar: var(--sidebar);
   --color-grid: var(--grid);
 
+  --color-canvas: var(--canvas);
+  --color-node-stroke: var(--node-stroke);
+  --color-action: var(--action);
+
+  --color-activity-0: var(--activity-0);
+  --color-activity-1: var(--activity-1);
+  --color-activity-2: var(--activity-2);
+  --color-activity-3: var(--activity-3);
+  --color-activity-4: var(--activity-4);
+  --color-activity-future: var(--activity-future);
+
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
 
   --font-head: var(--font-satoshi);
   --font-sans: var(--font-satoshi);
   --font-mono: var(--font-jbmono);
+
+  /* Campaign-workspace fonts. --font-mono deliberately stays JetBrains
+   * (--font-jbmono) above - it has 100+ existing `font-mono` call sites
+   * across the app (tables, KPIs, chart axes), and repointing it at IBM
+   * Plex Mono would silently reflow every one of those pages mid-migration.
+   * IBM Plex Mono lands as its own utility (`font-plex-mono`) instead, so
+   * new campaign-workspace surfaces can opt in explicitly while the rest of
+   * the app keeps rendering JetBrains Mono unchanged. Once the old IA is
+   * retired and everything has migrated to the new design, --font-mono can
+   * be repointed at IBM Plex Mono and --font-plex-mono retired - not done
+   * here. --font-serif (Newsreader) is a new role with no prior occupant,
+   * so it gets the plain semantic name. */
+  --font-serif: var(--font-newsreader);
+  --font-plex-mono: var(--font-ibmplexmono);
 
   /* shadcn-standard semantic utilities (bg-primary, text-muted-foreground,
    * bg-chart-1, etc.) - additive, none of these names were in use before

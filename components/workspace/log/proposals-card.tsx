@@ -5,15 +5,18 @@ import { cn, fmt, num } from "@/lib/utils";
 import { spellCount } from "@/lib/workspace/log-copy";
 import {
   beatsBest,
+  bookedProposalIds,
   columnLabel,
   formatRecipeValue,
   modeSplit,
   recipeColumns,
   recipeDecimals,
 } from "@/lib/workspace/proposal-logic";
+import type { MutationResult } from "@/lib/workspace/adapter";
 import type { Proposal, Run } from "@/lib/workspace/types";
 import { NotInstrumentedNote } from "@/components/workspace/primitives/not-instrumented-note";
 import { DOT } from "./primitives";
+import { MutationError } from "./mutation-error";
 
 /** How many rows are visible before the "show the rest" disclosure. */
 const VISIBLE_ROWS = 3;
@@ -25,12 +28,18 @@ const VISIBLE_ROWS = 3;
  *  the mock. */
 export function ProposalsCard({
   proposals,
+  bookedRuns,
   excludedRuns,
   roundNumber,
   bestSoFar,
   targetUnit,
+  onApprove,
+  canApprove,
 }: {
   proposals: Proposal[];
+  /** Runs already started into the open round. Used only to work out which of
+   *  `proposals` the lab is already holding - see `bookedProposalIds`. */
+  bookedRuns: Run[];
   /** Runs excluded from the fit for cause. The engine does not model run
    *  failure yet (lib/workspace/types.ts), so this is empty in practice and
    *  the banner stays unrendered rather than showing the design's illustrative
@@ -39,11 +48,21 @@ export function ProposalsCard({
   roundNumber: number | null;
   bestSoFar: number | null;
   targetUnit: string;
+  /** Books `toBook` into the open round and, on success, resolves only once
+   *  the workspace has re-read the campaign - so the bar is never showing a
+   *  booked state the engine has not confirmed. */
+  onApprove: (toBook: Proposal[]) => Promise<MutationResult>;
+  /** False for a demo campaign: there is no engine behind it to write to. */
+  canApprove: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const { keys, hidden } = recipeColumns(proposals);
-  const decimals = new Map(keys.map((key) => [key, recipeDecimals(proposals, key)] as const));
+  const booked = bookedProposalIds(proposals, bookedRuns);
+  const unbooked = proposals.filter((p) => !booked.has(p.id));
+
+  const proposedRuns = proposals.map((p) => p.run);
+  const { keys, hidden } = recipeColumns(proposedRuns);
+  const decimals = new Map(keys.map((key) => [key, recipeDecimals(proposedRuns, key)] as const));
   const split = modeSplit(proposals);
   const visible = expanded ? proposals : proposals.slice(0, VISIBLE_ROWS);
   const remaining = proposals.length - visible.length;
@@ -120,6 +139,11 @@ export function ProposalsCard({
                   <span className="font-plex-mono text-[12px] tabular-nums text-muted">{p.rank}</span>
                   <span className="font-serif text-[14.5px] text-fg">
                     {p.summary ?? <span className="text-[13px] text-muted">No summary recorded</span>}
+                    {booked.has(p.id) && (
+                      <span className="ml-2 rounded-[6px] border border-blue-border bg-blue-tint px-1.5 py-px align-middle font-sans text-[10px] font-semibold tracking-[0.04em] text-muted uppercase">
+                        booked
+                      </span>
+                    )}
                   </span>
                   {keys.map((key) => (
                     <span key={key} className="font-plex-mono text-[12px] tabular-nums text-fg">
@@ -171,10 +195,13 @@ export function ProposalsCard({
             )}
 
             <ApproveBar
-              count={proposals.length}
+              toBook={unbooked}
+              bookedCount={booked.size}
               roundNumber={roundNumber}
               bestSoFar={bestSoFar}
               targetUnit={targetUnit}
+              onApprove={onApprove}
+              canApprove={canApprove}
             />
           </>
         )}
@@ -183,60 +210,153 @@ export function ProposalsCard({
   );
 }
 
+/** The approve bar's own state machine. "confirming" exists because the
+ *  primary action books runs in a physical lab: a single stray click must not
+ *  reach the engine. "working" covers both the write and the re-read that
+ *  follows it, so the bar never claims a booking the engine has not
+ *  confirmed. There is no "done" state on purpose - once the runs exist, the
+ *  campaign itself reports them and the bar renders from that. */
+type ApproveState = "idle" | "confirming" | "working";
+
 /** Design spec 1.3.F3. The design's message books wells against a named SOP
  *  and notifies a named colleague; kalos models neither wells, nor SOPs, nor
  *  people, so the sentence states what approving this batch actually does in
  *  the engine: it books runs into the open round. */
 function ApproveBar({
-  count,
+  toBook,
+  bookedCount,
   roundNumber,
   bestSoFar,
   targetUnit,
+  onApprove,
+  canApprove,
 }: {
-  count: number;
+  toBook: Proposal[];
+  bookedCount: number;
   roundNumber: number | null;
   bestSoFar: number | null;
   targetUnit: string;
+  onApprove: (toBook: Proposal[]) => Promise<MutationResult>;
+  canApprove: boolean;
 }) {
+  const [state, setState] = useState<ApproveState>("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  const count = toBook.length;
   const unit = targetUnit ? ` ${targetUnit}` : "";
+  const round = roundNumber != null ? <> into round {roundNumber}</> : null;
+
+  async function confirm() {
+    setState("working");
+    setError(null);
+    const result = await onApprove(toBook);
+    if (result.status === "error") {
+      setError(result.reason);
+      setState("idle");
+      return;
+    }
+    // No success flag is set here. The batch's booked rows now come back from
+    // the engine, and the bar re-renders from that.
+    setState("idle");
+  }
+
+  const bestLine =
+    bestSoFar != null ? (
+      <>
+        {" "}
+        The measured best stays{" "}
+        <span className="font-plex-mono tabular-nums text-fg">
+          {fmt(bestSoFar, 1)}
+          {unit}
+        </span>{" "}
+        until a result comes back.
+      </>
+    ) : null;
+
   return (
-    <div className="mt-7 flex flex-wrap items-center gap-3.5 rounded-[12px] bg-blue-soft px-6 py-[22px]">
-      <span className="grid size-[26px] shrink-0 place-items-center rounded-[13px] border border-blue-border bg-blue-tint font-plex-mono text-[10px] font-semibold text-fg">
-        AO
-      </span>
-      <p className="min-w-[24ch] flex-1 text-[12px] leading-[1.45] text-muted">
-        Books {count} run{count === 1 ? "" : "s"}
-        {roundNumber != null && <> into round {roundNumber}</>} and closes the batch.
-        {bestSoFar != null && (
-          <>
-            {" "}
-            The measured best stays{" "}
-            <span className="font-plex-mono tabular-nums text-fg">
-              {fmt(bestSoFar, 1)}
-              {unit}
+    <>
+      <div className="mt-7 flex flex-wrap items-center gap-3.5 rounded-[12px] bg-blue-soft px-6 py-[22px]">
+        <span className="grid size-[26px] shrink-0 place-items-center rounded-[13px] border border-blue-border bg-blue-tint font-plex-mono text-[10px] font-semibold text-fg">
+          AO
+        </span>
+
+        {count === 0 ? (
+          <p className="min-w-[24ch] flex-1 text-[12px] leading-[1.45] text-muted">
+            {bookedCount === 1 ? "This run is" : `All ${bookedCount} of these runs are`} booked
+            {round} and out with the lab.{bestLine}
+          </p>
+        ) : state === "confirming" ? (
+          <p className="min-w-[24ch] flex-1 text-[12px] leading-[1.45] text-muted">
+            <span className="font-semibold text-fg">
+              Book {spellCount(count)} run{count === 1 ? "" : "s"}
+              {round}?
             </span>{" "}
-            until a result comes back.
+            This is a real lab booking and it cannot be undone from here.{bestLine}
+          </p>
+        ) : (
+          <p className="min-w-[24ch] flex-1 text-[12px] leading-[1.45] text-muted">
+            Books {count} run{count === 1 ? "" : "s"}
+            {round} and closes the batch.{bestLine}
+          </p>
+        )}
+
+        {count > 0 && state !== "confirming" && (
+          <>
+            <button
+              type="button"
+              disabled={state === "working"}
+              className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              Ask
+            </button>
+            <button
+              type="button"
+              disabled={state === "working"}
+              className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              Edit batch
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setState("confirming");
+              }}
+              disabled={!canApprove || state === "working"}
+              title={canApprove ? undefined : "This is a demo campaign, so there is no engine to book runs into."}
+              className="rounded-[10px] bg-action px-[15px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {state === "working" ? `Booking ${spellCount(count)}...` : `Approve ${spellCount(count)}`}
+            </button>
           </>
         )}
-      </p>
-      <button
-        type="button"
-        className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint"
-      >
-        Ask
-      </button>
-      <button
-        type="button"
-        className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint"
-      >
-        Edit batch
-      </button>
-      <button
-        type="button"
-        className="rounded-[10px] bg-action px-[15px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-90"
-      >
-        Approve {spellCount(count)}
-      </button>
-    </div>
+
+        {count > 0 && state === "confirming" && (
+          <>
+            <button
+              type="button"
+              onClick={() => setState("idle")}
+              className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirm}
+              className="rounded-[10px] bg-action px-[15px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-90"
+            >
+              Yes, book {spellCount(count)}
+            </button>
+          </>
+        )}
+      </div>
+
+      {!canApprove && count > 0 && (
+        <NotInstrumentedNote className="mt-3">
+          This campaign is demo data, so there is no engine behind it to book these runs into.
+        </NotInstrumentedNote>
+      )}
+      {error && <MutationError reason={error} />}
+    </>
   );
 }

@@ -15,6 +15,7 @@ export function CampaignRail({
   activeCampaignId,
   demo,
   evidence,
+  onNewCampaign,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -22,6 +23,9 @@ export function CampaignRail({
   activeCampaignId: string;
   demo: boolean;
   evidence: { runsInRegistry: number; priorCampaigns: number; sopsIndexed: number } | null;
+  /** Opens the upload dialog. The rail stays presentational: the shell owns
+   *  the dialog and the refetch that follows a successful upload. */
+  onNewCampaign: () => void;
 }) {
   return (
     <aside
@@ -30,7 +34,23 @@ export function CampaignRail({
         open ? "flex-[0_0_248px] px-3 py-5" : "flex-[0_0_62px] px-2 py-5",
       )}
     >
-      {open ? <ExpandedRail campaigns={campaigns} activeCampaignId={activeCampaignId} demo={demo} evidence={evidence} onToggle={onToggle} /> : <CollapsedRail campaigns={campaigns} activeCampaignId={activeCampaignId} onToggle={onToggle} />}
+      {open ? (
+        <ExpandedRail
+          campaigns={campaigns}
+          activeCampaignId={activeCampaignId}
+          demo={demo}
+          evidence={evidence}
+          onToggle={onToggle}
+          onNewCampaign={onNewCampaign}
+        />
+      ) : (
+        <CollapsedRail
+          campaigns={campaigns}
+          activeCampaignId={activeCampaignId}
+          onToggle={onToggle}
+          onNewCampaign={onNewCampaign}
+        />
+      )}
     </aside>
   );
 }
@@ -67,10 +87,12 @@ function CollapsedRail({
   campaigns,
   activeCampaignId,
   onToggle,
+  onNewCampaign,
 }: {
   campaigns: CampaignSummary[];
   activeCampaignId: string;
   onToggle: () => void;
+  onNewCampaign: () => void;
 }) {
   return (
     <div className="flex h-full flex-col items-center gap-4">
@@ -97,9 +119,11 @@ function CollapsedRail({
           </RailTile>
         </Link>
       ))}
-      <RailTile dashed title="New campaign">
-        <Plus className="size-[13px]" />
-      </RailTile>
+      <button type="button" onClick={onNewCampaign} aria-label="New campaign">
+        <RailTile dashed title="New campaign">
+          <Plus className="size-[13px]" />
+        </RailTile>
+      </button>
       <div className="mt-auto grid size-[30px] place-items-center rounded-[15px] border border-blue-border bg-blue-tint font-mono text-[9.5px] font-semibold text-fg">
         AO
       </div>
@@ -113,12 +137,14 @@ function ExpandedRail({
   demo,
   evidence,
   onToggle,
+  onNewCampaign,
 }: {
   campaigns: CampaignSummary[];
   activeCampaignId: string;
   demo: boolean;
   evidence: { runsInRegistry: number; priorCampaigns: number; sopsIndexed: number } | null;
   onToggle: () => void;
+  onNewCampaign: () => void;
 }) {
   return (
     <div className="flex h-full flex-col gap-[22px]">
@@ -175,6 +201,7 @@ function ExpandedRail({
           {campaigns.length === 0 && <p className="px-2.5 py-2 text-[11.5px] text-muted">No campaigns yet.</p>}
           <button
             type="button"
+            onClick={onNewCampaign}
             className="mt-1 flex items-center gap-1.5 rounded-[10px] border border-dashed border-border px-2.5 py-[9px] text-left text-[12px] text-muted transition-colors hover:bg-blue-soft hover:text-fg"
           >
             <Plus className="size-[13px] shrink-0" />

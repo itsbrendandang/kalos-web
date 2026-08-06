@@ -11,11 +11,16 @@ export function RoundDivider({
    *  when it last proposed, so the chip is titled to say exactly that rather
    *  than implying the agent wrote the batch at that moment. */
   agentAge,
-  awaitingCount,
+  /** How many of the open round's proposals nobody has booked yet - the
+   *  batch that is genuinely waiting on the reader. A recipe already booked
+   *  into the lab is waiting on a measurement, not on a decision, so it is
+   *  deliberately NOT counted here (the stat strip's "Awaiting results"
+   *  cell is where those live). */
+  awaitingDecisionCount,
 }: {
   roundNumber: number | null;
   agentAge: string | null;
-  awaitingCount: number;
+  awaitingDecisionCount: number;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -39,9 +44,9 @@ export function RoundDivider({
 
       <span className="flex items-center gap-1.5">
         <span className="text-[11.5px] whitespace-nowrap text-muted">
-          {awaitingCount > 0 ? "Awaiting" : "Nothing awaiting"}
+          {awaitingDecisionCount > 0 ? "Awaiting" : "Nothing awaiting"}
         </span>
-        {awaitingCount > 0 && (
+        {awaitingDecisionCount > 0 && (
           <>
             <span className="grid size-5 shrink-0 place-items-center rounded-[10px] border border-blue-border bg-blue-tint font-plex-mono text-[9px] font-semibold text-fg">
               AO

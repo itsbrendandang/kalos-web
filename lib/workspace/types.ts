@@ -33,7 +33,11 @@ export type Run = {
   reason: string | null;
 };
 
-/** A proposed-not-yet-run recipe, ranked within its round's proposal batch. */
+/** A recipe the engine RECOMMENDED but which nobody has booked into the lab
+ *  yet, ranked within its round's proposal batch. Distinct from a `Run` in
+ *  `Campaign.awaitingRuns`: that one has already been started via
+ *  `POST /api/campaign/start` and is out in the lab waiting on a measurement.
+ *  Approving a batch is exactly the transition from the former to the latter. */
 export type Proposal = {
   id: string;
   rank: number;
@@ -62,7 +66,16 @@ export type Campaign = {
   objective: string;
   currentRound: number;
   rounds: Round[];
+  /** The engine's recommended batch that has NOT been started yet - the
+   *  analysis's own proposals (`GET /api/latest`), not the campaign's pending
+   *  runs. Approving this batch is what starts them. */
   proposals: Proposal[];
+  /** Runs already booked into the open round, out in the lab, awaiting a
+   *  measured outcome. */
+  awaitingRuns: Run[];
+  /** Runs booked and measured but not yet folded into the base data - what a
+   *  re-analysis would fold in. */
+  measuredRuns: Run[];
 };
 
 /** The compact shape the campaign rail renders - one row per campaign. */

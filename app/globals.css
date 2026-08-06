@@ -173,6 +173,14 @@
    * visible loss. #e6ebf3 is the mock's adopted light value. */
   --edge-faint: #e6ebf3;
 
+  /* Scrim behind a modal (the "New campaign" upload dialog). A translucent
+   * ink wash rather than an opacity utility on a solid token: the point is
+   * to dim the workspace *behind* the panel while the panel itself stays at
+   * full contrast, which an `opacity` class on a parent cannot do. Light
+   * dims toward the app's own ink (--fg, #101828) at 38% so the receded
+   * canvas still reads as the workspace rather than as black. */
+  --overlay: rgb(16 24 40 / 0.38);
+
   /*
    * shadcn-standard semantic tokens (light). Most are aliases onto the
    * tokens above so there is exactly one source of truth per color; the
@@ -365,6 +373,12 @@
    * than border" relationship the light values carry (1.20:1 vs 1.30:1
    * against white). */
   --edge-faint: #1d1d20;
+
+  /* Dark --overlay dims toward true black, not toward dark --fg: on a near
+   * black canvas a lighter scrim would *raise* the backdrop's luminance and
+   * read as a haze rather than a recession. Carried to 0.62 because the
+   * dark canvas has far less luminance to remove than white does. */
+  --overlay: rgb(0 0 0 / 0.62);
 }
 
 @theme inline {
@@ -402,6 +416,7 @@
   --color-canvas: var(--canvas);
   --color-node-stroke: var(--node-stroke);
   --color-action: var(--action);
+  --color-overlay: var(--overlay);
 
   --color-activity-0: var(--activity-0);
   --color-activity-1: var(--activity-1);

@@ -3,18 +3,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { DemoBadge, Loading } from "@/components/page-header";
 import { useWorkspaceCampaign } from "@/lib/workspace/campaign-context";
-import { getWorkspaceActivity, getWorkspaceLogStats, getWorkspaceTimeline } from "@/lib/workspace/adapter";
+import {
+  approveWorkspaceBatch,
+  closeWorkspaceLoop,
+  getWorkspaceActivity,
+  getWorkspaceLogStats,
+  getWorkspaceTimeline,
+  logWorkspaceRunResult,
+  type MutationResult,
+} from "@/lib/workspace/adapter";
 import type {
   WorkspaceActivityResult,
   WorkspaceLogStatsResult,
   WorkspaceTimelineResult,
 } from "@/lib/workspace/log-types";
-import type { Campaign } from "@/lib/workspace/types";
+import type { Campaign, Proposal } from "@/lib/workspace/types";
 import { targetNoun } from "@/lib/workspace/log-copy";
+import { bookedProposalIds } from "@/lib/workspace/proposal-logic";
 import { formatAge } from "@/lib/workspace/log-logic";
 import { NotInstrumentedNote } from "@/components/workspace/primitives/not-instrumented-note";
 import { SectionLabel } from "./primitives";
 import { ActivityStrip, ActivityStripMessage } from "./activity-strip";
+import { AwaitingRunsCard } from "./awaiting-runs-card";
 import { CampaignTimeline } from "./campaign-timeline";
 import { DriverChart } from "./driver-chart";
 import { ProposalsCard } from "./proposals-card";
@@ -29,7 +39,7 @@ type Loadable<T> = { status: "loading" } | T;
  *  block below them. The campaign itself comes from context (the shell
  *  already resolved it), so this component never re-fetches it. */
 export function LogTab() {
-  const { campaignId, result } = useWorkspaceCampaign();
+  const { campaignId, result, reload, reloadCampaigns, dataVersion } = useWorkspaceCampaign();
   const campaign: Campaign | null = result.status === "ok" ? result.campaign : null;
   const campaignIsDemo = result.status === "ok" && result.demo;
 
@@ -59,7 +69,7 @@ export function LogTab() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, reloadKey]);
+  }, [campaignId, reloadKey, dataVersion]);
 
   /** Manual retry. This one DOES reset to loading, because it runs from a
    *  click - the reader asked for a refetch and should see it happening. */
@@ -70,9 +80,46 @@ export function LogTab() {
     setReloadKey((k) => k + 1);
   }, []);
 
+  /** What every write here awaits before reporting success: the campaign is
+   *  re-read from the engine (which also bumps `dataVersion`, re-running the
+   *  fetch effect above for the analysis, activity and timeline), and so is
+   *  the rail's status line. Nothing in this tab is adjusted locally to
+   *  anticipate a result. */
+  const refreshAll = useCallback(
+    () => Promise.all([reload(), reloadCampaigns()]),
+    [reload, reloadCampaigns],
+  );
+
+  const handleApprove = useCallback(
+    async (toBook: Proposal[]): Promise<MutationResult> => {
+      const outcome = await approveWorkspaceBatch(toBook);
+      if (outcome.status === "ok") await refreshAll();
+      return outcome;
+    },
+    [refreshAll],
+  );
+
+  const handleLogResult = useCallback(
+    async (runId: string, value: number): Promise<MutationResult> => {
+      const outcome = await logWorkspaceRunResult(runId, value);
+      if (outcome.status === "ok") await refreshAll();
+      return outcome;
+    },
+    [refreshAll],
+  );
+
+  const handleCloseLoop = useCallback(async (): Promise<MutationResult> => {
+    const outcome = await closeWorkspaceLoop();
+    if (outcome.status === "ok") await refreshAll();
+    return outcome;
+  }, [refreshAll]);
+
   if (!campaign) return null;
 
-  const awaitingRuns = campaign.proposals.length;
+  const awaitingRuns = campaign.awaitingRuns.length;
+  // The batch still waiting on a human: proposals the engine recommended that
+  // nobody has booked into the lab yet.
+  const awaitingDecision = campaign.proposals.length - bookedProposalIds(campaign.proposals, campaign.awaitingRuns).size;
   const stats = logStats.status === "ok" ? logStats.stats : null;
   const statsAreDemo = logStats.status === "ok" && logStats.demo;
   const timelineIsDemo = timeline.status === "ok" && timeline.demo;
@@ -204,16 +251,32 @@ export function LogTab() {
         <RoundDivider
           roundNumber={campaign.currentRound}
           agentAge={stats?.updatedAt != null ? formatAge(stats.updatedAt) : null}
-          awaitingCount={awaitingRuns}
+          awaitingDecisionCount={awaitingDecision}
         />
 
         {/* Design spec 1.3.F. */}
         <ProposalsCard
           proposals={campaign.proposals}
+          bookedRuns={campaign.awaitingRuns}
           excludedRuns={excludedRuns}
           roundNumber={campaign.currentRound}
           bestSoFar={stats?.bestSoFar ?? null}
           targetUnit={stats?.targetUnit ?? ""}
+          onApprove={handleApprove}
+          canApprove={!campaignIsDemo}
+        />
+
+        {/* The loop's other half: recipes already booked into the open round,
+            each waiting on a measured value, and the fold that closes it.
+            Renders nothing at all when the lab is holding nothing. */}
+        <AwaitingRunsCard
+          awaitingRuns={campaign.awaitingRuns}
+          measuredRuns={campaign.measuredRuns}
+          roundNumber={campaign.currentRound}
+          targetUnit={stats?.targetUnit ?? ""}
+          onLogResult={handleLogResult}
+          onCloseLoop={handleCloseLoop}
+          canWrite={!campaignIsDemo}
         />
 
         {/* Design spec 1.3.G. Needs the analysis, so it renders only once the

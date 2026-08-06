@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { API, type Campaign as EngineCampaign } from "@/lib/api";
+import { API, type Campaign as EngineCampaign, type LatestResult } from "@/lib/api";
 import {
   getNewestCampaignId,
   getWorkspaceCampaign,
@@ -13,6 +13,21 @@ function fakeResponse(ok: boolean, status: number, body: unknown): Response {
 }
 
 const NO_CAMPAIGN: EngineCampaign = { has_campaign: false };
+
+const NO_ANALYSIS: LatestResult = { has_data: false };
+
+/** Only the members the adapter reads off an analysis: the proposal batch and
+ *  the feature order its `vals` are positional against. */
+const LATEST = {
+  has_data: true,
+  dataset: "lipase.csv",
+  updated: 1_700_000_000,
+  proposal_features: ["pH", "Methanol"],
+  proposals: [
+    { vals: [6.4, 2.1], pred: 6.3, std: 0.3, mode: "exploit", reason: "pH up a notch" },
+    { vals: [5.9, 2.6], pred: 5.7, std: 0.9, mode: "explore", reason: "untested corner" },
+  ],
+} as unknown as LatestResult;
 
 const ACTIVE_CAMPAIGN: EngineCampaign = {
   has_campaign: true,
@@ -90,6 +105,7 @@ describe("workspace adapter (lib/workspace/adapter.ts)", () => {
 
   it("getWorkspaceCampaign maps engine pending runs to proposed/measured, never failed (not modeled by the engine)", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, ACTIVE_CAMPAIGN));
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, LATEST));
 
     const result = await getWorkspaceCampaign("current");
 
@@ -108,6 +124,7 @@ describe("workspace adapter (lib/workspace/adapter.ts)", () => {
 
   it("getWorkspaceCampaign is not-found for a real id the engine doesn't recognize, with demo mode off", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, NO_CAMPAIGN));
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, NO_ANALYSIS));
 
     const result = await getWorkspaceCampaign("current");
 
@@ -120,6 +137,7 @@ describe("workspace adapter (lib/workspace/adapter.ts)", () => {
     // id (one that exists in lib/workspace/mock.ts but not the live engine)
     // must resolve to "not-found", never to fabricated demo data.
     fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, NO_CAMPAIGN));
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, NO_ANALYSIS));
 
     const result = await getWorkspaceCampaign("cho-titer-uplift");
 

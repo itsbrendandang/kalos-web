@@ -75,10 +75,10 @@ describe("campaign client (lib/api.ts)", () => {
     expect(JSON.parse(init.body as string)).toEqual({ recipes });
   });
 
-  it("startRuns throws a status-based message on a non-ok response", async () => {
+  it("startRuns throws the engine's own {error} reason on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "bad recipe" }));
 
-    await expect(startRuns([])).rejects.toThrow("engine responded 400");
+    await expect(startRuns([])).rejects.toThrow("bad recipe");
   });
 
   it("logResult POSTs {id, value} as JSON to /api/campaign/result", async () => {

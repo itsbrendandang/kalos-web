@@ -2,7 +2,7 @@
 // table has two hard-coded recipe columns ("Glucose", "Feed start"); a real
 // campaign's proposals carry whatever inputs the engine actually varied, so
 // the columns are derived from the batch instead of assumed.
-import type { Proposal } from "./types";
+import type { Proposal, Run } from "./types";
 
 /** The design's table fits two recipe columns comfortably at 860px. Three is
  *  the point where the "Change from best" column starts truncating, so that
@@ -17,10 +17,10 @@ export type RecipeColumns = {
   hidden: string[];
 };
 
-export function recipeColumns(proposals: Proposal[], limit: number = MAX_RECIPE_COLUMNS): RecipeColumns {
+export function recipeColumns(runs: Run[], limit: number = MAX_RECIPE_COLUMNS): RecipeColumns {
   const seen: string[] = [];
-  for (const p of proposals) {
-    for (const key of Object.keys(p.run.recipe)) {
+  for (const run of runs) {
+    for (const key of Object.keys(run.recipe)) {
       if (!seen.includes(key)) seen.push(key);
     }
   }
@@ -50,8 +50,8 @@ export function columnLabel(key: string): string {
  *  column is fractional, every row in it gets two decimals - otherwise a
  *  tabular-nums column mixes "7" and "6.40" and the decimal points stop
  *  lining up. */
-export function recipeDecimals(proposals: Proposal[], key: string): 0 | 2 {
-  const values = proposals.map((p) => p.run.recipe[key]).filter((v): v is number => typeof v === "number");
+export function recipeDecimals(runs: Run[], key: string): 0 | 2 {
+  const values = runs.map((run) => run.recipe[key]).filter((v): v is number => typeof v === "number");
   return values.every((v) => Number.isInteger(v)) ? 0 : 2;
 }
 
@@ -65,4 +65,35 @@ export function formatRecipeValue(v: number, decimals: number): string {
 export function beatsBest(predicted: number | null, bestSoFar: number | null): boolean | null {
   if (predicted == null || bestSoFar == null) return null;
   return predicted > bestSoFar;
+}
+
+/** A recipe as a single comparable string, keys sorted so two recipes that
+ *  differ only in key order still compare equal. */
+function recipeKey(recipe: Record<string, number>): string {
+  return Object.keys(recipe)
+    .sort()
+    .map((k) => `${k}=${recipe[k]}`)
+    .join("|");
+}
+
+/**
+ * Which proposals in a batch have ALREADY been booked into the lab.
+ *
+ * The engine leaves `GET /api/latest`'s proposals in place after
+ * `POST /api/campaign/start` - the batch is only replaced by the next
+ * re-analysis - so a freshly approved batch keeps coming back from the engine
+ * looking exactly as unapproved as it did before. Matching each proposal's
+ * recipe against the runs actually booked into the open round is the only
+ * thing the engine gives us that can tell the two apart, and it is a real
+ * comparison of real values, not a local "I clicked it" flag that would
+ * survive a failed request or a page reload.
+ *
+ * Recipes are compared exactly: both sides originate from the same engine
+ * numbers (a proposal's `vals` become the started run's `recipe` verbatim),
+ * so there is no float drift to tolerate here, and tolerating any would risk
+ * calling a genuinely different recipe already-booked.
+ */
+export function bookedProposalIds(proposals: Proposal[], bookedRuns: Run[]): Set<string> {
+  const booked = new Set(bookedRuns.map((r) => recipeKey(r.recipe)));
+  return new Set(proposals.filter((p) => booked.has(recipeKey(p.run.recipe))).map((p) => p.id));
 }

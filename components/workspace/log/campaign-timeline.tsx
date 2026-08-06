@@ -62,8 +62,11 @@ function buildColumns(rounds: TimelineRound[], goal: number | null): Column[] {
       chip: round.predictedBand != null ? { text: `±${num(round.predictedBand, 1)}`, tone: "muted" } : null,
       label: `${round.label} · open`,
       subtitle:
+        // `awaitingCount` counts runs the engine has STARTED and not yet
+        // measured (`n_awaiting`), so what they are waiting on is a
+        // measurement, not a decision.
         awaiting != null && awaiting > 0
-          ? `${awaiting} recipe${awaiting === 1 ? "" : "s"} awaiting approval`
+          ? `${awaiting} run${awaiting === 1 ? "" : "s"} awaiting results`
           : methodLine(round),
       bottom: round.predicted != null ? "predicted, not measured" : null,
     });

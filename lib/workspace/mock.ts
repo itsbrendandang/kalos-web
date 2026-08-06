@@ -74,6 +74,11 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
       run,
       summary: run.reason,
     })),
+    // A demo campaign has no engine behind it, so nothing can have been
+    // booked into a lab or measured against it. Empty here is the honest
+    // value, not a gap waiting to be filled with illustrative runs.
+    awaitingRuns: [],
+    measuredRuns: [],
   },
   "hek-yield-screen": {
     id: "hek-yield-screen",
@@ -85,6 +90,8 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
       { number: 2, status: "open", label: "Round 2", bestValue: null, dateISO: null, runs: [] },
     ],
     proposals: [],
+    awaitingRuns: [],
+    measuredRuns: [],
   },
   "media-cost-down": {
     id: "media-cost-down",
@@ -100,6 +107,8 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
       runs: [],
     })),
     proposals: [],
+    awaitingRuns: [],
+    measuredRuns: [],
   },
   "fc-fusion-pilot": {
     id: "fc-fusion-pilot",
@@ -112,6 +121,8 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
       { number: 3, status: "closed", label: "Round 3", bestValue: 94.6, dateISO: "2026-04-19", runs: [] },
     ],
     proposals: [],
+    awaitingRuns: [],
+    measuredRuns: [],
   },
 };
 

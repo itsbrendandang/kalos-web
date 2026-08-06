@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { CampaignRail } from "./campaign-rail";
 import { WorkspaceHeader, type WorkspaceTab } from "./workspace-header";
 import { AskPanel } from "./ask-panel";
+import { NewCampaignDialog } from "./new-campaign-dialog";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { Loading } from "@/components/page-header";
 import { usePersistedBoolean } from "@/lib/workspace/use-persisted-boolean";
@@ -38,6 +39,8 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
   const [railOpen, setRailOpen] = usePersistedBoolean("kalos-workspace-rail-open", true);
   const [askOpen, setAskOpen] = usePersistedBoolean("kalos-workspace-ask-open", true);
 
+  const [newCampaignOpen, setNewCampaignOpen] = useState(false);
+
   const [campaigns, setCampaigns] = useState<WorkspaceCampaignsResult | { status: "loading" }>({ status: "loading" });
   const [current, setCurrent] = useState<WorkspaceCampaignResult | { status: "loading" }>({ status: "loading" });
 
@@ -45,6 +48,19 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
     setCurrent({ status: "loading" });
     getWorkspaceCampaign(campaignId).then(setCurrent);
   }, [campaignId]);
+
+  const [dataVersion, setDataVersion] = useState(0);
+
+  const reload = useCallback(async () => {
+    setCurrent(await getWorkspaceCampaign(campaignId));
+    setDataVersion((v) => v + 1);
+  }, [campaignId]);
+
+  /** Re-read the rail's campaign list. A successful upload adds a campaign,
+   *  so the list has to be re-read for it to appear at all. */
+  const reloadCampaigns = useCallback(async () => {
+    setCampaigns(await listWorkspaceCampaigns());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +127,7 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
   const summaryLine = `${measuredRuns} run${measuredRuns === 1 ? "" : "s"} logged · ${campaign.rounds.length} round${campaign.rounds.length === 1 ? "" : "s"}`;
 
   return (
-    <WorkspaceCampaignProvider value={{ campaignId, result: current, refresh }}>
+    <WorkspaceCampaignProvider value={{ campaignId, result: current, refresh, reload, reloadCampaigns, dataVersion }}>
       <div className="flex h-svh w-full overflow-hidden bg-canvas">
         <CampaignRail
           open={railOpen}
@@ -120,6 +136,7 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
           activeCampaignId={campaignId}
           demo={campaignsAreDemo}
           evidence={evidence}
+          onNewCampaign={() => setNewCampaignOpen(true)}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <WorkspaceHeader
@@ -135,6 +152,18 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
         </div>
         {askOpen && <AskPanel onClose={() => setAskOpen(false)} summaryLine={summaryLine} />}
       </div>
+      {newCampaignOpen && (
+        <NewCampaignDialog
+          onClose={() => setNewCampaignOpen(false)}
+          onUploaded={async () => {
+            // A fresh upload becomes the engine's most-recent campaign, which
+            // is the one this workspace already resolves to, so re-reading
+            // both the rail and the current campaign is enough - no route
+            // change to guess at.
+            await Promise.all([reloadCampaigns(), reload()]);
+          }}
+        />
+      )}
     </WorkspaceCampaignProvider>
   );
 }

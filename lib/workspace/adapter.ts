@@ -12,13 +12,20 @@
 // derive, rather than inventing numbers to fill the gaps (see DEMO_MODE
 // gating below and the "not instrumented" fields on WorkspaceCampaignResult).
 import {
+  EngineError,
   getCampaign as fetchEngineCampaign,
   getCampaignActivity as fetchEngineActivity,
   getLatest as fetchEngineLatest,
   isReliable,
+  logResult as engineLogResult,
+  reanalyze as engineReanalyze,
+  runFile as engineRunFile,
+  startRuns as engineStartRuns,
   type Campaign as EngineCampaign,
   type CampaignRun as EngineRun,
+  type LatestResult,
   type PopulatedResult,
+  type StartRecipe,
 } from "@/lib/api";
 import { DEMO_MODE } from "@/lib/demo";
 import { parseUnit } from "@/lib/utils";
@@ -30,7 +37,7 @@ import {
   getMockTimeline,
   MOCK_CAMPAIGN_SUMMARIES,
 } from "./mock";
-import type { Campaign, CampaignSummary, Round, Run } from "./types";
+import type { Campaign, CampaignSummary, Proposal, Round, Run } from "./types";
 import type {
   TimelineRound,
   WorkspaceActivityResult,
@@ -73,7 +80,42 @@ function mapRun(r: EngineRun): Run {
   };
 }
 
-function mapRealCampaign(c: ActiveEngineCampaign): Campaign {
+/**
+ * The engine's recommended batch, mapped onto domain `Proposal`s. This comes
+ * from the ANALYSIS (`GET /api/latest`), not from the campaign's `pending`
+ * list: `pending` is what has already been booked through
+ * `POST /api/campaign/start`, so sourcing proposals from it would mean the
+ * approve action re-books runs that are already out in the lab.
+ *
+ * A proposal has no engine id of its own (the engine mints one only when the
+ * run is started), so the id here is positional and stable only within one
+ * analysis - it is a React key and a selection handle, never something to
+ * send back to the engine.
+ */
+function mapAnalysisProposals(latest: LatestResult): Proposal[] {
+  if (!latest.has_data) return [];
+  return latest.proposals.map((p, i) => {
+    const rank = i + 1;
+    const id = `proposal-${rank}`;
+    return {
+      id,
+      rank,
+      run: {
+        id,
+        recipe: Object.fromEntries(latest.proposal_features.map((f, fi) => [f, p.vals[fi]])),
+        status: "proposed" as const,
+        mode: p.mode,
+        predicted: p.pred,
+        predictedBand: p.std,
+        measuredValue: null,
+        reason: p.reason,
+      },
+      summary: p.reason,
+    };
+  });
+}
+
+function mapRealCampaign(c: ActiveEngineCampaign, latest: LatestResult): Campaign {
   const openRunsByRound = c.pending.map(mapRun);
   const rounds: Round[] = c.history.map((h) => ({
     number: h.round,
@@ -95,9 +137,9 @@ function mapRealCampaign(c: ActiveEngineCampaign): Campaign {
     objective: `optimise ${c.target}`,
     currentRound: c.round,
     rounds,
-    proposals: openRunsByRound
-      .filter((r) => r.status === "proposed")
-      .map((run, i) => ({ id: run.id, rank: i + 1, run, summary: run.reason })),
+    proposals: mapAnalysisProposals(latest),
+    awaitingRuns: openRunsByRound.filter((r) => r.status === "proposed"),
+    measuredRuns: openRunsByRound.filter((r) => r.status === "measured"),
   };
 }
 
@@ -139,17 +181,23 @@ export type WorkspaceCampaignResult =
   | { status: "not-found" }
   | { status: "ok"; campaign: Campaign; demo: boolean };
 
-/** Powers the workspace header + tab bodies for one campaign id. */
+/** Powers the workspace header + tab bodies for one campaign id. Reads BOTH
+ *  engine resources it needs: the campaign itself and the analysis whose
+ *  proposals are the batch awaiting approval. If either is unreachable the
+ *  whole workspace is unavailable - showing the campaign with a silently
+ *  empty batch would read as "nothing to approve", which is a different
+ *  claim from "the engine did not answer". */
 export async function getWorkspaceCampaign(id: string): Promise<WorkspaceCampaignResult> {
   let engine: EngineCampaign;
+  let latest: LatestResult;
   try {
-    engine = await fetchEngineCampaign();
+    [engine, latest] = await Promise.all([fetchEngineCampaign(), fetchEngineLatest()]);
   } catch {
     return { status: "unavailable" };
   }
 
   if (engine.has_campaign && id === REAL_CAMPAIGN_ID) {
-    return { status: "ok", campaign: mapRealCampaign(engine), demo: false };
+    return { status: "ok", campaign: mapRealCampaign(engine, latest), demo: false };
   }
   if (DEMO_MODE) {
     const mock = getMockCampaign(id);
@@ -330,6 +378,125 @@ export async function getWorkspaceLogStats(id: string): Promise<WorkspaceLogStat
     if (mock) return { status: "ok", stats: mock, demo: true };
   }
   return { status: "ok", stats: null, demo: false };
+}
+
+// --- Mutations: the four ways the workspace writes to the engine ----------
+// Every one of them returns a result object instead of throwing, so a caller
+// can never accidentally render success for a call that failed, and every
+// failure carries the engine's OWN reason when the engine authored one.
+
+export type MutationResult = { status: "ok" } | { status: "error"; reason: string };
+
+/**
+ * The single rule for turning a thrown engine call into something the UI can
+ * say out loud. An `EngineError` means the engine answered and refused, and
+ * its message is authored server-side to be shown verbatim (kalos's
+ * `CampaignError` docstring). Anything else means the request never got an
+ * answer at all, which is a genuinely different thing to tell the reader.
+ */
+function failureReason(error: unknown): string {
+  if (error instanceof EngineError) return error.message;
+  return "The engine could not be reached, so nothing was sent. Check that it is running and try again.";
+}
+
+/** The engine-facing body for a batch of workspace proposals. Pure, and
+ *  separated from the call so the mapping is testable on its own. */
+export function toStartRecipes(proposals: Proposal[]): StartRecipe[] {
+  return proposals.map((p) => ({
+    recipe: p.run.recipe,
+    pred: p.run.predicted,
+    std: p.run.predictedBand,
+    mode: p.run.mode,
+    reason: p.run.reason,
+  }));
+}
+
+/** Books a batch of proposed recipes into the open round
+ *  (`POST /api/campaign/start`). Does NOT move the measured best - starting a
+ *  run records no outcome, so `best` only changes once a result is logged and
+ *  folded. */
+export async function approveWorkspaceBatch(proposals: Proposal[]): Promise<MutationResult> {
+  if (proposals.length === 0) {
+    return { status: "error", reason: "There is nothing in this batch to approve." };
+  }
+  try {
+    await engineStartRuns(toStartRecipes(proposals));
+    return { status: "ok" };
+  } catch (error) {
+    return { status: "error", reason: failureReason(error) };
+  }
+}
+
+/** Records one awaiting run's measured outcome (`POST /api/campaign/result`).
+ *  The engine rejects a non-finite value outright (`campaign.py`'s
+ *  `set_result`); this refuses it before the round trip using the same rule
+ *  and the same wording, so a NaN never even looks like it was accepted. */
+export async function logWorkspaceRunResult(runId: string, value: number): Promise<MutationResult> {
+  if (!Number.isFinite(value)) {
+    return { status: "error", reason: `result value must be a finite number; got ${value}` };
+  }
+  try {
+    await engineLogResult(runId, value);
+    return { status: "ok" };
+  } catch (error) {
+    return { status: "error", reason: failureReason(error) };
+  }
+}
+
+/** How many times `closeWorkspaceLoop` will send the re-analysis before it
+ *  gives up on a repeating 409. Three is enough to ride out the realistic
+ *  case (one concurrent write landing mid-analysis) without spinning against
+ *  a genuinely busy campaign. */
+export const REANALYZE_MAX_ATTEMPTS = 3;
+
+/**
+ * Closes the loop (`POST /api/campaign/reanalyze`): folds every measured run
+ * into the base data and re-fits.
+ *
+ * The engine runs this as plan -> analyse -> commit guarded by a generation
+ * token, and answers 409 when another write landed on the campaign while the
+ * (multi-second) fit was running. A 409 means NOTHING was committed and the
+ * call is expected to be retried - so retrying here is the correct behaviour,
+ * not a papered-over failure. Any other status is terminal and surfaces the
+ * engine's own reason; a 409 that survives every attempt says so explicitly
+ * rather than reporting a closed loop that never closed.
+ */
+export async function closeWorkspaceLoop(): Promise<MutationResult> {
+  for (let attempt = 1; attempt <= REANALYZE_MAX_ATTEMPTS; attempt++) {
+    try {
+      await engineReanalyze();
+      return { status: "ok" };
+    } catch (error) {
+      const conflict = error instanceof EngineError && error.status === 409;
+      if (!conflict) return { status: "error", reason: failureReason(error) };
+      if (attempt === REANALYZE_MAX_ATTEMPTS) {
+        return {
+          status: "error",
+          reason: `${failureReason(error)} Retried ${REANALYZE_MAX_ATTEMPTS} times and the campaign kept changing mid-analysis, so nothing was folded in.`,
+        };
+      }
+    }
+  }
+  // Unreachable: every path inside the loop either returns or continues, and
+  // the last attempt always returns. Kept so the function is total.
+  return { status: "error", reason: "The re-analysis did not run." };
+}
+
+/**
+ * Uploads a run table (`POST /api/run`), which analyses it and seeds a new
+ * campaign from it. A rejected upload comes back as a 400 carrying the
+ * engine's own reason (an unusable target column, a schema it cannot read, a
+ * refusal to touch data it will not overwrite); that reason is passed through
+ * verbatim rather than flattened into "upload failed".
+ */
+export async function uploadWorkspaceDataset(file: File, target?: string): Promise<MutationResult> {
+  try {
+    const result = await engineRunFile(file, target?.trim() || undefined);
+    if (typeof result.error === "string") return { status: "error", reason: result.error };
+    return { status: "ok" };
+  } catch (error) {
+    return { status: "error", reason: failureReason(error) };
+  }
 }
 
 export type NewestCampaignResult = { status: "unavailable" } | { status: "ok"; id: string | null };

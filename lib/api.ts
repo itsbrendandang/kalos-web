@@ -1,6 +1,41 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8050";
 
+/**
+ * An engine response that ANSWERED and refused, as opposed to an engine that
+ * could not be reached at all. `status` is carried because callers act on it:
+ * `POST /api/campaign/reanalyze` returns 409 when the campaign was written
+ * underneath an in-flight analysis and the caller is expected to retry (see
+ * kalos/portal/campaign_routes.py), which is impossible to distinguish from a
+ * permanent 400 by message alone. `message` is the engine's own `{ error }`
+ * string when it sent one - those strings are authored by `CampaignError`
+ * specifically so a client can show them verbatim - and a status-based
+ * fallback otherwise.
+ */
+export class EngineError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "EngineError";
+    this.status = status;
+  }
+}
+
+/** Builds the `EngineError` for a non-ok response, preferring the engine's
+ *  documented `{ error }` reason over a generic status message. */
+async function engineError(r: Response): Promise<EngineError> {
+  let message = `engine responded ${r.status}`;
+  try {
+    const body: unknown = await r.json();
+    if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
+      message = (body as { error: string }).error;
+    }
+  } catch {
+    // Body wasn't JSON (or was empty) - keep the status-based message.
+  }
+  return new EngineError(message, r.status);
+}
+
 export type Proposal = {
   vals: number[];
   pred: number;
@@ -174,7 +209,7 @@ export async function runFile(file: File, target?: string): Promise<AnalyzeResul
     // failure to throw on. Any other non-ok response (5xx, or a 4xx without
     // that shape) is unexpected, so route it to the same error/offline path
     // as the other engine calls instead of returning it as a fake result.
-    if (!r.ok && typeof d.error !== "string") throw new Error(`engine responded ${r.status}`);
+    if (!r.ok && typeof d.error !== "string") throw new EngineError(`engine responded ${r.status}`, r.status);
     return d;
   });
 }
@@ -292,13 +327,17 @@ export const getCampaign = (): Promise<Campaign> =>
     return r.json();
   });
 
-/** A recipe about to be started, in the shape POST /api/campaign/start expects. */
+/** A recipe about to be started, in the shape POST /api/campaign/start expects.
+ *  `pred`/`std`/`reason` are nullable because the engine stores whatever it is
+ *  given (`campaign.py`'s `start` reads them with `.get()`) and a proposal
+ *  whose prediction was never recorded must be booked as it really is, not
+ *  with a fabricated 0. */
 export type StartRecipe = {
   recipe: Record<string, number>;
-  pred: number;
-  std: number;
+  pred: number | null;
+  std: number | null;
   mode: string;
-  reason: string;
+  reason: string | null;
 };
 
 export async function startRuns(recipes: StartRecipe[]): Promise<void> {
@@ -307,7 +346,7 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ recipes }),
   });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) throw await engineError(r);
 }
 
 export async function logResult(id: string, value: number): Promise<void> {
@@ -316,25 +355,19 @@ export async function logResult(id: string, value: number): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, value }),
   });
-  if (!r.ok) {
-    // The documented 400 body is { error }; fall back to a status-based
-    // message for anything else (network hiccup, unexpected 5xx shape).
-    let message = `engine responded ${r.status}`;
-    try {
-      const body: unknown = await r.json();
-      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
-        message = (body as { error: string }).error;
-      }
-    } catch {
-      // Body wasn't JSON - keep the status-based message.
-    }
-    throw new Error(message);
-  }
+  if (!r.ok) throw await engineError(r);
 }
 
+/**
+ * Closes the loop: folds every measured pending run into the base data and
+ * re-runs the analysis. Throws an `EngineError` with `status: 409` when the
+ * campaign was written underneath the in-flight analysis - the engine
+ * committed NOTHING in that case and the caller is expected to retry (see
+ * lib/workspace/adapter.ts's `closeWorkspaceLoop`, the one place that does).
+ */
 export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
   const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST" });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) throw await engineError(r);
   return r.json();
 }
 

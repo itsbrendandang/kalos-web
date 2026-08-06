@@ -150,15 +150,15 @@ function proposal(id: string, rank: number, recipe: Record<string, number>, mode
 describe("recipeColumns", () => {
   it("derives columns from the batch in first-seen order", () => {
     const cols = recipeColumns([
-      proposal("a", 1, { glucose_gL: 7.2, feed_start_day: 2 }, "exploit"),
-      proposal("b", 2, { feed_start_day: 4, pH_setpoint: 7 }, "explore"),
+      proposal("a", 1, { glucose_gL: 7.2, feed_start_day: 2 }, "exploit").run,
+      proposal("b", 2, { feed_start_day: 4, pH_setpoint: 7 }, "explore").run,
     ]);
     expect(cols.keys).toEqual(["glucose_gL", "feed_start_day", "pH_setpoint"]);
     expect(cols.hidden).toEqual([]);
   });
 
   it("reports overflow columns rather than dropping them silently", () => {
-    const cols = recipeColumns([proposal("a", 1, { a: 1, b: 2, c: 3, d: 4, e: 5 }, "exploit")]);
+    const cols = recipeColumns([proposal("a", 1, { a: 1, b: 2, c: 3, d: 4, e: 5 }, "exploit").run]);
     expect(cols.keys).toEqual(["a", "b", "c"]);
     expect(cols.hidden).toEqual(["d", "e"]);
   });
@@ -193,8 +193,8 @@ describe("modeSplit / columnLabel / beatsBest", () => {
 
 describe("recipeDecimals / formatRecipeValue", () => {
   const batch = [
-    proposal("a", 1, { glucose_gL: 7.2, feed_start_day: 2 }, "exploit"),
-    proposal("b", 2, { glucose_gL: 7, feed_start_day: 3 }, "exploit"),
+    proposal("a", 1, { glucose_gL: 7.2, feed_start_day: 2 }, "exploit").run,
+    proposal("b", 2, { glucose_gL: 7, feed_start_day: 3 }, "exploit").run,
   ];
 
   it("drops decimals on a column every proposal states as a whole number", () => {

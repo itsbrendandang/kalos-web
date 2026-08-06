@@ -42,18 +42,24 @@ export function RoundDivider({
 
       <span className="h-px flex-1 bg-border" aria-hidden />
 
+      {/* The design ends this rule with "Awaiting [AO] you" - an avatar and
+          initials for the signed-in scientist. kalos has no accounts, so
+          there are no initials to put there and no way to know the batch is
+          waiting on the reader specifically rather than on whoever opens it
+          next. The sentence says what is true: a decision is outstanding. */}
       <span className="flex items-center gap-1.5">
         <span className="text-[11.5px] whitespace-nowrap text-muted">
-          {awaitingDecisionCount > 0 ? "Awaiting" : "Nothing awaiting"}
+          {awaitingDecisionCount > 0 ? (
+            <>
+              Awaiting a decision on{" "}
+              <span className="font-semibold text-fg">
+                {awaitingDecisionCount} recipe{awaitingDecisionCount === 1 ? "" : "s"}
+              </span>
+            </>
+          ) : (
+            "Nothing awaiting"
+          )}
         </span>
-        {awaitingDecisionCount > 0 && (
-          <>
-            <span className="grid size-5 shrink-0 place-items-center rounded-[10px] border border-blue-border bg-blue-tint font-plex-mono text-[9px] font-semibold text-fg">
-              AO
-            </span>
-            <span className="text-[11.5px] font-semibold text-fg">you</span>
-          </>
-        )}
       </span>
     </div>
   );

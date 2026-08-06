@@ -16,6 +16,20 @@ function fakeResponse(ok: boolean, status: number, body: unknown): Response {
   return { ok, status, json: async () => body } as unknown as Response;
 }
 
+/** A response whose body is not JSON at all (an empty 409, an HTML error page
+ *  from a proxy in front of the engine). `r.json()` rejects, which is the one
+ *  branch of lib/api.ts's `engineError()` that `fakeResponse` above can never
+ *  reach - see the malformed-body test in `closeWorkspaceLoop`. */
+function unparseableResponse(status: number): Response {
+  return {
+    ok: false,
+    status,
+    json: async () => {
+      throw new SyntaxError("Unexpected end of JSON input");
+    },
+  } as unknown as Response;
+}
+
 /** The engine's own 409 wording, copied from kalos/portal/campaign.py's
  *  `commit_fold`, so these tests fail if the UI ever starts paraphrasing it. */
 const CONFLICT = "the campaign changed during re-analysis (a new write landed); nothing was committed";
@@ -234,6 +248,36 @@ describe("closeWorkspaceLoop", () => {
     if (result.status !== "error") return;
     // The engine's own sentence survives, with the retry history added.
     expect(result.reason).toContain(CONFLICT);
+    expect(result.reason).toContain(`Retried ${REANALYZE_MAX_ATTEMPTS} times`);
+  });
+
+  // The retry decision keys off the STATUS, not the message, precisely so a
+  // 409 the engine could not author a reason for still retries. These two
+  // tests are the only thing standing between that and a future refactor that
+  // sniffs `error.message` for "changed during re-analysis" - which would
+  // silently stop retrying whenever a proxy swallows the body.
+  it("retries a 409 whose body is not parseable JSON", async () => {
+    fetchMock
+      .mockResolvedValueOnce(unparseableResponse(409))
+      .mockResolvedValueOnce(fakeResponse(true, 200, { analysis: {}, campaign: {} }));
+
+    expect(await closeWorkspaceLoop()).toEqual({ status: "ok" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to the status when a surviving 409 carries no readable reason", async () => {
+    for (let i = 0; i < REANALYZE_MAX_ATTEMPTS; i++) {
+      fetchMock.mockResolvedValueOnce(unparseableResponse(409));
+    }
+
+    const result = await closeWorkspaceLoop();
+
+    expect(fetchMock).toHaveBeenCalledTimes(REANALYZE_MAX_ATTEMPTS);
+    expect(result.status).toBe("error");
+    if (result.status !== "error") return;
+    // No invented sentence, and no "undefined": the status the engine really
+    // returned, plus the retry history.
+    expect(result.reason).toContain("engine responded 409");
     expect(result.reason).toContain(`Retried ${REANALYZE_MAX_ATTEMPTS} times`);
   });
 

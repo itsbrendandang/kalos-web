@@ -7,10 +7,17 @@
 import { cn } from "@/lib/utils";
 import { AskLabel } from "./primitives";
 
+/** Deliberately campaign-agnostic. The design's own three examples name
+ *  things that do not exist ("the Fc-fusion pilot", a round that "lost 18
+ *  days", a row 3 that happens to be an exploration pick) - illustrative copy
+ *  from the mock, rendering unbadged against whatever real campaign is open.
+ *  These three ask the same shape of question while asserting nothing, and
+ *  each points at a surface the workspace genuinely has: the batch's
+ *  explore/exploit split, the driver chart, and the activity strip. */
 const SUGGESTIONS = [
-  "Why is row 3 an exploration pick?",
-  "What did the Fc-fusion pilot learn about pH?",
-  "Where did round 2 lose 18 days?",
+  "Why is this batch exploring rather than exploiting?",
+  "Which input is driving the target hardest, and how sure are we?",
+  "Where did this campaign lose the most time between rounds?",
 ];
 
 export function TryAsking({ className }: { className?: string }) {

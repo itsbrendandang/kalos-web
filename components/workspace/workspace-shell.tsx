@@ -11,6 +11,7 @@ import { Loading } from "@/components/page-header";
 import { usePersistedBoolean } from "@/lib/workspace/use-persisted-boolean";
 import {
   getWorkspaceCampaign,
+  getWorkspaceEvidence,
   listWorkspaceCampaigns,
   type WorkspaceCampaignResult,
   type WorkspaceCampaignsResult,
@@ -121,10 +122,19 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
 
   const campaign = current.campaign;
   const campaignSummaries: CampaignSummary[] = campaigns.status === "ok" ? campaigns.campaigns : [];
-  const campaignsAreDemo = campaigns.status === "ok" && campaigns.demo;
-  const evidence = current.demo ? { runsInRegistry: 1284, priorCampaigns: 19, sopsIndexed: 41 } : null;
-  const measuredRuns = campaign.rounds.reduce((n, r) => n + r.runs.filter((run) => run.status === "measured").length, 0);
-  const summaryLine = `${measuredRuns} run${measuredRuns === 1 ? "" : "s"} logged · ${campaign.rounds.length} round${campaign.rounds.length === 1 ? "" : "s"}`;
+  const evidence = getWorkspaceEvidence(current.demo);
+  // The campaign-wide run total comes from the engine's own counters
+  // (Campaign.runsLogged), NOT from summing `rounds[].runs`: the engine only
+  // breaks runs down for the open round, so that sum reports the handful
+  // sitting unfolded right now and reads as a whole-campaign total it is not.
+  // When the total is genuinely unavailable the line says so instead of
+  // printing a number.
+  const rounds = campaign.rounds.length;
+  const roundsPart = `${rounds} round${rounds === 1 ? "" : "s"}`;
+  const summaryLine =
+    campaign.runsLogged != null
+      ? `${campaign.runsLogged} run${campaign.runsLogged === 1 ? "" : "s"} logged · ${roundsPart}`
+      : `${roundsPart} · run total not instrumented`;
 
   return (
     <WorkspaceCampaignProvider value={{ campaignId, result: current, refresh, reload, reloadCampaigns, dataVersion }}>
@@ -134,7 +144,6 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
           onToggle={() => setRailOpen(!railOpen)}
           campaigns={campaignSummaries}
           activeCampaignId={campaignId}
-          demo={campaignsAreDemo}
           evidence={evidence}
           onNewCampaign={() => setNewCampaignOpen(true)}
         />

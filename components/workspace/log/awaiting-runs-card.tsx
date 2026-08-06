@@ -255,10 +255,9 @@ function CloseLoopBar({
 
   return (
     <>
+      {/* Same as the approve bar: the design's leading avatar chip named a
+          scientist kalos has no concept of, so it is not drawn. */}
       <div className="mt-7 flex flex-wrap items-center gap-3.5 rounded-[12px] bg-blue-soft px-6 py-[22px]">
-        <span className="grid size-[26px] shrink-0 place-items-center rounded-[13px] border border-blue-border bg-blue-tint font-plex-mono text-[10px] font-semibold text-fg">
-          AO
-        </span>
         <p className="min-w-[24ch] flex-1 text-[12px] leading-[1.45] text-muted">
           {measuredCount === 0 ? (
             <>

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ChevronDown, Plus, Search } from "lucide-react";
+import { ArrowLeft, Plus, Search, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DemoBadge } from "@/components/page-header";
+import type { WorkspaceEvidence } from "@/lib/workspace/adapter";
 import type { CampaignSummary } from "@/lib/workspace/types";
 
 /** The campaign rail (design spec section 1.1 "Campaign rail"). Two states
@@ -13,7 +14,6 @@ export function CampaignRail({
   onToggle,
   campaigns,
   activeCampaignId,
-  demo,
   evidence,
   onNewCampaign,
 }: {
@@ -21,8 +21,11 @@ export function CampaignRail({
   onToggle: () => void;
   campaigns: CampaignSummary[];
   activeCampaignId: string;
-  demo: boolean;
-  evidence: { runsInRegistry: number; priorCampaigns: number; sopsIndexed: number } | null;
+  /** Null whenever these figures are not demo data - which today is every
+   *  real campaign, because the engine counts none of them. There is no
+   *  separate `demo` flag on purpose: the DemoBadge is rendered off this
+   *  value being non-null, so the badge and the numbers cannot disagree. */
+  evidence: WorkspaceEvidence | null;
   /** Opens the upload dialog. The rail stays presentational: the shell owns
    *  the dialog and the refetch that follows a successful upload. */
   onNewCampaign: () => void;
@@ -38,7 +41,6 @@ export function CampaignRail({
         <ExpandedRail
           campaigns={campaigns}
           activeCampaignId={activeCampaignId}
-          demo={demo}
           evidence={evidence}
           onToggle={onToggle}
           onNewCampaign={onNewCampaign}
@@ -104,13 +106,11 @@ function CollapsedRail({
       >
         »
       </button>
-      <button
-        type="button"
-        aria-label="Open command palette"
-        className="grid size-[34px] place-items-center rounded-[10px] border border-border font-mono text-[11px] text-muted transition-colors hover:bg-blue-soft hover:text-fg"
-      >
-        ⌘K
-      </button>
+      {/* The design draws a ⌘K command-palette tile next to the expander.
+          There is no palette anywhere in this app, so the tile is not drawn -
+          a control that opens nothing is worse than an absent one. Its
+          expanded-rail counterpart says so in words; here there is no room
+          for words, so the slot is simply empty. */}
       <div className="h-[26px] w-px bg-border" />
       {campaigns.map((c) => (
         <Link key={c.id} href={`/c/${c.id}`}>
@@ -124,9 +124,17 @@ function CollapsedRail({
           <Plus className="size-[13px]" />
         </RailTile>
       </button>
-      <div className="mt-auto grid size-[30px] place-items-center rounded-[15px] border border-blue-border bg-blue-tint font-mono text-[9.5px] font-semibold text-fg">
-        AO
-      </div>
+      {/* Where the design puts a signed-in scientist's avatar. kalos has no
+          accounts, so this slot carries the collapsed counterpart of the
+          expanded rail's way out instead - see ExpandedRail's header. */}
+      <Link
+        href="/"
+        title="Back to the Kalos dashboard"
+        aria-label="Back to the Kalos dashboard"
+        className="mt-auto grid size-[30px] place-items-center rounded-[15px] border border-border text-muted transition-colors hover:border-blue-border hover:bg-blue-soft hover:text-fg"
+      >
+        <ArrowLeft className="size-[14px]" aria-hidden />
+      </Link>
     </div>
   );
 }
@@ -134,28 +142,36 @@ function CollapsedRail({
 function ExpandedRail({
   campaigns,
   activeCampaignId,
-  demo,
   evidence,
   onToggle,
   onNewCampaign,
 }: {
   campaigns: CampaignSummary[];
   activeCampaignId: string;
-  demo: boolean;
-  evidence: { runsInRegistry: number; priorCampaigns: number; sopsIndexed: number } | null;
+  evidence: WorkspaceEvidence | null;
   onToggle: () => void;
   onNewCampaign: () => void;
 }) {
   return (
     <div className="flex h-full flex-col gap-[22px]">
       <div className="flex items-center gap-2 px-1.5">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 text-[13.5px] font-bold tracking-[-0.01em] text-fg">
-            <span className="truncate">Bioqore R&D</span>
-            <ChevronDown className="size-3.5 shrink-0 font-normal text-muted" />
-          </div>
-          <div className="mt-px text-[11px] text-muted">Workspace</div>
-        </div>
+        {/* The design draws an org/workspace switcher here ("Bioqore R&D").
+            kalos models no organisations and no workspaces, so there is
+            nothing to name and nothing to switch between. The slot carries
+            the one thing this rail genuinely owed the reader instead: the way
+            back out to the rest of the dashboard. /c/* opts out of the shared
+            app shell (components/app-shell.tsx), so without this link the
+            workspace is a one-way trip. */}
+        <Link
+          href="/"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-[10px] px-1 py-1 transition-colors hover:bg-blue-soft"
+        >
+          <ArrowLeft className="size-3.5 shrink-0 text-muted" aria-hidden />
+          <span className="min-w-0">
+            <span className="block truncate text-[13.5px] font-bold tracking-[-0.01em] text-fg">Kalos</span>
+            <span className="mt-px block truncate text-[11px] text-muted">Back to the dashboard</span>
+          </span>
+        </Link>
         {/* Design mock shows a control in this slot of the switcher row; per
             build instructions it's wired to the real theme toggle so dark
             mode stays reachable from the expanded rail. */}
@@ -170,10 +186,14 @@ function ExpandedRail({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 rounded-[10px] border border-border bg-blue-soft px-2.5 py-[7px]">
-        <Search className="size-3.5 shrink-0 text-muted" />
-        <span className="flex-1 text-[11.5px] text-muted">Search campaigns</span>
-        <span className="font-mono text-[10px] text-muted">⌘K</span>
+      {/* The design draws a live search field with a ⌘K palette behind it.
+          Neither exists: there is no palette, and campaign search needs a
+          listing endpoint the engine does not serve (it tracks one campaign).
+          Styling this as a field would be a control that looks live and does
+          nothing, so it is drawn dashed and says what it is. */}
+      <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-border px-2.5 py-[7px]">
+        <Search className="size-3.5 shrink-0 text-muted" aria-hidden />
+        <span className="flex-1 text-[11.5px] text-muted">Campaign search isn&apos;t built yet</span>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -214,7 +234,7 @@ function ExpandedRail({
         <div className="border-t border-border pt-3.5">
           <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-fg">
             Evidence available
-            {demo && <DemoBadge />}
+            {evidence && <DemoBadge />}
           </div>
           {evidence ? (
             <div className="flex flex-col gap-1.5">
@@ -226,11 +246,20 @@ function ExpandedRail({
             <p className="text-[11px] leading-[1.5] text-muted">Evidence stats aren&apos;t instrumented yet.</p>
           )}
         </div>
+        {/* The design puts the signed-in scientist here, by name and team.
+            kalos has no accounts, no auth and no notion of a person anywhere
+            in its API, so there is nobody to name. This is the one place in
+            the workspace that states that gap; every other slot the design
+            filled with a person (the header's collaborator stack, the approve
+            and fold-in bars' avatar chips, the round divider's "you") now
+            renders nothing at all rather than repeating the same sentence. */}
         <div className="flex items-center gap-2 px-2">
-          <div className="size-[26px] shrink-0 rounded-[13px] border border-blue-border bg-blue-tint" />
+          <div className="grid size-[26px] shrink-0 place-items-center rounded-[13px] border border-dashed border-border text-muted">
+            <UserRound className="size-3.5" aria-hidden />
+          </div>
           <div className="min-w-0">
-            <div className="truncate text-[11.5px] font-semibold text-fg">A. Okafor</div>
-            <div className="text-[10.5px] text-muted">Process science</div>
+            <div className="truncate text-[11.5px] font-semibold text-fg">Not signed in</div>
+            <div className="text-[10.5px] text-muted">Kalos has no accounts yet</div>
           </div>
         </div>
       </div>

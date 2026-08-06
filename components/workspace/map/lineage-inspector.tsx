@@ -167,16 +167,27 @@ export function LineageInspector({
         </div>
       )}
 
+      {/* Both of the design's inspector actions were shipping as live-looking
+          buttons with no onClick. Tracing forward needs the descendant side
+          of lineage, which the engine discards when it folds a run; asking
+          why needs an assistant, which does not exist (the Ask panel's own
+          composer is disabled for the same reason). They stay in place,
+          visibly disabled and carrying their reason, rather than looking
+          live and silently doing nothing. */}
       <div className="mt-auto flex flex-col gap-[7px] pt-4">
         <button
           type="button"
-          className="rounded-[10px] bg-action px-3 py-[9px] text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+          disabled
+          title="Tracing forward needs the descendant side of lineage, which the engine discards when it folds a run."
+          className="cursor-not-allowed rounded-[10px] bg-action px-3 py-[9px] text-[12px] font-semibold text-white opacity-55"
         >
           Trace this lineage forward
         </button>
         <button
           type="button"
-          className="rounded-[10px] border border-border px-3 py-[9px] text-[12px] font-semibold text-fg transition-colors hover:bg-blue-soft"
+          disabled
+          title="Ask has no assistant behind it yet, so it cannot answer why this run was chosen."
+          className="cursor-not-allowed rounded-[10px] border border-border px-3 py-[9px] text-[12px] font-semibold text-fg opacity-55"
         >
           Ask why it was chosen
         </button>

@@ -53,9 +53,11 @@ export function WorkspaceHeader({
         ))}
       </nav>
 
+      {/* The design puts a collaborator avatar stack ("AO / RM / JP / +2")
+          immediately left of these controls. kalos models no people at all,
+          so there is nobody on this campaign to draw and the stack is gone -
+          the rail's identity slot is the one place that names the gap. */}
       <div className="ml-auto flex items-center gap-2.5">
-        <AvatarStack />
-        <div className="h-5 w-px bg-border" />
         <button
           type="button"
           onClick={onToggleAsk}
@@ -67,49 +69,29 @@ export function WorkspaceHeader({
           </span>
           Ask
         </button>
+        {/* Sharing needs accounts and share links; kalos has neither, and no
+            endpoint behind either. Left visibly disabled with the reason on
+            it rather than rendered live and silently doing nothing. */}
         <button
           type="button"
-          className="rounded-[10px] border border-border bg-card px-[13px] py-1.5 text-[12px] font-semibold text-fg transition-colors hover:bg-blue-soft"
+          disabled
+          title="Sharing needs accounts and share links, which kalos does not have yet."
+          className="cursor-not-allowed rounded-[10px] border border-border bg-card px-[13px] py-1.5 text-[12px] font-semibold text-fg opacity-55"
         >
           Share
         </button>
-        <button
-          type="button"
+        {/* The design's header approves the open round outright. Approving
+            books runs into a physical lab against a specific batch, and the
+            batch only exists on the Log tab - so this is navigation to the
+            decision, not a second, batch-less copy of the write path. It was
+            previously a filled primary button with no onClick at all. */}
+        <Link
+          href={`/c/${campaignId}`}
           className="rounded-[10px] bg-action px-[13px] py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
         >
-          {roundNumber != null ? `Approve round ${roundNumber}` : "Approve"}
-        </button>
+          {roundNumber != null ? `Review round ${roundNumber}` : "Review batch"}
+        </Link>
       </div>
     </header>
-  );
-}
-
-const STACK: { initials: string; tone: "neutral" | "success" }[] = [
-  { initials: "AO", tone: "neutral" },
-  { initials: "RM", tone: "neutral" },
-  { initials: "JP", tone: "success" },
-];
-
-function AvatarStack() {
-  return (
-    <div className="flex items-center" title="On this campaign">
-      {STACK.map((p, i) => (
-        <span
-          key={p.initials}
-          className={cn(
-            "grid size-[25px] place-items-center rounded-[13px] border-[1.5px] border-card font-mono text-[9.5px] font-semibold",
-            i > 0 && "-ml-[7px]",
-            p.tone === "success" ? "bg-green-soft text-green" : "bg-blue-tint text-fg",
-          )}
-        >
-          {p.initials}
-        </span>
-      ))}
-      <span
-        className="-ml-[7px] grid size-[25px] place-items-center rounded-[13px] bg-card text-[9.5px] text-muted outline outline-1 -outline-offset-1 outline-border"
-      >
-        +2
-      </span>
-    </div>
   );
 }

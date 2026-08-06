@@ -76,6 +76,16 @@ export type Campaign = {
   /** Runs booked and measured but not yet folded into the base data - what a
    *  re-analysis would fold in. */
   measuredRuns: Run[];
+  /** How many measured runs this campaign holds in TOTAL, across every round:
+   *  the engine's own `n_base` (rows already folded into the fit, seed data
+   *  included) plus `n_measured` (measured but not yet folded). This is not
+   *  derivable from `rounds[].runs` - the engine only breaks runs down for the
+   *  open round, so summing those counts the open round's handful and silently
+   *  drops every folded row a mature campaign is actually built on. Null when
+   *  the source cannot report a campaign-wide total at all (a demo campaign
+   *  has no engine behind it to count rows); callers must say so rather than
+   *  print a zero that reads as "nothing ran". */
+  runsLogged: number | null;
 };
 
 /** The compact shape the campaign rail renders - one row per campaign. */

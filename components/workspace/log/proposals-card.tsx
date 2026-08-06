@@ -81,9 +81,16 @@ export function ProposalsCard({
             <span className="font-semibold">Needs your call.</span> {spellCount(excludedRuns.length)} run
             {excludedRuns.length === 1 ? "" : "s"} in this campaign are excluded from the fit, not deleted.
           </p>
+          {/* Latent, not live: `excludedRuns` is always empty today because
+              the engine does not model run failure. If it ever does, there is
+              still no per-run exclusion record to open, so the button ships
+              visibly disabled with the reason on it rather than as a live
+              control that would silently do nothing. */}
           <button
             type="button"
-            className="rounded-[10px] bg-amber px-[15px] py-2 text-[12px] font-semibold whitespace-nowrap text-card transition-opacity hover:opacity-90"
+            disabled
+            title="The engine does not record why a run was excluded, so there is nothing to open here yet."
+            className="cursor-not-allowed rounded-[10px] bg-amber px-[15px] py-2 text-[12px] font-semibold whitespace-nowrap text-card opacity-55"
           >
             Review the {spellCount(excludedRuns.length)}
           </button>
@@ -275,11 +282,11 @@ function ApproveBar({
 
   return (
     <>
+      {/* The design opens this bar with the approving scientist's avatar
+          ("AO"). kalos has no accounts, so there is no one to draw and the
+          chip is gone - see the rail's identity slot, which names that gap
+          once for the whole workspace. */}
       <div className="mt-7 flex flex-wrap items-center gap-3.5 rounded-[12px] bg-blue-soft px-6 py-[22px]">
-        <span className="grid size-[26px] shrink-0 place-items-center rounded-[13px] border border-blue-border bg-blue-tint font-plex-mono text-[10px] font-semibold text-fg">
-          AO
-        </span>
-
         {count === 0 ? (
           <p className="min-w-[24ch] flex-1 text-[12px] leading-[1.45] text-muted">
             {bookedCount === 1 ? "This run is" : `All ${bookedCount} of these runs are`} booked
@@ -302,17 +309,28 @@ function ApproveBar({
 
         {count > 0 && state !== "confirming" && (
           <>
+            {/* Both of the design's secondary actions are unbuilt, and both
+                were shipping as live-looking buttons with no onClick. "Ask"
+                has no assistant behind it - the Ask panel's own composer is
+                disabled for the same reason (components/workspace/ask-panel
+                .tsx) - and the engine accepts a proposed batch verbatim, with
+                no endpoint for editing a recipe before booking it. They stay
+                in place, visibly disabled, carrying their reason: a control
+                that looks live and does nothing is worse than one that says
+                it cannot. */}
             <button
               type="button"
-              disabled={state === "working"}
-              className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint disabled:cursor-not-allowed disabled:opacity-55"
+              disabled
+              title="Ask has no assistant behind it yet, so it cannot answer anything about this batch."
+              className="cursor-not-allowed rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg opacity-55"
             >
               Ask
             </button>
             <button
               type="button"
-              disabled={state === "working"}
-              className="rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg transition-colors hover:bg-blue-tint disabled:cursor-not-allowed disabled:opacity-55"
+              disabled
+              title="The engine books a proposed batch as it stands; there is no endpoint for editing a recipe first."
+              className="cursor-not-allowed rounded-[10px] border border-border bg-card px-[13px] py-[7px] text-[12px] font-semibold whitespace-nowrap text-fg opacity-55"
             >
               Edit batch
             </button>

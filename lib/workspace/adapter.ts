@@ -36,6 +36,7 @@ import {
   getMockLogStats,
   getMockTimeline,
   MOCK_CAMPAIGN_SUMMARIES,
+  MOCK_EVIDENCE,
 } from "./mock";
 import type { Campaign, CampaignSummary, Proposal, Round, Run } from "./types";
 import type {
@@ -140,6 +141,12 @@ function mapRealCampaign(c: ActiveEngineCampaign, latest: LatestResult): Campaig
     proposals: mapAnalysisProposals(latest),
     awaitingRuns: openRunsByRound.filter((r) => r.status === "proposed"),
     measuredRuns: openRunsByRound.filter((r) => r.status === "measured"),
+    // The campaign-wide total, straight from the two counters the engine
+    // maintains for exactly this: `n_base` is every row already folded into
+    // the fit and `n_measured` is every measured row still waiting to be
+    // folded. They do not overlap. `rounds[].runs` deliberately cannot answer
+    // this (see the Round.runs comment above), so it is not consulted here.
+    runsLogged: c.n_base + c.n_measured,
   };
 }
 
@@ -204,6 +211,18 @@ export async function getWorkspaceCampaign(id: string): Promise<WorkspaceCampaig
     if (mock) return { status: "ok", campaign: mock, demo: true };
   }
   return { status: "not-found" };
+}
+
+export type WorkspaceEvidence = { runsInRegistry: number; priorCampaigns: number; sopsIndexed: number };
+
+/** The rail's "Evidence available" figures. The engine serves NONE of them:
+ *  there is no cross-campaign run registry, no prior-campaign count, and no
+ *  SOP index anywhere in kalos. So this returns null for every real campaign,
+ *  and demo figures only for a demo one - which is also the signal the rail
+ *  badges off, so the numbers and the DemoBadge can never come apart (they
+ *  previously read two different flags). */
+export function getWorkspaceEvidence(demo: boolean): WorkspaceEvidence | null {
+  return demo && DEMO_MODE ? MOCK_EVIDENCE : null;
 }
 
 function todayISO(): string {

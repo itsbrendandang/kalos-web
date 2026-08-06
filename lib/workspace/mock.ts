@@ -9,6 +9,13 @@ import type { Campaign, CampaignSummary, Round } from "./types";
 import type { ActivityDay, TimelineRound, WorkspaceLogStats } from "./log-types";
 import { computeActivityStats } from "./log-logic";
 
+/** The rail's "Evidence available" block. The engine keeps no cross-campaign
+ *  run registry and indexes no SOPs, so there is nothing real behind any of
+ *  these three - they are the design handoff's own illustrative figures and
+ *  live here, with every other demo constant, rather than inline in the
+ *  component that draws them. */
+export const MOCK_EVIDENCE = { runsInRegistry: 1284, priorCampaigns: 19, sopsIndexed: 41 };
+
 export const MOCK_CAMPAIGN_SUMMARIES: CampaignSummary[] = [
   { id: "cho-titer-uplift", name: "CHO titer uplift", monogram: "CH", statusLine: "Round 4 · awaiting you" },
   { id: "hek-yield-screen", name: "HEK yield screen", monogram: "HE", statusLine: "Round 2 · agent fitting" },
@@ -79,6 +86,10 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
     // value, not a gap waiting to be filled with illustrative runs.
     awaitingRuns: [],
     measuredRuns: [],
+    // Same reason: there is no engine row count behind a demo campaign, so
+    // there is no campaign-wide run total to report. Null, not 0 - 0 would
+    // read as "this campaign has run nothing", which is a different claim.
+    runsLogged: null,
   },
   "hek-yield-screen": {
     id: "hek-yield-screen",
@@ -92,6 +103,7 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
     proposals: [],
     awaitingRuns: [],
     measuredRuns: [],
+    runsLogged: null,
   },
   "media-cost-down": {
     id: "media-cost-down",
@@ -109,6 +121,7 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
     proposals: [],
     awaitingRuns: [],
     measuredRuns: [],
+    runsLogged: null,
   },
   "fc-fusion-pilot": {
     id: "fc-fusion-pilot",
@@ -123,6 +136,7 @@ const MOCK_CAMPAIGNS: Record<string, Campaign> = {
     proposals: [],
     awaitingRuns: [],
     measuredRuns: [],
+    runsLogged: null,
   },
 };
 

@@ -76,11 +76,15 @@ export const DEFAULT_SETTINGS: GraphSettings = {
   filterQuery: "",
   showSop: true,
   measuredOnly: false,
-  groups: [
-    { id: "g-titer", color: "green", query: "titer >= 6.0" },
-    { id: "g-failed", color: "amber", query: "status: failed" },
-    { id: "g-round", color: "action-dashed", query: "round: 4" },
-  ],
+  // No groups by default. The design mock ships three ("titer >= 6.0",
+  // "status: failed", "round: 4") and they used to be the shipped default,
+  // which meant every campaign opened the local graph showing three coloured
+  // groups nobody created, over a target that may not be titer and a round
+  // that may not exist. A group is a reader's own annotation; the reader
+  // makes it. The panel's "New group" button and its `titer > 5.5`
+  // placeholder still teach the syntax - and those field names are real (see
+  // VALUE_FIELDS in ./graph-query.ts), not mock copy.
+  groups: [],
   lineageArrows: true,
   nodeSize: 1,
   clusterByRound: 0.7,

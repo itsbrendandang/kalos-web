@@ -45,9 +45,13 @@ export function LocalGraphEmptyState({ graph }: { graph: LineageGraph }) {
         </p>
         {proposals > 0 && (
           <p className="text-[12.5px] leading-[1.55] text-muted [text-wrap:pretty]">
+            {/* No round number here: the design mock's campaign was on round
+                4, and hard-coding that asserted a round this campaign may not
+                be on. The count below is graph-derived; the round is not
+                needed to make the point. */}
             The {proposals} thing{proposals === 1 ? "" : "s"} this campaign can name {proposals === 1 ? "is a" : "are"}{" "}
-            round-4 proposal{proposals === 1 ? "" : "s"}: recipes the model has suggested and nobody has run. Centring on
-            one would draw a graph of a run that does not exist.
+            open-round proposal{proposals === 1 ? "" : "s"}: recipes the model has suggested and nobody has run. Centring
+            on one would draw a graph of a run that does not exist.
           </p>
         )}
         <p className="mt-1.5 border-t border-border pt-3 text-[11.5px] leading-[1.5] text-muted [text-wrap:pretty]">

@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   ListChecks,
   TestTubes,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,45 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
 
 const NAV: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
+/** The campaign workspace's entry point, and the only link to `/c` anywhere
+ *  outside the workspace itself.
+ *
+ *  It is deliberately NOT a fifth NAV_SECTIONS entry. The sections above are
+ *  peers of each other - lifecycle stages of the older flat IA - and the
+ *  workspace is not a sixth stage: it is the round-to-round surface (the
+ *  batch to approve, the Log, the Map) that those stages feed. So it gets a
+ *  filled primary treatment pinned above them, reading as the destination
+ *  while every legacy route stays exactly where it was and keeps working.
+ *
+ *  There is no active state, because there cannot be one: `/c/*` returns
+ *  early from AppShell above and renders its own rail instead, so this link
+ *  is never on screen while the workspace is open. It is always a call to
+ *  action, never a tab.
+ *
+ *  The route `/` is left alone on purpose. Redirecting it at `/c` would
+ *  strand the Experiments hub - nothing else in the app links to it - which
+ *  is the same unreachability bug this entry exists to fix, pointed the other
+ *  way. The workspace has not absorbed Live/Board/Table, Vessels, Plate or
+ *  the data room yet, so the cutover that retires `/` is a later, separate
+ *  piece of work. */
+function WorkspaceEntry({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/c"
+      className={cn(
+        "flex items-center gap-3 rounded-[10px] bg-accent px-3 py-2.5 text-[13px] font-semibold text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90",
+        className,
+      )}
+    >
+      <Workflow className="size-4 shrink-0" />
+      <span className="min-w-0">
+        <span className="block">Campaign workspace</span>
+        <span className="block text-[11px] font-normal opacity-80">Log · Map · Brief</span>
+      </span>
+    </Link>
+  );
+}
+
 function Leaf({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -94,6 +134,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <ThemeToggle />
         </div>
+        <WorkspaceEntry className="mb-5" />
+
         <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {NAV_SECTIONS.map((section) => (
             <div
@@ -149,6 +191,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="font-head font-bold">Kalos</span>
             <ThemeToggle className="ml-auto" />
           </div>
+          {/* Above the flattened section grid rather than inside it, for the
+              same reason the sidebar pins it above the sections - and so the
+              grid keeps its existing 6-column rhythm. */}
+          <WorkspaceEntry className="mb-2 justify-center py-2" />
           <nav className="grid grid-cols-6 gap-1">
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);

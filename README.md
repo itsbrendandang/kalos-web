@@ -12,11 +12,13 @@ The campaign workspace is the product; the other three are genuine peers, not st
 - **Campaign workspace** (`/c`, resolving to `/c/[campaignId]`) - the round-to-round surface, and where `/` lands.
   A campaign rail lists campaigns and opens the New campaign dialog (upload a run sheet, `POST /api/run`, and the engine seeds a campaign from it).
   Three tabs sit under a workspace header:
-  - **Log** - the round's verdict and reliability, the campaign timeline and activity strip, the batch awaiting approval (approve, log a result, fold in - the closed loop over `/api/campaign*`, see `docs/CAMPAIGN_LOOP.md` in the engine repo), and what the last round taught (measured drivers beside GP-estimated importance, never merged into one ranking).
+  - **Log** - the decision surface, and only that: the round's verdict and reliability, the batch awaiting approval (approve, log a result, fold in - the closed loop over `/api/campaign*`, see `docs/CAMPAIGN_LOOP.md` in the engine repo), and beneath it the standing numbers with a compact campaign timeline.
+    The compact timeline shows the rail, the per-round best, and the round labels; the read-out dates, method, runs per round and pace to target it drops are on Brief, and it says so.
   - **Map** - the run graph, with a lineage lens and a local-neighborhood lens, plus replay.
     Real lineage is not served by the engine yet; the adapter seam is typed for it and the view says so rather than drawing an invented tree.
-  - **Brief** - not built yet.
+  - **Brief** - the retrospective: the full-detail campaign timeline and the activity strip in one campaign-history card, then what the last round taught (measured drivers beside GP-estimated importance, never merged into one ranking).
   The Ask panel is present and explicitly disabled: the engine has no answering endpoint and no SOP corpus, so the composer says that instead of quietly swallowing what you type.
+  It defaults closed for that reason; the header's Ask pill opens it and the choice persists.
 - **Experiments** (`/experiments`, detail at `/experiments/[id]`) - the experiment registry wired to the portal's `/api/experiments/*` routes (the M2 contract).
   Upload a run sheet as a named experiment, flag it READY, run one or every ready experiment at once, and read back the persisted analysis and its provenance (seed, engine version, noise floor).
   This is deliberately not folded into the workspace: the New campaign dialog analyses one file immediately, which is a different thing from staging a named experiment for deferred batch execution.

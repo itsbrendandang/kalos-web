@@ -101,19 +101,44 @@ function buildColumns(rounds: TimelineRound[], goal: number | null): Column[] {
   return columns;
 }
 
+/** The sentences the compact variant owes a reader in place of the per-column
+ *  detail it drops. Every one of them is a fact the full timeline states out
+ *  loud somewhere, so compacting never silently removes a caveat: the open
+ *  round's numeral is still labelled a prediction, a campaign with no target
+ *  still says so, and the reader is told where the rest of the detail lives. */
+function compactNotes(rounds: TimelineRound[], goal: number | null): string[] {
+  const notes: string[] = [];
+  const openPredicted = rounds.find((r) => r.status === "open" && r.predicted != null);
+  if (openPredicted) notes.push(`Round ${openPredicted.number}'s number is predicted, not measured.`);
+  if (goal == null) notes.push("No target value is set for this campaign.");
+  notes.push(
+    "Read-out dates, method, runs per round, pace to target, and what is not recorded yet are on the Brief tab.",
+  );
+  return notes;
+}
+
 /** Design spec 1.3.C. Five columns in the mock; here, one per round plus the
  *  target column, so a campaign on round 2 or round 9 both render correctly.
  *  Two absolutely-positioned rails sit behind the columns: a full hairline
  *  running from the first dot to the last, and a darker progress segment
- *  covering exactly the closed span. */
+ *  covering exactly the closed span.
+ *
+ *  Two densities, one data pipeline. `compact` is what the Log tab renders:
+ *  the rail, the numerals and the round labels, and nothing else - the
+ *  trajectory is decision context, the per-round metadata is not. The full
+ *  variant (the Brief tab) adds the subtitle, the read-out date, and the
+ *  not-recorded note. Both call the same `buildColumns`, so the compact
+ *  variant can only ever show fewer true things, never different ones. */
 export function CampaignTimeline({
   rounds,
   goal,
   targetNoun,
+  compact = false,
 }: {
   rounds: TimelineRound[];
   goal: number | null;
   targetNoun: string;
+  compact?: boolean;
 }) {
   const ordered = [...rounds].sort((a, b) => a.number - b.number);
   const columns = buildColumns(ordered, goal);
@@ -208,18 +233,26 @@ export function CampaignTimeline({
                 <div className={cn("mt-1 text-[12px] font-semibold", c.kind === "target" ? "text-muted" : "text-fg")}>
                   {c.label}
                 </div>
-                {c.subtitle && <div className="mt-px text-[11.5px] leading-[1.35] text-muted">{c.subtitle}</div>}
-                {c.bottom && <div className="mt-[3px] font-plex-mono text-[10.5px] text-muted">{c.bottom}</div>}
+                {!compact && c.subtitle && (
+                  <div className="mt-px text-[11.5px] leading-[1.35] text-muted">{c.subtitle}</div>
+                )}
+                {!compact && c.bottom && (
+                  <div className="mt-[3px] font-plex-mono text-[10.5px] text-muted">{c.bottom}</div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {gaps.length > 0 && (
-        <NotInstrumentedNote className="mt-4">
-          Not recorded per round yet: {gaps.join(", ")}. Those lines stay blank rather than being guessed.
-        </NotInstrumentedNote>
+      {compact ? (
+        <NotInstrumentedNote className="mt-4">{compactNotes(ordered, goal).join(" ")}</NotInstrumentedNote>
+      ) : (
+        gaps.length > 0 && (
+          <NotInstrumentedNote className="mt-4">
+            Not recorded per round yet: {gaps.join(", ")}. Those lines stay blank rather than being guessed.
+          </NotInstrumentedNote>
+        )
       )}
     </section>
   );

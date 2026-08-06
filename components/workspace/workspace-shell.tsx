@@ -38,7 +38,12 @@ export function WorkspaceShell({ campaignId, children }: { campaignId: string; c
   const activeTab = tabFromPathname(pathname, campaignId);
 
   const [railOpen, setRailOpen] = usePersistedBoolean("kalos-workspace-rail-open", true);
-  const [askOpen, setAskOpen] = usePersistedBoolean("kalos-workspace-ask-open", true);
+  // Ask defaults CLOSED. There is no assistant behind the panel yet (see
+  // components/workspace/ask-panel.tsx), so opening it by default spends 340px
+  // of the tab's width on a disabled composer. The header's Ask pill still
+  // opens it, and a reader who has opened or closed it before still gets their
+  // own stored preference back - only the first-visit default changed.
+  const [askOpen, setAskOpen] = usePersistedBoolean("kalos-workspace-ask-open", false);
 
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
 

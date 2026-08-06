@@ -24,10 +24,11 @@ function notify(key: string) {
   listeners.get(key)?.forEach((cb) => cb());
 }
 
-/** A boolean persisted to localStorage under `key`. Used for `railOpen` and
- *  `askOpen`, both of which default true and are read/written from a single
- *  browser tab, so a plain module-level listener set (no storage-event
- *  cross-tab sync) is enough. */
+/** A boolean persisted to localStorage under `key`. Used for `railOpen`
+ *  (defaults open) and `askOpen` (defaults closed), both read/written from a
+ *  single browser tab, so a plain module-level listener set (no storage-event
+ *  cross-tab sync) is enough. A stored value always wins over the default, so
+ *  changing a default only moves the first visit. */
 export function usePersistedBoolean(key: string, defaultValue: boolean): [boolean, (next: boolean) => void] {
   const subscribe = useCallback(
     (onChange: () => void) => {

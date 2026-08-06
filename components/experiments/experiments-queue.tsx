@@ -19,12 +19,10 @@ import {
 } from "@/lib/experiments";
 import { runWithReconcile } from "@/lib/reconcile";
 
-/** Table view of the Experiments hub (M2 integration): a real list wired to
- *  the kalos portal's /api/experiments/* routes, with the "flag ready" and
- *  "run" / "run all ready" actions from the Voyager ML plan. Extracted from
- *  the old Experiments page (app/experiments/page.tsx) verbatim - same portal
- *  wiring (upload, flag READY, run, DONE detail) - so it renders identically
- *  under the hub's Table tab. This is a sibling to the Voyager
+/** The experiment queue (M2 integration): a real list wired to the kalos
+ *  portal's /api/experiments/* routes, with the "flag ready" and "run" /
+ *  "run all ready" actions from the Voyager ML plan. Rendered by
+ *  app/experiments/page.tsx. This is a sibling to the Voyager
  *  project-management surface (app/voyager), not a replacement for it. */
 export function ExperimentsQueue() {
   const [experiments, setExperiments] = useState<ExperimentSummary[] | null>(null);

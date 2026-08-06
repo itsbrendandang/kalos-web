@@ -1,10 +1,24 @@
 import Link from "next/link";
-import { ArrowLeft, Plus, Search, UserRound } from "lucide-react";
+import { Atom, FolderKanban, ListChecks, Plus, Search, UserRound, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DemoBadge } from "@/components/page-header";
 import type { WorkspaceEvidence } from "@/lib/workspace/adapter";
 import type { CampaignSummary } from "@/lib/workspace/types";
+
+/** The workspace's peers in the app's three-destination nav, mirrored here.
+ *
+ *  `/c/*` opts out of the shared app shell (components/app-shell.tsx), so its
+ *  sidebar is not on screen and nothing else would link out - the workspace
+ *  would be a one-way trip. This rail used to solve that with a single "back
+ *  to the dashboard" arrow pointing at `/`, which worked while `/` was the
+ *  Experiments hub. `/` now redirects INTO this workspace, so that arrow
+ *  would be a loop; the peers have to be named individually instead. */
+const PEERS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/experiments", label: "Experiments", icon: ListChecks },
+  { href: "/simulate", label: "In-silico benchmark", icon: Atom },
+  { href: "/voyager", label: "Client portal", icon: FolderKanban },
+];
 
 /** The campaign rail (design spec section 1.1 "Campaign rail"). Two states
  *  of the same `railOpen` boolean - no third state. Purely presentational:
@@ -126,15 +140,16 @@ function CollapsedRail({
       </button>
       {/* Where the design puts a signed-in scientist's avatar. kalos has no
           accounts, so this slot carries the collapsed counterpart of the
-          expanded rail's way out instead - see ExpandedRail's header. */}
-      <Link
-        href="/"
-        title="Back to the Kalos dashboard"
-        aria-label="Back to the Kalos dashboard"
-        className="mt-auto grid size-[30px] place-items-center rounded-[15px] border border-border text-muted transition-colors hover:border-blue-border hover:bg-blue-soft hover:text-fg"
-      >
-        <ArrowLeft className="size-[14px]" aria-hidden />
-      </Link>
+          expanded rail's way out instead - see PEERS. */}
+      <div className="mt-auto flex flex-col items-center gap-1.5 border-t border-border pt-3.5">
+        {PEERS.map((p) => (
+          <Link key={p.href} href={p.href} title={p.label} aria-label={p.label}>
+            <RailTile className="size-[30px] rounded-[10px]">
+              <p.icon className="size-[14px]" aria-hidden />
+            </RailTile>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -157,21 +172,15 @@ function ExpandedRail({
       <div className="flex items-center gap-2 px-1.5">
         {/* The design draws an org/workspace switcher here ("Bioqore R&D").
             kalos models no organisations and no workspaces, so there is
-            nothing to name and nothing to switch between. The slot carries
-            the one thing this rail genuinely owed the reader instead: the way
-            back out to the rest of the dashboard. /c/* opts out of the shared
-            app shell (components/app-shell.tsx), so without this link the
-            workspace is a one-way trip. */}
-        <Link
-          href="/"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-[10px] px-1 py-1 transition-colors hover:bg-blue-soft"
-        >
-          <ArrowLeft className="size-3.5 shrink-0 text-muted" aria-hidden />
-          <span className="min-w-0">
-            <span className="block truncate text-[13.5px] font-bold tracking-[-0.01em] text-fg">Kalos</span>
-            <span className="mt-px block truncate text-[11px] text-muted">Back to the dashboard</span>
-          </span>
-        </Link>
+            nothing to name and nothing to switch between. It is a plain
+            wordmark, not a link: the workspace is now where `/` lands, so
+            "home" is this screen and a link here would only point at itself.
+            The way out to the other destinations is at the foot of the rail
+            (see PEERS). */}
+        <div className="min-w-0 flex-1 px-1 py-1">
+          <span className="block truncate text-[13.5px] font-bold tracking-[-0.01em] text-fg">Kalos</span>
+          <span className="mt-px block truncate text-[11px] text-muted">Campaign workspace</span>
+        </div>
         {/* Design mock shows a control in this slot of the switcher row; per
             build instructions it's wired to the real theme toggle so dark
             mode stays reachable from the expanded rail. */}
@@ -231,6 +240,18 @@ function ExpandedRail({
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5 border-t border-border pt-3.5">
+          {PEERS.map((p) => (
+            <Link
+              key={p.href}
+              href={p.href}
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-[7px] text-[11.5px] text-muted transition-colors hover:bg-blue-soft hover:text-fg"
+            >
+              <p.icon className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">{p.label}</span>
+            </Link>
+          ))}
+        </div>
         <div className="border-t border-border pt-3.5">
           <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-fg">
             Evidence available

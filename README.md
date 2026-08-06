@@ -6,63 +6,26 @@ on a single unified blue design system, consuming the Kalos engine API.
 
 ## Views
 
-- **Experiments** (`/`) - the single hub for planning, running, and tracking every
-  experiment.
-  A Live / Board / Table view switcher sits under the header, driven by the
-  `?view=live|board|table` search param (default `live`), so each view is
-  directly linkable and the back button moves between them.
-  - **Live** (`?view=live`) - the operations view: summary tiles, in-flight run
-    cards (attention-needed first), the next batch to run, and recently
-    completed runs.
-  - **Board** (`?view=board`) - a Kanban board of experiment/planning tasks
-    moving through To Do -> Draft -> In Progress -> Review Requested ->
-    Completed, with a Table sub-view (the same tasks grouped by column) and a
-    Gantt sub-view stub ("coming soon"), switched via the same toolbar. Cards
-    drag between columns via native HTML5 drag-and-drop (no added dependency);
-    a lightweight inline input adds a new card to a column without a modal.
-    Task data is a static mock in `lib/mock/planning.ts`, pending a real
-    task/experiment-status source.
-  - **Table** (`?view=table`) - the real experiment queue wired to the Kalos
-    portal: upload a run sheet, flag it ready, and run the engine on demand or
-    for every ready experiment at once.
-- **Results** (`/results`) - your last analyzed dataset at a glance: model
-  reliability (honest held-out rank correlation + 95% CI), what drives the
-  outcome, predicted-vs-measured, a run landscape (a low-dimensional
-  projection of every run, positioned by recipe similarity and colored by
-  target - only shown when the engine returns an `embedding`), a histogram of
-  measured target values with non-producers called out, and Recommended
-  actions - the optimizer's next-best experiments, ranked by the acquisition
-  function (`#next-experiments`; this is where the old standalone Optimize
-  page folded in). Reads `GET /api/latest`; shows an upload prompt until you
-  analyze a dataset (it is not a demo).
-- **Decide** (`/decide`) - the decision cockpit and the closed optimization loop.
-  The recommended batch is the hero (each experiment's recipe, predicted value +
-  uncertainty, and why); the honest reliability verdict is a compact chip. Queue
-  proposals and Start them, log each run's measured outcome, then Re-propose -
-  which folds the results into the dataset and returns the next batch, with a
-  best-so-far progress chart. Wired to the engine's `/api/campaign*` endpoints
-  (see `docs/CAMPAIGN_LOOP.md` in the engine repo); best-so-far and round come
-  from the live campaign, never a prediction. Below the loop, a **scale-up
-  timeline** projects the path from 96-well plate to production vessels across
-  branching multi-objective paths (max-yield / min-cost / fastest), with
-  confidence bands that widen with scale - clearly labeled "projected" (physics/
-  literature priors, not measured; `lib/scaleup-projection.ts`). Diagnostics
-  (drivers, reliability, run structure, predicted landscape) collapse behind
-  lazy-mounted disclosures, and a "Coming next" section names what unlocks with
-  live process data. Full design + honesty tiers in `docs/DECIDE_COCKPIT.md`.
-- **Analyze** (`/analyze`) - drop a CSV/TSV/Excel run sheet; the engine fits,
-  cross-validates honestly, ranks the drivers, and recommends the next batch.
-  Reached via the "Run analysis" action button on the Experiments hub and on
-  Results, not a standalone nav entry.
-- **Data** (`/data`) - the data catalog: every dataset and run under a stable,
-  anonymized barcode, with a searchable/sortable registry table and a
-  per-dataset drill-down (sample runs, output ranges, provenance). Mock
-  registry data lives in `lib/mock/registry.ts` (`DATASETS` and
-  `RUNS_BY_DATASET`).
+The nav carries four destinations, flat - there are no lifecycle sections.
+The campaign workspace is the product; the other three are genuine peers, not stages feeding it.
 
-The old `/planning`, `/experiments`, and `/optimize` routes redirect to
-`/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,
-so existing links and bookmarks still resolve.
+- **Campaign workspace** (`/c`, resolving to `/c/[campaignId]`) - the round-to-round surface, and where `/` lands.
+  A campaign rail lists campaigns and opens the New campaign dialog (upload a run sheet, `POST /api/run`, and the engine seeds a campaign from it).
+  Three tabs sit under a workspace header:
+  - **Log** - the round's verdict and reliability, the campaign timeline and activity strip, the batch awaiting approval (approve, log a result, fold in - the closed loop over `/api/campaign*`, see `docs/CAMPAIGN_LOOP.md` in the engine repo), and what the last round taught (measured drivers beside GP-estimated importance, never merged into one ranking).
+  - **Map** - the run graph, with a lineage lens and a local-neighborhood lens, plus replay.
+    Real lineage is not served by the engine yet; the adapter seam is typed for it and the view says so rather than drawing an invented tree.
+  - **Brief** - not built yet.
+  The Ask panel is present and explicitly disabled: the engine has no answering endpoint and no SOP corpus, so the composer says that instead of quietly swallowing what you type.
+- **Experiments** (`/experiments`, detail at `/experiments/[id]`) - the experiment registry wired to the portal's `/api/experiments/*` routes (the M2 contract).
+  Upload a run sheet as a named experiment, flag it READY, run one or every ready experiment at once, and read back the persisted analysis and its provenance (seed, engine version, noise floor).
+  This is deliberately not folded into the workspace: the New campaign dialog analyses one file immediately, which is a different thing from staging a named experiment for deferred batch execution.
+- **In-silico benchmark** (`/simulate`) - a synthetic Bayesian-optimization surface (`/api/single`, `/api/multi`), not campaign-scoped and not a real process.
+  It carries its own banner saying so.
+- **Client portal** (`/voyager`) - the customer-facing product surface; see below.
+
+`/` redirects to `/c`.
+The retired routes (`/analyze`, `/decide`, `/results`, `/optimize`, `/vessels`, `/plate`, `/planning`, `/data`) are gone rather than redirected: the surfaces they pointed at no longer exist, and a redirect to a page that cannot answer is worse than a 404.
 
 ## Design system
 

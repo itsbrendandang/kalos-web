@@ -2,99 +2,52 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Atom,
-  ClipboardList,
-  Database,
-  FolderKanban,
-  LayoutDashboard,
-  LayoutGrid,
-  ListChecks,
-  TestTubes,
-  Workflow,
-  type LucideIcon,
-} from "lucide-react";
+import { Atom, FolderKanban, ListChecks, Workflow, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type NavItem = { href: string; label: string; short: string; helper: string; icon: LucideIcon };
 
-// The internal scientist workflow is grouped by lifecycle stage (watch the lab
-// -> analyze results -> the data behind it) so the nav reads as a workflow,
-// not a flat wall of links. Experiments is the single hub for planning,
-// running, and tracking runs (Live / Board / Table views live at "/"), so
-// Operations/Planning/Optimize are no longer separate destinations, and Run
-// analysis is an action button rather than a nav entry. "Clients" is split
-// off with a divider: it's the client-facing surface (Bioqore's customers
-// viewing their own runs), a different audience from the internal tool, so it
-// doesn't belong inside "Analyze". The desktop sidebar renders the section
-// labels; the compact mobile bar flattens them.
-const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
-  {
-    label: "Monitor",
-    items: [
-      { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board · Table", icon: ListChecks },
-      { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
-    ],
-  },
-  {
-    label: "Analyze",
-    items: [
-      { href: "/results", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
-      { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
-      { href: "/simulate", label: "In-silico optimizer", short: "Simulate", helper: "Synthetic BO benchmark", icon: Atom },
-    ],
-  },
-  {
-    label: "Data",
-    items: [{ href: "/data", label: "Data room", short: "Data", helper: "Registry", icon: Database }],
-  },
-  {
-    label: "Clients",
-    divided: true,
-    items: [{ href: "/voyager", label: "Projects", short: "Projects", helper: "Client portal", icon: FolderKanban }],
-  },
+/**
+ * The whole destination list, flat.
+ *
+ * It used to be five labelled groups (Monitor / Analyze / Data / Clients,
+ * plus the workspace pinned above them as a filled primary tile) covering
+ * eight destinations. That structure existed to give the old lifecycle IA -
+ * watch the lab, analyze results, the data behind it - a shape, and it ran
+ * alongside the campaign workspace as a second, competing IA.
+ *
+ * The lifecycle routes are gone (see app/page.tsx), so there are no stages
+ * left to group by, and grouping is not free: a section label is a claim that
+ * the items under it belong together and apart from the others. With three
+ * destinations there is nothing to disambiguate - the labels would each head
+ * a list of one, which is louder than the thing it organises. So this is one
+ * flat list, in the order the product reads: the campaign workspace first
+ * (the surface everything else orbits and where `/` lands), then the two
+ * genuine peers.
+ *
+ * The workspace also loses its filled primary treatment for the same reason
+ * the groups went. That treatment marked it as the one live destination among
+ * legacy routes; now it is simply the first of three peers, and giving it a
+ * different shape from the others would re-introduce a hierarchy the IA no
+ * longer has. It reads as home by position, not by decoration.
+ *
+ * The desktop sidebar and the compact mobile bar render the same list.
+ */
+const NAV: NavItem[] = [
+  { href: "/c", label: "Campaign workspace", short: "Campaign", helper: "Log · Map · Brief", icon: Workflow },
+  { href: "/experiments", label: "Experiments", short: "Exp", helper: "Run sheets · analyses", icon: ListChecks },
+  { href: "/simulate", label: "In-silico benchmark", short: "Benchmark", helper: "Synthetic BO surface", icon: Atom },
+  { href: "/voyager", label: "Client portal", short: "Clients", helper: "Voyager", icon: FolderKanban },
 ];
 
-const NAV: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
-
-/** The campaign workspace's entry point, and the only link to `/c` anywhere
- *  outside the workspace itself.
- *
- *  It is deliberately NOT a fifth NAV_SECTIONS entry. The sections above are
- *  peers of each other - lifecycle stages of the older flat IA - and the
- *  workspace is not a sixth stage: it is the round-to-round surface (the
- *  batch to approve, the Log, the Map) that those stages feed. So it gets a
- *  filled primary treatment pinned above them, reading as the destination
- *  while every legacy route stays exactly where it was and keeps working.
- *
- *  There is no active state, because there cannot be one: `/c/*` returns
- *  early from AppShell above and renders its own rail instead, so this link
- *  is never on screen while the workspace is open. It is always a call to
- *  action, never a tab.
- *
- *  The route `/` is left alone on purpose. Redirecting it at `/c` would
- *  strand the Experiments hub - nothing else in the app links to it - which
- *  is the same unreachability bug this entry exists to fix, pointed the other
- *  way. The workspace has not absorbed Live/Board/Table, Vessels, Plate or
- *  the data room yet, so the cutover that retires `/` is a later, separate
- *  piece of work. */
-function WorkspaceEntry({ className }: { className?: string }) {
-  return (
-    <Link
-      href="/c"
-      className={cn(
-        "flex items-center gap-3 rounded-[10px] bg-accent px-3 py-2.5 text-[13px] font-semibold text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90",
-        className,
-      )}
-    >
-      <Workflow className="size-4 shrink-0" />
-      <span className="min-w-0">
-        <span className="block">Campaign workspace</span>
-        <span className="block text-[11px] font-normal opacity-80">Log · Map · Brief</span>
-      </span>
-    </Link>
-  );
+/** Prefix match, but on whole path segments, so `/c` never lights up for a
+ *  hypothetical `/campaigns`. The workspace entry can in practice never be
+ *  active - AppShell returns early for `/c/*` and the workspace renders its
+ *  own rail instead - but the rule is written once for all four rather than
+ *  special-cased, so adding a destination later cannot get it wrong. */
+function isActive(path: string, href: string): boolean {
+  return path === href || path.startsWith(`${href}/`);
 }
 
 function Leaf({ size = 22 }: { size?: number }) {
@@ -130,58 +83,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="font-head text-[17px] font-bold text-fg">Kalos</div>
-            <div className="text-[11px] text-muted">Client dashboard</div>
+            <div className="truncate text-[11px] text-muted">Process optimizer</div>
           </div>
           <ThemeToggle />
         </div>
-        <WorkspaceEntry className="mb-5" />
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-          {NAV_SECTIONS.map((section) => (
-            <div
-              key={section.label}
-              className={cn("flex flex-col gap-1", section.divided && "mt-1 border-t border-border pt-4")}
-            >
-              <div className="px-3 pb-0.5 text-[10px] font-semibold tracking-[0.08em] text-muted uppercase">
-                {section.label}
-              </div>
-              {section.items.map((n) => {
-                const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
-                return (
-                  <Link
-                    key={n.href}
-                    href={n.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] transition-colors",
-                      active ? "border border-blue-border bg-accent-soft font-semibold text-accent-text" : "border border-transparent text-muted hover:border-border hover:bg-blue-soft hover:text-fg",
-                    )}
-                  >
-                    <n.icon className="size-4 shrink-0" />
-                    <span className="min-w-0">
-                      <span className="block">{n.label}</span>
-                      <span className={cn("block text-[11px] font-normal", active ? "text-accent-text" : "text-muted")}>
-                        {n.helper}
-                      </span>
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+          {NAV.map((n) => {
+            const active = isActive(path, n.href);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] transition-colors",
+                  active
+                    ? "border border-blue-border bg-accent-soft font-semibold text-accent-text"
+                    : "border border-transparent text-muted hover:border-border hover:bg-blue-soft hover:text-fg",
+                )}
+              >
+                <n.icon className="size-4 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block">{n.label}</span>
+                  <span className={cn("block text-[11px] font-normal", active ? "text-accent-text" : "text-muted")}>
+                    {n.helper}
+                  </span>
+                </span>
+              </Link>
+            );
+          })}
         </nav>
-
-        <div className="mt-4 shrink-0 rounded-2xl border border-border bg-blue-soft p-3">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-fg">
-            <ClipboardList className="size-3.5" />
-            Typical workflow
-          </div>
-          <div className="space-y-1.5 text-[11px] text-muted">
-            <div>1. Upload run sheet</div>
-            <div>2. Review model reliability</div>
-            <div>3. Select next experiments</div>
-          </div>
-        </div>
       </aside>
 
       <main className="min-w-0 flex-1">
@@ -191,13 +123,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="font-head font-bold">Kalos</span>
             <ThemeToggle className="ml-auto" />
           </div>
-          {/* Above the flattened section grid rather than inside it, for the
-              same reason the sidebar pins it above the sections - and so the
-              grid keeps its existing 6-column rhythm. */}
-          <WorkspaceEntry className="mb-2 justify-center py-2" />
-          <nav className="grid grid-cols-6 gap-1">
+          {/* One column per destination - the grid was a fixed 6 columns to
+              hold eight flattened items, which no longer matches the list. */}
+          <nav className="grid grid-cols-4 gap-1">
             {NAV.map((n) => {
-              const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+              const active = isActive(path, n.href);
               return (
                 <Link
                   key={n.href}

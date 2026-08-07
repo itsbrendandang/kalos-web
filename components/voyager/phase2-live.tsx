@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Activity, Gauge, RefreshCw, Info, FlaskConical } from "lucide-react";
-import { getLatest, type LatestResult, type AnalyzeResult, type Reliability } from "@/lib/api";
+import {
+  getLatest,
+  recipeColumns,
+  recipeValue,
+  type LatestResult,
+  type AnalyzeResult,
+  type Reliability,
+} from "@/lib/api";
 
 type Live = Extract<LatestResult, { has_data: true }>;
 
@@ -84,12 +91,15 @@ function ProposalCard({ d, p, i }: { d: AnalyzeResult; p: AnalyzeResult["proposa
       </div>
       <div className="dc-expand">
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-          {d.proposal_features.map((f, k) => (
-            <div key={f} className="cond-cell">
-              <div className="cond-lbl truncate">{f}</div>
-              <div className="cond-val">{fmt(p.vals[k], 3)}</div>
-            </div>
-          ))}
+          {recipeColumns([p], d.proposal_features).names.map((f) => {
+            const v = recipeValue(p, f, d.proposal_features);
+            return (
+              <div key={f} className="cond-cell">
+                <div className="cond-lbl truncate">{f}</div>
+                <div className="cond-val">{typeof v === "number" ? fmt(v, 3) : (v ?? "—")}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

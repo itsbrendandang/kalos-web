@@ -4,17 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, FlaskConical, RefreshCw, Upload } from "lucide-react";
 import {
+  fullRecipe,
   getCampaign,
   getLatest,
   isReliable,
   logResult,
   reanalyze,
+  recipeColumns,
+  recipeValue,
   startRuns,
   type Campaign,
   type CampaignRun,
   type LatestResult,
   type PopulatedResult,
   type Proposal,
+  type StartRecipe,
 } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,16 +168,23 @@ function DecideBody({
   }
 
   async function handleStart() {
-    const recipes = [...queued].map((i) => {
-      const p = d.proposals[i];
-      return {
-        recipe: Object.fromEntries(d.proposal_features.map((f, fi) => [f, p.vals[fi]])),
-        pred: p.pred,
-        std: p.std,
-        mode: p.mode,
-        reason: p.reason,
-      };
-    });
+    // The FULL recipe, never one rebuilt from `proposal_features`: that list is
+    // the abridged top-few-drivers view, so a recipe assembled from it omits
+    // every other modeled input and the engine folds those back in as zero.
+    const queuedProposals = [...queued].map((i) => d.proposals[i]);
+    // An older analysis carries no `recipe`; starting a run from it would send
+    // an incomplete experiment to the campaign. Refuse rather than corrupt it.
+    if (queuedProposals.some((p) => fullRecipe(p) === null)) {
+      setStartErr(true);
+      return;
+    }
+    const recipes: StartRecipe[] = queuedProposals.map((p) => ({
+      recipe: fullRecipe(p)!,
+      pred: p.pred,
+      std: p.std,
+      mode: p.mode,
+      reason: p.reason,
+    }));
     setStartBusy(true);
     setStartErr(false);
     try {
@@ -283,7 +294,7 @@ function DecideBody({
           </div>
           <div className="flex flex-col gap-2">
             {active.pending.map((run) => (
-              <PendingRunRow key={run.id} run={run} features={d.proposal_features} unit={unit} onLogResult={handleLogResult} />
+              <PendingRunRow key={run.id} run={run} unit={unit} onLogResult={handleLogResult} />
             ))}
           </div>
           <div className="flex items-center justify-between rounded-[10px] border border-accent/40 bg-blue-tint px-4 py-2.5 text-[13px]">
@@ -536,6 +547,7 @@ function ProposalCard({
   const bandV = band ?? p.std;
   const delta = p.pred - best;
   const v = recipeVerdict(p.pred, bandV, best);
+  const { names: recipeNames, abridged: recipeAbridged } = recipeColumns([p], features);
   const toneClass =
     v.tone === "good" ? "bg-green-soft text-green" : v.tone === "weak" ? "bg-amber-soft text-amber" : "bg-bg text-muted";
   return (
@@ -554,14 +566,27 @@ function ProposalCard({
         </span>
       </div>
 
+      {/* Every modeled input, not just the top drivers in `features`: this card
+          is what someone sets up at the bench, so a partial recipe is wrong. */}
       <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {features.map((f, i) => (
-          <div key={f}>
-            <div className="text-[10px] tracking-wider text-muted uppercase">{f}</div>
-            <div className="tabular font-mono text-[17px] font-semibold text-fg">{num(p.vals[i], 2)}</div>
-          </div>
-        ))}
+        {recipeNames.map((f) => {
+          const v = recipeValue(p, f, features);
+          return (
+            <div key={f}>
+              <div className="text-[10px] tracking-wider text-muted uppercase">{f}</div>
+              <div className="tabular font-mono text-[17px] font-semibold text-fg">
+                {typeof v === "number" ? num(v, 2) : (v ?? "—")}
+              </div>
+            </div>
+          );
+        })}
       </div>
+      {recipeAbridged ? (
+        <p className="text-[11px] text-amber">
+          Partial recipe: only the strongest {recipeNames.length} inputs are listed. Re-run the analysis to get the
+          full recipe before running this.
+        </p>
+      ) : null}
 
       <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-3">
         {/* The number that matters: predicted change vs the recipe you already have. */}
@@ -607,12 +632,10 @@ function ProposalCard({
 
 function PendingRunRow({
   run,
-  features,
   unit,
   onLogResult,
 }: {
   run: CampaignRun;
-  features: string[];
   unit: string;
   onLogResult: (id: string, value: number) => Promise<void>;
 }) {
@@ -649,13 +672,20 @@ function PendingRunRow({
         {run.mode}
       </span>
 
+      {/* Iterate the stored recipe's OWN keys, not `proposal_features`: the run
+          was started with a full recipe, so show every input it specifies. */}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {features.map((f) => (
-          <div key={f} className="text-[12px] whitespace-nowrap">
-            <span className="text-muted">{f}</span>{" "}
-            <span className="tabular font-mono font-semibold text-fg">{num(run.recipe[f], 2)}</span>
-          </div>
-        ))}
+        {Object.keys(run.recipe).map((f) => {
+          const v = run.recipe[f];
+          return (
+            <div key={f} className="text-[12px] whitespace-nowrap">
+              <span className="text-muted">{f}</span>{" "}
+              <span className="tabular font-mono font-semibold text-fg">
+                {typeof v === "number" ? num(v, 2) : v}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="text-[12px] whitespace-nowrap text-muted">

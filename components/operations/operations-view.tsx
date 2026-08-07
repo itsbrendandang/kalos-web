@@ -10,7 +10,13 @@ import { RunCard } from "@/components/operations/run-card";
 import { RunQueue, fmtPredicted, type QueueRow } from "@/components/operations/run-queue";
 import { CompletedList } from "@/components/operations/completed-list";
 import { ExperimentStatusChip } from "@/components/experiments/status-chip";
-import { getLatest, type LatestResult, type PopulatedResult } from "@/lib/api";
+import {
+  getLatest,
+  recipeColumns,
+  recipeValue,
+  type LatestResult,
+  type PopulatedResult,
+} from "@/lib/api";
 import { PIPELINE_SUMMARY, runsByStatus, type PipelineRun } from "@/lib/mock/pipeline";
 import { listExperiments, type ExperimentSummary } from "@/lib/experiments";
 import { DEMO_MODE } from "@/lib/demo";
@@ -42,13 +48,24 @@ function isToday(iso: string): boolean {
   );
 }
 
-/** Real portal proposals (from GET /api/latest) as queue rows. */
+/** Real portal proposals (from GET /api/latest) as queue rows.
+ *
+ * The recipe comes from each proposal's full `recipe` (every modeled input),
+ * not from `proposal_features` - these rows sit next to a "Start run" button,
+ * so showing only the top few drivers would send someone to the bench with an
+ * under-specified experiment. */
 function proposalsToQueueRows(d: PopulatedResult): QueueRow[] {
-  return d.proposals.map((p, i) => ({
-    id: `proposal-${i}`,
-    recipe: d.proposal_features.map((f, j) => ({ label: f, value: num(p.vals[j], 2) })),
-    pred: { value: fmtPredicted(p.pred, p.std), mode: p.mode, why: p.reason },
-  }));
+  return d.proposals.map((p, i) => {
+    const { names } = recipeColumns([p], d.proposal_features);
+    return {
+      id: `proposal-${i}`,
+      recipe: names.map((f) => {
+        const v = recipeValue(p, f, d.proposal_features);
+        return { label: f, value: typeof v === "number" ? num(v, 2) : String(v ?? "—") };
+      }),
+      pred: { value: fmtPredicted(p.pred, p.std), mode: p.mode, why: p.reason },
+    };
+  });
 }
 
 /** Demo-only: the mock queued runs (recipe + predicted mirror the portal shape). */

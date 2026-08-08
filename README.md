@@ -37,7 +37,10 @@ on a single unified blue design system, consuming the Kalos engine API.
   analyze a dataset (it is not a demo).
 - **Decide** (`/decide`) - the decision cockpit and the closed optimization loop.
   The recommended batch is the hero (each experiment's recipe, predicted value +
-  uncertainty, and why); the honest reliability verdict is a compact chip. Queue
+  uncertainty, and why); the honest reliability verdict is a compact chip. Every
+  recipe shown, and every recipe sent to the campaign, is the proposal's full
+  `recipe` - every modeled input, not the abridged `proposal_features` list a
+  table displays (see "Recipes are complete" below). Queue
   proposals and Start them, log each run's measured outcome, then Re-propose -
   which folds the results into the dataset and returns the next batch, with a
   best-so-far progress chart. Wired to the engine's `/api/campaign*` endpoints
@@ -63,6 +66,22 @@ on a single unified blue design system, consuming the Kalos engine API.
 The old `/planning`, `/experiments`, and `/optimize` routes redirect to
 `/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,
 so existing links and bookmarks still resolve.
+
+## Recipes are complete
+
+An analysis returns two different things that look interchangeable and are not.
+`proposal_features` is an ABRIDGED list - the few strongest drivers, chosen so a
+proposal table stays readable.
+Each proposal's `recipe` is the WHOLE experiment: every modeled input, with
+categoricals decoded back to their labels.
+
+Anywhere a recipe is shown to run, or sent to `/api/campaign/start`, use the
+full `recipe` (`fullRecipe` / `recipeColumns` / `recipeValue` in `lib/api.ts`).
+Rendering `proposal_features` alone puts an under-specified experiment next to a
+"Start run" button, and the engine reads the omitted inputs as zero when the run
+is folded back in - so the engine now rejects such a recipe with a 400.
+`proposal_features` remains the labeled fallback for analyses predating
+full-recipe reporting.
 
 ## Design system
 

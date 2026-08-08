@@ -2,12 +2,77 @@
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8050";
 
 export type Proposal = {
+  /**
+   * The proposed values for `proposal_features` only - the abridged list the
+   * engine picks for a compact table (the top few drivers). NOT the whole
+   * experiment: prefer `recipe` anywhere the user is asked to RUN this.
+   */
   vals: number[];
+  /**
+   * The complete proposed experiment, `{feature: value}` over every modeled
+   * input, with categoricals decoded back to their labels. This is what a
+   * scientist has to set up, and what the campaign loop must be given - a
+   * recipe built from `vals`/`proposal_features` silently omits the features
+   * outside the top few, and the engine reads those omissions as zero.
+   * Optional: analyses run before the engine returned it have no `recipe`,
+   * so callers fall back to the abridged view rather than render nothing.
+   */
+  recipe?: Record<string, number | string>;
   pred: number;
   std: number;
   mode: "explore" | "exploit";
   reason: string;
 };
+
+/**
+ * The minimum shape the recipe helpers need. Structural rather than tied to
+ * `Proposal` so the multi-objective rows (which carry no `recipe` yet) can use
+ * the same code path and degrade to the abridged view.
+ */
+export type RecipeBearing = { vals: number[]; recipe?: Record<string, number | string> };
+
+/**
+ * The full ordered `{feature: value}` recipe for one proposal, or null when the
+ * engine did not return one (an older analysis, or the multi-objective path).
+ *
+ * Every surface that shows a recipe to run, or sends one to the campaign, goes
+ * through this - so "which inputs does this experiment actually specify" has a
+ * single answer instead of each view re-deriving it from `proposal_features`.
+ */
+export function fullRecipe(p: RecipeBearing): Record<string, number | string> | null {
+  return p.recipe && Object.keys(p.recipe).length > 0 ? p.recipe : null;
+}
+
+/**
+ * The feature names to show for a batch of proposals: every input in the full
+ * recipe when the engine returned one, else the abridged `proposal_features`.
+ * `abridged` is true in the fallback case so a caller can SAY the view is
+ * partial instead of presenting an incomplete recipe as the whole experiment.
+ *
+ * Keyed off the first row: all proposals in one batch come from the same design
+ * space, so they share a feature set.
+ */
+export function recipeColumns(
+  rows: RecipeBearing[],
+  proposalFeatures: string[],
+): { names: string[]; abridged: boolean } {
+  const full = rows.length ? fullRecipe(rows[0]) : null;
+  return full
+    ? { names: Object.keys(full), abridged: false }
+    : { names: proposalFeatures, abridged: true };
+}
+
+/** One proposal's value for `name`, from the full recipe when available. */
+export function recipeValue(
+  p: RecipeBearing,
+  name: string,
+  proposalFeatures: string[],
+): number | string | undefined {
+  const full = fullRecipe(p);
+  if (full) return full[name];
+  const i = proposalFeatures.indexOf(name);
+  return i >= 0 ? p.vals[i] : undefined;
+}
 
 export type MultiProposal = {
   vals: number[];
@@ -190,7 +255,8 @@ export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "c
 /** One recipe started from a proposed batch, awaiting or holding a measured outcome. */
 export type CampaignRun = {
   id: string;
-  recipe: Record<string, number>;
+  /** The complete experiment this run was started with, categoricals as labels. */
+  recipe: Record<string, number | string>;
   pred: number;
   std: number;
   mode: "explore" | "exploit";
@@ -228,7 +294,14 @@ export const getCampaign = (): Promise<Campaign> =>
 
 /** A recipe about to be started, in the shape POST /api/campaign/start expects. */
 export type StartRecipe = {
-  recipe: Record<string, number>;
+  /**
+   * The COMPLETE experiment to run, every modeled input included. The engine
+   * validates these keys against the campaign's schema and rejects a recipe
+   * that omits a modeled feature, so this must be a proposal's `recipe`, not
+   * a mapping rebuilt from the abridged `proposal_features`. Categorical
+   * inputs arrive as their decoded labels, hence `string`.
+   */
+  recipe: Record<string, number | string>;
   pred: number;
   std: number;
   mode: string;

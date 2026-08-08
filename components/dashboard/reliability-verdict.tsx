@@ -1,4 +1,5 @@
 import type { PopulatedResult } from "@/lib/api";
+import { batchVerdict, bandLabel } from "@/lib/batch-verdict";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,12 +21,13 @@ export function ReliabilityVerdict({ d }: { d: PopulatedResult }) {
   const { spearman, ci95, spearman_floor, clears_floor } = rel;
   const includesZero = ci95[0] <= 0 && ci95[1] >= 0;
 
-  // How many recommended recipes are actually predicted to beat the incumbent,
-  // using the conformal band - so a reliable ranking doesn't get overstated as
-  // "act on these" when none of them clears the current best.
-  const band = d.conformal_q ?? null;
-  const beats = d.proposals.filter((p) => p.pred - (band ?? p.std) >= d.best).length;
-  const nProps = d.proposals.length;
+  // Counted once, in lib/batch-verdict.ts, and shared with the /decide banner so
+  // the two cannot drift into describing the same batch differently. `beats` is
+  // the strict band-aware test; `nAbove` is what the proposal table shows. The
+  // copy below must name the band, or "none beats your best" contradicts a table
+  // reading "+6.75" and "predicted high" a few hundred pixels down the page.
+  const { beats, nAbove, total: nProps, band } = batchVerdict(d.proposals, d.best, d.conformal_q ?? null);
+  const bandStr = bandLabel(band);
   // The verdict is only "green" when the model both ranks reliably AND is
   // proposing something it believes beats the current best.
   const strong = clears_floor && beats > 0;
@@ -45,13 +47,20 @@ export function ReliabilityVerdict({ d }: { d: PopulatedResult }) {
           drivers are trustworthy.{" "}
           {beats > 0 ? (
             <>
-              {beats} of {nProps} recommendations {beats === 1 ? "is" : "are"} predicted to beat your current best; the
-              wide ± bands mean read the order as a guide, not a guarantee.
+              {beats} of {nProps} recommendations still {beats === 1 ? "clears" : "clear"} your current best at the low
+              end of the {bandStr} band; read the order as a guide, not a guarantee.
             </>
           ) : (
             <>
-              But none of the recommended recipes is predicted to beat your current best - they are exploration around
-              it, not confident bets.
+              {nAbove > 0 ? (
+                <>
+                  {nAbove} of {nProps} {nAbove === 1 ? "predicts" : "predict"} higher than your current best, but not by
+                  more than the {bandStr} band, so none of them clears it once that uncertainty is applied.
+                </>
+              ) : (
+                <>None of the recommended recipes predicts higher than your current best.</>
+              )}{" "}
+              Treat this batch as exploration around your best, not confident bets.
             </>
           )}
         </>

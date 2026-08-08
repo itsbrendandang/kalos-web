@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
 import { getLatest, isReliable, type LatestResult, type PopulatedResult } from "@/lib/api";
+import { proposalVerdict } from "@/lib/batch-verdict";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
@@ -352,10 +353,15 @@ function OverviewBody({ d }: { d: PopulatedResult }) {
               rows={d.proposals}
               predHead={`pred. ${d.target} · vs best`}
               predFn={(p) => {
+                // Print the SAME band the verdict is computed from. This used to
+                // show `± p.std` (the GP's own, narrower, overconfident number)
+                // beside a verdict derived from the conformal band, so the row
+                // contradicted itself and the section caption above it.
                 const band = d.conformal_q ?? p.std;
                 const delta = p.pred - d.best;
-                const v = p.pred - band >= d.best ? "beats" : p.pred + band <= d.best ? "below" : "~best";
-                return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})`;
+                const v = proposalVerdict(p.pred, band, d.best);
+                const label = v === "coin-flip" ? "~best" : v;
+                return `${num(p.pred, 2)} ± ${num(band, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${label})`;
               }}
             />
           ) : (

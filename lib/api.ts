@@ -1,4 +1,6 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+import type { ValidationReport } from "@/lib/validation";
+
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8050";
 
 export type Proposal = {
@@ -117,6 +119,13 @@ export type AnalyzeResult = {
   };
   /** Per-column data-cleaning trail (kept/dropped/target), for traceability. */
   provenance?: ProvenanceEntry[];
+  /**
+   * Data-validation report for the uploaded run sheet, run before the model
+   * fit (see lib/validation.ts for the full shape and UI helpers). Absent on
+   * analyses run before the engine started returning it - render an honest
+   * "no validation report" state rather than fabricate a pass.
+   */
+  validation?: ValidationReport;
   /** Engine run metadata, surfaced for traceability when present. */
   seed?: number;
   timestamp?: number;
@@ -271,5 +280,28 @@ export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
   return r.json();
 }
+
+// --- Optional AI providers (GET /api/providers) -----------------------------
+// Documented optional upgrades some validation checks can use when a key is
+// configured (e.g. an LLM-assisted check) - never required. See
+// components/validation/provider-status.tsx for the neutral (not
+// error/warning) rendering of an unconfigured provider.
+
+export type Provider = {
+  name: string;
+  available: boolean;
+  required_env: string[];
+  missing_env: string[];
+  capability: string;
+  fallback: string;
+};
+
+export type ProvidersResponse = { providers: Provider[] };
+
+export const getProviders = (): Promise<ProvidersResponse> =>
+  fetch(`${API}/api/providers`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
 
 export { API };

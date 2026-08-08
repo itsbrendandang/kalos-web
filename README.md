@@ -54,6 +54,16 @@ on a single unified blue design system, consuming the Kalos engine API.
   cross-validates honestly, ranks the drivers, and recommends the next batch.
   Reached via the "Run analysis" action button on the Experiments hub and on
   Results, not a standalone nav entry.
+- **Validate** (`/validate`) - drop a run sheet and see only the data-quality
+  verdict, before committing to a full optimization run. Renders the engine's
+  `validation` block: a pass / pass-with-warnings / fail header, per-check
+  findings with errors first, the affected columns and row indices (honestly
+  captioned "showing 20 of N" when the engine's row list is capped), and a
+  unit-conversions section naming exactly what was changed about the upload and
+  what it was converted to. Also shows external-provider credential status from
+  `GET /api/providers`, framed neutrally - an unconfigured provider is a
+  documented optional upgrade, not an error. Severity is never conveyed by color
+  alone.
 - **Data** (`/data`) - the data catalog: every dataset and run under a stable,
   anonymized barcode, with a searchable/sortable registry table and a
   per-dataset drill-down (sample runs, output ranges, provenance). Mock

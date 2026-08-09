@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
+  ShieldCheck,
   TestTubes,
   type LucideIcon,
 } from "lucide-react";
@@ -39,6 +40,7 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
   {
     label: "Analyze",
     items: [
+      { href: "/validate", label: "Validate", short: "Validate", helper: "Pre-flight data checks", icon: ShieldCheck },
       { href: "/results", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
       { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
       { href: "/simulate", label: "In-silico optimizer", short: "Simulate", helper: "Synthetic BO benchmark", icon: Atom },
@@ -141,7 +143,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="font-head font-bold">Kalos</span>
             <ThemeToggle className="ml-auto" />
           </div>
-          <nav className="grid grid-cols-6 gap-1">
+          <nav className="grid grid-cols-4 gap-1">
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
               return (

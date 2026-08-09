@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Upload, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, X } from "lucide-react";
 import { isReliable, runFile, type AnalyzeResult } from "@/lib/api";
 import { Card, SectionLabel } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader, Loading } from "@/components/page-header";
+import { UploadDropzone } from "@/components/upload-dropzone";
 import { cn } from "@/lib/utils";
 
 export default function AnalyzePage() {
@@ -14,8 +15,10 @@ export default function AnalyzePage() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [drag, setDrag] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Bumped on reset() to remount <UploadDropzone> (see below) - that clears
+  // its internal file input, so re-selecting the same-named file after
+  // "Analyze another file" fires onChange again instead of being deduped.
+  const [resetCount, setResetCount] = useState(0);
 
   async function analyze(f: File, target?: string) {
     setFile(f);
@@ -40,7 +43,7 @@ export default function AnalyzePage() {
     setRes(null);
     setFile(null);
     setErr("");
-    if (inputRef.current) inputRef.current.value = "";
+    setResetCount((c) => c + 1);
   }
 
   // Reuses the same isReliable() predicate as the Dashboard (lib/api.ts) so a dataset
@@ -55,52 +58,9 @@ export default function AnalyzePage() {
         desc="Upload bioprocessing experiment data to fit the model, check reliability, and generate the next recommended recipes."
       />
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".csv,.tsv,.xlsx,.xls"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) analyze(f);
-        }}
-      />
-
       {!res && !busy ? (
         <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="Upload a run sheet (CSV, TSV, or Excel)"
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                inputRef.current?.click();
-              }
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDrag(true);
-            }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDrag(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) analyze(f);
-            }}
-            className={cn(
-              "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors",
-              drag ? "border-accent bg-accent-soft" : "border-border bg-card hover:bg-blue-soft",
-            )}
-          >
-            <Upload className="size-7 text-accent" />
-            <div className="text-sm font-semibold">
-              Drop a run sheet here <span className="font-normal text-muted">or click to choose</span>
-            </div>
-            <div className="font-mono text-[11px] text-muted">CSV / TSV / XLSX / parsed for this analysis</div>
-          </div>
+          <UploadDropzone key={resetCount} onFile={(f) => analyze(f)} />
           <Card className="bg-blue-soft">
             <SectionLabel>Run sheet checklist</SectionLabel>
             <div className="space-y-3 text-[12.5px] text-muted">

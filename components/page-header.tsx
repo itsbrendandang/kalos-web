@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { LoadingSkeleton } from "@/components/ui/honest-state";
 
 export function PageHeader({
   eyebrow,
@@ -33,13 +33,9 @@ export function DemoBadge() {
 
 export function Loading({ label = "Running analysis" }: { label?: string }) {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex items-center justify-center gap-2 py-10 font-mono text-xs text-muted"
-    >
-      <Loader2 className="size-3.5 shrink-0 animate-spin text-accent-text" aria-hidden />
-      <span>{label}…</span>
+    <div className="py-6">
+      <p className="mb-3 text-center font-mono text-[11px] text-muted">{label}…</p>
+      <LoadingSkeleton variant="rows" rows={4} label={label} className="mx-auto max-w-md" />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type NavItem = { href: string; label: string; short: string; helper: string; icon: LucideIcon };
 
@@ -147,18 +148,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
               return (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 text-center text-[9.5px] leading-none font-semibold transition-colors",
-                    active ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:bg-blue-soft hover:text-fg",
-                  )}
-                >
-                  <n.icon className="size-4 shrink-0" />
-                  <span className="w-full truncate">{n.short}</span>
-                </Link>
+                // The compact mobile bar only has room for an icon and a 3-4
+                // character short label - the per-item helper subtitle the
+                // desktop rail shows underneath each link has nowhere to go
+                // here, so it surfaces as a tooltip instead of being dropped.
+                <Tooltip key={n.href}>
+                  <TooltipTrigger
+                    render={
+                      <Link
+                        href={n.href}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[10px] px-0.5 text-center text-[9.5px] leading-none font-semibold outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40",
+                          active ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:bg-blue-soft hover:text-fg",
+                        )}
+                      />
+                    }
+                  >
+                    <n.icon className="size-4 shrink-0" />
+                    <span className="w-full truncate">{n.short}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <span className="font-semibold">{n.label}</span>
+                    <span className="text-background/70"> · {n.helper}</span>
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
           </nav>
@@ -166,7 +180,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isVoyager ? (
           children
         ) : (
-          <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 md:px-8 md:py-8">{children}</div>
+          <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-6 md:py-8">
+            {children}
+          </div>
         )}
       </main>
     </div>

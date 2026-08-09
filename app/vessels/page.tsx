@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PlugZap } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/honest-state";
 import { VesselTable } from "@/components/vessels/vessel-table";
 import { KineticOverlay } from "@/components/vessels/kinetic-overlay";
 import { CorrelationScatter } from "@/components/vessels/correlation-scatter";
@@ -17,14 +18,16 @@ function NoLiveVessels() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Vessel Workspace" desc="Per-vessel ambr kinetics and titer-vs-qP correlation." />
-      <Card className="flex flex-col items-center gap-1.5 py-10 text-center">
-        <PlugZap className="size-5 text-muted" />
-        <div className="text-[13.5px] font-semibold text-fg">No live vessel data</div>
-        <p className="max-w-[46ch] text-[12px] leading-5 text-muted">
-          No live vessel/kinetics source is connected yet. Set{" "}
-          <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview this workspace with demo data.
-        </p>
-      </Card>
+      <EmptyState
+        icon={PlugZap}
+        title="No live vessel data"
+        description={
+          <>
+            No live vessel/kinetics source is connected yet. Set{" "}
+            <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview this workspace with demo data.
+          </>
+        }
+      />
     </div>
   );
 }
@@ -88,8 +91,6 @@ export default function VesselsPage() {
             sub="TITER [g/L] vs time"
             channel="titer"
             vessels={VESSELS.vessels}
-            titerMin={VESSELS.titerMin}
-            titerMax={VESSELS.titerMax}
             selectedIds={selectedIds}
             yTickFormatter={(v) => v.toFixed(1)}
           />
@@ -100,8 +101,6 @@ export default function VesselsPage() {
             sub="CELL_VIABILITY [%] vs time"
             channel="via"
             vessels={VESSELS.vessels}
-            titerMin={VESSELS.titerMin}
-            titerMax={VESSELS.titerMax}
             selectedIds={selectedIds}
             yTickFormatter={(v) => v.toFixed(0)}
           />
@@ -112,8 +111,6 @@ export default function VesselsPage() {
             sub="VIABLE_CELL_DENSITY [×10⁶/mL] vs time"
             channel="vcd"
             vessels={VESSELS.vessels}
-            titerMin={VESSELS.titerMin}
-            titerMax={VESSELS.titerMax}
             selectedIds={selectedIds}
             yTickFormatter={(v) => v.toFixed(0)}
           />
@@ -124,8 +121,6 @@ export default function VesselsPage() {
             sub="pH vs time"
             channel="ph"
             vessels={VESSELS.vessels}
-            titerMin={VESSELS.titerMin}
-            titerMax={VESSELS.titerMax}
             selectedIds={selectedIds}
             yTickFormatter={(v) => v.toFixed(1)}
           />

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PlugZap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Loading, DemoBadge } from "@/components/page-header";
+import { ErrorState, EmptyState } from "@/components/ui/honest-state";
+import { SectionHead } from "@/components/ui/section-head";
 import { SummaryTiles } from "@/components/operations/summary-tiles";
 import { RunCard } from "@/components/operations/run-card";
 import { RunQueue, fmtPredicted, type QueueRow } from "@/components/operations/run-queue";
@@ -16,17 +18,39 @@ import { listExperiments, type ExperimentSummary } from "@/lib/experiments";
 import { DEMO_MODE } from "@/lib/demo";
 import { num } from "@/lib/utils";
 
-/** Grouping header: a bold label, an optional one-line descriptor, and a
- *  hairline that runs to the edge (same pattern as app/results/page.tsx). */
-function SectionHead({ title, sub, badge }: { title: string; sub?: string; badge?: ReactNode }) {
-  return (
-    <div className="mb-3 flex items-center gap-3">
-      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
-      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
-      <div className="h-px flex-1 bg-border" />
-      {badge ?? null}
-    </div>
-  );
+/**
+ * What the "live runs" board should show, derived from the /api/experiments
+ * fetch. `liveErr` wins over everything else - a rejected fetch is always
+ * "error", regardless of whether `live` still holds `null` (never fetched)
+ * or a stale array from a prior success. This is the fix for the honesty bug
+ * this file used to carry: `loadingLive`/`showEmptyBoard` used to be derived
+ * from `data == null` alone, so a dropped connection fell through to the same
+ * "No live runs" empty copy as a confirmed-empty result - an assertion about
+ * the physical lab produced by a failed fetch. See
+ * components/ui/honest-state.tsx for the vocabulary this restores.
+ */
+export type LiveBoardState = "loading" | "error" | "live" | "demo" | "empty";
+
+export function liveBoardState(
+  live: ExperimentSummary[] | null,
+  liveErr: boolean,
+  demoMode: boolean,
+): LiveBoardState {
+  if (liveErr) return "error";
+  if (live == null) return "loading";
+  if (live.length > 0) return "live";
+  return demoMode ? "demo" : "empty";
+}
+
+/** Same rule for the "next batch to run" queue, derived from the
+ *  /api/latest fetch: a rejected fetch is "error", never folded into the
+ *  same branch as a confirmed `has_data: false` or empty-proposals result. */
+export type QueueState = "loading" | "error" | "data";
+
+export function queueState(data: LatestResult | null, err: boolean): QueueState {
+  if (err) return "error";
+  if (data == null) return "loading";
+  return "data";
 }
 
 /** True when an ISO timestamp falls on the local calendar day - so "Completed
@@ -63,21 +87,6 @@ function queuedRunsToQueueRows(runs: PipelineRun[]): QueueRow[] {
   }));
 }
 
-/** Honest empty state for a board with no live source connected and demo mode
- *  off - shown instead of ever rendering fabricated runs as if they were real. */
-function NoLiveData({ what }: { what: string }) {
-  return (
-    <Card className="flex flex-col items-center gap-1.5 py-10 text-center">
-      <PlugZap className="size-5 text-muted" />
-      <div className="text-[13.5px] font-semibold text-fg">No live {what}</div>
-      <p className="max-w-[46ch] text-[12px] leading-5 text-muted">
-        Connect a run store to see this here. Set <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to
-        preview this board with demo data instead.
-      </p>
-    </Card>
-  );
-}
-
 /** One live experiment row: name, last-updated, and its real status - no
  *  vessel/procedure/drift fields, since the portal doesn't model those yet. */
 function LiveExperimentRow({ e }: { e: ExperimentSummary }) {
@@ -109,17 +118,46 @@ function LiveExperimentList({ rows, empty }: { rows: ExperimentSummary[]; empty:
  *  Prefers the live /api/experiments list (lib/experiments.ts) for "what's
  *  in flight" - when it has records, they render as-is (no vessel/drift
  *  fields exist yet on that API, so this shows the real status list rather
- *  than fabricating telemetry for it). When it's empty - the real current
- *  state - this shows an honest empty state, NOT the rich mock pipeline
- *  data, unless NEXT_PUBLIC_DEMO_MODE is explicitly on, in which case the
- *  mock board renders behind a persistent "Example data" badge. The
- *  "Next batch to run" section stays independently wired to the real
- *  /api/latest proposals, only falling back to the mock queue in demo mode. */
+ *  than fabricating telemetry for it). When it's confirmed empty - the real
+ *  current state - this shows an honest EmptyState, NOT the rich mock
+ *  pipeline data, unless NEXT_PUBLIC_DEMO_MODE is explicitly on, in which
+ *  case the mock board renders behind a persistent "Example data" badge.
+ *  When the fetch itself fails, this shows a retryable ErrorState instead -
+ *  never the empty copy, which would misrepresent a dropped connection as a
+ *  fact about the lab (see `liveBoardState` above). The "Next batch to run"
+ *  section stays independently wired to the real /api/latest proposals
+ *  (see `queueState`), only falling back to the mock queue in demo mode. */
 export function OperationsView() {
   const [data, setData] = useState<LatestResult | null>(null);
   const [err, setErr] = useState(false);
+  const [portalBusy, setPortalBusy] = useState(false);
   const [live, setLive] = useState<ExperimentSummary[] | null>(null);
   const [liveErr, setLiveErr] = useState(false);
+  const [liveBusy, setLiveBusy] = useState(false);
+
+  async function refreshPortal() {
+    setPortalBusy(true);
+    try {
+      setData(await getLatest());
+      setErr(false);
+    } catch {
+      setErr(true);
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function refreshLive() {
+    setLiveBusy(true);
+    try {
+      setLive(await listExperiments());
+      setLiveErr(false);
+    } catch {
+      setLiveErr(true);
+    } finally {
+      setLiveBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -149,11 +187,7 @@ export function OperationsView() {
     };
   }, []);
 
-  const loadingLive = live == null && !liveErr;
-  const hasLive = (live?.length ?? 0) > 0;
-  const showDemoBoard = !loadingLive && !hasLive && DEMO_MODE;
-  const showEmptyBoard = !loadingLive && !hasLive && !DEMO_MODE;
-
+  const liveState = liveBoardState(live, liveErr, DEMO_MODE);
   const runningLive = live?.filter((e) => e.status === "PROCESSING") ?? [];
   const attentionLive = live?.filter((e) => e.status === "FAILED") ?? [];
   const queuedLive = live?.filter((e) => e.status === "READY" || e.status === "DRAFT") ?? [];
@@ -165,7 +199,7 @@ export function OperationsView() {
   const nowRunning = [...attention, ...running];
   const completed = runsByStatus("completed");
 
-  const loadingPortal = data == null && !err;
+  const qState = queueState(data, err);
   const populated = data && data.has_data ? data : null;
   const hasRealProposals = Boolean(populated && populated.proposals.length > 0);
   const showDemoQueue = !hasRealProposals && DEMO_MODE;
@@ -183,9 +217,16 @@ export function OperationsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      {loadingLive ? (
+      {liveState === "loading" ? (
         <Loading label="Checking for live runs" />
-      ) : hasLive ? (
+      ) : liveState === "error" ? (
+        <ErrorState
+          title="Could not reach the experiments service"
+          description="The request for live experiment jobs failed before the portal could respond. This is a connection problem, not an empty board - your experiments are unaffected."
+          onRetry={refreshLive}
+          busy={liveBusy}
+        />
+      ) : liveState === "live" ? (
         <div className="flex flex-col gap-6">
           <SummaryTiles
             running={runningLive.length}
@@ -206,7 +247,7 @@ export function OperationsView() {
             </Card>
           </section>
         </div>
-      ) : showDemoBoard ? (
+      ) : liveState === "demo" ? (
         <div className="flex flex-col gap-6">
           <div className="flex justify-end">
             <DemoBadge />
@@ -226,25 +267,57 @@ export function OperationsView() {
             </div>
           </section>
         </div>
-      ) : showEmptyBoard ? (
-        <NoLiveData what="runs" />
-      ) : null}
+      ) : (
+        <EmptyState
+          icon={PlugZap}
+          title="No live runs"
+          description={
+            <>
+              Connect a run store to see this here. Set{" "}
+              <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview this board with demo data
+              instead.
+            </>
+          }
+        />
+      )}
 
       <section>
         <SectionHead
           title="Next batch to run"
-          sub={queueSub}
+          sub={qState === "data" ? queueSub : undefined}
           badge={showDemoQueue ? <DemoBadge /> : undefined}
         />
-        <Card>{loadingPortal ? <Loading label="Checking the portal" /> : <RunQueue rows={queueRows} />}</Card>
+        <Card>
+          {qState === "loading" ? (
+            <Loading label="Checking the portal" />
+          ) : qState === "error" ? (
+            <ErrorState
+              title="Could not reach the analysis service"
+              description="The request for the next batch of proposals failed before the engine could respond. This is a connection problem, not an empty queue."
+              onRetry={refreshPortal}
+              busy={portalBusy}
+            />
+          ) : (
+            <RunQueue rows={queueRows} />
+          )}
+        </Card>
       </section>
 
       <section>
         <SectionHead title="Recently completed" />
         <Card>
-          {hasLive ? (
+          {liveState === "loading" ? (
+            <Loading label="Checking for completed runs" />
+          ) : liveState === "error" ? (
+            <ErrorState
+              title="Could not reach the experiments service"
+              description="The request for completed runs failed before the portal could respond."
+              onRetry={refreshLive}
+              busy={liveBusy}
+            />
+          ) : liveState === "live" ? (
             <LiveExperimentList rows={doneLive} empty="nothing completed yet" />
-          ) : showDemoBoard ? (
+          ) : liveState === "demo" ? (
             <CompletedList runs={completed} />
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">nothing completed yet</p>
@@ -252,7 +325,7 @@ export function OperationsView() {
         </Card>
       </section>
 
-      {hasLive ? (
+      {liveState === "live" ? (
         <p className="text-[11px] text-muted">
           Full detail and actions live in the{" "}
           <Link href="/?view=table" className="font-semibold text-accent-text underline">

@@ -40,15 +40,45 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 
 ## Color roles
 
-> Superseded in part (2026-07-24, confirmed by owner): the app chrome is
-> **achromatic neutral**, not brand blue. The `--blue*` / `--accent*` / `--sidebar`
-> hex values and the entire **Dark** column in the table below are historical
-> (pre-`main #15` "neutral theme" migration) and do NOT match the shipped code,
-> where `--blue`/`--accent` resolve to `oklch(0.205 0 0)` gray. Trust the
-> "2026-07-24 consolidation" section below and `app/globals.css` `:root` for the
-> live values. The `--bg` / `--card` / `--fg` / `--muted` / `--border` /
-> `--blue-soft` light rows ARE current. Neutral is the intended baseline; the
-> blue rows are kept only as history until this table is rewritten.
+> **Current as of 2026-08-08, confirmed directly by the product owner: the app
+> chrome is kalos blue.** The 2026-07-24 "achromatic neutral" direction below is
+> **superseded** and must not be reinstated. kalos owns a blue hue on Satoshi and
+> must not read as a stock shadcn neutral admin template.
+>
+> This was asked and answered explicitly during the shadcn migration, because the
+> repo contradicted itself: the 2026-07-24 note claimed owner confirmation for
+> achromatic chrome, and the code agreed with it (the token named `--blue` was
+> `oklch(0.205 0 0)` - chroma zero, literally grayscale). Blue is the live
+> direction. If a future note claims otherwise, it needs a date later than this
+> one and its own owner confirmation.
+>
+> `app/globals.css` `:root` / `.dark` is the single source of truth for live
+> values; the hex values in the table below are indicative, not authoritative.
+> Only the BRAND family changed value in the re-hue - surfaces (`--bg`,
+> `--card`, `--fg`, `--muted`, `--border`), status colors, radii, and the type
+> stack are untouched, so the migration is a re-hue rather than a redesign.
+> Every brand token is contrast-verified in comments beside its declaration.
+>
+> Three rules that are easy to get wrong, all enforced in `app/globals.css`:
+>
+> 1. **`--muted` is a TEXT gray here, not a surface.** Stock shadcn and the
+>    base-nova registry treat `--muted` as a subtle surface and reach for
+>    `bg-muted` on hover. This app has 254 `text-muted` call sites across 54
+>    files (mirrored as `--v-muted` in `app/voyager/voyager.css`), so the app
+>    keeps its meaning. Every shadcn primitive added here has `bg-muted`
+>    rewritten to `bg-secondary` (or `bg-blue-soft` for hovers). Anything added
+>    with `shadcn add` in future needs the same patch.
+> 2. **Sequential vs categorical data color are different token families.**
+>    `--chart-1..5` is a single-hue blue ramp for ordered magnitude (heatmaps,
+>    response surfaces, plate grids) and is the only thing that may encode
+>    magnitude. `--series-1..6` is the Okabe-Ito colorblind-safe qualitative
+>    palette, for unordered multi-series overlays only. Never use a sequential
+>    step to separate categories, and never let a series color imply magnitude.
+> 3. **No elevation, but rings must work.** `shadow-*` is a no-op because the
+>    box-shadow scale is zeroed in `@theme`. Do NOT restore the old blanket
+>    `box-shadow: none !important` rule: Tailwind composes `ring-*` into the
+>    `box-shadow` property, so that rule silently disabled every focus ring on
+>    every shadcn primitive.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |

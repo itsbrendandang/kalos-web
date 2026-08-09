@@ -1,5 +1,8 @@
+import { SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
 import type { PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { SectionHead } from "@/components/ui/section-head";
+import { EmptyState } from "@/components/ui/honest-state";
 import { Proposals } from "@/components/proposals";
 import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
@@ -10,18 +13,6 @@ import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { num } from "@/lib/utils";
-
-/** Grouping header: a bold label, an optional one-line descriptor, and a hairline
- *  that runs to the edge - turns the long dashboard into scannable sections. */
-function SectionHead({ title, sub }: { title: string; sub?: string }) {
-  return (
-    <div className="mb-3 flex items-center gap-3">
-      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
-      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
-      <div className="h-px flex-1 bg-border" />
-    </div>
-  );
-}
 
 /**
  * The shared "reliability + drivers + predicted-vs-measured + proposals" readout
@@ -62,7 +53,12 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
                 />
               </>
             ) : (
-              <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
+              <EmptyState
+                icon={SlidersHorizontal}
+                title="No drivers yet"
+                description="This analysis did not return any input/target correlations to show."
+                className="mt-2"
+              />
             )}
           </Card>
 
@@ -124,7 +120,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
               }}
             />
           ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
+            <EmptyState icon={TestTubeDiagonal} title="No proposals" description="This analysis did not return any recommended recipes." />
           )}
         </Card>
       </section>

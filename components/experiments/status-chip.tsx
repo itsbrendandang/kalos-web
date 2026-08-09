@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { ExperimentStatus } from "@/lib/experiments";
 
@@ -10,12 +11,16 @@ export const EXPERIMENT_STATUS_LABEL: Record<ExperimentStatus, string> = {
   FAILED: "Failed",
 };
 
-const STATUS_TEXT: Record<ExperimentStatus, string> = {
-  DRAFT: "text-muted",
-  READY: "text-accent-text",
-  PROCESSING: "text-amber",
-  DONE: "text-green",
-  FAILED: "text-red",
+/** Border/background/text per status - the same "colored soft pill" idiom as
+ *  DriftChip (components/operations/drift-chip.tsx) and PriorityPill
+ *  (components/planning/task-card.tsx), so status chips read consistently
+ *  across the hub. */
+const STATUS_STYLE: Record<ExperimentStatus, string> = {
+  DRAFT: "border-border bg-card text-muted",
+  READY: "border-blue-border bg-blue-tint text-accent-text",
+  PROCESSING: "border-amber/30 bg-amber-soft text-amber",
+  DONE: "border-green/30 bg-green-soft text-green",
+  FAILED: "border-red/30 bg-red/10 text-red",
 };
 
 const STATUS_DOT: Record<ExperimentStatus, string> = {
@@ -26,17 +31,18 @@ const STATUS_DOT: Record<ExperimentStatus, string> = {
   FAILED: "bg-red",
 };
 
-/** Status chip for the Experiments surface: colored dot/spinner + text label
- *  (never color alone), matching the plate surface's Pass/Warn/Fail pattern. */
+/** Status chip for the Experiments surface, on the shadcn `badge` primitive -
+ *  colored dot/spinner + text label (never color alone), matching the
+ *  DriftChip/PriorityPill pill convention used elsewhere in the hub. */
 export function ExperimentStatusChip({ status }: { status: ExperimentStatus }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[12.5px] font-semibold", STATUS_TEXT[status])}>
+    <Badge variant="outline" className={cn("gap-1.5 text-[11px] font-semibold", STATUS_STYLE[status])}>
       {status === "PROCESSING" ? (
         <Loader2 className="size-3 shrink-0 animate-spin" />
       ) : (
-        <span className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status])} />
+        <span className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[status])} />
       )}
       {EXPERIMENT_STATUS_LABEL[status]}
-    </span>
+    </Badge>
   );
 }

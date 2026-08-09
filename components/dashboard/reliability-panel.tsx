@@ -1,5 +1,8 @@
+import { Info } from "lucide-react";
 import { PredScatter } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, num, parseUnit } from "@/lib/utils";
 
 /** Known engine "not modeled" labels, mapped to an honest one-line description. */
@@ -8,6 +11,25 @@ const UNMODELED_NOTES: Record<string, string> = {
   "calibration (ECE)": "Prediction-interval calibration (expected calibration error) is not scored.",
   "scale-up transfer": "Predictions are bench-scale only; transfer to production scale is not modeled.",
 };
+
+/** A stat-tile label with a small info-tooltip beside it, spelling out the definition
+ *  without removing the fuller description already printed below the number. */
+function LabelWithTooltip({ label, definition }: { label: string; definition: string }) {
+  return (
+    <div className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted uppercase">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger
+          className="inline-flex shrink-0 rounded-full text-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/50"
+          aria-label={`${label} definition`}
+        >
+          <Info className="size-3" aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent>{definition}</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 /**
  * Right-hand "Model reliability" panel: held-out Spearman + CI, the
@@ -37,7 +59,10 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="flex min-h-[96px] flex-col justify-center rounded-[10px] border border-border p-3">
-          <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Held-out Spearman</div>
+          <LabelWithTooltip
+            label="Held-out Spearman"
+            definition="Rank agreement between predicted and measured order on runs the model never trained on. 0 = no better than chance, 1 = perfect."
+          />
           <div className="tabular mt-1 font-mono text-[22px] font-semibold text-fg">
             {rho != null ? rho.toFixed(2) : "n/a"}
           </div>
@@ -49,7 +74,10 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
           </div>
         </div>
         <div className="flex min-h-[96px] flex-col justify-center rounded-[10px] border border-border p-3">
-          <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Conformal band</div>
+          <LabelWithTooltip
+            label="Conformal band"
+            definition="A distribution-free ± band from pooled out-of-fold residuals: the interval within which a new prediction should fall 95% of the time."
+          />
           <div className="tabular mt-1 font-mono text-[22px] font-semibold text-fg">
             {d.conformal_q != null ? `± ${num(d.conformal_q, 2)}` : "n/a"}
           </div>
@@ -70,16 +98,15 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         <div className="flex items-center justify-between gap-2">
           <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">Predicted vs measured</div>
           {floorNote ? (
-            <span
+            <Badge
+              variant="outline"
               className={cn(
-                "rounded-lg border px-2 py-0.5 text-[11px] whitespace-nowrap",
-                rel?.clears_floor
-                  ? "border-green-soft bg-green-soft text-green"
-                  : "border-amber-soft bg-amber-soft text-amber",
+                "whitespace-nowrap",
+                rel?.clears_floor ? "border-green-soft bg-green-soft text-green" : "border-amber-soft bg-amber-soft text-amber",
               )}
             >
               {floorNote}
-            </span>
+            </Badge>
           ) : null}
         </div>
         <div className="mt-2 rounded-[10px] border border-border bg-bg p-2">
@@ -92,7 +119,6 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
           ) : null}
         </div>
       </div>
-
     </div>
   );
 }
@@ -120,9 +146,9 @@ export function ModelCoverage({ d }: { d: PopulatedResult }) {
               <div key={item} className="flex flex-col rounded-[10px] border border-border bg-card p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[13px] font-medium text-fg capitalize">{item}</span>
-                  <span className="rounded-lg border border-border bg-bg px-2 py-0.5 text-[11px] whitespace-nowrap text-explore-deep">
+                  <Badge variant="outline" className="whitespace-nowrap text-explore-deep">
                     not modeled
-                  </span>
+                  </Badge>
                 </div>
                 <p className="mt-1 text-[12px] leading-snug text-muted">
                   {UNMODELED_NOTES[item] ?? "Not yet modeled by the engine."}

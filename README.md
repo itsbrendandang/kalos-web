@@ -82,6 +82,28 @@ unified blue design system. Tokens (color, radius, type) are defined once in
 See `DESIGN.md` at the repo root for the full token reference, color roles,
 and type scale.
 
+Primitives come from **shadcn/ui** on `@base-ui/react`, configured in
+`components.json` and living in `components/ui/`. They are the mechanism, not
+the design: every primitive is mapped onto the kalos tokens above rather than
+shadcn's default neutral theme, so the app does not read as a stock admin
+template. Two rules matter when adding one:
+
+- **Two separate data-color families.** `--chart-1..5` is a single-hue blue
+  sequential ramp for ORDERED MAGNITUDE (heatmaps, the plate grid) and reverses
+  lightness in dark mode so "more" stays "more visible". `--series-1..6` is the
+  Okabe-Ito colorblind-safe qualitative palette for UNORDERED CATEGORIES
+  (per-vessel kinetics). Never use one for the other's job. Because
+  `--series-*` alone cannot carry meaning in greyscale, categorical traces also
+  need a dash pattern or a direct label.
+- **Patch `bg-muted` out of anything fetched from the registry.** In this
+  codebase `--muted` is a TEXT gray with 250+ call sites, not shadcn's subtle
+  surface, so a stock primitive using `bg-muted` renders a near-invisible fill.
+  Rewrite it to `bg-secondary` or `bg-blue-soft`. `DESIGN.md` records this as a
+  required step.
+
+Note that `npx shadcn add` currently hangs with no output in this environment;
+`DESIGN.md` documents the direct-registry workaround.
+
 ## Voyager surface
 
 A customer-facing product surface lives under `/voyager`, with its own

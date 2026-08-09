@@ -26,15 +26,23 @@ function parseView(raw: string | null): HubView {
 /** The view switcher tabs, styled after the segmented-button pattern in
  *  components/planning/board-toolbar.tsx. Plain links (not buttons with
  *  onClick state) so the selected view lives in the URL - shareable, and the
- *  back button moves between views. */
+ *  back button moves between views. Not the shadcn `tabs` primitive: that's
+ *  state-driven and would break the URL-as-source-of-truth contract this
+ *  hub relies on. `aria-current="page"` (not `aria-pressed`, which is only
+ *  valid on button/toggle roles, not the `link` role these render as)
+ *  matches the same convention already used for nav links in
+ *  components/app-shell.tsx. */
 function HubTabs({ view }: { view: HubView }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-blue-soft p-1">
+    <nav
+      aria-label="Hub view"
+      className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-blue-soft p-1"
+    >
       {VIEWS.map((v) => (
         <Link
           key={v.key}
           href={v.key === "live" ? "/" : `/?view=${v.key}`}
-          aria-pressed={view === v.key}
+          aria-current={view === v.key ? "page" : undefined}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors",
             view === v.key ? "bg-card text-fg shadow-sm" : "text-muted hover:text-fg",
@@ -43,7 +51,7 @@ function HubTabs({ view }: { view: HubView }) {
           {v.label}
         </Link>
       ))}
-    </div>
+    </nav>
   );
 }
 

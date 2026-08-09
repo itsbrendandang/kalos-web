@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, FlaskConical, RefreshCw, Upload } from "lucide-react";
+import { ChevronDown, FlaskConical, RefreshCw, SlidersHorizontal, Upload } from "lucide-react";
 import {
   getCampaign,
   getLatest,
@@ -17,7 +17,11 @@ import {
   type Proposal,
 } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/honest-state";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { ProgressChart } from "@/components/charts";
@@ -93,9 +97,11 @@ export default function Decide() {
       />
 
       {err && data ? (
-        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
-          Refresh failed. Showing the last loaded analysis.
-        </Card>
+        <Alert variant="default" className="items-start gap-2.5 border-amber/30 bg-amber-soft px-3.5 py-3">
+          <AlertDescription className="text-[13px] text-amber">
+            Refresh failed. Showing the last loaded analysis.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {err && data == null ? (
@@ -103,13 +109,17 @@ export default function Decide() {
       ) : data == null ? (
         <Loading />
       ) : !data.has_data ? (
-        <Card className="p-8 text-center text-sm text-muted">
-          No analysis yet.{" "}
-          <Link href="/analyze" className="font-semibold text-accent-text underline">
-            Upload a run sheet
-          </Link>{" "}
-          to get a recommended batch.
-        </Card>
+        <EmptyState
+          title="No analysis yet"
+          description={
+            <>
+              <Link href="/analyze" className="font-semibold text-accent-text underline">
+                Upload a run sheet
+              </Link>{" "}
+              to get a recommended batch.
+            </>
+          }
+        />
       ) : (
         <DecideBody
           d={data}
@@ -252,7 +262,11 @@ function DecideBody({
             ))}
           </div>
         ) : (
-          <Card className="py-10 text-center text-[12px] text-muted">no proposals</Card>
+          <EmptyState
+            icon={FlaskConical}
+            title="No proposals"
+            description="This analysis did not return any recommended recipes."
+          />
         )}
         {queued.size > 0 ? (
           <div className="mt-3 flex items-center justify-between rounded-[10px] border border-accent/40 bg-blue-tint px-4 py-2.5 text-[13px]">
@@ -306,7 +320,7 @@ function DecideBody({
           from the client's data - it is physics/literature priors, so it must
           not sit in the decision hero pretending to be a result. */}
       {d.proposals.length ? (
-        <Details summary="Projected scale-up — physics priors, not from your data">
+        <Details summary="Projected scale-up - physics priors, not from your data">
           <ScaleUpTimeline
             bestRecipe={Object.fromEntries(d.proposal_features.map((f, i) => [f, d.proposals[0].vals[i]]))}
             bestValue={active?.best ?? d.best}
@@ -317,7 +331,7 @@ function DecideBody({
       ) : null}
 
       {/* Supporting analysis: collapsed by default, lazy-mounted on first open */}
-      <Details summary="Process drivers — what moves the target">
+      <Details summary="Process drivers - what moves the target">
         <Card className="flex flex-col">
           <p className="text-[12px] leading-snug text-muted">
             Signed correlation of each input with {targetName}, held out across recipe groups. Colored bars clear noise
@@ -340,17 +354,21 @@ function DecideBody({
               />
             </>
           ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no drivers</p>
+            <EmptyState
+              icon={SlidersHorizontal}
+              title="No drivers yet"
+              description="This analysis did not return any input/target correlations to show."
+            />
           )}
         </Card>
       </Details>
 
-      <Details summary="Model reliability — how far to trust it">
+      <Details summary="Model reliability - how far to trust it">
         <ReliabilityPanel d={d} />
         <ModelCoverage d={d} />
       </Details>
 
-      <Details summary="Run structure — where the measured runs sit">
+      <Details summary="Run structure - where the measured runs sit">
         {d.embedding ? (
           <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
             <RunLandscape d={d} />
@@ -362,7 +380,7 @@ function DecideBody({
       </Details>
 
       {hasPredicted ? (
-        <Details summary="Predicted landscape — response surface & feature correlation">
+        <Details summary="Predicted landscape - response surface & feature correlation">
           {d.response_surface && d.correlation ? (
             <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
               <ResponseSurface d={d} />
@@ -380,10 +398,10 @@ function DecideBody({
       {/* Coming next: PLACEHOLDER - text only, no numbers, no chart shapes, no skeletons */}
       <Details summary="Coming next">
         <ul className="flex flex-col gap-1.5 px-3 py-2 text-[12px] text-muted">
-          <li>Live batch curves — awaiting bioreactor telemetry</li>
-          <li>Digital twin — live process model</li>
-          <li>Scientific alerts — live sensors</li>
-          <li>Cost &amp; ROI — cost feed</li>
+          <li>Live batch curves - awaiting bioreactor telemetry</li>
+          <li>Digital twin - live process model</li>
+          <li>Scientific alerts - live sensors</li>
+          <li>Cost &amp; ROI - cost feed</li>
         </ul>
       </Details>
     </div>
@@ -434,16 +452,24 @@ function ProgressPanel({ active, targetName, unit }: { active: ActiveCampaign; t
 
 function TrustChip({ reliable, spearman }: { reliable: boolean; spearman: number | null }) {
   return (
-    <div
+    <Badge
+      variant="outline"
       className={cn(
-        "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium",
+        "h-auto gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium",
         reliable ? "border-green-soft bg-green-soft text-green" : "border-amber-soft bg-amber-soft text-amber",
       )}
     >
-      <span className={cn("size-2 rounded-full", reliable ? "bg-green" : "bg-amber")} />
-      {reliable ? "Reliable — safe to optimize" : "Exploring — gathering signal"}
-      {spearman != null ? <span className="tabular font-mono opacity-70">· ρ {spearman.toFixed(2)}</span> : null}
-    </div>
+      <span className={cn("size-2 shrink-0 rounded-full", reliable ? "bg-green" : "bg-amber")} />
+      {reliable ? "Reliable - safe to optimize" : "Exploring - gathering signal"}
+      {spearman != null ? (
+        <Tooltip>
+          <TooltipTrigger className="tabular font-mono opacity-70 focus-visible:outline-none">
+            · ρ {spearman.toFixed(2)}
+          </TooltipTrigger>
+          <TooltipContent>Held-out rank agreement (Spearman correlation between predicted and measured order).</TooltipContent>
+        </Tooltip>
+      ) : null}
+    </Badge>
   );
 }
 
@@ -465,7 +491,10 @@ function HonestVerdict({
   const props = d.proposals;
   if (!props.length) return null;
   const beats = props.filter((p) => p.pred - (band ?? p.std) >= best).length;
-  const reliable = rel?.clears_floor ?? false;
+  // The SAME isReliable() predicate the TrustChip pill uses (lib/api.ts) - never
+  // re-derive trustworthiness locally, or this verdict can disagree with the pill
+  // shown right above it.
+  const reliable = isReliable(d);
   const rho = rel?.spearman ?? d.cv_spearman;
   const good = reliable && beats > 0;
   const bestStr = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
@@ -479,16 +508,16 @@ function HonestVerdict({
       <p className="font-semibold">
         {good
           ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}.`
-          : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} — this batch is exploration, not a confident bet.`}
+          : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} - this batch is exploration, not a confident bet.`}
       </p>
       <p className="mt-1 opacity-90">
         {reliable
-          ? `The model ranks recipes with ${rho != null ? `ρ ${rho.toFixed(2)}` : "moderate"} agreement — a genuine head start over guessing. But the ± bands are wide, so read the order as a guide, not a guarantee.`
-          : `Rank agreement is ${rho != null ? rho.toFixed(2) : "low"}${rel ? ` (below the ${rel.spearman_floor.toFixed(2)} floor)` : ""} and the ± bands are wide. On data this noisy, undirected search is competitive — running these earns the model confidence; expect a modest head start, not certainty.`}
+          ? `The model ranks recipes with ${rho != null ? `ρ ${rho.toFixed(2)}` : "moderate"} agreement - a genuine head start over guessing. But the ± bands are wide, so read the order as a guide, not a guarantee.`
+          : `Rank agreement is ${rho != null ? rho.toFixed(2) : "low"}${rel ? ` (below the ${rel.spearman_floor.toFixed(2)} floor)` : ""} and the ± bands are wide. On data this noisy, undirected search is competitive - running these earns the model confidence; expect a modest head start, not certainty.`}
       </p>
       {rel?.unmodeled?.length ? (
         <p className="mt-1.5 text-[12px] opacity-75">
-          The engine does not model {rel.unmodeled.join(" · ")} — use your own judgment there.
+          The engine does not model {rel.unmodeled.join(" · ")} - use your own judgment there.
         </p>
       ) : null}
     </div>
@@ -536,14 +565,15 @@ function ProposalCard({
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-bg font-mono text-[11px] font-semibold text-accent-text">
           {rank}
         </span>
-        <span
+        <Badge
+          variant="outline"
           className={cn(
-            "rounded-lg px-2 py-0.5 text-[11px] font-medium",
+            "h-auto rounded-lg border-transparent px-2 py-0.5 text-[11px] font-medium",
             p.mode === "exploit" ? "bg-green-soft text-green" : "bg-explore-soft text-explore-deep",
           )}
         >
           {p.mode === "exploit" ? "best bet" : "exploration"}
-        </span>
+        </Badge>
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -574,9 +604,9 @@ function ProposalCard({
           <span className="tabular font-mono text-[11px] text-muted">
             predicts {num(p.pred, 2)} ± {num(bandV, 2)}
           </span>
-          <span className={cn("rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold whitespace-nowrap", toneClass)}>
+          <Badge variant="outline" className={cn("h-auto rounded-md border-transparent px-1.5 py-0.5 text-[10.5px] font-semibold whitespace-nowrap", toneClass)}>
             {v.label}
-          </span>
+          </Badge>
         </div>
         <p className="mt-0.5 text-[12px] leading-snug text-muted">{p.reason}</p>
         <button
@@ -630,16 +660,17 @@ function PendingRunRow({
 
   return (
     <Card className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3.5">
-      <span
+      <Badge
+        variant="outline"
         className={cn(
-          "rounded-lg border px-2 py-0.5 text-[11px] font-medium",
+          "h-auto rounded-lg px-2 py-0.5 text-[11px] font-medium",
           run.mode === "explore"
             ? "border-explore-soft bg-explore-soft text-explore-deep"
             : "border-green-soft bg-green-soft text-green",
         )}
       >
         {run.mode}
-      </span>
+      </Badge>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {features.map((f) => (
@@ -676,9 +707,9 @@ function PendingRunRow({
             </Button>
           </>
         ) : (
-          <span className="rounded-lg border border-green-soft bg-green-soft px-2 py-1 text-[12px] font-medium text-green">
+          <Badge variant="outline" className="h-auto rounded-lg border-green-soft bg-green-soft px-2 py-1 text-[12px] font-medium text-green">
             logged {run.result != null ? num(run.result, 2) : "—"}
-          </span>
+          </Badge>
         )}
         {failed ? <span className="text-[11px] text-amber">failed - retry</span> : null}
       </div>

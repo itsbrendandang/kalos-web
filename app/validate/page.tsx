@@ -5,6 +5,7 @@ import { AlertCircle, X } from "lucide-react";
 import { API, runFile, type AnalyzeResult } from "@/lib/api";
 import { Card, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { ValidationReportCard } from "@/components/validation/validation-report";
@@ -78,23 +79,26 @@ export default function ValidatePage() {
       ) : null}
 
       {err ? (
-        <Card className="flex flex-col gap-3 border-red/30 bg-red/10 sm:flex-row sm:items-start sm:justify-between">
+        <Alert
+          variant="default"
+          className="flex flex-col gap-3 border-red/30 bg-red/10 px-4 py-4 sm:flex-row sm:items-start sm:justify-between"
+        >
           <div className="flex gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-red">
               <AlertCircle className="size-5" />
             </span>
             <div>
-              <div className="font-head text-[16px] font-semibold text-fg">
+              <AlertTitle className="font-head text-[16px] font-semibold text-fg">
                 {err.kind === "unreachable" ? "Engine unreachable" : "Upload rejected"}
-              </div>
-              <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-fg">{err.message}</p>
+              </AlertTitle>
+              <AlertDescription className="mt-1 max-w-[62ch] text-[13px] leading-5 text-fg">{err.message}</AlertDescription>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={reset}>
             <X />
             Try another file
           </Button>
-        </Card>
+        </Alert>
       ) : null}
 
       {res ? (

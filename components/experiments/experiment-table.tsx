@@ -1,6 +1,13 @@
 import Link from "next/link";
-import { Play, RotateCcw, Flag } from "lucide-react";
+import { Flag, MoreHorizontal, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExperimentStatusChip } from "@/components/experiments/status-chip";
 import type { ExperimentStatus, ExperimentSummary } from "@/lib/experiments";
 
@@ -28,29 +35,38 @@ export function ExperimentTable({
   onRun: (id: string, force: boolean) => void;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-separate border-spacing-y-1.5 text-[13px]">
-        <thead>
-          <tr className="text-[10px] text-muted uppercase">
-            <th className="px-3 py-1.5 text-left">Name</th>
-            <th className="px-3 py-1.5 text-left">Status</th>
-            <th className="px-3 py-1.5 text-left">Updated</th>
-            <th className="px-3 py-1.5 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {experiments.map((exp) => (
-            <ExperimentRow
-              key={exp.id}
-              exp={exp}
-              busy={busyIds.has(exp.id)}
-              onFlagReady={() => onFlagReady(exp.id)}
-              onRun={(force) => onRun(exp.id, force)}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <TableCaption className="sr-only">
+        Experiments, with status, last updated time, and available actions
+      </TableCaption>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead scope="col" className="text-[10px] text-muted uppercase">
+            Name
+          </TableHead>
+          <TableHead scope="col" className="text-[10px] text-muted uppercase">
+            Status
+          </TableHead>
+          <TableHead scope="col" className="text-[10px] text-muted uppercase">
+            Updated
+          </TableHead>
+          <TableHead scope="col" className="text-right text-[10px] text-muted uppercase">
+            Actions
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {experiments.map((exp) => (
+          <ExperimentRow
+            key={exp.id}
+            exp={exp}
+            busy={busyIds.has(exp.id)}
+            onFlagReady={() => onFlagReady(exp.id)}
+            onRun={(force) => onRun(exp.id, force)}
+          />
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -66,22 +82,20 @@ function ExperimentRow({
   onRun: (force: boolean) => void;
 }) {
   return (
-    <tr className="group">
-      <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-3 py-2.5 group-hover:bg-blue-soft">
+    <TableRow>
+      <TableCell>
         <Link href={`/experiments/${exp.id}`} className="font-semibold text-fg hover:text-accent-text hover:underline">
           {exp.name}
         </Link>
-      </td>
-      <td className="border-y border-border/70 bg-card px-3 py-2.5 group-hover:bg-blue-soft">
+      </TableCell>
+      <TableCell>
         <ExperimentStatusChip status={exp.status} />
-      </td>
-      <td className="border-y border-border/70 bg-card px-3 py-2.5 font-mono text-[12px] text-muted group-hover:bg-blue-soft">
-        {ago(exp.updated_at)}
-      </td>
-      <td className="rounded-r-xl border-y border-r border-border/70 bg-card px-3 py-2.5 text-right group-hover:bg-blue-soft">
-        <RowActions status={exp.status} busy={busy} onFlagReady={onFlagReady} onRun={onRun} />
-      </td>
-    </tr>
+      </TableCell>
+      <TableCell className="tabular font-mono text-[12px] text-muted">{ago(exp.updated_at)}</TableCell>
+      <TableCell className="text-right">
+        <RowActions status={exp.status} busy={busy} onFlagReady={onFlagReady} onRun={onRun} name={exp.name} />
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -90,35 +104,40 @@ function RowActions({
   busy,
   onFlagReady,
   onRun,
+  name,
 }: {
   status: ExperimentStatus;
   busy: boolean;
   onFlagReady: () => void;
   onRun: (force: boolean) => void;
+  name: string;
 }) {
-  if (status === "DRAFT" || status === "FAILED") {
-    return (
-      <Button variant="outline" size="sm" disabled={busy} onClick={onFlagReady}>
-        <Flag />
-        {status === "FAILED" ? "Retry" : "Flag ready"}
-      </Button>
-    );
+  if (status === "PROCESSING") {
+    return <span className="text-[12px] text-muted">Processing...</span>;
   }
-  if (status === "READY") {
-    return (
-      <Button variant="outline" size="sm" disabled={busy} onClick={() => onRun(false)}>
-        <Play />
-        Run
-      </Button>
-    );
-  }
-  if (status === "DONE") {
-    return (
-      <Button variant="ghost" size="sm" disabled={busy} onClick={() => onRun(true)}>
-        <RotateCcw />
-        Re-run
-      </Button>
-    );
-  }
-  return <span className="text-[12px] text-muted">Processing...</span>;
+
+  const action =
+    status === "DRAFT" || status === "FAILED"
+      ? { label: status === "FAILED" ? "Retry" : "Flag ready", icon: Flag, onSelect: onFlagReady }
+      : status === "READY"
+        ? { label: "Run", icon: Play, onSelect: () => onRun(false) }
+        : { label: "Re-run", icon: RotateCcw, onSelect: () => onRun(true) };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="icon-sm" disabled={busy} aria-label={`Actions for ${name}`}>
+            <MoreHorizontal />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={action.onSelect} disabled={busy}>
+          <action.icon />
+          {action.label}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }

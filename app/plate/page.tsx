@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlateHeatmap } from "@/components/plate/plate-heatmap";
 import { QcTiles } from "@/components/plate/qc-tiles";
 import { WellStatusLegend } from "@/components/plate/well-status-legend";
@@ -10,6 +12,7 @@ import { FlagSummary } from "@/components/plate/flag-summary";
 import { ControlSummary } from "@/components/plate/control-summary";
 import { WellDetail } from "@/components/plate/well-detail";
 import { GrowthCurve } from "@/components/plate/growth-curve";
+import { StatusChip } from "@/components/plate/status-chip";
 import { PageHeader, DemoBadge } from "@/components/page-header";
 import { PLATE } from "@/lib/plate-data";
 import { cn } from "@/lib/utils";
@@ -41,66 +44,55 @@ export default function PlatePage() {
         action={<DemoBadge />}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="inline-flex gap-0.5 rounded-[10px] border border-border bg-card p-0.5">
-              {(["1", "2"] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setActivePlate(p)}
-                  className={cn(
-                    "rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
-                    activePlate === p ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:text-fg",
-                  )}
-                >
-                  Plate {p === "1" ? "01" : "02"}
-                </button>
-              ))}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewTab)} className="gap-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="inline-flex gap-0.5 rounded-[10px] border border-border bg-card p-0.5">
+                {(["1", "2"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setActivePlate(p)}
+                    className={cn(
+                      "rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
+                      activePlate === p ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:text-fg",
+                    )}
+                  >
+                    Plate {p === "1" ? "01" : "02"}
+                  </button>
+                ))}
+              </div>
+              <TabsList variant="line">
+                <TabsTrigger value="overview">Plate overview</TabsTrigger>
+                <TabsTrigger value="dose">Dose-response</TabsTrigger>
+              </TabsList>
             </div>
-            <div className="inline-flex gap-4 border-b-2 border-border">
-              {(["overview", "dose"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setActiveTab(t)}
-                  className={cn(
-                    "-mb-0.5 border-b-2 pb-2 text-[13px] font-semibold transition-colors",
-                    activeTab === t ? "border-accent text-blue-deep" : "border-transparent text-muted hover:text-fg",
-                  )}
-                >
-                  {t === "overview" ? "Plate overview" : "Dose-response"}
-                </button>
-              ))}
-            </div>
+            {activePlate === "2" ? (
+              <p className="mt-2 text-[11.5px] text-muted">Plate 02 data is not included in this demo.</p>
+            ) : null}
           </div>
-          {activePlate === "2" ? (
-            <p className="mt-2 text-[11.5px] text-muted">Plate 02 data is not included in this demo.</p>
-          ) : null}
+          <div className="flex flex-col items-end gap-1.5">
+            <Button variant="outline" onClick={() => setExported(true)}>
+              Export plate report
+            </Button>
+            {exported ? (
+              <span className="text-[11px] text-muted">Export queued - demo only, no backend attached.</span>
+            ) : null}
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <Button variant="outline" onClick={() => setExported(true)}>
-            Export plate report
-          </Button>
-          {exported ? (
-            <span className="text-[11px] text-muted">Export queued - demo only, no backend attached.</span>
-          ) : null}
-        </div>
-      </div>
 
-      <QcTiles
-        totalWells={PLATE.wellIds.length}
-        wellsWithData={PLATE.expIds.length}
-        passCount={PLATE.passCount}
-        warnCount={PLATE.warnCount}
-        failCount={PLATE.failCount}
-        controlCount={PLATE.controlIds.length}
-        duplicatePairCount={PLATE.duplicatePairCount}
-      />
+        <QcTiles
+          totalWells={PLATE.wellIds.length}
+          wellsWithData={PLATE.expIds.length}
+          passCount={PLATE.passCount}
+          warnCount={PLATE.warnCount}
+          failCount={PLATE.failCount}
+          controlCount={PLATE.controlIds.length}
+          duplicatePairCount={PLATE.duplicatePairCount}
+        />
 
-      {activeTab === "overview" ? (
-        <>
+        <TabsContent value="overview" className="mt-5 flex flex-col gap-3.5">
           <div className="grid gap-3.5 lg:grid-cols-[1.62fr_1fr]">
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -177,24 +169,36 @@ export default function PlatePage() {
             </div>
           </div>
 
-          <div className="grid gap-3.5 lg:grid-cols-[0.9fr_1.6fr]">
-            <Card>
-              <WellDetail well={well} />
-            </Card>
-            <Card>
-              <h2 className="mb-3 text-[13px] font-bold text-fg">
-                Growth curve <span className="ml-1.5 text-[11.5px] font-medium text-muted">OD vs time (0-24 h)</span>
-              </h2>
-              <GrowthCurve well={well} partner={partner} base={base} />
-            </Card>
-          </div>
-        </>
-      ) : (
-        <Card className="py-16 text-center text-[13px] text-muted">
-          Dose-response view is not included in this demo - this screen would plot ΔOD vs. dose per nitrogen source,
-          pulled from the full kalos plate-analysis pipeline.
-        </Card>
-      )}
+          <Card>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[13px] font-bold text-fg">
+                  Growth curve <span className="ml-1.5 text-[11.5px] font-medium text-muted">OD vs time (0-24 h)</span>
+                </h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-muted">
+                  <span className="font-mono font-semibold text-fg">{well.id}</span>
+                  <span>{well.condition}</span>
+                  {well.status ? <StatusChip status={well.status} /> : null}
+                </div>
+              </div>
+              <Dialog>
+                <DialogTrigger render={<Button variant="outline" size="sm" />}>View well detail</DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <WellDetail well={well} />
+                </DialogContent>
+              </Dialog>
+            </div>
+            <GrowthCurve well={well} partner={partner} base={base} />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="dose" className="mt-5">
+          <Card className="py-16 text-center text-[13px] text-muted">
+            Dose-response view is not included in this demo - this screen would plot ΔOD vs. dose per nitrogen
+            source, pulled from the full kalos plate-analysis pipeline.
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

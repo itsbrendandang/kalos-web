@@ -1,7 +1,9 @@
 "use client";
 
+import { ChartColumn } from "lucide-react";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/honest-state";
 import { CHART_THEME, tick, tip } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
 import { fmt } from "@/lib/utils";
@@ -40,9 +42,12 @@ export function TargetDistribution({ d }: { d: PopulatedResult }) {
       <Card className="flex h-full flex-col">
         <div className="text-[15px] font-semibold text-fg">Target distribution</div>
         <p className="mt-1 text-[12px] leading-snug text-muted">Distribution of measured {d.target} across held-out runs.</p>
-        <p className="flex flex-1 items-center justify-center py-10 text-center text-[12px] text-muted">
-          not enough held-out points
-        </p>
+        <EmptyState
+          icon={ChartColumn}
+          title="Not enough held-out points"
+          description="This analysis did not hold out enough runs to plot a distribution."
+          className="mt-3 flex-1 justify-center border-none"
+        />
       </Card>
     );
   }

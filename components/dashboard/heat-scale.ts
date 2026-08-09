@@ -5,15 +5,19 @@
  * custom properties can't be mixed numerically in JS - keep these in sync if
  * the tokens ever change.
  *
- * 2026-07-16: the shadcn neutral migration took brand CHROME (--blue/--accent)
- * to grayscale, but data visualizations intentionally keep color - these
- * ramps are anchored on --chart-1 (indigo, oklch(0.652 0.124 284.594)) rather
- * than the old brand blue, so heatmaps/kinetics/UMAP stay colored and legible
- * instead of turning monochrome along with the chrome.
+ * 2026-08-08 (shadcn migration): re-anchored on the kalos brand blue, matching
+ * the single-hue sequential ramp now published as --chart-1..5 in
+ * app/globals.css. A single-hue ramp is a hard requirement here: it is the
+ * only sequential scale that stays monotonic under every form of color vision
+ * deficiency and in greyscale print. The previous indigo anchor dated from the
+ * 2026-07-16 neutral-chrome migration, which has been reverted.
+ *
+ * These are FILL colors for chart marks, not text. Use --chart-1-ink (which
+ * flips per theme) whenever a ramp-colored value needs a legible label.
  */
-const BLUE_TINT: [number, number, number] = [236, 237, 252]; // light tint of --chart-1's hue
-const BLUE: [number, number, number] = [136, 132, 216]; // --chart-1
-const BLUE_DEEP: [number, number, number] = [47, 38, 103]; // deep shade of --chart-1's hue
+const BLUE_TINT: [number, number, number] = [232, 237, 254]; // light end, above --chart-1
+const BLUE: [number, number, number] = [32, 74, 244]; // --chart-3, the brand blue
+const BLUE_DEEP: [number, number, number] = [11, 31, 107]; // --chart-5, deep end
 const GRAY: [number, number, number] = [82, 82, 91]; // --explore-deep
 const WHITE: [number, number, number] = [255, 255, 255];
 

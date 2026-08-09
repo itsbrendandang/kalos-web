@@ -2,19 +2,24 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, X } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, WifiOff, X } from "lucide-react";
 import { isReliable, runFile, type AnalyzeResult } from "@/lib/api";
 import { Card, SectionLabel } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { cn } from "@/lib/utils";
+
+type EngineErrorKind = "unreachable" | "rejected";
 
 export default function AnalyzePage() {
   const [res, setRes] = useState<AnalyzeResult | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<{ kind: EngineErrorKind; message: string } | null>(null);
   // Bumped on reset() to remount <UploadDropzone> (see below) - that clears
   // its internal file input, so re-selecting the same-named file after
   // "Analyze another file" fires onChange again instead of being deduped.
@@ -23,17 +28,22 @@ export default function AnalyzePage() {
   async function analyze(f: File, target?: string) {
     setFile(f);
     setBusy(true);
-    setErr("");
+    setErr(null);
     try {
       const d = await runFile(f, target);
       if (d.error) {
-        setErr(d.error);
+        // The engine's own { error } message, a data/upload problem, not a
+        // transport failure - see runFile's contract in lib/api.ts.
+        setErr({ kind: "rejected", message: d.error });
         setRes(null);
       } else {
         setRes(d);
       }
     } catch {
-      setErr("Analysis service unavailable. Try again in a moment or contact Kalos support.");
+      setErr({
+        kind: "unreachable",
+        message: "Analysis service unavailable. Try again in a moment or contact Kalos support.",
+      });
     } finally {
       setBusy(false);
     }
@@ -42,7 +52,7 @@ export default function AnalyzePage() {
   function reset() {
     setRes(null);
     setFile(null);
-    setErr("");
+    setErr(null);
     setResetCount((c) => c + 1);
   }
 
@@ -80,7 +90,21 @@ export default function AnalyzePage() {
         </div>
       ) : null}
 
-      {err ? <Card className="border-amber/30 bg-amber-soft text-sm text-amber">{err}</Card> : null}
+      {err ? (
+        <Alert variant="default" className="items-start gap-2.5 border-red/30 bg-red/5 px-3.5 py-3">
+          {err.kind === "unreachable" ? (
+            <WifiOff className="size-4 text-red" aria-hidden />
+          ) : (
+            <AlertCircle className="size-4 text-red" aria-hidden />
+          )}
+          <div className="min-w-0 flex-1">
+            <AlertTitle className="text-[13px] text-fg">
+              {err.kind === "unreachable" ? "Engine unreachable" : "Upload rejected"}
+            </AlertTitle>
+            <AlertDescription className="mt-1 text-[12.5px] leading-5 text-muted">{err.message}</AlertDescription>
+          </div>
+        </Alert>
+      ) : null}
       {busy ? (
         <Card>
           <Loading />
@@ -100,9 +124,10 @@ export default function AnalyzePage() {
                 {res.group_col ? `, grouped by ${res.group_col}` : ""}, fit against {res.target}.
               </p>
               <div className="mt-4">
-                <span
+                <Badge
+                  variant="outline"
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                    "h-auto gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
                     reliability === "Reliable"
                       ? "border-green/30 bg-green-soft text-green"
                       : reliability === "Needs review"
@@ -112,7 +137,7 @@ export default function AnalyzePage() {
                   title="How well the model predicted runs it had never seen. Higher = more trustworthy suggestions."
                 >
                   Model reliability: {reliability}
-                </span>
+                </Badge>
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <Link href="/results" className={buttonVariants()}>
@@ -127,15 +152,18 @@ export default function AnalyzePage() {
             </div>
             <div className="border-t border-border bg-blue-soft p-5 md:border-t-0 md:border-l">
               <SectionLabel>Maximize</SectionLabel>
-              <select
-                className="min-h-[32px] w-full rounded-lg border border-border bg-card px-2 py-1.5 font-mono text-[11px] text-fg"
-                value={res.target}
-                onChange={(e) => file && analyze(file, e.target.value)}
-              >
-                {res.targets.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+              <Select value={res.target} onValueChange={(value) => file && value && analyze(file, value)}>
+                <SelectTrigger size="sm" className="w-full font-mono text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {res.targets.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-2 text-[11px] leading-snug text-muted">
                 Re-fits the model against a different target column without re-uploading.
               </p>

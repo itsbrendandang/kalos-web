@@ -1,4 +1,5 @@
 import { STATUS_LABEL } from "@/components/plate/status-chip";
+import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { Well } from "@/lib/plate-data";
 
@@ -36,50 +37,56 @@ interface WellDetailProps {
   well: Well;
 }
 
-/** Selected-well detail: condition, status, metrics, and flags. */
+/** Selected-well detail: condition, status, metrics, and flags. Rendered
+ *  inside a Dialog (app/plate/page.tsx) - it owns the dialog's title/description
+ *  rather than a plain heading, so it stays correct wherever it is mounted. */
 export function WellDetail({ well: w }: WellDetailProps) {
   const m = w.metrics;
   return (
     <div>
-      <h2 className="mb-3 text-[13px] font-bold">Well detail</h2>
-      <div className="mb-1 inline-block rounded-lg bg-blue-tint px-3 py-1 font-mono text-[22px] font-bold text-blue-deep">
-        {w.id}
-      </div>
-      <div className="mb-3.5 text-[13px] text-muted">
-        {w.condition}
-        {w.isControl ? "" : ` · replicate ${w.replicate} of ${w.pairId}`}
-      </div>
+      <DialogHeader>
+        <DialogTitle>
+          Well detail{" "}
+          <span className="rounded-lg bg-blue-tint px-2 py-0.5 font-mono text-[15px] text-blue-deep">{w.id}</span>
+        </DialogTitle>
+        <DialogDescription>
+          {w.condition}
+          {w.isControl ? "" : ` · replicate ${w.replicate} of ${w.pairId}`}
+        </DialogDescription>
+      </DialogHeader>
 
-      <StatusLine well={w} />
+      <div className="mt-3.5">
+        <StatusLine well={w} />
 
-      <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-3">
-        <MetricBox k="Δ OD (max − t₀)" v={m.deltaOD.toFixed(3)} />
-        <MetricBox k="Max OD (raw)" v={m.maxOD.toFixed(3)} />
-        <MetricBox k="Growth rate (1/h)" v={m.growthRate.toFixed(3)} />
-        <MetricBox k="Lag time (h)" v={m.lag.toFixed(2)} />
-        <MetricBox k="SGT (h)" v={m.sgtReached ? m.sgt.toFixed(1) : "> 24"} />
-        <MetricBox k="AUC (ΔOD)" v={m.auc.toFixed(2)} />
-      </div>
-      <p className="mb-3 text-[10.5px] leading-relaxed text-muted">
-        SGT = time to first cross ΔOD ≥ 0.05 above t₀. AUC = trapezoidal integral of ΔOD over 0-24 h.
-      </p>
-
-      <div className="mb-1.5 text-[11.5px] font-bold text-muted">Flags</div>
-      {w.flags.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {w.flags.map((f, i) => (
-            <span
-              key={i}
-              className="rounded-full border border-border bg-bg px-2.5 py-1 text-[11px] font-bold text-fg"
-            >
-              <span className="mr-1 font-semibold text-muted">{f.cat}</span>
-              {f.label}
-            </span>
-          ))}
+        <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-3">
+          <MetricBox k="Δ OD (max − t₀)" v={m.deltaOD.toFixed(3)} />
+          <MetricBox k="Max OD (raw)" v={m.maxOD.toFixed(3)} />
+          <MetricBox k="Growth rate (1/h)" v={m.growthRate.toFixed(3)} />
+          <MetricBox k="Lag time (h)" v={m.lag.toFixed(2)} />
+          <MetricBox k="SGT (h)" v={m.sgtReached ? m.sgt.toFixed(1) : "> 24"} />
+          <MetricBox k="AUC (ΔOD)" v={m.auc.toFixed(2)} />
         </div>
-      ) : (
-        <span className="text-[12px] text-muted">No flags on this well.</span>
-      )}
+        <p className="mb-3 text-[10.5px] leading-relaxed text-muted">
+          SGT = time to first cross ΔOD ≥ 0.05 above t₀. AUC = trapezoidal integral of ΔOD over 0-24 h.
+        </p>
+
+        <div className="mb-1.5 text-[11.5px] font-bold text-muted">Flags</div>
+        {w.flags.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {w.flags.map((f, i) => (
+              <span
+                key={i}
+                className="rounded-full border border-border bg-bg px-2.5 py-1 text-[11px] font-bold text-fg"
+              >
+                <span className="mr-1 font-semibold text-muted">{f.cat}</span>
+                {f.label}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-[12px] text-muted">No flags on this well.</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -5,11 +5,14 @@ import Link from "next/link";
 import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
 import { getLatest, isReliable, type LatestResult, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { StatTile } from "@/components/ui/stat-tile";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { AnalysisReadout } from "@/components/analysis-readout";
-import { cn, fmt, parseUnit } from "@/lib/utils";
+import { fmt, parseUnit } from "@/lib/utils";
 
 function ago(ts?: number) {
   if (!ts) return "";
@@ -71,9 +74,11 @@ export default function Results() {
       />
 
       {err && data ? (
-        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
-          Refresh failed. The dashboard is showing the last loaded analysis.
-        </Card>
+        <Alert variant="default" className="items-start gap-2.5 border-amber/30 bg-amber-soft px-3.5 py-3">
+          <AlertDescription className="text-[13px] text-amber">
+            Refresh failed. The dashboard is showing the last loaded analysis.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {err && data == null ? (
@@ -148,10 +153,10 @@ function DatasetStrip({ d }: { d: PopulatedResult }) {
             {d.updated ? ` / ${ago(d.updated)}` : ""}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full border border-border bg-blue-soft px-2.5 py-1 text-[11px] font-semibold text-accent-text">
+        <Badge variant="outline" className="gap-1.5 border-border bg-blue-soft text-accent-text">
           <CheckCircle2 className="size-3.5" />
           {ready ? "Ready to review" : "Reliability needs review"}
-        </div>
+        </Badge>
       </div>
       {d.provenance ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 font-mono text-[10.5px] text-muted">
@@ -167,28 +172,6 @@ function DatasetStrip({ d }: { d: PopulatedResult }) {
   );
 }
 
-function KpiCell({
-  label,
-  value,
-  sub,
-  mono = true,
-}: {
-  label: React.ReactNode;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex min-h-[112px] flex-col justify-center p-4">
-      <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">{label}</div>
-      <div className={cn("tabular mt-1.5 truncate text-[24px] leading-none font-semibold text-fg", mono && "font-mono")}>
-        {value}
-      </div>
-      {sub ? <div className="mt-1.5 text-[12px] text-muted">{sub}</div> : null}
-    </div>
-  );
-}
-
 function KpiStrip({ d }: { d: PopulatedResult }) {
   const rho = d.cv_spearman;
   const reliable = isReliable(d);
@@ -199,8 +182,8 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
   // (the orphan wrap) AND headlined a driver the tornado below already reports
   // honestly - a single lead correlation doesn't belong in the KPI row.
   return (
-    <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 xl:grid-cols-4">
-      <KpiCell
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <StatTile
         label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
         value={
           <>
@@ -208,19 +191,15 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
             {unit ? <span className="ml-1 text-[13px] font-normal text-muted">{unit}</span> : null}
           </>
         }
-        sub="Best observed run"
+        hint="Best observed run"
       />
-      <KpiCell
+      <StatTile
         label="Model reliability"
         value={rho != null ? rho.toFixed(2) : "n/a"}
-        sub={
+        tooltip="Held-out rank agreement (Spearman) between predicted and measured order. Reliable only when it clears the trust floor AND its 95% CI excludes zero - see isReliable() in lib/api.ts."
+        hint={
           rho != null ? (
-            <span
-              className={cn(
-                "inline-flex items-center rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
-                reliable ? "bg-green-soft text-green" : "bg-amber-soft text-amber",
-              )}
-            >
+            <span className={reliable ? "text-green" : "text-amber"}>
               {reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"}
             </span>
           ) : (
@@ -228,12 +207,12 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
           )
         }
       />
-      <KpiCell
+      <StatTile
         label="Runs / inputs"
         value={`${d.n} / ${d.d}`}
-        sub={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
+        hint={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
       />
-      <KpiCell label="Proposals ready" value={d.proposals.length} sub="Next batch to run" />
+      <StatTile label="Proposals ready" value={d.proposals.length} hint="Next batch to run" />
     </div>
   );
 }

@@ -2,11 +2,26 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Minimal, borderless surface (see the design direction: no shadows, no boxes).
- * A Card is now an open section - it carries padding for rhythm but no border or
- * fill, so content is grouped by whitespace and the occasional hairline divider
- * rather than a bordered box. Pass `bordered` for the rare case that genuinely
- * needs an outline (e.g. an inline callout).
+ * Card and the kalos section composites.
+ *
+ * Reconciliation notes (2026-08-08 shadcn migration): `Card` keeps the kalos
+ * box model exactly as it was - a borderless, shadowless open section that
+ * carries its own padding - because 27 files already compose arbitrary
+ * children directly inside it. Adopting base-nova's stock Card (which is
+ * `ring-1 ring-foreground/10` with `py-(--card-spacing)` and expects children
+ * to be slot components that supply their own horizontal padding) would have
+ * silently un-padded every one of those 27 surfaces and reintroduced an
+ * elevation ring the design system forbids.
+ *
+ * The shadcn slot API (CardHeader/CardTitle/CardDescription/CardAction/
+ * CardContent/CardFooter) is added alongside it, retuned to nest INSIDE
+ * `Card`'s padding rather than supply its own. New surfaces get the titled-card
+ * idiom and registry blocks keep resolving their imports, with no change to
+ * any existing call site.
+ *
+ * base-nova's CardTitle shipped a `cn-font-heading` class that this registry
+ * never defines - a silent no-op. It is replaced with `font-head` (the kalos
+ * Satoshi heading utility from app/globals.css), which is what it was for.
  */
 export function Card({
   className,
@@ -15,11 +30,67 @@ export function Card({
 }: React.ComponentProps<"div"> & { bordered?: boolean }) {
   return (
     <div
+      data-slot="card"
+      className={cn("rounded-xl p-6", bordered && "border border-border", className)}
+      {...props}
+    />
+  );
+}
+
+/** Title row. Grows a second column automatically when a CardAction is present. */
+export function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-header"
       className={cn(
-        "rounded-xl p-6",
-        bordered && "border border-border",
+        "mb-3 grid auto-rows-min items-start gap-1 has-data-[slot=card-action]:grid-cols-[1fr_auto]",
         className,
       )}
+      {...props}
+    />
+  );
+}
+
+export function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-title"
+      className={cn("font-head text-[15px] leading-snug font-semibold text-fg", className)}
+      {...props}
+    />
+  );
+}
+
+export function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-description"
+      className={cn("text-[12px] leading-5 text-muted", className)}
+      {...props}
+    />
+  );
+}
+
+export function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-action"
+      className={cn("col-start-2 row-span-2 row-start-1 self-start justify-self-end", className)}
+      {...props}
+    />
+  );
+}
+
+export function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="card-content" className={cn(className)} {...props} />;
+}
+
+/** Flat footer: a hairline rule, no fill, no inset - elevation is not used. */
+export function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-footer"
+      className={cn("mt-4 flex items-center border-t border-border pt-4", className)}
       {...props}
     />
   );

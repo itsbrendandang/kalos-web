@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn, num } from "@/lib/utils";
 import {
   SCALE_STAGES,
@@ -36,6 +37,17 @@ const xAt = (i: number) => ((i + 0.5) / SCALE_STAGES.length) * SVG_W;
  * produced it; one path highlighted in full color at a time, the other two
  * as thin low-opacity ghost lines with no labels; a text tradeoff row above
  * doubles as the path selector.
+ *
+ * Color tokens (2026-08-08 shadcn migration): the selected path's line/band/
+ * dots and the selector's active state use `--accent`, not `--chart-1`.
+ * `--chart-1..5` is reserved for a ramp that encodes magnitude via COLOR
+ * across a value range (heatmaps, response surfaces - see heat-scale.ts);
+ * this chart is a single highlighted trend line plus a categorical path
+ * selector, the same "accent vs. muted ghost" pairing `components/charts.tsx`
+ * documents for every other trend chart in the app. The "projected" badge
+ * uses the neutral `--explore` family instead (the same "not measured / not
+ * live" framing as `DemoBadge` in components/page-header.tsx), so it reads
+ * as a distinct signal from "this is the selected path."
  */
 export function ScaleUpTimeline({
   bestRecipe,
@@ -86,15 +98,15 @@ export function ScaleUpTimeline({
   };
 
   return (
-    <Card className="border border-dashed border-[color:var(--chart-1)]/35 bg-card">
+    <Card className="border border-dashed border-explore-soft bg-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-[15px] font-semibold text-fg">Scale-up path</h2>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--chart-1)]/40 bg-[color:var(--chart-1)]/10 px-2.5 py-0.5 text-[11px] font-medium text-[color:var(--chart-1-ink)]">
-              <span className="size-1.5 rounded-full bg-[color:var(--chart-1)]" />
+            <Badge variant="outline" className="h-auto gap-1.5 rounded-full border-explore-soft bg-explore-soft px-2.5 py-0.5 text-[11px] font-medium text-explore-deep">
+              <span className="size-1.5 rounded-full bg-explore-deep" />
               projected
-            </span>
+            </Badge>
           </div>
           <p className="mt-1 max-w-[52ch] text-[12px] leading-snug text-muted">
             Projected scale-up - physics/literature priors, not yet validated on your process data.
@@ -116,13 +128,13 @@ export function ScaleUpTimeline({
               onClick={() => setSelected(id)}
               className={cn(
                 "flex items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left text-[13px] transition-colors focus-visible:outline-none",
-                isSelected ? "border-[color:var(--chart-1)]/45 bg-[color:var(--chart-1)]/8" : "border-border bg-bg hover:bg-card",
+                isSelected ? "border-accent/45 bg-accent-soft" : "border-border bg-bg hover:bg-card",
               )}
             >
               <span
                 className={cn(
                   "grid size-6 shrink-0 place-items-center rounded-full font-mono text-[11px] font-semibold",
-                  isSelected ? "bg-[color:var(--chart-1)] text-[color:var(--primary-foreground)]" : "bg-card text-muted",
+                  isSelected ? "bg-accent text-[color:var(--primary-foreground)]" : "bg-card text-muted",
                 )}
               >
                 {i + 1}
@@ -143,10 +155,10 @@ export function ScaleUpTimeline({
               .map((p) => (
                 <polyline key={p.id} points={linePoints(p)} fill="none" stroke="var(--muted)" strokeOpacity={0.35} strokeWidth={1.25} />
               ))}
-            <polygon points={bandPolygon(selectedPath)} fill="var(--chart-1)" fillOpacity={0.14} stroke="none" />
-            <polyline points={linePoints(selectedPath)} fill="none" stroke="var(--chart-1)" strokeWidth={2.25} />
+            <polygon points={bandPolygon(selectedPath)} fill="var(--accent)" fillOpacity={0.14} stroke="none" />
+            <polyline points={linePoints(selectedPath)} fill="none" stroke="var(--accent)" strokeWidth={2.25} />
             {selectedPath.stages.map((s, i) => (
-              <circle key={s.stage} cx={xAt(i)} cy={yAt(s.yield.value)} r={3} fill="var(--chart-1)" />
+              <circle key={s.stage} cx={xAt(i)} cy={yAt(s.yield.value)} r={3} fill="var(--accent)" />
             ))}
           </svg>
 
@@ -179,7 +191,7 @@ export function ScaleUpTimeline({
                     <span className="tabular text-[9.5px] text-muted">± {num(point.yield.band, 1)}</span>
                     <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-bg">
                       <span
-                        className="block h-full rounded-full bg-[color:var(--chart-1)] opacity-60"
+                        className="block h-full rounded-full bg-accent opacity-60"
                         style={{ width: `${bandWidthPct}%`, marginLeft: `${(100 - bandWidthPct) / 2}%` }}
                       />
                     </span>

@@ -5,11 +5,12 @@ import { Info, RefreshCw } from "lucide-react";
 import { runSingle, runMulti, type MultiRun, type SingleRun } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Loading } from "@/components/page-header";
-import { ServiceUnavailable } from "@/components/service-unavailable";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { PageHeader } from "@/components/page-header";
 import { ConvergenceChart, ParetoChart } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
-import { cn, num } from "@/lib/utils";
+import { num } from "@/lib/utils";
 
 type Mode = "single" | "multi";
 
@@ -91,32 +92,25 @@ export default function Simulate() {
         </p>
       </div>
 
-      <div className="inline-flex w-fit items-center gap-0.5 rounded-[10px] border border-border bg-blue-soft p-1">
-        {(["single", "multi"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            aria-pressed={mode === m}
-            onClick={() => setMode(m)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors",
-              mode === m ? "bg-card text-fg shadow-sm" : "text-muted hover:text-fg",
-            )}
-          >
-            {m === "single" ? "Single objective" : "Multi-objective"}
-          </button>
-        ))}
-      </div>
+      <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-fit gap-0">
+        <TabsList>
+          <TabsTrigger value="single">Single objective</TabsTrigger>
+          <TabsTrigger value="multi">Multi-objective</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {bothFailed ? (
-        <ServiceUnavailable
+        <ErrorState
+          title="Engine unavailable"
+          description="The dashboard could not reach the kalos engine to run the in-silico optimizer. Try again in a moment."
           onRetry={refresh}
           busy={busy}
-          title="Engine unavailable"
-          body="The dashboard could not reach the kalos engine to run the in-silico optimizer. Try again in a moment."
         />
       ) : loading ? (
-        <Loading label="Running the optimizer" />
+        <div className="py-6">
+          <p className="mb-3 text-center font-mono text-[11px] text-muted">Running the optimizer…</p>
+          <LoadingSkeleton variant="rows" rows={4} label="Running the optimizer" className="mx-auto max-w-md" />
+        </div>
       ) : mode === "single" ? (
         <SingleView data={single} err={singleErr} busy={busy} onRetry={refresh} />
       ) : (
@@ -159,11 +153,11 @@ function SingleView({
 }) {
   if (err && data == null) {
     return (
-      <ServiceUnavailable
+      <ErrorState
+        title="Single-objective run unavailable"
+        description="The engine did not return a single-objective run. Try again in a moment."
         onRetry={onRetry}
         busy={busy}
-        title="Single-objective run unavailable"
-        body="The engine did not return a single-objective run. Try again in a moment."
       />
     );
   }
@@ -275,11 +269,11 @@ function MultiView({
 }) {
   if (err && data == null) {
     return (
-      <ServiceUnavailable
+      <ErrorState
+        title="Multi-objective run unavailable"
+        description="The engine did not return a multi-objective run. Try again in a moment."
         onRetry={onRetry}
         busy={busy}
-        title="Multi-objective run unavailable"
-        body="The engine did not return a multi-objective run. Try again in a moment."
       />
     );
   }

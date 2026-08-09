@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Circle } from "lucide-react";
 import { getProviders, type Provider } from "@/lib/api";
 import { Card, SectionLabel } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { cn } from "@/lib/utils";
 
 type LoadState = "loading" | "error" | "ready";
@@ -45,7 +47,7 @@ export function ProviderStatus() {
         Some checks can use an LLM provider when one is configured. None are required to validate a run sheet.
       </p>
 
-      {state === "loading" ? <p className="text-[12px] text-muted">Checking configured providers...</p> : null}
+      {state === "loading" ? <LoadingSkeleton variant="rows" rows={2} label="Checking configured providers" /> : null}
       {state === "error" ? <p className="text-[12px] text-muted">Could not reach the engine to list providers.</p> : null}
 
       {state === "ready" && providers ? (
@@ -57,15 +59,16 @@ export function ProviderStatus() {
               <div key={p.name} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[12.5px] font-semibold text-fg capitalize">{p.name}</span>
-                  <span
+                  <Badge
+                    variant="outline"
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-                      p.available ? "bg-green-soft text-green" : "bg-explore-soft text-explore-deep",
+                      "h-auto gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                      p.available ? "border-green-soft bg-green-soft text-green" : "border-explore-soft bg-explore-soft text-explore-deep",
                     )}
                   >
                     {p.available ? <CheckCircle2 className="size-3" /> : <Circle className="size-3" />}
                     {p.available ? "Available" : "Not configured"}
-                  </span>
+                  </Badge>
                 </div>
                 <p className="text-[12px] leading-5 text-muted">{p.capability}</p>
                 {!p.available ? (

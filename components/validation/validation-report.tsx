@@ -10,6 +10,9 @@ import {
   validationHeadline,
 } from "@/lib/validation";
 import { Card, SectionLabel } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { StatTile } from "@/components/ui/stat-tile";
+import { EmptyState } from "@/components/ui/honest-state";
 import { cn } from "@/lib/utils";
 
 const STATUS_ICON: Record<ValidationStatus, typeof CheckCircle2> = {
@@ -62,15 +65,6 @@ function SeverityChip({ severity, count }: { severity: ValidationSeverity; count
   );
 }
 
-function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <Card className="p-3">
-      <div className="text-[11px] font-semibold text-muted uppercase">{label}</div>
-      <div className="tabular mt-1.5 font-mono text-[20px] font-semibold text-fg">{value}</div>
-    </Card>
-  );
-}
-
 function VerdictHeader({ report }: { report: ValidationReport }) {
   const Icon = STATUS_ICON[report.status];
   return (
@@ -79,9 +73,9 @@ function VerdictHeader({ report }: { report: ValidationReport }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[14px] font-semibold">{STATUS_LABEL[report.status]}</span>
-          <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10.5px] font-semibold text-muted">
+          <Badge variant="outline" className="text-muted">
             {report.mode === "strict" ? "Strict mode" : "Warn mode"}
-          </span>
+          </Badge>
         </div>
         <p className="mt-1 text-[13px] leading-relaxed">{validationHeadline(report)}</p>
       </div>
@@ -95,9 +89,11 @@ function CountsRow({ report }: { report: ValidationReport }) {
       <StatTile label="Rows" value={report.n_rows} />
       <StatTile label="Columns" value={report.n_columns} />
       <StatTile label="Checks run" value={report.checks_run} />
-      <Card className="p-3">
-        <div className="text-[11px] font-semibold text-muted uppercase">Error / Warning / Info</div>
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-1 text-[15px]">
+      {/* Not a StatTile: the value is three chips, not one number - truncate
+          on StatTile's fixed-width value slot would clip a multi-chip row. */}
+      <Card className="flex h-[76px] flex-col justify-center gap-1.5 rounded-xl bg-blue-soft px-3.5 py-2">
+        <div className="text-[10.5px] font-semibold tracking-wide text-muted uppercase">Error / Warning / Info</div>
+        <div className="flex flex-wrap items-baseline gap-1 text-[15px]">
           <SeverityChip severity="error" count={report.counts.error} />
           <span className="text-muted">/</span>
           <SeverityChip severity="warning" count={report.counts.warning} />
@@ -143,10 +139,7 @@ function FindingRow({ finding }: { finding: ValidationFinding }) {
 function FindingsByCheck({ findings }: { findings: ValidationFinding[] }) {
   if (findings.length === 0) {
     return (
-      <Card className="flex flex-col items-center gap-1.5 py-8 text-center">
-        <CheckCircle2 className="size-5 text-green" />
-        <p className="text-[12.5px] text-muted">No findings - every check came back clean.</p>
-      </Card>
+      <EmptyState icon={CheckCircle2} title="No findings" description="Every check came back clean." />
     );
   }
 
@@ -200,14 +193,11 @@ function ConversionsSection({ conversions }: { conversions: ValidationReport["co
 
 function NoValidationReport() {
   return (
-    <Card className="flex flex-col items-center gap-1.5 py-10 text-center">
-      <PlugZap className="size-5 text-muted" />
-      <div className="text-[13.5px] font-semibold text-fg">No validation report</div>
-      <p className="max-w-[46ch] text-[12px] leading-5 text-muted">
-        This engine response did not include a data-validation report - most likely an older engine build that
-        predates pre-flight checks. Nothing here should be read as a pass.
-      </p>
-    </Card>
+    <EmptyState
+      icon={PlugZap}
+      title="No validation report"
+      description="This engine response did not include a data-validation report - most likely an older engine build that predates pre-flight checks. Nothing here should be read as a pass."
+    />
   );
 }
 

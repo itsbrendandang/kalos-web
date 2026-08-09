@@ -2,8 +2,12 @@
 
 import {
   AreaChart, Area, BarChart, Bar, ScatterChart, Scatter, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, ReferenceLine,
 } from "recharts";
+import {
+  ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import { fmt } from "@/lib/utils";
 
 /** Compact axis tick label - keeps long raw values (e.g. 22.0363) from clipping the gutter. */
@@ -15,18 +19,26 @@ const fmtTick = (v: number) => fmt(v, 1);
  * series color, grid, axis, and tooltip styling stay in sync across the app.
  * See DESIGN.md for the token reference.
  *
- * `series` intentionally points at --chart-1 (a colored data-viz token), not
- * the neutral --blue/--accent chrome color: the 2026-07-16 shadcn neutral
- * migration took the brand chrome to grayscale but kept data visualization
- * colored, so series stay distinguishable from `seriesDown` (--explore,
- * neutral gray) instead of collapsing into black-vs-gray.
+ * `series` points at `--accent` (the brand blue chrome color), not a
+ * `--chart-*` step: none of the charts below encode ORDERED MAGNITUDE (that
+ * role belongs to `--chart-1..5`, reserved for heatmaps/response surfaces -
+ * see components/dashboard/heat-scale.ts) or UNORDERED CATEGORIES (that role
+ * belongs to `--series-1..6`, the Okabe-Ito palette, for multi-series
+ * overlays like per-vessel kinetic traces). Every chart here is either a
+ * single trend line or a two-way "highlighted vs. background" split
+ * (Pareto front / the rest, positive / negative correlation, zero-producer /
+ * normal run) - a plain accent-vs-explore emphasis pair, the same pairing
+ * the rest of the app already uses for "selected vs. not". Pulling from
+ * --chart-1 (the *lightest*, near-white step of the sequential ramp) here -
+ * as this file previously did - both misused a magnitude-only token for a
+ * non-magnitude encoding and rendered as a washed-out, low-contrast line.
  */
 export const CHART_THEME = {
-  series: "var(--chart-1)",
+  series: "var(--accent)",
   seriesDown: "var(--explore)",
   grid: "var(--grid)",
   axis: "var(--muted)",
-  hoverCursor: "color-mix(in oklch, var(--chart-1) 6%, transparent)",
+  hoverCursor: "color-mix(in oklch, var(--accent) 6%, transparent)",
   tooltip: {
     border: "var(--border)",
     background: "var(--card)",
@@ -57,8 +69,9 @@ export const axisTitle = (value: string, side: "x" | "y") =>
     : { value, angle: -90, position: "insideLeft" as const, style: { fontSize: 11, fill: INK } };
 
 export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: number }[]; yLabel: string }) {
+  const config = { best: { label: yLabel, color: ACCENT } } satisfies ChartConfig;
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
       <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <defs>
           <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
@@ -69,10 +82,10 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey="n" tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("experiments", "x")} />
         <YAxis tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle(yLabel, "y")} />
-        <Tooltip {...tip} />
+        <ChartTooltip cursor={{ stroke: GRID }} content={<ChartTooltipContent indicator="line" />} />
         <Area type="linear" dataKey="best" stroke={ACCENT} strokeWidth={2.5} fill="url(#cg)" dot={false} isAnimationActive={false} />
       </AreaChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
@@ -83,8 +96,9 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
  * wrapper in app/decide/page.tsx.
  */
 export function ProgressChart({ data }: { data: { round: number; best: number }[] }) {
+  const config = { best: { label: "best", color: ACCENT } } satisfies ChartConfig;
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ChartContainer config={config} className="aspect-auto h-full w-full">
       <AreaChart data={data} margin={{ top: 4, right: 10, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="progress-fill" x1="0" y1="0" x2="0" y2="1">
@@ -95,7 +109,21 @@ export function ProgressChart({ data }: { data: { round: number; best: number }[
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey="round" allowDecimals={false} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
         <YAxis tick={tick} tickLine={false} axisLine={false} width={44} domain={["auto", "auto"]} tickFormatter={fmtTick} />
-        <Tooltip {...tip} formatter={(v) => fmt(Number(v), 2)} labelFormatter={(r) => `round ${r}`} />
+        <ChartTooltip
+          cursor={{ stroke: GRID }}
+          content={
+            <ChartTooltipContent
+              indicator="line"
+              labelFormatter={(round) => `round ${round}`}
+              formatter={(value, name) => (
+                <div className="flex w-full items-center justify-between gap-3">
+                  <span className="text-muted-foreground">{name}</span>
+                  <span className="font-mono font-medium text-foreground tabular-nums">{fmt(Number(value), 2)}</span>
+                </div>
+              )}
+            />
+          }
+        />
         <Area
           type="monotone"
           dataKey="best"
@@ -107,42 +135,47 @@ export function ProgressChart({ data }: { data: { round: number; best: number }[
           isAnimationActive={false}
         />
       </AreaChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 export function ParetoChart({ all, pareto }: { all: { titer: number; purity: number }[]; pareto: { titer: number; purity: number }[] }) {
+  const config = {
+    "all runs": { label: "all runs", color: GRAY },
+    "Pareto front": { label: "Pareto front", color: ACCENT },
+  } satisfies ChartConfig;
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ChartContainer config={config} className="aspect-auto h-[280px] w-full">
       <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey="titer" name="titer" tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("titer (mg/L)", "x")} />
         <YAxis type="number" dataKey="purity" name="purity" tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("purity (%)", "y")} />
-        <Tooltip {...tip} cursor={{ strokeDasharray: "3 3", stroke: GRID }} />
-        <Legend wrapperStyle={{ fontSize: 11, color: INK }} />
+        <ChartTooltip cursor={{ strokeDasharray: "3 3", stroke: GRID }} content={<ChartTooltipContent indicator="dot" />} />
+        <ChartLegend content={<ChartLegendContent />} />
         <Scatter name="all runs" data={all} fill={GRAY} shape="circle" isAnimationActive={false} />
         <Scatter name="Pareto front" data={pareto} fill={ACCENT} line={{ stroke: ACCENT, strokeWidth: 2 }} isAnimationActive={false} />
       </ScatterChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 export function DriversBar({ drivers }: { drivers: { name: string; rho: number }[] }) {
   const data = [...drivers].reverse();
+  const config = { rho: { label: "correlation" } } satisfies ChartConfig;
   return (
-    <ResponsiveContainer width="100%" height={230}>
+    <ChartContainer config={config} className="aspect-auto h-[230px] w-full">
       <BarChart layout="vertical" data={data} margin={{ top: 4, right: 14, bottom: 8, left: 8 }}>
         <CartesianGrid stroke={GRID} horizontal={false} />
         <XAxis type="number" domain={[-0.6, 0.7]} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
         <YAxis type="category" dataKey="name" width={118} tick={{ ...tick, fontSize: 10 }} tickLine={false} axisLine={false} />
-        <Tooltip {...tip} cursor={{ fill: CHART_THEME.hoverCursor }} />
+        <ChartTooltip cursor={{ fill: CHART_THEME.hoverCursor }} content={<ChartTooltipContent indicator="dot" />} />
         <Bar dataKey="rho" radius={[0, 4, 4, 0]} isAnimationActive={false}>
           {data.map((d, i) => (
             <Cell key={i} fill={d.rho >= 0 ? ACCENT : CLAY} />
           ))}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
@@ -154,16 +187,17 @@ export function PredScatter({ oof }: { oof: [number, number][] }) {
   const vals = data.flatMap((d) => [d.measured, d.predicted]);
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);
+  const config = { predicted: { label: "predicted", color: ACCENT } } satisfies ChartConfig;
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
       <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey="measured" name="measured" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("measured", "x")} />
         <YAxis type="number" dataKey="predicted" name="predicted" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("predicted", "y")} />
         <ReferenceLine segment={[{ x: lo, y: lo }, { x: hi, y: hi }]} stroke={GRAY} strokeDasharray="5 5" ifOverflow="extendDomain" />
-        <Tooltip {...tip} cursor={{ strokeDasharray: "3 3", stroke: GRID }} />
+        <ChartTooltip cursor={{ strokeDasharray: "3 3", stroke: GRID }} content={<ChartTooltipContent indicator="dot" />} />
         <Scatter data={data} fill={ACCENT} fillOpacity={0.4} stroke={ACCENT} strokeOpacity={0.55} strokeWidth={0.5} isAnimationActive={false} />
       </ScatterChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }

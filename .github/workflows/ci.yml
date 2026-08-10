@@ -15,13 +15,24 @@ jobs:
       # npm ci, not npm install: the lockfile is authoritative, not whatever
       # a dev's local node_modules happens to resolve to.
       - run: npm ci
-      # tsc has no npm script here, so invoke it directly; --noEmit because
-      # this is a type-check gate, not a build.
-      - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run test
-      # Build last: it is the slowest gate, so cheaper failures above (types,
-      # lint, tests) fail fast instead of waiting on a full Next.js build.
+      # `next build` IS the type-check gate here, and it has to be - there is no
+      # separate `npx tsc --noEmit` step on purpose.
+      #
+      # Next 16 generates the global `PageProps` type into .next/types, so a bare
+      # tsc run on a FRESH checkout fails with
+      #   app/experiments/[id]/page.tsx: error TS2304: Cannot find name 'PageProps'
+      # before any of the real code is checked. It passes on a dev machine only
+      # because a stale .next from an earlier build is already sitting there,
+      # which is precisely the false pass CI exists to catch - and this workflow
+      # caught it on its own first run.
+      #
+      # `next build` generates those types and then runs TypeScript over the
+      # project ("Running TypeScript ... Finished TypeScript" in its output), so
+      # type errors still fail the build. A separate tsc step would be redundant
+      # even if the ordering were fixed. Do not re-add one without moving it
+      # after this step.
       - run: npm run build
       # This repo had zero CI before this workflow. Every one of the gates
       # above was previously verified only by hand on a laptop, including

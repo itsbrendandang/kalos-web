@@ -37,14 +37,42 @@ export type MultiRun = {
 /**
  * One input's correlation with the target, plus enough uncertainty
  * information for the UI to say whether it's a real finding or noise.
- * `significant` is true iff `ci95` excludes zero at the 95% level - the
- * engine computes this, the UI must never re-derive or override it.
+ * `significant` is true iff BOTH `ci_excludes_zero` (the 95% CI excludes
+ * zero) AND `survives_fdr` (the driver survives Benjamini-Hochberg
+ * multiplicity control across every feature tested) - the engine computes
+ * this, the UI must never re-derive or override it. Without FDR control,
+ * testing many noise features reports a "significant" driver far too often
+ * (measured at 78.8% of reports over 400 simulations on 30 noise features;
+ * BH cuts that to 3.5%), so a driver must never be presented as trustworthy
+ * on `ci_excludes_zero` alone.
  */
 export type Driver = {
   name: string;
   rho: number;
   ci95: [number, number];
   significant: boolean;
+  /** Two-sided p-value for the correlation. Absent on older engine builds. */
+  p?: number;
+  /** Whether the 95% CI excludes zero, before multiplicity control. Absent on older engine builds. */
+  ci_excludes_zero?: boolean;
+  /** Whether the driver survives Benjamini-Hochberg FDR correction across all tested features. Absent on older engine builds. */
+  survives_fdr?: boolean;
+};
+
+/**
+ * How the engine chose which drivers to report: it tests every candidate
+ * feature, ranks them, and surfaces only the top slice - itself a
+ * statistical act the UI must disclose rather than let "top drivers" read
+ * as an exhaustive or automatic result. Absent on older engine builds.
+ */
+export type DriverSelection = {
+  n_tested: number;
+  n_reported: number;
+  top_k: number;
+  fdr_method: string;
+  fdr_q: number;
+  n_bootstrap: number;
+  ranked_by: string;
 };
 
 export type Reliability = {
@@ -82,9 +110,19 @@ export type AnalyzeResult = {
   cv_n_groups?: number;
   /** Distribution-free +/- band (abs) from pooled out-of-fold residuals. */
   conformal_q?: number | null;
+  /**
+   * The conformal band's actual coverage, e.g. `0.9` for a 90% band (the
+   * engine computes this at `alpha=0.1`). Absent on older engine builds -
+   * callers must derive any displayed percentage from this field and never
+   * hardcode one, and must omit the percentage entirely (not guess) when
+   * it's missing. See `coveragePct` below.
+   */
+  conformal_coverage?: number;
   reliability?: Reliability;
   best: number;
   drivers: Driver[];
+  /** How the engine selected which `drivers` to report. Absent on older engine builds. */
+  driver_selection?: DriverSelection;
   proposal_features: string[];
   proposals: Proposal[];
   oof: [number, number][];
@@ -183,11 +221,63 @@ export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
  * page never contradicts itself: the model is reliable only when the held-out
  * correlation clears the floor AND its 95% CI excludes zero.
  */
+/**
+ * Why a dataset is or is not reliable, in one short phrase, using the engine's
+ * OWN floor rather than a hardcoded number.
+ *
+ * This exists because `/results` used to render
+ * `reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"`, which was wrong
+ * in two ways at once. It hardcoded a floor the engine owns and reports as
+ * `reliability.spearman_floor`, and - worse - `reliable` is `isReliable()`,
+ * which is `clears_floor AND ci_excludes_zero`. So a model that genuinely
+ * CLEARED the floor but whose 95% CI still included zero was told "Below the
+ * 0.20 floor": a false statement about its own score, and the wrong reason for
+ * the right verdict. A scientist debugging why their run was not trusted would
+ * have gone looking at the wrong number.
+ *
+ * The two failure modes are distinguished, because the fix for them differs: a
+ * rho below the floor needs a better model or better data, while a CI spanning
+ * zero at an adequate rho usually just needs more runs.
+ */
+export function reliabilityReason(
+  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
+): string {
+  const rel = d.reliability;
+  if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
+  const floor = rel.spearman_floor.toFixed(2);
+  if (!rel.clears_floor) return `Below the ${floor} floor`;
+  if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
+  return `Clears the ${floor} floor`;
+}
+
 export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
   const rel = d.reliability;
   if (rel) return rel.clears_floor && rel.ci_excludes_zero;
   const ci = d.cv_ci95 ?? null;
   return d.cv_spearman != null && ci != null && ci[0] > 0;
+}
+
+/**
+ * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
+ * or `null` when the engine didn't report `conformal_coverage` (an older
+ * engine build). Callers must never hardcode a coverage number - when this
+ * returns `null`, say "conformal band" with no percentage rather than guess.
+ */
+export function coveragePct(conformalCoverage: number | null | undefined): string | null {
+  if (conformalCoverage == null || !Number.isFinite(conformalCoverage)) return null;
+  return `${Math.round(conformalCoverage * 100)}%`;
+}
+
+/**
+ * One-line disclosure of how the engine selected which drivers to report -
+ * how many candidate features were tested and how many survived to the
+ * displayed top slice. Returns `null` when the engine didn't report
+ * `driver_selection` (an older engine build) - render nothing rather than
+ * imply a selection process that wasn't disclosed.
+ */
+export function driverSelectionNote(sel: DriverSelection | null | undefined): string | null {
+  if (!sel) return null;
+  return `${sel.n_tested} feature${sel.n_tested === 1 ? "" : "s"} tested - showing the top ${sel.n_reported}, ranked by ${sel.ranked_by} (${sel.fdr_method} FDR, q=${sel.fdr_q}).`;
 }
 
 // --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------

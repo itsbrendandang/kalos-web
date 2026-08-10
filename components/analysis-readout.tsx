@@ -1,5 +1,5 @@
 import { SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
-import type { PopulatedResult } from "@/lib/api";
+import { coveragePct, driverSelectionNote, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { SectionHead } from "@/components/ui/section-head";
 import { EmptyState } from "@/components/ui/honest-state";
@@ -33,9 +33,13 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
           <Card className="flex flex-col">
             <div className="text-[15px] font-semibold text-fg">Process drivers</div>
             <p className="mt-1 text-[12px] leading-snug text-muted">
-              Signed correlation of each input with {d.target}, held out across recipe groups. Colored bars are
-              statistically distinguishable from noise (95% CI excludes zero); gray bars are within noise.
+              Signed correlation of each input with {d.target}, held out across recipe groups - an association, not a
+              proven cause. Colored bars are statistically significant (95% CI excludes zero and survive
+              multiple-testing correction); gray bars are not.
             </p>
+            {driverSelectionNote(d.driver_selection) ? (
+              <p className="mt-1 text-[12px] leading-snug text-muted">{driverSelectionNote(d.driver_selection)}</p>
+            ) : null}
             {d.drivers.length ? (
               <>
                 <div className="mt-3">
@@ -100,7 +104,9 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
         <SectionHead
           title="Recommended from your last analysis"
           sub={`The next batch to run, ranked by the acquisition function${
-            d.conformal_q != null ? ` · ± ${num(d.conformal_q, 2)} conformal band` : ""
+            d.conformal_q != null
+              ? ` · ± ${num(d.conformal_q, 2)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
+              : ""
           }.`}
         />
         <p className="mb-3 text-[12.5px] leading-5 text-muted">

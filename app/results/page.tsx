@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
-import { getLatest, isReliable, type LatestResult, type PopulatedResult } from "@/lib/api";
+import {
+  getLatest,
+  isReliable,
+  reliabilityReason,
+  type LatestResult,
+  type PopulatedResult,
+} from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -200,7 +206,7 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
         hint={
           rho != null ? (
             <span className={reliable ? "text-green" : "text-amber"}>
-              {reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"}
+              {reliabilityReason(d)}
             </span>
           ) : (
             "not scored (too few groups)"

@@ -12,7 +12,7 @@ import { RunCard } from "@/components/operations/run-card";
 import { RunQueue, fmtPredicted, type QueueRow } from "@/components/operations/run-queue";
 import { CompletedList } from "@/components/operations/completed-list";
 import { ExperimentStatusChip } from "@/components/experiments/status-chip";
-import { getLatest, type LatestResult, type PopulatedResult } from "@/lib/api";
+import { coveragePct, getLatest, type LatestResult, type PopulatedResult } from "@/lib/api";
 import { PIPELINE_SUMMARY, runsByStatus, type PipelineRun } from "@/lib/mock/pipeline";
 import { listExperiments, type ExperimentSummary } from "@/lib/experiments";
 import { DEMO_MODE } from "@/lib/demo";
@@ -210,7 +210,11 @@ export function OperationsView() {
       ? queuedRunsToQueueRows(runsByStatus("queued"))
       : [];
   const queueSub = hasRealProposals
-    ? `From the last analysis${populated?.conformal_q != null ? ` · ± ${num(populated.conformal_q, 2)} conformal band` : ""}`
+    ? `From the last analysis${
+        populated?.conformal_q != null
+          ? ` · ± ${num(populated.conformal_q, 2)} conformal band${coveragePct(populated.conformal_coverage) ? ` (${coveragePct(populated.conformal_coverage)})` : ""}`
+          : ""
+      }`
     : showDemoQueue
       ? "No live proposals - showing the demo queue."
       : "No live proposals yet.";

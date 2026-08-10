@@ -1,6 +1,6 @@
 import { Info } from "lucide-react";
 import { PredScatter } from "@/components/charts";
-import type { PopulatedResult } from "@/lib/api";
+import { coveragePct, type PopulatedResult } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, num, parseUnit } from "@/lib/utils";
@@ -49,6 +49,7 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         : `Below ${rel.spearman_floor.toFixed(2)} floor`
       : null;
   const unit = parseUnit(d.target);
+  const coverage = coveragePct(d.conformal_coverage);
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-4">
@@ -76,7 +77,11 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         <div className="flex min-h-[96px] flex-col justify-center rounded-[10px] border border-border p-3">
           <LabelWithTooltip
             label="Conformal band"
-            definition="A distribution-free ± band from pooled out-of-fold residuals: the interval within which a new prediction should fall 95% of the time."
+            definition={
+              coverage
+                ? `A distribution-free ± band from pooled out-of-fold residuals: the interval within which a new prediction should fall ${coverage} of the time.`
+                : "A distribution-free ± band from pooled out-of-fold residuals, sized so a new prediction should typically fall within it."
+            }
           />
           <div className="tabular mt-1 font-mono text-[22px] font-semibold text-fg">
             {d.conformal_q != null ? `± ${num(d.conformal_q, 2)}` : "n/a"}
@@ -87,7 +92,7 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
                 const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
                 const gloss = `A single prediction can be off by ±${num(d.conformal_q, 2)}${
                   unit ? ` ${unit}` : ""
-                } (95%). Compare to your ${targetName} range to judge if that's usable.`;
+                }${coverage ? ` (${coverage})` : ""}. Compare to your ${targetName} range to judge if that's usable.`;
                 return <div className="mt-1 text-[11px] leading-snug text-muted">{gloss}</div>;
               })()
             : null}

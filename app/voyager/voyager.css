@@ -1433,6 +1433,14 @@
 .voyager-root .v-driver-fill--down {
   background: var(--explore);
 }
+.voyager-root .v-driver-fill--ns {
+  background: var(--v-faint);
+  opacity: 0.5;
+}
+.voyager-root .mini-bar-ns {
+  color: var(--v-faint);
+  font-weight: 500;
+}
 .voyager-root .v-pipeline-badge--complete {
   background: var(--green-soft);
   color: var(--green);

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, FlaskConical, RefreshCw, SlidersHorizontal, Upload } from "lucide-react";
 import {
+  coveragePct,
+  driverSelectionNote,
   getCampaign,
   getLatest,
   isReliable,
@@ -242,7 +244,9 @@ function DecideBody({
           <h2 className="text-[15px] font-semibold text-fg">Recommended experiments</h2>
           <span className="text-[12px] text-muted">
             predicted {targetName}
-            {d.conformal_q != null ? ` · ± ${num(d.conformal_q, 2)} conformal band (95%)` : ""}
+            {d.conformal_q != null
+              ? ` · ± ${num(d.conformal_q, 2)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
+              : ""}
           </span>
         </div>
         {d.proposals.length ? (
@@ -331,12 +335,16 @@ function DecideBody({
       ) : null}
 
       {/* Supporting analysis: collapsed by default, lazy-mounted on first open */}
-      <Details summary="Process drivers - what moves the target">
+      <Details summary="Process drivers - what correlates with the target">
         <Card className="flex flex-col">
           <p className="text-[12px] leading-snug text-muted">
-            Signed correlation of each input with {targetName}, held out across recipe groups. Colored bars clear noise
-            (95% CI excludes zero); gray bars are within it.
+            Signed correlation of each input with {targetName}, held out across recipe groups - an association, not a
+            proven cause. Colored bars are statistically significant (95% CI excludes zero and survive multiple-testing
+            correction); gray bars are not.
           </p>
+          {driverSelectionNote(d.driver_selection) ? (
+            <p className="mt-1 text-[12px] leading-snug text-muted">{driverSelectionNote(d.driver_selection)}</p>
+          ) : null}
           {d.drivers.length ? (
             <>
               <div className="mt-3">

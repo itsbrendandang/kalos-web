@@ -159,7 +159,14 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
   );
 }
 
-export function DriversBar({ drivers }: { drivers: { name: string; rho: number }[] }) {
+/**
+ * `significant` must come from the engine (`Driver.significant` in
+ * lib/api.ts - CI excludes zero AND survives FDR correction), never be
+ * re-derived here. Non-significant bars render at reduced opacity so a
+ * driver that failed either test can never look the same as one that
+ * passed - see the caption the caller renders alongside this chart.
+ */
+export function DriversBar({ drivers }: { drivers: { name: string; rho: number; significant: boolean }[] }) {
   const data = [...drivers].reverse();
   const config = { rho: { label: "correlation" } } satisfies ChartConfig;
   return (
@@ -171,7 +178,7 @@ export function DriversBar({ drivers }: { drivers: { name: string; rho: number }
         <ChartTooltip cursor={{ fill: CHART_THEME.hoverCursor }} content={<ChartTooltipContent indicator="dot" />} />
         <Bar dataKey="rho" radius={[0, 4, 4, 0]} isAnimationActive={false}>
           {data.map((d, i) => (
-            <Cell key={i} fill={d.rho >= 0 ? ACCENT : CLAY} />
+            <Cell key={i} fill={d.rho >= 0 ? ACCENT : CLAY} fillOpacity={d.significant ? 1 : 0.35} />
           ))}
         </Bar>
       </BarChart>

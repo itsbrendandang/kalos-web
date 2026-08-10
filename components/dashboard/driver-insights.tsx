@@ -11,9 +11,13 @@ function signed(v: number): string {
  * analysis (drivers, oof, provenance, proposals) - nothing is a fixed
  * ideal range or a number specific to one dataset.
  *
- * The model-read copy is significance-aware: it only calls an input a
- * "driver" when its 95% CI excludes zero. Everything else is described as
- * a lead or as "not yet significant" - never stated as fact.
+ * The model-read copy is significance-aware: it only calls an input
+ * significant when `dr.significant` is true, which the engine sets only
+ * when the 95% CI excludes zero AND the driver survives Benjamini-Hochberg
+ * FDR correction across every feature tested (see lib/api.ts). Everything
+ * else is described as a lead or as "not yet significant" - never stated as
+ * fact, and never called "confirmed": these are rank-correlation
+ * associations on observational data, not causal claims.
  */
 export function DriverInsights({
   target,
@@ -43,8 +47,9 @@ export function DriverInsights({
   if (sig.length === 0) {
     if (top) {
       modelRead.push(
-        `No input is statistically distinguishable from noise at n=${n} - every driver's 95% CI includes zero. ` +
-          `The largest correlation (${top.name}, rho ${signed(top.rho)}) is a lead worth testing, not a confirmed driver.`,
+        `No input is statistically significant at n=${n} - none clears both the 95% CI-excludes-zero test and the ` +
+          `multiple-testing (FDR) correction. The largest correlation (${top.name}, rho ${signed(top.rho)}) is a lead ` +
+          `worth testing, not a statistically significant association.`,
       );
     }
   } else {
@@ -52,13 +57,13 @@ export function DriverInsights({
       const direction = dr.rho >= 0 ? "higher" : "lower";
       modelRead.push(
         i === 0
-          ? `${dr.name} is a confirmed driver, associated with ${direction} ${target} (rho ${signed(dr.rho)}, 95% CI excludes zero).`
-          : `${dr.name} is also significant, associated with ${direction} ${target} (rho ${signed(dr.rho)}).`,
+          ? `${dr.name} is associated with ${direction} ${target} (rho ${signed(dr.rho)}, significant after multiple-testing correction) - the strongest such association found.`
+          : `${dr.name} is also significantly associated with ${direction} ${target} (rho ${signed(dr.rho)}).`,
       );
     });
     if (notSig.length) {
       modelRead.push(
-        `${notSig.map((dr) => dr.name).join(", ")} ${notSig.length === 1 ? "is" : "are"} not yet significant (95% CI includes zero).`,
+        `${notSig.map((dr) => dr.name).join(", ")} ${notSig.length === 1 ? "is" : "are"} not yet significant (CI includes zero, or fails multiple-testing correction).`,
       );
     }
   }
@@ -106,7 +111,7 @@ export function DriverInsights({
     );
   }
   if (sig[0] && proposalFeatures.includes(sig[0].name)) {
-    nextActions.push(`${sig[0].name} is varied directly in this batch, the strongest confirmed lever available.`);
+    nextActions.push(`${sig[0].name} is varied directly in this batch - the strongest significant association available.`);
   }
   if (nonProducers > 0) {
     nextActions.push(

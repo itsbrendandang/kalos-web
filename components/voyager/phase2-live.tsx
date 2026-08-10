@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Activity, Gauge, RefreshCw, Info, FlaskConical } from "lucide-react";
-import { getLatest, type LatestResult, type AnalyzeResult, type Reliability } from "@/lib/api";
+import {
+  coveragePct,
+  driverSelectionNote,
+  getLatest,
+  isReliable,
+  type LatestResult,
+  type AnalyzeResult,
+} from "@/lib/api";
 
 type Live = Extract<LatestResult, { has_data: true }>;
 
@@ -22,18 +29,29 @@ function cleanReason(r: string) {
   return r.replace(/\s*\([^)]*±[^)]*\)/g, "").trim();
 }
 
-function verdict(r: Reliability | undefined): { tone: "ok" | "warn" | "bad"; text: string } {
+/**
+ * Routes through `isReliable(d)` - the single authority on trustworthiness
+ * (lib/api.ts) - so this verdict can never disagree with any other surface
+ * that checks reliability. The floor value is read from the engine's own
+ * `spearman_floor` rather than hardcoded, so the copy can't drift from it.
+ */
+export function verdict(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): {
+  tone: "ok" | "warn" | "bad";
+  text: string;
+} {
+  const r = d.reliability;
   if (!r || r.spearman == null) return { tone: "bad", text: "Not enough grouped folds to score reliability on this dataset." };
-  if (r.clears_floor && r.ci_excludes_zero)
+  const floor = r.spearman_floor.toFixed(2);
+  if (isReliable(d))
     return {
       tone: "ok",
-      text: "Positive but modest held-out signal: rank correlation clears the 0.20 floor and its 95% CI excludes zero. Treat recommendations as exploratory leads, not commitments.",
+      text: `Positive but modest held-out signal: rank correlation clears the ${floor} floor and its 95% CI excludes zero. Treat recommendations as exploratory leads, not commitments.`,
     };
   if (r.clears_floor)
-    return { tone: "warn", text: "Borderline: clears the 0.20 floor, but the 95% CI includes zero. Low confidence." };
+    return { tone: "warn", text: `Borderline: clears the ${floor} floor, but the 95% CI includes zero. Low confidence.` };
   if (r.ci_excludes_zero)
-    return { tone: "warn", text: "Below the 0.20 reliability floor, though the 95% CI excludes zero. Low-confidence recommendations." };
-  return { tone: "bad", text: "Weak: below the 0.20 floor and the 95% CI includes zero. Recommendations are low-confidence." };
+    return { tone: "warn", text: `Below the ${floor} reliability floor, though the 95% CI excludes zero. Low-confidence recommendations.` };
+  return { tone: "bad", text: `Weak: below the ${floor} floor and the 95% CI includes zero. Recommendations are low-confidence.` };
 }
 
 const TONE_CLASS: Record<"ok" | "warn" | "bad", string> = {
@@ -44,7 +62,7 @@ const TONE_CLASS: Record<"ok" | "warn" | "bad", string> = {
 
 function Reliability_({ d }: { d: AnalyzeResult }) {
   const r = d.reliability;
-  const v = verdict(r);
+  const v = verdict(d);
   const toneClass = TONE_CLASS[v.tone];
   return (
     <div className={`rounded-[10px] border-[0.5px] px-3.5 py-3 ${toneClass}`}>
@@ -65,7 +83,8 @@ function Reliability_({ d }: { d: AnalyzeResult }) {
 
 function ProposalCard({ d, p, i }: { d: AnalyzeResult; p: AnalyzeResult["proposals"][number]; i: number }) {
   const band = d.conformal_q ?? p.std;
-  const bandLabel = d.conformal_q != null ? "90% conformal band" : "model std";
+  const coverage = coveragePct(d.conformal_coverage);
+  const bandLabel = d.conformal_q != null ? (coverage ? `${coverage} conformal band` : "conformal band") : "model std";
   const isExploit = p.mode === "exploit";
   return (
     <div className="dc">
@@ -130,9 +149,14 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
       </div>
 
       <div>
-        <div className="sh">What drives {d.target}</div>
+        <div className="sh">What correlates with {d.target}</div>
         <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] p-3">
-          <div className="mb-2 text-[10px] text-[color:var(--v-muted)]">Global signed rank correlation across all runs.</div>
+          <div className="mb-2 text-[10px] text-[color:var(--v-muted)]">
+            Global signed rank correlation across all runs. Faded bars are not statistically significant.
+          </div>
+          {driverSelectionNote(d.driver_selection) ? (
+            <div className="mb-2 text-[10px] text-[color:var(--v-muted)]">{driverSelectionNote(d.driver_selection)}</div>
+          ) : null}
           {d.drivers.map((dr) => {
             const w = Math.min(100, Math.abs(dr.rho) * 100);
             return (
@@ -142,34 +166,42 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
                 </div>
                 <div className="mini-bar-track">
                   <div
-                    className={`mini-bar-fill ${dr.rho >= 0 ? "" : "v-driver-fill--down"}`}
+                    className={`mini-bar-fill ${!dr.significant ? "v-driver-fill--ns" : dr.rho >= 0 ? "" : "v-driver-fill--down"}`}
                     style={{ width: `${w}%` }}
                   />
                 </div>
-                <div className="mini-bar-pct">{dr.rho >= 0 ? "+" : ""}{fmt(dr.rho, 2)}</div>
+                <div className="mini-bar-pct">
+                  {dr.rho >= 0 ? "+" : ""}
+                  {fmt(dr.rho, 2)}
+                  {!dr.significant ? <span className="mini-bar-ns"> ns</span> : null}
+                </div>
               </div>
             );
           })}
         </div>
 
-        <div className="sh mt-3.5">Not modeled by this engine</div>
-        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] p-3">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[color:rgba(17,17,17,0.6)]">
-            <Info className="size-3 text-[color:var(--v-blue)]" /> Shown elsewhere in the mock, absent here on purpose
-          </div>
-          <ul className="space-y-1 text-[11px] text-[color:var(--v-muted)]">
-            {(d.reliability?.unmodeled ?? ["feasibility probability", "calibration (ECE)", "scale-up transfer"]).map((u) => (
-              <li key={u} className="flex gap-1.5">
-                <span className="text-[color:var(--v-faint)]">•</span>
-                {u}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-2 text-[10px] leading-[1.5] text-[color:var(--v-muted)]">
-            Success-probability % and the Bench→2000L scale-up curve need a feasibility classifier and multi-scale data the
-            current engine does not have, so they are omitted rather than fabricated.
-          </div>
-        </div>
+        {d.reliability?.unmodeled?.length ? (
+          <>
+            <div className="sh mt-3.5">Not modeled by this engine</div>
+            <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] p-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[color:rgba(17,17,17,0.6)]">
+                <Info className="size-3 text-[color:var(--v-blue)]" /> Shown elsewhere in the mock, absent here on purpose
+              </div>
+              <ul className="space-y-1 text-[11px] text-[color:var(--v-muted)]">
+                {d.reliability.unmodeled.map((u) => (
+                  <li key={u} className="flex gap-1.5">
+                    <span className="text-[color:var(--v-faint)]">•</span>
+                    {u}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 text-[10px] leading-[1.5] text-[color:var(--v-muted)]">
+                Success-probability % and the Bench→2000L scale-up curve need a feasibility classifier and multi-scale data
+                the current engine does not have, so they are omitted rather than fabricated.
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

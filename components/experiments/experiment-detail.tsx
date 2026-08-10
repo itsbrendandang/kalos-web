@@ -10,7 +10,7 @@ import { ServiceUnavailable } from "@/components/service-unavailable";
 import { ExperimentStatusChip } from "@/components/experiments/status-chip";
 import { DriversBar, PredScatter } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
-import { isReliable } from "@/lib/api";
+import { driverSelectionNote, isReliable } from "@/lib/api";
 import {
   ExperimentApiError,
   getExperiment,
@@ -192,8 +192,18 @@ function Body({ exp }: { exp: Experiment }) {
 
       <div className="mb-5 grid gap-5 lg:grid-cols-2">
         <div>
-          <SectionLabel>Drivers: dark bars raise, light bars lower {result.target}</SectionLabel>
-          {missing.includes("drivers") ? <StaleSectionNote /> : <DriversBar drivers={result.drivers} />}
+          <SectionLabel>Drivers - associated with higher (dark) / lower (light) {result.target}</SectionLabel>
+          {missing.includes("drivers") ? (
+            <StaleSectionNote />
+          ) : (
+            <>
+              <DriversBar drivers={result.drivers} />
+              <p className="mt-1 text-[11px] text-muted">
+                Faded bars are not statistically significant - an association, not a proven cause.
+                {driverSelectionNote(result.driver_selection) ? ` ${driverSelectionNote(result.driver_selection)}` : ""}
+              </p>
+            </>
+          )}
         </div>
         <div>
           <SectionLabel>Predicted vs measured (out-of-fold)</SectionLabel>

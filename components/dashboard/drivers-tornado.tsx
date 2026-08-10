@@ -6,12 +6,14 @@ import { cn } from "@/lib/utils";
  * a shared center axis at 0, and a thin whisker under each bar spans the
  * driver's 95% CI so the scientist can see whether that range crosses zero.
  *
- * Color encodes SIGNIFICANCE, not direction: a driver whose CI excludes zero
- * (a real, distinguishable-from-noise finding) gets the --chart-1 emphasis;
- * a driver whose CI includes zero gets the neutral --explore gray and a
- * "within noise" tag, regardless of which way its point estimate leans.
- * Direction (higher/lower target) is still readable from which side of the
- * zero axis the bar and whisker sit on.
+ * Color encodes SIGNIFICANCE, not direction: `dr.significant` is true only
+ * when the CI excludes zero AND the driver survives Benjamini-Hochberg FDR
+ * correction across every feature tested (see lib/api.ts) - that driver gets
+ * the --chart-1 emphasis. Anything that fails either test gets the neutral
+ * --explore gray and a "not significant" tag, regardless of which way its
+ * point estimate leans. Direction (higher/lower target) is still readable
+ * from which side of the zero axis the bar and whisker sit on - it is an
+ * association, not a claim of causation.
  *
  * The axis scale is derived from the data (max of every rho and CI bound,
  * padded 15%), not hardcoded, so it stays correct for any dataset the engine
@@ -38,11 +40,11 @@ export function DriversTornado({ drivers, target }: { drivers: Driver[]; target:
         <div className="flex flex-wrap items-center gap-3 text-[11px] whitespace-nowrap text-muted">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-3 rounded-sm bg-chart-1" />
-            Significant (CI excludes zero)
+            Significant (CI excludes zero, survives FDR correction)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-3 rounded-sm bg-explore" />
-            Within noise (CI includes zero)
+            Not significant
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-px w-3 bg-muted-foreground" />
@@ -86,7 +88,7 @@ export function DriversTornado({ drivers, target }: { drivers: Driver[]; target:
                   {dr.rho.toFixed(2)}
                   {!dr.significant ? (
                     <span className="ml-1.5 rounded border border-border bg-card px-1 py-px text-[9.5px] font-sans font-semibold text-muted uppercase">
-                      within noise
+                      not significant
                     </span>
                   ) : null}
                 </div>

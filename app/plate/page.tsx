@@ -14,7 +14,10 @@ import { WellDetail } from "@/components/plate/well-detail";
 import { GrowthCurve } from "@/components/plate/growth-curve";
 import { StatusChip } from "@/components/plate/status-chip";
 import { PageHeader, DemoBadge } from "@/components/page-header";
+import { EmptyState } from "@/components/ui/honest-state";
+import { DEMO_MODE } from "@/lib/demo";
 import { PLATE } from "@/lib/plate-data";
+import { PlugZap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ViewTab = "overview" | "dose";
@@ -24,7 +27,45 @@ type ViewTab = "overview" | "dose";
  * growth-curve detail. Renders from the deterministic seed data in
  * lib/plate-data.ts - see that file for the real-API integration point.
  */
+/**
+ * No live plate source is connected, so this page has nothing real to show.
+ *
+ * This gate was missing. `/plate` imported and rendered `DemoBadge` but never
+ * imported `DEMO_MODE`, so it served the synthetic 96-well screen in
+ * `lib/plate-data.ts` unconditionally, in production, from a nav link labelled
+ * "Plate analysis". `/vessels` (app/vessels/page.tsx) and `/data` both refuse
+ * instead, and refusing is the right behaviour: a badge is a caption a client
+ * can miss, and a client who later works out that the wells were invented has
+ * no reason to trust the titers on any other page either.
+ */
+function NoLivePlate() {
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Plate Analysis"
+        desc="96-well screen QC: per-well status, controls, and dose response."
+      />
+      <EmptyState
+        icon={PlugZap}
+        title="No live plate data"
+        description={
+          <>
+            No plate reader or screen source is connected yet. Set{" "}
+            <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview this
+            workspace with demo data.
+          </>
+        }
+      />
+    </div>
+  );
+}
+
 export default function PlatePage() {
+  if (!DEMO_MODE) return <NoLivePlate />;
+  return <PlateWorkspace />;
+}
+
+function PlateWorkspace() {
   const [selectedWellId, setSelectedWellId] = useState(PLATE.defaultWellId);
   const [showFlags, setShowFlags] = useState(false);
   const [showValues, setShowValues] = useState(false);

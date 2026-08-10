@@ -32,6 +32,7 @@ import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
+import { NoisePanel } from "@/components/dashboard/noise-panel";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { ScaleUpTimeline } from "@/components/scale-up-timeline";
@@ -374,6 +375,7 @@ function DecideBody({
       <Details summary="Model reliability - how far to trust it">
         <ReliabilityPanel d={d} />
         <ModelCoverage d={d} />
+        <NoisePanel noise={d.noise} target={d.target} />
       </Details>
 
       <Details summary="Run structure - where the measured runs sit">

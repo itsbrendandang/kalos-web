@@ -1,4 +1,6 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+import type { NoiseReport } from "./noise";
+
 import type { ValidationReport } from "@/lib/validation";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8050";
@@ -123,6 +125,13 @@ export type AnalyzeResult = {
   drivers: Driver[];
   /** How the engine selected which `drivers` to report. Absent on older engine builds. */
   driver_selection?: DriverSelection;
+  /**
+   * Signal-to-noise and replicate structure. Optional: an older engine build
+   * does not send it. `best_single` rewards a noise spike, `best_reproducible`
+   * is the shippable number, and `icc` is how much of the spread is real recipe
+   * effect - see lib/noise.ts for why that distinction changes the next batch.
+   */
+  noise?: NoiseReport;
   proposal_features: string[];
   proposals: Proposal[];
   oof: [number, number][];
@@ -249,6 +258,8 @@ export function reliabilityReason(
   if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
   return `Clears the ${floor} floor`;
 }
+
+export type { NoiseReport } from "./noise";
 
 export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
   const rel = d.reliability;

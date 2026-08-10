@@ -1,6 +1,7 @@
 import { SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
 import { coveragePct, driverSelectionNote, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { NoisePanel } from "@/components/dashboard/noise-panel";
 import { SectionHead } from "@/components/ui/section-head";
 import { EmptyState } from "@/components/ui/honest-state";
 import { Proposals } from "@/components/proposals";
@@ -73,6 +74,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
 
       <section>
         <SectionHead title="Run structure" sub="Where the uploaded runs sit, and how the measured target is distributed." />
+        <NoisePanel noise={d.noise} target={d.target} />
         {d.embedding ? (
           <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
             <RunLandscape d={d} />

@@ -18,7 +18,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { AnalysisReadout } from "@/components/analysis-readout";
-import { fmt, parseUnit } from "@/lib/utils";
+import { num, parseUnit } from "@/lib/utils";
 
 function ago(ts?: number) {
   if (!ts) return "";
@@ -193,7 +193,7 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
         label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
         value={
           <>
-            {fmt(d.best, 1)}
+            {num(d.best, 2)}
             {unit ? <span className="ml-1 text-[13px] font-normal text-muted">{unit}</span> : null}
           </>
         }

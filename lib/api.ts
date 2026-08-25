@@ -1,7 +1,20 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
 import type { ValidationReport } from "@/lib/validation";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8050";
+/**
+ * Default: the same-origin server proxy (app/api/engine/[...path]/route.ts).
+ * Every fetch below runs in the BROWSER, so it can never carry the engine's
+ * bearer token directly - a token in any client-visible code is public the
+ * moment it ships. The proxy runs server-side and attaches
+ * `Authorization: Bearer ${KALOS_ENGINE_TOKEN}` there instead; see that
+ * file's header comment for the full reasoning.
+ *
+ * Escape hatch: setting NEXT_PUBLIC_API_URL still points every call straight
+ * at an engine (e.g. a local dev engine run with no auth configured, or
+ * DEMO_MODE flows that never call the engine at all). That's opt-in dev
+ * convenience, not the deployed posture - the proxy is the default.
+ */
+const API = process.env.NEXT_PUBLIC_API_URL || "/api/engine";
 
 export type Proposal = {
   vals: number[];

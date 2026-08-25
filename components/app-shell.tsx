@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Atom,
   ClipboardList,
+  Compass,
   Database,
   FolderKanban,
   LayoutDashboard,
@@ -30,11 +31,17 @@ type NavItem = { href: string; label: string; short: string; helper: string; ico
 // viewing their own runs), a different audience from the internal tool, so it
 // doesn't belong inside "Analyze". The desktop sidebar renders the section
 // labels; the compact mobile bar flattens them.
+//
+// Decide sits at nav slot 2, right after Experiments: it's the campaign-loop
+// home (propose -> run -> log outcome -> re-propose, kalos/docs/CAMPAIGN_LOOP.md)
+// and belongs beside "watch the lab", not filed under Analyze - it was
+// orphaned by accident (no nav entry at all), not left out on purpose.
 const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
   {
     label: "Monitor",
     items: [
       { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board · Table", icon: ListChecks },
+      { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
       { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
     ],
   },

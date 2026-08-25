@@ -9,6 +9,15 @@ export type Proposal = {
   std: number;
   mode: "explore" | "exploit";
   reason: string;
+  /**
+   * Predicted probability this recipe actually produces, read off the same
+   * feasibility classifier that (maybe) gated the batch's acquisition - see
+   * `proposal_gating` below. Present only when the batch was gated (an
+   * ungated run reports no probability nobody asked to trust, rather than a
+   * value); `null` on a NaN entry from the engine. Absent entirely on older
+   * engine builds.
+   */
+  p_feasible?: number | null;
 };
 
 export type MultiProposal = {
@@ -73,6 +82,35 @@ export type DriverSelection = {
   fdr_q: number;
   n_bootstrap: number;
   ranked_by: string;
+  /**
+   * The unit of analysis the panel was tested against - replicates of one
+   * recipe are averaged first, so `n_units` (not `n_rows`) is the
+   * independent evidence every p-value and CI is computed on. Absent on
+   * engine builds before this disclosure shipped.
+   */
+  unit?: string;
+  n_units?: number;
+  n_rows?: number;
+};
+
+/**
+ * Held-out coverage of the surrogate's own uncertainty bands (reliability.calibration):
+ * a model can rank held-out runs correctly while every interval is half the
+ * width it should be, which is a distinct failure mode from `spearman`.
+ * `available: false` means the sheet did not have enough held-out points with
+ * a usable posterior sd to measure it - `ece`/`z_std`/`levels` are then
+ * `null`/`[]`, and `reason` says why, rather than a fabricated coverage rate.
+ * `z_std` above 1 means the bands read too narrow (overconfident); below 1,
+ * too wide. Absent on older engine builds (the whole field, not just
+ * `available`, may be missing).
+ */
+export type Calibration = {
+  available: boolean;
+  reason: string | null;
+  n: number;
+  ece: number | null;
+  z_std: number | null;
+  levels: { nominal: number; empirical: number }[];
 };
 
 export type Reliability = {
@@ -83,6 +121,125 @@ export type Reliability = {
   ci_excludes_zero: boolean;
   /** Quantities the current engine does not model, surfaced so the UI can say so. */
   unmodeled: string[];
+  /** Absent on engine builds before calibration scoring shipped. */
+  calibration?: Calibration;
+};
+
+/**
+ * Fail-closed promotion verdict (`promotion`): whether this analysis clears
+ * the same four gates (rank agreement, feasibility AUC, interval ECE,
+ * feasibility Brier) the engine's promotion policy has always defined.
+ * REPORTED, not enforced - a `false` verdict does not mean this app should
+ * reject or hide the analysis, only say honestly that it is not yet shown
+ * fit to promote. `passed=false` also covers the case where a required gate
+ * is UNMEASURABLE on this sheet (e.g. an all-producer upload with no
+ * non-producers to score feasibility against) - fail-closed by design, not
+ * an error state - which is exactly what `meaning` explains and a failure
+ * line naming "unmeasured" confirms. `metrics` only ever contains gates that
+ * were actually finite (never NaN), so it is safe to render directly. Absent
+ * on older engine builds.
+ */
+export type Promotion = {
+  passed: boolean;
+  failures: string[];
+  metrics: Record<string, number>;
+  summary: string;
+  meaning: string;
+};
+
+/**
+ * Leave-one-group-out generalization (`cv_logo`): the harder question of
+ * generalizing to the NEXT group the model has seen nothing like, versus
+ * grouped K-fold's "a few unseen groups among many familiar ones" above. Only
+ * computed when there is a declared/detected group column and the group
+ * count is small enough to afford one GP fit per group - `spearman` is
+ * `null` with a stated `reason` otherwise (no group column, or too many
+ * groups), never silently absent. Absent entirely on older engine builds.
+ */
+export type CvLogo = {
+  spearman: number | null;
+  n_groups: number | null;
+  n_oof: number | null;
+  reason: string | null;
+};
+
+/**
+ * "Of the true top-k recipes, how many did the model's top-k catch"
+ * (`cv_topk`) - the client's actual decision (which k recipes to advance),
+ * which a pooled Spearman can obscure on a zero-inflated target. `overlap`
+ * is `null` with a stated `reason` when there are fewer than `k` evaluable
+ * held-out rows to rank. Absent entirely on older engine builds.
+ */
+export type CvTopK = {
+  overlap: number | null;
+  k: number;
+  n: number;
+  evaluable: boolean;
+  reason: string | null;
+};
+
+/**
+ * The group-mean baseline floor (`cv_group_mean_baseline`): how much of the
+ * apparent CV signal is just the model recognizing which recipe a row
+ * belongs to, rather than modeling the process - predicted by the mean of a
+ * recipe's OTHER rows alone, no process feature involved. `spearman` is
+ * `null` with a stated `reason` when too few recipes are replicated to
+ * compute it. `interpretation` is the engine's own one-line reading,
+ * present whenever `spearman` is. Absent entirely on older engine builds.
+ */
+export type CvGroupMeanBaseline = {
+  spearman: number | null;
+  n_evaluable: number;
+  n_groups_used: number;
+  interpretation: string | null;
+  reason: string | null;
+};
+
+/**
+ * One input column whose search range was narrowed because some observed
+ * cells were physically impossible (`design_box_exclusions`) - reported so
+ * the client never assumes the box being optimized over is the full data
+ * range. Absent entirely on older engine builds; an empty array means
+ * nothing was excluded.
+ */
+export type DesignBoxExclusion = {
+  column: string;
+  n_excluded: number;
+  lower: number;
+  upper: number;
+};
+
+/**
+ * Whether/why the proposal acquisition was gated by predicted feasibility
+ * (`proposal_gating`) - NEW, optimistic field from the current engine
+ * branch: type as optional, render only when present, nothing when absent.
+ * `reason` always explains the verdict either way (gated or not - all three
+ * gate conditions are independently reported). `threshold` is the label
+ * threshold used to define "feasible" for training the classifier, not an
+ * AUC/count policy floor.
+ */
+export type ProposalGating = {
+  gated: boolean;
+  reason: string;
+  n_infeasible: number;
+  feasibility_auc: number | null;
+  threshold: number;
+};
+
+/**
+ * Whether/why a requested constraint (e.g. purity >= floor) was applied to
+ * this batch (`constraint`) - NEW, optimistic field from the current engine
+ * branch. Always present in a current-engine response even with no
+ * constraint requested (`reason: "no constraint requested"`), so a consumer
+ * never has to special-case its absence - but the UI should render nothing
+ * for that overwhelmingly common inert case; see `constraintNote` below.
+ */
+export type ConstraintReport = {
+  column: string | null;
+  floor: number | null;
+  n_rows_with_value: number;
+  applied: boolean;
+  reason: string | null;
 };
 
 /**
@@ -108,6 +265,21 @@ export type AnalyzeResult = {
   cv_spearman: number | null;
   cv_ci95?: [number, number] | null;
   cv_n_groups?: number;
+  /**
+   * How many partitions actually went into `cv_ci95` - the CI now covers
+   * partition-to-partition variance, not just group-resampling variance
+   * within one fixed split. This is the EFFECTIVE count (it can collapse to
+   * 1 on a sheet with too few groups for a second partition to exist), not
+   * the requested ceiling. Absent on older engine builds.
+   */
+  cv_n_repeats?: number;
+  /**
+   * Per-repeat pooled Spearman, so the partition-to-partition spread that
+   * widens `cv_ci95` is visible on its own rather than only as a width.
+   * `null` entries are repeats where rho was not finite. Absent on older
+   * engine builds.
+   */
+  cv_spearman_per_repeat?: (number | null)[];
   /** Distribution-free +/- band (abs) from pooled out-of-fold residuals. */
   conformal_q?: number | null;
   /**
@@ -119,6 +291,14 @@ export type AnalyzeResult = {
    */
   conformal_coverage?: number;
   reliability?: Reliability;
+  /** Fail-closed promotion verdict, REPORTED not enforced. Absent on older engine builds. */
+  promotion?: Promotion;
+  /** Absent with no group column, too many groups to afford it, or an older engine build. */
+  cv_logo?: CvLogo;
+  /** Absent entirely on older engine builds. */
+  cv_topk?: CvTopK;
+  /** Absent entirely on older engine builds. */
+  cv_group_mean_baseline?: CvGroupMeanBaseline;
   best: number;
   drivers: Driver[];
   /** How the engine selected which `drivers` to report. Absent on older engine builds. */
@@ -126,6 +306,41 @@ export type AnalyzeResult = {
   proposal_features: string[];
   proposals: Proposal[];
   oof: [number, number][];
+  /**
+   * Input columns whose search range was narrowed because some observed
+   * cells were physically impossible. Absent on older engine builds; an
+   * empty array means nothing was excluded.
+   */
+  design_box_exclusions?: DesignBoxExclusion[];
+  /**
+   * Which acquisition optimizer actually served `proposals` - a large
+   * categorical space silently switches from exact enumeration to an
+   * alternating heuristic. Typed as `string` (not a strict union), matching
+   * `ProvenanceEntry.status`'s convention: the payload isn't runtime-validated
+   * here, so an unrecognized value still renders honestly rather than
+   * crashing a strict-union render. Absent on older engine builds.
+   */
+  proposal_optimizer?: string;
+  /**
+   * In-flight recipes the acquisition was told about when computing
+   * `proposals`. 0 means the batch was computed as if nothing were running -
+   * true for a one-shot upload, and the thing to check first if a round
+   * re-proposes work already started. Absent on older engine builds.
+   */
+  n_pending_considered?: number;
+  /**
+   * Whether/why the proposal acquisition was gated by predicted feasibility.
+   * NEW, optimistic field from the current engine branch: type as optional,
+   * render only when present. Absent on older engine builds.
+   */
+  proposal_gating?: ProposalGating;
+  /**
+   * Whether/why a requested constraint was applied to `proposals`. NEW,
+   * optimistic field from the current engine branch. Absent on older engine
+   * builds; see `ConstraintReport` for why "present but inert" also renders
+   * nothing.
+   */
+  constraint?: ConstraintReport;
   /**
    * Optional low-dimensional projection of every run, positioned by recipe
    * similarity - each point is `[x, y, target]`. Absent on analyses run
@@ -277,7 +492,170 @@ export function coveragePct(conformalCoverage: number | null | undefined): strin
  */
 export function driverSelectionNote(sel: DriverSelection | null | undefined): string | null {
   if (!sel) return null;
-  return `${sel.n_tested} feature${sel.n_tested === 1 ? "" : "s"} tested - showing the top ${sel.n_reported}, ranked by ${sel.ranked_by} (${sel.fdr_method} FDR, q=${sel.fdr_q}).`;
+  const base = `${sel.n_tested} feature${sel.n_tested === 1 ? "" : "s"} tested - showing the top ${sel.n_reported}, ranked by ${sel.ranked_by} (${sel.fdr_method} FDR, q=${sel.fdr_q}).`;
+  if (sel.unit == null || sel.n_units == null || sel.n_rows == null) return base;
+  return `${base} Tested per ${sel.unit} (${sel.n_units} ${sel.unit}${sel.n_units === 1 ? "" : "s"}, ${sel.n_rows} row${sel.n_rows === 1 ? "" : "s"}).`;
+}
+
+// --- Honesty-parity helpers -------------------------------------------------
+// Pure formatters for the engine's newer response fields, following the same
+// contract every helper above already does: absent field -> null (render
+// nothing); present-but-unmeasured -> the engine's own stated reason, never a
+// fabricated number. Kept here rather than inline in components so the
+// render-or-explain logic is unit-testable without a DOM.
+
+/**
+ * Held-out prediction-interval calibration (`reliability.calibration`): is
+ * the stated +/- band honest, not just the ranking. `null` when the field is
+ * absent (older engine build) - render nothing. When the engine could not
+ * measure it on this sheet (`available: false`), returns the engine's own
+ * reason rather than a fabricated ECE.
+ */
+export function calibrationNote(cal: Calibration | null | undefined): string | null {
+  if (!cal) return null;
+  if (!cal.available) return `Not scored - ${cal.reason ?? "not enough held-out points"}.`;
+  const parts = [`ECE ${cal.ece != null ? cal.ece.toFixed(2) : "n/a"}`];
+  if (cal.z_std != null) {
+    const shape = cal.z_std > 1 ? "bands read narrow, overconfident" : cal.z_std < 1 ? "bands read wide" : "well-calibrated";
+    parts.push(`z_std ${cal.z_std.toFixed(2)} (${shape})`);
+  }
+  return `${parts.join(" - ")}, n=${cal.n}.`;
+}
+
+/**
+ * Per-repeat pooled Spearman spread (`cv_n_repeats`/`cv_spearman_per_repeat`) -
+ * `cv_ci95` already reflects this partition-to-partition variance in its
+ * width; this surfaces the spread itself, subtly, beside the point estimate.
+ * `null` when there is nothing to add: fewer than 2 finite repeats, or the
+ * fields are absent (older engine build).
+ */
+export function repeatSpreadNote(
+  nRepeats: number | null | undefined,
+  perRepeat: (number | null)[] | null | undefined,
+): string | null {
+  const finite = (perRepeat ?? []).filter((v): v is number => v != null);
+  if (finite.length < 2) return null;
+  const lo = Math.min(...finite).toFixed(2);
+  const hi = Math.max(...finite).toFixed(2);
+  return `${nRepeats ?? finite.length} repeats: ${lo} to ${hi}`;
+}
+
+/**
+ * Leave-one-group-out generalization (`cv_logo`) - the harder question of
+ * generalizing to the NEXT group the model has seen nothing like. `null`
+ * when the field is absent (older engine build); the engine's own `reason`
+ * when it could not be computed on this sheet (no group column, or too many
+ * groups to afford it) rather than silence.
+ */
+export function cvLogoNote(logo: CvLogo | null | undefined): string | null {
+  if (!logo) return null;
+  if (logo.spearman == null) return logo.reason ?? "Not scored.";
+  return `rho ${logo.spearman.toFixed(2)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
+}
+
+/**
+ * "Of the true top-k recipes, how many did the model's top-k catch"
+ * (`cv_topk`). `null` when the field is absent (older engine build);
+ * `evaluable: false` renders the engine's stated reason rather than a number
+ * that looks measured.
+ */
+export function cvTopKNote(topk: CvTopK | null | undefined): string | null {
+  if (!topk) return null;
+  if (!topk.evaluable || topk.overlap == null) return topk.reason ?? "Not scored.";
+  const hits = Math.round(topk.overlap * topk.k);
+  return `${hits} of the true top ${topk.k} caught (n=${topk.n}).`;
+}
+
+/**
+ * The group-mean baseline floor (`cv_group_mean_baseline`): how much of the
+ * apparent CV signal is just the model recognizing which recipe a row
+ * belongs to. `null` when the field is absent (older engine build).
+ * Otherwise always returns text - the engine's stated `reason` when the
+ * baseline itself could not be computed, or a line built from `spearman` and
+ * `interpretation` when it could - plus `prominent`, true when the caller
+ * should surface this as a loud callout rather than a quiet mention: the
+ * model's own `cv_spearman` does not clearly beat the floor (does not
+ * strictly exceed it), which is the honest moment this field exists for.
+ */
+export function groupMeanBaselineVerdict(
+  cvSpearman: number | null | undefined,
+  baseline: CvGroupMeanBaseline | null | undefined,
+): { text: string; prominent: boolean } | null {
+  if (!baseline) return null;
+  if (baseline.spearman == null) {
+    return { text: baseline.reason ?? "Not scored.", prominent: false };
+  }
+  const beats = cvSpearman != null && cvSpearman > baseline.spearman;
+  const text = `Group-mean baseline rho ${baseline.spearman.toFixed(2)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
+    baseline.interpretation ? ` - ${baseline.interpretation}` : ""
+  }`;
+  return { text, prominent: !beats };
+}
+
+/**
+ * Which region of the recipe space was actually searched, when narrowed
+ * because some observed cells were physically impossible
+ * (`design_box_exclusions`) - so a consumer never assumes the search box is
+ * the full data range. `null` when nothing was excluded, or the field is
+ * absent (older engine build).
+ */
+export function designBoxExclusionsNote(exclusions: DesignBoxExclusion[] | null | undefined): string | null {
+  if (!exclusions || exclusions.length === 0) return null;
+  const parts = exclusions.map(
+    (e) => `${e.column} (${e.lower.toFixed(2)} to ${e.upper.toFixed(2)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
+  );
+  return `Search box narrowed for ${exclusions.length} feature${exclusions.length === 1 ? "" : "s"}: ${parts.join("; ")}.`;
+}
+
+/**
+ * How this batch was actually computed (`proposal_optimizer`/
+ * `n_pending_considered`) - mirrors the seed/timestamp/engine_version audit
+ * trail: a large categorical space silently switches optimizers, and
+ * in-flight recipes change what the acquisition already knew about. `null`
+ * only when the engine reported neither (older engine build).
+ */
+export function proposalAuditNote(optimizer: string | null | undefined, nPending: number | null | undefined): string | null {
+  const parts: string[] = [];
+  if (optimizer) parts.push(`${optimizer} optimizer`);
+  if (nPending != null) parts.push(`${nPending} in-flight recipe${nPending === 1 ? "" : "s"} considered`);
+  return parts.length ? parts.join(" - ") : null;
+}
+
+/**
+ * Whether/why the proposal acquisition was gated by predicted feasibility
+ * (`proposal_gating`). `null` when the field is absent (older engine build,
+ * or an engine build before this NEW optimistic field shipped).
+ */
+export function proposalGatingNote(gating: ProposalGating | null | undefined): string | null {
+  if (!gating) return null;
+  return gating.reason;
+}
+
+/**
+ * Whether/why a requested constraint was applied to this batch
+ * (`constraint`). `null` when the field is absent, or present but inert (the
+ * overwhelmingly common "no constraint requested" case) - rendering nothing
+ * for that case even though the field itself is present, since there is
+ * nothing to disclose.
+ */
+export function constraintNote(constraint: ConstraintReport | null | undefined): string | null {
+  if (!constraint) return null;
+  if (constraint.reason === "no constraint requested") return null;
+  if (constraint.applied) {
+    return `Constrained by ${constraint.column} >= ${constraint.floor} (fit on ${constraint.n_rows_with_value} rows).`;
+  }
+  return `Constraint on ${constraint.column ?? "the requested column"} not applied - ${constraint.reason ?? "unknown reason"}.`;
+}
+
+/**
+ * Whether a promotion-gate failure line (`promotion.failures[]`) names an
+ * unmeasured metric rather than one that was measured and fell short - so
+ * the UI can render the unmeasured case as a neutral disclosure instead of a
+ * scarier miss (see `check_gates` in the engine: a missing/NaN required
+ * metric fails closed and reads exactly like a rejection unless explained).
+ */
+export function isUnmeasuredFailure(failure: string): boolean {
+  return failure.includes("unmeasured");
 }
 
 // --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------

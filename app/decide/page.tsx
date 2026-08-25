@@ -30,6 +30,9 @@ import { ProgressChart } from "@/components/charts";
 import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
+import { PromotionPanel } from "@/components/dashboard/promotion-panel";
+import { EvaluationChecks } from "@/components/dashboard/evaluation-checks";
+import { ProposalDisclosures } from "@/components/dashboard/proposal-disclosures";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
@@ -249,6 +252,7 @@ function DecideBody({
               : ""}
           </span>
         </div>
+        <ProposalDisclosures d={d} />
         {d.proposals.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {d.proposals.map((p, i) => (
@@ -372,8 +376,10 @@ function DecideBody({
       </Details>
 
       <Details summary="Model reliability - how far to trust it">
+        <PromotionPanel d={d} />
         <ReliabilityPanel d={d} />
         <ModelCoverage d={d} />
+        <EvaluationChecks d={d} />
       </Details>
 
       <Details summary="Run structure - where the measured runs sit">
@@ -616,6 +622,11 @@ function ProposalCard({
             {v.label}
           </Badge>
         </div>
+        {p.p_feasible != null ? (
+          <div className="text-[11px] text-muted">
+            P(feasible) <span className="tabular font-mono font-semibold text-fg">{num(p.p_feasible, 2)}</span>
+          </div>
+        ) : null}
         <p className="mt-0.5 text-[12px] leading-snug text-muted">{p.reason}</p>
         <button
           type="button"

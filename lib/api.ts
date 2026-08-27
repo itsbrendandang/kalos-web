@@ -268,6 +268,41 @@ export type ProvenanceEntry = {
   non_null: number;
 };
 
+/**
+ * The engine's explicit, labeled log-scale evaluation pass
+ * (`alternative_scale`): run only when the raw-scale diagnostic
+ * (`noise.scale.suggests_transform`) says a log transform would materially
+ * raise the ICC. A NEW GP is fit and cross-validated on `log(y + offset)`, so
+ * `cv_spearman`/`cv_ci95`/`calibration`/`icc` here are genuinely different
+ * numbers from the raw-scale ones, not a re-ranking of the same predictions.
+ *
+ * Evaluation-only: proposals and every other number in the response stay on
+ * the raw scale (`interpretation` states this explicitly - render it
+ * whenever `scale` is non-null, not just the numbers).
+ *
+ * `scale: null` is the same null-with-reason pattern as `cv_logo`: every key
+ * present, values `null`, `reason` states why a transform was not suggested
+ * on this sheet - never a missing key.
+ *
+ * `calibration.ece`/`calibration.z_std` here are computed on LOG-SCALE
+ * residuals - comparable to `reliability.calibration` in STRUCTURE (is
+ * coverage honest at each nominal level) but NOT in absolute magnitude, since
+ * the two live in different units. Never render them beside the raw
+ * calibration card as if they were the same scale.
+ *
+ * Absent entirely on older engine builds.
+ */
+export type AlternativeScale = {
+  scale: "log1p" | null;
+  offset: number | null;
+  cv_spearman: number | null;
+  cv_ci95: [number, number] | null;
+  calibration: Calibration | null;
+  icc: number | null;
+  reason: string;
+  interpretation: string | null;
+};
+
 export type AnalyzeResult = {
   n: number;
   d: number;
@@ -312,6 +347,14 @@ export type AnalyzeResult = {
   cv_topk?: CvTopK;
   /** Absent entirely on older engine builds. */
   cv_group_mean_baseline?: CvGroupMeanBaseline;
+  /**
+   * The explicit, labeled log-scale evaluation pass, run only when the
+   * raw-scale diagnostic said a log transform would materially raise the
+   * ICC. `scale: null` means not suggested on this sheet - render the
+   * engine's `reason` quietly, per the null-with-reason convention, not a
+   * card. Absent entirely on older engine builds.
+   */
+  alternative_scale?: AlternativeScale;
   best: number;
   drivers: Driver[];
   /** How the engine selected which `drivers` to report. Absent on older engine builds. */
@@ -603,6 +646,24 @@ export function groupMeanBaselineVerdict(
     baseline.interpretation ? ` - ${baseline.interpretation}` : ""
   }`;
   return { text, prominent: !beats };
+}
+
+/**
+ * Headline for the log-scale evaluation pass (`alternative_scale`) - the
+ * engine's own rho/CI/ICC on `log(y + offset)`, a genuinely different fit
+ * from the raw-scale one, not a re-ranking. `null` when the field is absent
+ * (older engine build). When a log transform was not suggested on this
+ * sheet (`scale: null`), returns the engine's own stated `reason` - the
+ * `cv_logo`-style null-with-reason pattern - for the caller to render
+ * quietly rather than as a card.
+ */
+export function alternativeScaleNote(alt: AlternativeScale | null | undefined): string | null {
+  if (!alt) return null;
+  if (alt.scale == null) return alt.reason;
+  const rho = alt.cv_spearman != null ? `rho ${alt.cv_spearman.toFixed(2)}` : "rho n/a";
+  const ci = alt.cv_ci95 ? ` (95% CI ${alt.cv_ci95[0].toFixed(2)} to ${alt.cv_ci95[1].toFixed(2)})` : "";
+  const icc = alt.icc != null ? `, ICC ${alt.icc.toFixed(2)}` : "";
+  return `Log-scale ${rho}${ci}${icc}.`;
 }
 
 /**

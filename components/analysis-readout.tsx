@@ -10,6 +10,7 @@ import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliabil
 import { ReliabilityVerdict } from "@/components/dashboard/reliability-verdict";
 import { PromotionPanel } from "@/components/dashboard/promotion-panel";
 import { EvaluationChecks } from "@/components/dashboard/evaluation-checks";
+import { AlternativeScalePanel } from "@/components/dashboard/alternative-scale-panel";
 import { ProposalDisclosures } from "@/components/dashboard/proposal-disclosures";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
@@ -73,6 +74,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
           <ReliabilityPanel d={d} />
         </div>
         <ModelCoverage d={d} />
+        <AlternativeScalePanel d={d} />
         <EvaluationChecks d={d} />
       </section>
 

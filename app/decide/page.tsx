@@ -32,6 +32,7 @@ import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
 import { PromotionPanel } from "@/components/dashboard/promotion-panel";
 import { EvaluationChecks } from "@/components/dashboard/evaluation-checks";
+import { AlternativeScalePanel } from "@/components/dashboard/alternative-scale-panel";
 import { ProposalDisclosures } from "@/components/dashboard/proposal-disclosures";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
@@ -379,6 +380,7 @@ function DecideBody({
         <PromotionPanel d={d} />
         <ReliabilityPanel d={d} />
         <ModelCoverage d={d} />
+        <AlternativeScalePanel d={d} />
         <EvaluationChecks d={d} />
       </Details>
 

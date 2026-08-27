@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  alternativeScaleNote,
   calibrationNote,
   constraintNote,
   cvLogoNote,
@@ -11,6 +12,7 @@ import {
   proposalAuditNote,
   proposalGatingNote,
   repeatSpreadNote,
+  type AlternativeScale,
   type AnalyzeResult,
   type Calibration,
   type ConstraintReport,
@@ -146,6 +148,61 @@ describe("groupMeanBaselineVerdict", () => {
   });
 });
 
+describe("alternativeScaleNote", () => {
+  function altScale(overrides: Partial<AlternativeScale> = {}): AlternativeScale {
+    return {
+      scale: "log1p",
+      offset: 0.5,
+      cv_spearman: 0.62,
+      cv_ci95: [0.41, 0.79],
+      calibration: { available: true, reason: null, n: 30, ece: 0.03, z_std: 0.9, levels: [{ nominal: 0.9, empirical: 0.87 }] },
+      icc: 0.58,
+      reason: "variance-mean coupling detected",
+      interpretation: "The log scale fits materially better here.",
+      ...overrides,
+    };
+  }
+
+  it("renders nothing when the field is absent (older engine build)", () => {
+    expect(alternativeScaleNote(undefined)).toBeNull();
+    expect(alternativeScaleNote(null)).toBeNull();
+  });
+
+  it("renders the engine's own reason, quietly, when a transform was not suggested (null-with-reason)", () => {
+    const note = alternativeScaleNote(
+      altScale({ scale: null, offset: null, cv_spearman: null, cv_ci95: null, calibration: null, icc: null, interpretation: null, reason: "log transform not suggested on this sheet" }),
+    );
+    expect(note).toBe("log transform not suggested on this sheet");
+  });
+
+  it("reports rho, CI, and ICC for the present-with-scale block", () => {
+    const note = alternativeScaleNote(altScale());
+    expect(note).toContain("0.62");
+    expect(note).toContain("0.41");
+    expect(note).toContain("0.79");
+    expect(note).toContain("ICC 0.58");
+  });
+
+  it("falls back to n/a rho and omits a missing CI without throwing", () => {
+    const note = alternativeScaleNote(altScale({ cv_spearman: null, cv_ci95: null }));
+    expect(note).toContain("rho n/a");
+    expect(note).not.toContain("95% CI");
+  });
+});
+
+describe("alternative_scale calibration is labeled in log units, distinct from the raw calibration card", () => {
+  it("calibrationNote reuses the same formatter for the log-scale sub-block, but the caller must label it separately", () => {
+    // `alternative_scale.calibration` is the SAME `Calibration` shape as
+    // `reliability.calibration`, computed on log-scale residuals - reusing
+    // `calibrationNote` for the text is correct; the unit disclosure is the
+    // component's job (see components/dashboard/alternative-scale-panel.tsx),
+    // not this pure helper's. This test locks in that the raw formatter never
+    // silently claims a unit on its own.
+    const note = calibrationNote({ available: true, reason: null, n: 30, ece: 0.03, z_std: 0.9, levels: [] });
+    expect(note).not.toMatch(/log units|raw units/i);
+  });
+});
+
 describe("designBoxExclusionsNote", () => {
   it("renders nothing when nothing was excluded", () => {
     expect(designBoxExclusionsNote([])).toBeNull();
@@ -276,6 +333,7 @@ describe("older-response-shape regression: a response missing every new field gr
       expect(proposalAuditNote(d.proposal_optimizer, d.n_pending_considered)).toBeNull();
       expect(proposalGatingNote(d.proposal_gating)).toBeNull();
       expect(constraintNote(d.constraint)).toBeNull();
+      expect(alternativeScaleNote(d.alternative_scale)).toBeNull();
       expect(d.promotion).toBeUndefined();
       expect(d.proposals[0].p_feasible).toBeUndefined();
     }).not.toThrow();

@@ -157,8 +157,19 @@ npm install
 npm run dev                    # http://localhost:3000
 ```
 
-Point at a different engine with `NEXT_PUBLIC_API_URL` in `.env.local`
-(defaults to `http://127.0.0.1:8050`).
+By default, the app never talks to the engine directly from the browser. It
+calls the same-origin proxy at `/api/engine/*`
+(`app/api/engine/[...path]/route.ts`), which forwards to `KALOS_ENGINE_URL`
+and attaches `Authorization: Bearer ${KALOS_ENGINE_TOKEN}` server-side - see
+that file's header comment for why a bearer token can never live in
+client-visible code. Set both in `.env.local` (see `env.example`); with
+neither set the proxy forwards to `http://127.0.0.1:8050` with no auth
+header, matching the engine's own open-mode default.
+
+Escape hatch for local dev: set `NEXT_PUBLIC_API_URL` in `.env.local` to
+point the browser straight at an engine, bypassing the proxy entirely. Only
+use this against an engine with no auth configured - it is not the deployed
+posture.
 
 ## Stack
 

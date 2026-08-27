@@ -8,6 +8,9 @@ import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
 import { ReliabilityVerdict } from "@/components/dashboard/reliability-verdict";
+import { PromotionPanel } from "@/components/dashboard/promotion-panel";
+import { EvaluationChecks } from "@/components/dashboard/evaluation-checks";
+import { ProposalDisclosures } from "@/components/dashboard/proposal-disclosures";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
@@ -29,6 +32,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
       <section>
         <SectionHead title="Model quality" sub="What the model learned, and how far to trust it." />
         <ReliabilityVerdict d={d} />
+        <PromotionPanel d={d} />
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.85fr_0.95fr]">
           <Card className="flex flex-col">
             <div className="text-[15px] font-semibold text-fg">Process drivers</div>
@@ -69,6 +73,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
           <ReliabilityPanel d={d} />
         </div>
         <ModelCoverage d={d} />
+        <EvaluationChecks d={d} />
       </section>
 
       <section>
@@ -112,6 +117,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
         <p className="mb-3 text-[12.5px] leading-5 text-muted">
           The optimizer&rsquo;s next-best experiments, chosen to balance expected improvement against uncertainty.
         </p>
+        <ProposalDisclosures d={d} />
         <Card>
           {d.proposals.length ? (
             <Proposals
@@ -122,7 +128,8 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
                 const band = d.conformal_q ?? p.std;
                 const delta = p.pred - d.best;
                 const v = p.pred - band >= d.best ? "beats" : p.pred + band <= d.best ? "below" : "~best";
-                return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})`;
+                const feas = p.p_feasible != null ? `  P(feasible) ${num(p.p_feasible, 2)}` : "";
+                return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})${feas}`;
               }}
             />
           ) : (

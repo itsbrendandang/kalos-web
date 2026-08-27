@@ -232,7 +232,7 @@ function Body({ exp }: { exp: Experiment }) {
           cols={result.proposal_features}
           rows={result.proposals}
           predHead={`pred. ${result.target}`}
-          predFn={(p) => `${fmt(p.pred, 2)} ± ${fmt(p.std, 2)}`}
+          predFn={(p) => `${fmt(p.pred, 2)} ± ${fmt(p.std, 2)}${p.p_feasible != null ? `  P(feasible) ${fmt(p.p_feasible, 2)}` : ""}`}
         />
       ) : (
         <p className="py-10 text-center text-[12px] text-muted">no proposals</p>

@@ -1,6 +1,6 @@
 import { Info } from "lucide-react";
 import { PredScatter } from "@/components/charts";
-import { coveragePct, type PopulatedResult } from "@/lib/api";
+import { calibrationNote, coveragePct, repeatSpreadNote, type PopulatedResult } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, num, parseUnit } from "@/lib/utils";
@@ -70,6 +70,11 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
           <div className="tabular mt-0.5 font-mono text-[12px] text-muted">
             {ci ? `95% CI ${ci[0].toFixed(2)} to ${ci[1].toFixed(2)}` : "not scored (too few groups)"}
           </div>
+          {repeatSpreadNote(d.cv_n_repeats, d.cv_spearman_per_repeat) ? (
+            <div className="tabular mt-0.5 font-mono text-[10.5px] text-muted opacity-80">
+              {repeatSpreadNote(d.cv_n_repeats, d.cv_spearman_per_repeat)}
+            </div>
+          ) : null}
           <div className="mt-1 text-[11px] leading-snug text-muted">
             Rank agreement: how well predicted order matches measured order (0 = no better than chance, 1 = perfect).
           </div>
@@ -98,6 +103,32 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
             : null}
         </div>
       </div>
+
+      {d.reliability?.calibration ? (
+        <div className="mt-2 rounded-[10px] border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <LabelWithTooltip
+              label="Interval calibration"
+              definition="Held-out coverage of the model's own uncertainty bands - does the stated +/- match how often the truth actually falls inside it. Independent of ranking accuracy."
+            />
+            {d.reliability.calibration.available && d.reliability.calibration.levels.length ? (
+              <Tooltip>
+                <TooltipTrigger className="text-[10px] text-muted underline decoration-dotted focus-visible:outline-none">
+                  by level
+                </TooltipTrigger>
+                <TooltipContent>
+                  {d.reliability.calibration.levels.map((lv) => (
+                    <div key={lv.nominal}>
+                      {Math.round(lv.nominal * 100)}% nominal -&gt; {Math.round(lv.empirical * 100)}% empirical
+                    </div>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+          <div className="mt-1 text-[12px] leading-snug text-muted">{calibrationNote(d.reliability.calibration)}</div>
+        </div>
+      ) : null}
 
       <div className="mt-4">
         <div className="flex items-center justify-between gap-2">

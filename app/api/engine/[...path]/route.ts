@@ -36,9 +36,18 @@ const ALLOWED_PATH_PREFIXES = [
   "api/experiments",
 ] as const;
 
-// Generous enough for a GP fit on a modest run sheet; short enough that a
-// dead engine fails the request instead of hanging it.
-const ENGINE_TIMEOUT_MS = 30_000;
+// Long enough for a COLD containerized GP fit, short enough that a dead
+// engine still fails the request instead of hanging it. The original 30s
+// guess was measured wrong on the first real docker-compose run: a cold
+// engine container (first torch import + full analyze on a 160-run sheet)
+// legitimately needs more, and the proxy 502'd mid-fit while the engine kept
+// working. Env-tunable (server-side, like the rest of this route's config)
+// because the right number depends on the deployment's CPU, not on this code.
+const ENGINE_TIMEOUT_MS = (() => {
+  const raw = process.env.KALOS_ENGINE_TIMEOUT_MS?.trim();
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 120_000;
+})();
 
 function isAllowedPath(segments: string[]): boolean {
   const joined = segments.join("/");

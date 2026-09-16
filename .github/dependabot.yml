@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # kalos-web's dependencies are locked in package-lock.json - this watches
+  # both direct and transitive bumps that lockfile authorizes.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Keeps the actions pinned in .github/workflows/ci.yml (checkout,
+  # setup-node) current without a human remembering to check.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

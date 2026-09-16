@@ -8,7 +8,7 @@ jobs:
       # Node 22.16.0 pinned to match the local dev environment: Next 16.2.9
       # requires Node >=20.9.0 and vitest 4 requires ^20 || ^22 || >=24, so
       # anything short of 22 silently fails the build/test steps below.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.16.0"
           cache: npm

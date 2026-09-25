@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, FlaskConical, RefreshCw, SlidersHorizontal, Upload } from "lucide-react";
+import { ArrowRight, ChevronDown, FlaskConical, RefreshCw, Ruler, SlidersHorizontal, Upload } from "lucide-react";
 import {
   coveragePct,
   driverSelectionNote,
@@ -37,7 +37,6 @@ import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
-import { ScaleUpTimeline } from "@/components/scale-up-timeline";
 import { cn, num, parseUnit } from "@/lib/utils";
 
 /**
@@ -324,19 +323,8 @@ function DecideBody({
         <ProgressPanel active={active} targetName={targetName} unit={unit} />
       ) : null}
 
-      {/* Scale-up projection: demoted behind a disclosure and labelled as NOT
-          from the client's data - it is physics/literature priors, so it must
-          not sit in the decision hero pretending to be a result. */}
-      {d.proposals.length ? (
-        <Details summary="Projected scale-up - physics priors, not from your data">
-          <ScaleUpTimeline
-            bestRecipe={Object.fromEntries(d.proposal_features.map((f, i) => [f, d.proposals[0].vals[i]]))}
-            bestValue={active?.best ?? d.best}
-            targetName={targetName}
-            unit={unit}
-          />
-        </Details>
-      ) : null}
+      {/* Scale-up: one story, told by the readout on the user's own data. */}
+      <ScaleReadoutCard />
 
       {/* Supporting analysis: collapsed by default, lazy-mounted on first open */}
       <Details summary="Process drivers - what correlates with the target">
@@ -484,6 +472,31 @@ function TrustChip({ reliable, spearman }: { reliable: boolean; spearman: number
         </Tooltip>
       ) : null}
     </Badge>
+  );
+}
+
+/** Points scale-up questions at the one surface that answers them from the
+ * user's own data. Deliberately carries no numbers: the readout either backs
+ * a prediction with multi-scale runs or refuses, and this card must not
+ * pre-empt either outcome. */
+function ScaleReadoutCard() {
+  return (
+    <Card className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text">
+        <Ruler className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1 basis-64">
+        <div className="text-[13px] font-semibold text-fg">Planning a scale-up?</div>
+        <p className="mt-0.5 text-[12px] leading-snug text-muted">
+          The scale-up readout predicts from your own multi-scale run data, and refuses when that data cannot support
+          a prediction.
+        </p>
+      </div>
+      <Link href="/scale-readout" className={buttonVariants({ variant: "outline" })}>
+        Open scale-up readout
+        <ArrowRight />
+      </Link>
+    </Card>
   );
 }
 

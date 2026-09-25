@@ -3,6 +3,11 @@
 Status: draft for Sonnet review, then implementation.
 Surface: `app/decide/page.tsx` in kalos-web, grown from the current decision-first loop into the full cockpit.
 
+> Update 2026-09-24: the PROJECTED scale-up timeline below (and `lib/scaleup-projection.ts`) was retired.
+> Scale-up now has one story: the Scale-up readout (`/scale-readout`), which predicts from the user's own multi-scale data and refuses when the data cannot support a prediction.
+> /decide shows a small card pointing there instead.
+> The timeline sections are kept as the historical design record.
+
 ## Principle (non-negotiable)
 
 The cockpit answers three scientist questions, in this priority: **what should I do next**, **why**, **what's happening**.

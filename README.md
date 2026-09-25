@@ -27,11 +27,11 @@ on a single unified blue design system, consuming the Kalos engine API.
   which folds the results into the dataset and returns the next batch, with a
   best-so-far progress chart. Wired to the engine's `/api/campaign*` endpoints
   (see `docs/CAMPAIGN_LOOP.md` in the engine repo); best-so-far and round come
-  from the live campaign, never a prediction. Below the loop, a **scale-up
-  timeline** projects the path from 96-well plate to production vessels across
-  branching multi-objective paths (max-yield / min-cost / fastest), with
-  confidence bands that widen with scale - clearly labeled "projected" (physics/
-  literature priors, not measured; `lib/scaleup-projection.ts`). Diagnostics
+  from the live campaign, never a prediction. Below the loop, a small card
+  points scale-up questions to the Scale-up readout, which predicts from your
+  own multi-scale data and refuses when that data cannot support a prediction
+  (the old priors-based scale-up timeline was retired so there is one scale-up
+  story). Diagnostics
   (drivers, reliability, run structure, predicted landscape) collapse behind
   lazy-mounted disclosures, and a "Coming next" section names what unlocks with
   live process data. Full design + honesty tiers in `docs/DECIDE_COCKPIT.md`.

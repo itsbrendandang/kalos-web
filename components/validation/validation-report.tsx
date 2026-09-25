@@ -29,7 +29,7 @@ const STATUS_LABEL: Record<ValidationStatus, string> = {
 
 // Red has no dedicated "-soft" background token (see app/globals.css), so the
 // fail state uses the same border/30 + bg/10 opacity recipe already used for
-// error callouts elsewhere (app/error.tsx, components/planning/task-card.tsx).
+// error callouts elsewhere (app/error.tsx).
 const STATUS_STYLE: Record<ValidationStatus, string> = {
   fail: "border-red/30 border-l-red bg-red/10 text-red",
   pass_with_warnings: "border-amber/30 border-l-amber bg-amber-soft text-amber",
@@ -54,8 +54,8 @@ const SEVERITY_LABEL: Record<ValidationSeverity, string> = {
   info: "Info",
 };
 
-/** Colored dot + count + text label - never color alone, same convention as
- *  components/plate/status-chip.tsx and components/experiments/status-chip.tsx. */
+/** Colored dot + count + text label - never color alone, the convention used
+ *  across the app. */
 function SeverityChip({ severity, count }: { severity: ValidationSeverity; count: number }) {
   return (
     <span className={cn("inline-flex items-center gap-1 text-[13px] font-bold", SEVERITY_TEXT[severity])}>

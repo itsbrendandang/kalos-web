@@ -5,6 +5,13 @@ applied across every surface. This replaces the earlier split between a
 black-and-white "optimizer" surface and a blue "Voyager" surface. There is
 now one visual language for the whole app - light and dark.
 
+As of 2026-09-24 the Voyager client portal (`app/voyager`, `components/voyager`)
+and the lab-operations surfaces (Experiments hub, vessels, plate, planning board)
+are removed from the app; they are recoverable from the git tag
+`pre-lab-removal`.
+References to them below are historical and describe how those surfaces were
+styled, not files that still exist.
+
 ## Token architecture
 
 All color, radius, and type tokens are defined once in `app/globals.css`,

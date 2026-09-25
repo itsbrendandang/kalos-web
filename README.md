@@ -6,25 +6,10 @@ on a single unified blue design system, consuming the Kalos engine API.
 
 ## Views
 
-- **Experiments** (`/`) - the single hub for planning, running, and tracking every
-  experiment.
-  A Live / Board / Table view switcher sits under the header, driven by the
-  `?view=live|board|table` search param (default `live`), so each view is
-  directly linkable and the back button moves between them.
-  - **Live** (`?view=live`) - the operations view: summary tiles, in-flight run
-    cards (attention-needed first), the next batch to run, and recently
-    completed runs.
-  - **Board** (`?view=board`) - a Kanban board of experiment/planning tasks
-    moving through To Do -> Draft -> In Progress -> Review Requested ->
-    Completed, with a Table sub-view (the same tasks grouped by column) and a
-    Gantt sub-view stub ("coming soon"), switched via the same toolbar. Cards
-    drag between columns via native HTML5 drag-and-drop (no added dependency);
-    a lightweight inline input adds a new card to a column without a modal.
-    Task data is a static mock in `lib/mock/planning.ts`, pending a real
-    task/experiment-status source.
-  - **Table** (`?view=table`) - the real experiment queue wired to the Kalos
-    portal: upload a run sheet, flag it ready, and run the engine on demand or
-    for every ready experiment at once.
+- **Scale-up readout** (`/scale-readout`, also the home route: `/` redirects
+  here) - upload your own multi-scale run data and a target scale, and the
+  engine returns a data-backed readout for that scale, or refuses when the
+  data cannot support a prediction.
 - **Results** (`/results`) - your last analyzed dataset at a glance: model
   reliability (honest held-out rank correlation + 95% CI), what drives the
   outcome, predicted-vs-measured, a run landscape (a low-dimensional
@@ -52,8 +37,8 @@ on a single unified blue design system, consuming the Kalos engine API.
   live process data. Full design + honesty tiers in `docs/DECIDE_COCKPIT.md`.
 - **Analyze** (`/analyze`) - drop a CSV/TSV/Excel run sheet; the engine fits,
   cross-validates honestly, ranks the drivers, and recommends the next batch.
-  Reached via the "Run analysis" action button on the Experiments hub and on
-  Results, not a standalone nav entry.
+  Reached via the "Run analysis" action button on Decide and Results, not a
+  standalone nav entry.
 - **Validate** (`/validate`) - drop a run sheet and see only the data-quality
   verdict, before committing to a full optimization run. Renders the engine's
   `validation` block: a pass / pass-with-warnings / fail header, per-check
@@ -66,18 +51,22 @@ on a single unified blue design system, consuming the Kalos engine API.
   alone.
 - **Data** (`/data`) - the data catalog: every dataset and run under a stable,
   anonymized barcode, with a searchable/sortable registry table and a
-  per-dataset drill-down (sample runs, output ranges, provenance). Mock
-  registry data lives in `lib/mock/registry.ts` (`DATASETS` and
-  `RUNS_BY_DATASET`).
+  per-dataset drill-down (sample runs, output ranges, provenance). There is no
+  live registry yet: the page shows an honest empty state unless
+  `NEXT_PUBLIC_DEMO_MODE=true`, in which case it renders the mock registry in
+  `lib/mock/registry.ts` (`DATASETS` and `RUNS_BY_DATASET`) behind a demo badge.
 
-The old `/planning`, `/experiments`, and `/optimize` routes redirect to
-`/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,
-so existing links and bookmarks still resolve.
+The old `/optimize` route redirects to `/results#next-experiments`, so existing
+links and bookmarks still resolve.
+
+The lab-operations surfaces (the Experiments hub with its Live / Board / Table
+views, `/vessels`, `/plate`, the planning board, and the `/voyager` client
+portal) were removed on 2026-09-24 because the engine does not back them.
+They are recoverable from the git tag `pre-lab-removal`.
 
 ## Design system
 
-The whole app, optimizer surface and Voyager product surface alike, shares one
-unified blue design system. Tokens (color, radius, type) are defined once in
+The whole app shares one unified blue design system. Tokens (color, radius, type) are defined once in
 `app/globals.css` and consumed everywhere via Tailwind v4's `@theme inline`.
 See `DESIGN.md` at the repo root for the full token reference, color roles,
 and type scale.
@@ -89,10 +78,10 @@ shadcn's default neutral theme, so the app does not read as a stock admin
 template. Two rules matter when adding one:
 
 - **Two separate data-color families.** `--chart-1..5` is a single-hue blue
-  sequential ramp for ORDERED MAGNITUDE (heatmaps, the plate grid) and reverses
+  sequential ramp for ORDERED MAGNITUDE (heatmaps) and reverses
   lightness in dark mode so "more" stays "more visible". `--series-1..6` is the
   Okabe-Ito colorblind-safe qualitative palette for UNORDERED CATEGORIES
-  (per-vessel kinetics). Never use one for the other's job. Because
+  (multi-series overlays). Never use one for the other's job. Because
   `--series-*` alone cannot carry meaning in greyscale, categorical traces also
   need a dash pattern or a direct label.
 - **Patch `bg-muted` out of anything fetched from the registry.** In this
@@ -103,44 +92,6 @@ template. Two rules matter when adding one:
 
 Note that `npx shadcn add` currently hangs with no output in this environment;
 `DESIGN.md` documents the direct-registry workaround.
-
-## Voyager surface
-
-A customer-facing product surface lives under `/voyager`, with its own
-top-nav chrome and a denser layout than the rest of the app. It shares the
-same blue tokens as the optimizer surface (aliased in `app/voyager/voyager.css`
-under `.voyager-root`) and renders in Satoshi, the original prototype's
-typeface, self-hosted via `next/font/local`; see `DESIGN.md` for the token
-reference. The optimizer sidebar is bypassed for these routes in
-`components/app-shell.tsx`.
-
-- **`/voyager`** - Projects home: customers and their projects, each tagged by
-  workflow stage. Add/Edit customer and project modals open here.
-- **`/voyager/projects/[id]`** - project workspace with three tabs:
-  - **Phase 1** - the iterative DoE/Bayesian-opt loop as iteration cards
-    (LHS then BO Explore/Exploit), batch-ticket upload, and unlock gating.
-  - **Phase 2** - scale-up: either the setup state (config + 9-stage pipeline) or
-    the run results with Promote/Hold candidate cards (drivers, scale-up
-    projection, warnings) alongside the completed pipeline. These are illustrative
-    and carry a persistent "Sample data - illustrative, not a real analysis"
-    banner (same on Phase 1 and the final report) so fabricated numbers are never
-    mistaken for real engine output.
-  - **Phase 2 (live)** - the "Bioqore R&D" project (`live: true`) scores the real
-    uploaded dataset through the engine via `GET /api/latest`: recommended next
-    experiments (recipe + predicted target with a distribution-free conformal
-    band), honest model reliability (grouped-CV Spearman + CI vs the 0.20 floor),
-    global signed drivers, and an explicit "not modeled" callout (success
-    probability, calibration, scale-up transfer). Falls back to a start-the-engine
-    notice when the API is unreachable.
-  - **Linkage tree** - an interactive SVG experiment lineage (Phase 1 and
-    Phase 1+2) with a clickable per-node detail panel.
-- **`/voyager/projects/[id]/report`** - the final report: stat cards, drivers and
-  ideal ranges, scale-up projection curve, candidate decisions, and export.
-
-Seed data lives in `app/voyager/data.ts`. The engine does not yet expose a
-customers/projects API, so these screens are illustrative and do not call it;
-the types are shaped so a real API can drop in without touching the views.
-The completed-projects home variant is not yet wired.
 
 ## Run it
 

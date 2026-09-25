@@ -24,10 +24,9 @@
  * migration is a re-hue rather than a redesign. To flip the brand hue again,
  * edit only the "BRAND" blocks; nothing else reads a hue directly.
  *
- * The whole app (optimizer surface + Voyager product surface) shares one
- * source of truth for color, radius, and type. Tokens are defined once here
- * and consumed via Tailwind v4's @theme inline, so every surface reads the
- * same palette. See DESIGN.md at the repo root for the full rationale.
+ * The whole app shares one source of truth for color, radius, and type.
+ * Tokens are defined once here and consumed via Tailwind v4's @theme inline,
+ * so every surface reads the same palette. See DESIGN.md at the repo root for the full rationale.
  *
  * Two token layers live side by side:
  *  1. The original kalos tokens (--bg, --fg, --card, --muted, --border,
@@ -43,13 +42,13 @@
  *     be taught once.
  *
  * KNOWN DIVERGENCE from stock shadcn, deliberate: `--muted` here is a TEXT
- * gray (254 `text-muted` call sites across 54 files, mirrored as `--v-muted`
- * in app/voyager/voyager.css), whereas stock shadcn/base-nova treats
- * `--muted` as a subtle SURFACE and reaches for `bg-muted` on hover. Renaming
- * would churn the entire codebase, so the app keeps its meaning and every
- * shadcn primitive added here has `bg-muted` rewritten to `bg-secondary`
- * (the token that genuinely is a subtle surface). Anything added with
- * `shadcn add` in future needs the same one-line patch - see DESIGN.md.
+ * gray (used as `text-muted` across the codebase), whereas stock
+ * shadcn/base-nova treats `--muted` as a subtle SURFACE and reaches for
+ * `bg-muted` on hover. Renaming would churn the entire codebase, so the app
+ * keeps its meaning and every shadcn primitive added here has `bg-muted`
+ * rewritten to `bg-secondary` (the token that genuinely is a subtle surface).
+ * Anything added with `shadcn add` in future needs the same one-line patch -
+ * see DESIGN.md.
  */
 :root {
   color-scheme: light;

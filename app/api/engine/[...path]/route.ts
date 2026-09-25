@@ -20,7 +20,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 // Every engine path prefix kalos-web's own client code (lib/api.ts,
-// lib/experiments.ts) actually calls. Anything outside this list 404s, so
+// lib/scale-readout.ts) actually calls. Anything outside this list 404s, so
 // the proxy can't be turned into an open relay to arbitrary engine routes -
 // or, worse, arbitrary URLs (KALOS_ENGINE_URL is never taken from the
 // request). Checked as whole path segments (`joined === prefix ||
@@ -33,7 +33,6 @@ const ALLOWED_PATH_PREFIXES = [
   "api/latest",
   "api/campaign",
   "api/providers",
-  "api/experiments",
   "api/scale",
 ] as const;
 
@@ -93,7 +92,7 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
       method: req.method,
       headers,
       // Streamed straight through (not buffered/re-parsed) so a multipart
-      // file upload (POST /api/run, POST /api/experiments) survives the
+      // file upload (POST /api/run, POST /api/scale/readout) survives the
       // proxy without loading the whole file into memory.
       body: hasBody ? req.body : undefined,
       // Node's fetch (undici) requires this whenever a streamed body is
@@ -128,13 +127,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
-  const { path } = await params;
-  return forward(req, path ?? []);
-}
-
-// PATCH is used by lib/experiments.ts (patchStatus) - included so every
-// existing consumer keeps working, not just the GET/POST the task named.
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const { path } = await params;
   return forward(req, path ?? []);
 }

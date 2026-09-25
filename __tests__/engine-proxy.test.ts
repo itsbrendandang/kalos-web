@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { GET, PATCH, POST } from "@/app/api/engine/[...path]/route";
+import { GET, POST } from "@/app/api/engine/[...path]/route";
 
 function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]): NextRequest {
   return new NextRequest(url, init);
@@ -67,44 +67,34 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     await expect(res.json()).resolves.toEqual({ started: true });
   });
 
-  it("PATCH forwards status updates with the auth header (lib/experiments.ts patchStatus)", async () => {
-    fetchMock.mockResolvedValueOnce(engineResponse(200, { status: "READY" }));
-
-    const res = await PATCH(
-      req("http://localhost:3000/api/engine/api/experiments/exp_5", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "READY" }),
-      }),
-      ctx(["api", "experiments", "exp_5"]),
-    );
-
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://engine.internal:8050/api/experiments/exp_5");
-    expect(init.method).toBe("PATCH");
-    expect((init.headers as Headers).get("authorization")).toBe("Bearer test-token-123");
-    expect(res.status).toBe(200);
-  });
-
-  it("streams a multipart upload through with the boundary intact (POST /api/run, /api/experiments)", async () => {
-    fetchMock.mockResolvedValueOnce(engineResponse(200, { id: "exp_1" }));
+  it("streams a multipart upload through with the boundary intact (POST /api/run)", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(200, { n: 2 }));
     const fd = new FormData();
     fd.append("file", new File(["a,b\n1,2"], "sheet.csv", { type: "text/csv" }));
-    fd.append("name", "Feed test");
-    const request = req("http://localhost:3000/api/engine/api/experiments", { method: "POST", body: fd });
+    const request = req("http://localhost:3000/api/engine/api/run", { method: "POST", body: fd });
     const sentContentType = request.headers.get("content-type");
     expect(sentContentType).toMatch(/^multipart\/form-data; boundary=/);
 
-    const res = await POST(request, ctx(["api", "experiments"]));
+    const res = await POST(request, ctx(["api", "run"]));
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://engine.internal:8050/api/experiments");
+    expect(url).toBe("http://engine.internal:8050/api/run");
     // The exact same boundary, and the request body streamed (not buffered
     // and re-parsed) straight to the engine.
     expect((init.headers as Headers).get("content-type")).toBe(sentContentType);
     expect(init.body).toBe(request.body);
     expect((init as unknown as { duplex: string }).duplex).toBe("half");
     expect(res.status).toBe(200);
+  });
+
+  it("rejects the retired lab route (api/experiments) with 404, without calling the engine", async () => {
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/experiments", { method: "POST" }),
+      ctx(["api", "experiments"]),
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(404);
   });
 
   it("rejects a path outside the allowlist with 404, without calling the engine", async () => {

@@ -335,6 +335,14 @@ function DecideBody({
             targetName={targetName}
             unit={unit}
           />
+          <p className="mt-3 text-[12px] leading-snug text-muted">
+            This timeline is projected from literature priors, not your data. For a prediction backed by your own
+            multi-scale run sheet, use the{" "}
+            <Link href="/scale-readout" className="text-accent-text underline underline-offset-2 hover:no-underline">
+              scale-up readout
+            </Link>
+            .
+          </p>
         </Details>
       ) : null}
 

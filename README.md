@@ -12,10 +12,7 @@ on a single unified blue design system, consuming the Kalos engine API.
   data cannot support a prediction.
 - **Results** (`/results`) - your last analyzed dataset at a glance: model
   reliability (honest held-out rank correlation + 95% CI), what drives the
-  outcome, predicted-vs-measured, a run landscape (a low-dimensional
-  projection of every run, positioned by recipe similarity and colored by
-  target - only shown when the engine returns an `embedding`), a histogram of
-  measured target values with non-producers called out, and Recommended
+  outcome, predicted-vs-measured, a histogram of measured target values with non-producers called out, and Recommended
   actions - the optimizer's next-best experiments, ranked by the acquisition
   function (`#next-experiments`; this is where the old standalone Optimize
   page folded in). A transposed or ambiguous sheet (the engine's orientation
@@ -40,7 +37,7 @@ on a single unified blue design system, consuming the Kalos engine API.
   own multi-scale data and refuses when that data cannot support a prediction
   (the old priors-based scale-up timeline was retired so there is one scale-up
   story). Diagnostics
-  (drivers, reliability, run structure, predicted landscape) collapse behind
+  (drivers, reliability, target distribution) collapse behind
   lazy-mounted disclosures, and a "Coming next" section names what unlocks with
   live process data. Full design + honesty tiers in `docs/DECIDE_COCKPIT.md`.
 - **Analyze** (`/analyze`) - drop a CSV/TSV/Excel run sheet; the engine fits,

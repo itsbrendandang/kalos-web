@@ -39,16 +39,13 @@ import { PromotionPanel } from "@/components/dashboard/promotion-panel";
 import { EvaluationChecks } from "@/components/dashboard/evaluation-checks";
 import { ProposalDisclosures } from "@/components/dashboard/proposal-disclosures";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
-import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
-import { RunLandscape } from "@/components/dashboard/run-landscape";
-import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { cn, num, parseUnit } from "@/lib/utils";
 
 /**
  * Decision-first landing (prototype). The scientist's job is "what do I run
  * next, and can I trust it" - so the recommended batch is the hero, the trust
  * verdict is a compact chip beside it, and every diagnostic (drivers,
- * reliability detail, run structure) collapses behind a disclosure. Same real
+ * reliability detail, target distribution) collapses behind a disclosure. Same real
  * engine data as /results (getLatest -> /api/latest); this only reorders the
  * priority so the decision reads first and the analysis supports it.
  */
@@ -172,7 +169,6 @@ function DecideBody({
   // the sheet has replicates, else the best single measurement. Shown by name.
   const baseline = proposalBaseline(d, active?.best);
   const noise = d.noise;
-  const hasPredicted = Boolean(d.response_surface || d.correlation);
 
   function toggle(i: number) {
     setQueued((prev) => {
@@ -409,32 +405,9 @@ function DecideBody({
         <EvaluationChecks d={d} />
       </Details>
 
-      <Details summary="Run structure - where the measured runs sit">
-        {d.embedding ? (
-          <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-            <RunLandscape d={d} />
-            <TargetDistribution d={d} />
-          </div>
-        ) : (
-          <TargetDistribution d={d} />
-        )}
+      <Details summary="Target distribution - how the measured runs spread">
+        <TargetDistribution d={d} />
       </Details>
-
-      {hasPredicted ? (
-        <Details summary="Predicted landscape - response surface & feature correlation">
-          {d.response_surface && d.correlation ? (
-            <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-              <ResponseSurface d={d} />
-              <CorrelationHeatmap d={d} />
-            </div>
-          ) : (
-            <>
-              <ResponseSurface d={d} />
-              <CorrelationHeatmap d={d} />
-            </>
-          )}
-        </Details>
-      ) : null}
 
       {/* Coming next: PLACEHOLDER - text only, no numbers, no chart shapes, no skeletons */}
       <Details summary="Coming next">

@@ -19,16 +19,13 @@ import { ReliabilityVerdict } from "@/components/dashboard/reliability-verdict";
 import { PromotionPanel } from "@/components/dashboard/promotion-panel";
 import { EvaluationChecks } from "@/components/dashboard/evaluation-checks";
 import { ProposalDisclosures } from "@/components/dashboard/proposal-disclosures";
-import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
-import { ResponseSurface } from "@/components/dashboard/response-surface";
-import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { cn, num } from "@/lib/utils";
 
 /**
  * The shared "reliability + drivers + predicted-vs-measured + proposals" readout
- * (REDESIGN 4.4, 5). Model quality, run structure, predicted landscape, and
- * recommended actions - the single authoritative rendering of an analysis result.
+ * (REDESIGN 4.4, 5). Model quality, run structure (the target distribution),
+ * and recommended actions - the single authoritative rendering of an analysis result.
  * Dashboard renders this; no other page should reimplement it.
  */
 /**
@@ -55,7 +52,6 @@ export function OrientationNotice({ orientation, className }: { orientation: Ori
 export function AnalysisReadout({ d }: { d: PopulatedResult }) {
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
   const baseline = proposalBaseline(d);
-  const hasPredicted = Boolean(d.response_surface || d.correlation);
 
   return (
     <>
@@ -108,33 +104,9 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
       </section>
 
       <section>
-        <SectionHead title="Run structure" sub="Where the uploaded runs sit, and how the measured target is distributed." />
-        {d.embedding ? (
-          <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-            <RunLandscape d={d} />
-            <TargetDistribution d={d} />
-          </div>
-        ) : (
-          <TargetDistribution d={d} />
-        )}
+        <SectionHead title="Run structure" sub="How the measured target is distributed across the uploaded runs." />
+        <TargetDistribution d={d} />
       </section>
-
-      {hasPredicted ? (
-        <section>
-          <SectionHead title="Predicted landscape" sub="The model's view of the recipe space, and how the inputs relate." />
-          {d.response_surface && d.correlation ? (
-            <div className="grid items-stretch gap-4 lg:grid-cols-[1.85fr_0.95fr]">
-              <ResponseSurface d={d} />
-              <CorrelationHeatmap d={d} />
-            </div>
-          ) : (
-            <>
-              <ResponseSurface d={d} />
-              <CorrelationHeatmap d={d} />
-            </>
-          )}
-        </section>
-      ) : null}
 
       <section id="next-experiments">
         <SectionHead

@@ -9,8 +9,12 @@ As of 2026-09-24 the Voyager client portal (`app/voyager`, `components/voyager`)
 and the lab-operations surfaces (Experiments hub, vessels, plate, planning board)
 are removed from the app; they are recoverable from the git tag
 `pre-lab-removal`.
-References to them below are historical and describe how those surfaces were
-styled, not files that still exist.
+The run landscape, response surface and correlation heatmap
+(`components/dashboard/{run-landscape,response-surface,correlation-heatmap}.tsx`
+and `heat-scale.ts`) were removed the same day because the engine never returns
+the fields they read.
+References to all of them below are historical and describe how those surfaces
+were styled, not files that still exist.
 
 ## Token architecture
 

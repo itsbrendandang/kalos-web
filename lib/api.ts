@@ -392,35 +392,6 @@ export type AnalyzeResult = {
    * nothing.
    */
   constraint?: ConstraintReport;
-  /**
-   * Optional low-dimensional projection of every run, positioned by recipe
-   * similarity - each point is `[x, y, target]`. Absent on analyses run
-   * before the engine started returning it; callers must render nothing
-   * rather than fabricate a placeholder when this is missing.
-   */
-  embedding?: { method: string; points: [number, number, number][] };
-  /**
-   * Spearman correlation among the kept features and the target (the same rho
-   * the drivers use). `labels` are features first then the target; `matrix` is
-   * the symmetric correlation grid. Absent on analyses run before the engine
-   * returned it - render nothing rather than fabricate.
-   */
-  correlation?: { labels: string[]; matrix: number[][] };
-  /**
-   * The GP-predicted target across the two strongest drivers, other inputs held
-   * at their median. This is a MODEL prediction (surrogate posterior mean), not
-   * measured data - the UI must label it as such. `z[i][j]` is the prediction at
-   * `(x_vals[j], y_vals[i])`; `runs` are observed rows `[x, y, target]` projected
-   * onto the two axes for overlay. Absent on older analyses.
-   */
-  response_surface?: {
-    x_feature: string;
-    y_feature: string;
-    x_vals: number[];
-    y_vals: number[];
-    z: number[][];
-    runs: [number, number, number][];
-  };
   /** Per-column data-cleaning trail (kept/dropped/target), for traceability. */
   provenance?: ProvenanceEntry[];
   /**

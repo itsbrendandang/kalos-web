@@ -21,10 +21,9 @@ const fmtTick = (v: number) => fmt(v, 1);
  *
  * `series` points at `--accent` (the brand blue chrome color), not a
  * `--chart-*` step: none of the charts below encode ORDERED MAGNITUDE (that
- * role belongs to `--chart-1..5`, reserved for heatmaps/response surfaces -
- * see components/dashboard/heat-scale.ts) or UNORDERED CATEGORIES (that role
- * belongs to `--series-1..6`, the Okabe-Ito palette, for multi-series
- * overlays like per-vessel kinetic traces). Every chart here is either a
+ * role belongs to `--chart-1..5`, reserved for sequential heatmaps) or
+ * UNORDERED CATEGORIES (that role belongs to `--series-1..6`, the Okabe-Ito
+ * palette, for multi-series overlays). Every chart here is either a
  * single trend line or a two-way "highlighted vs. background" split
  * (Pareto front / the rest, positive / negative correlation, zero-producer /
  * normal run) - a plain accent-vs-explore emphasis pair, the same pairing

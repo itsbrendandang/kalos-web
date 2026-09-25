@@ -7,6 +7,7 @@ Surface: `app/decide/page.tsx` in kalos-web, grown from the current decision-fir
 > Scale-up now has one story: the Scale-up readout (`/scale-readout`), which predicts from the user's own multi-scale data and refuses when the data cannot support a prediction.
 > /decide shows a small card pointing there instead.
 > The timeline sections are kept as the historical design record.
+> Also removed the same day: the run landscape, response surface and correlation heatmap in "Supporting analysis", because the engine never returns `embedding`, `response_surface` or `correlation`; the disclosure now holds drivers, reliability detail and the target distribution.
 
 ## Principle (non-negotiable)
 

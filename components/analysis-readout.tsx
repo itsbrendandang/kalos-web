@@ -1,5 +1,13 @@
-import { SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
-import { coveragePct, driverSelectionNote, type PopulatedResult } from "@/lib/api";
+import { Rows3, SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
+import {
+  baselineLabel,
+  coveragePct,
+  driverSelectionNote,
+  orientationNote,
+  proposalBaseline,
+  type OrientationReport,
+  type PopulatedResult,
+} from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { SectionHead } from "@/components/ui/section-head";
 import { EmptyState } from "@/components/ui/honest-state";
@@ -15,7 +23,7 @@ import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
-import { num } from "@/lib/utils";
+import { cn, num } from "@/lib/utils";
 
 /**
  * The shared "reliability + drivers + predicted-vs-measured + proposals" readout
@@ -23,12 +31,35 @@ import { num } from "@/lib/utils";
  * recommended actions - the single authoritative rendering of an analysis result.
  * Dashboard renders this; no other page should reimplement it.
  */
+/**
+ * The transposed/ambiguous-sheet disclosure from the engine's orientation
+ * pre-pass. Renders nothing for a standard sheet or when the engine did not
+ * report it: there is nothing to disclose.
+ */
+export function OrientationNotice({ orientation, className }: { orientation: OrientationReport | null | undefined; className?: string }) {
+  const note = orientationNote(orientation);
+  if (!note) return null;
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2.5 rounded-2xl border border-amber/30 border-l-4 border-l-amber bg-amber-soft p-4 text-[13px] leading-relaxed text-amber",
+        className,
+      )}
+    >
+      <Rows3 className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <p>{note}</p>
+    </div>
+  );
+}
+
 export function AnalysisReadout({ d }: { d: PopulatedResult }) {
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
+  const baseline = proposalBaseline(d);
   const hasPredicted = Boolean(d.response_surface || d.correlation);
 
   return (
     <>
+      <OrientationNotice orientation={d.orientation} />
       <section>
         <SectionHead title="Model quality" sub="What the model learned, and how far to trust it." />
         <ReliabilityVerdict d={d} />
@@ -116,6 +147,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
         />
         <p className="mb-3 text-[12.5px] leading-5 text-muted">
           The optimizer&rsquo;s next-best experiments, chosen to balance expected improvement against uncertainty.
+          Deltas are measured against the {baselineLabel(baseline.kind)} ({num(baseline.value, 2)}).
         </p>
         <ProposalDisclosures d={d} />
         <Card>
@@ -123,11 +155,11 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
             <Proposals
               cols={d.proposal_features}
               rows={d.proposals}
-              predHead={`pred. ${d.target} · vs best`}
+              predHead={`pred. ${d.target} · vs ${baseline.kind === "reproducible" ? "best reproducible" : "best single"}`}
               predFn={(p) => {
                 const band = d.conformal_q ?? p.std;
-                const delta = p.pred - d.best;
-                const v = p.pred - band >= d.best ? "beats" : p.pred + band <= d.best ? "below" : "~best";
+                const delta = p.pred - baseline.value;
+                const v = p.pred - band >= baseline.value ? "beats" : p.pred + band <= baseline.value ? "below" : "~best";
                 const feas = p.p_feasible != null ? `  P(feasible) ${num(p.p_feasible, 2)}` : "";
                 return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})${feas}`;
               }}

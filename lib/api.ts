@@ -256,6 +256,40 @@ export type ConstraintReport = {
 };
 
 /**
+ * Replicate structure and the signal-to-noise picture (`noise`). `best_single`
+ * is the best individual measurement (it rewards noise spikes);
+ * `best_reproducible` is the best replicate-averaged recipe - the value a
+ * client would actually ship - and is `null` when there are no replicates to
+ * average. `icc` is the fraction of target variance that is real
+ * recipe-to-recipe signal rather than assay noise (`null` when it cannot be
+ * estimated). `replicate_aware` is true when the proposed batch was fit on the
+ * reproducible objective. Absent on older engine builds.
+ */
+export type NoiseReport = {
+  n_recipes: number;
+  n_replicated: number;
+  replicate_aware: boolean;
+  icc: number | null;
+  noise_sd: number | null;
+  signal_sd: number | null;
+  best_single: number | null;
+  best_reproducible: number | null;
+};
+
+/**
+ * The upload path's orientation pre-pass (`orientation`): whether the sheet
+ * was read as standard (one run per row), detected as transposed and
+ * normalized before analysis, or left untouched because it was ambiguous.
+ * `signals` are the detector's raw evidence. `null` or absent when the engine
+ * did not record it (older engine builds, or a non-upload analysis).
+ */
+export type OrientationReport = {
+  orientation: "standard" | "transposed" | "ambiguous";
+  confidence: number;
+  signals: Record<string, number>;
+};
+
+/**
  * One input column's fate through the data-cleaning pipeline. Status is
  * typed as `string` (not a strict union) because the engine payload isn't
  * runtime-validated here - known values are handled explicitly by callers,
@@ -313,6 +347,10 @@ export type AnalyzeResult = {
   /** Absent entirely on older engine builds. */
   cv_group_mean_baseline?: CvGroupMeanBaseline;
   best: number;
+  /** Replicate structure + reproducible best. Absent on older engine builds. */
+  noise?: NoiseReport;
+  /** Orientation pre-pass disclosure. Absent/null on older engine builds. */
+  orientation?: OrientationReport | null;
   drivers: Driver[];
   /** How the engine selected which `drivers` to report. Absent on older engine builds. */
   driver_selection?: DriverSelection;
@@ -511,6 +549,62 @@ export function trustVerdict(
   if (!p) return { trusted: false, reason: "Promotion gate not reported by this engine" };
   if (!p.passed) return { trusted: false, reason: `Promotion gate: ${p.failures[0] ?? p.summary}` };
   return { trusted: true, reason: null };
+}
+
+/**
+ * The incumbent every proposal delta is measured against, and which kind it
+ * is. When the sheet has replicates and the engine reports a reproducible
+ * best, deltas use it: a single best measurement rewards a noise spike, and
+ * the replicate-aware batch predicts the replicate-averaged value anyway, so
+ * comparing against the single best would overstate how far behind every
+ * proposal is. Otherwise the best measured value is used - the live
+ * campaign's when one is passed, else the analysis's own `best`. Callers must
+ * say which kind they are showing.
+ */
+export type ProposalBaseline = { value: number; kind: "reproducible" | "single" };
+
+export function proposalBaseline(
+  d: Pick<AnalyzeResult, "best" | "noise">,
+  measuredBest?: number | null,
+): ProposalBaseline {
+  const rep = d.noise?.best_reproducible;
+  if (d.noise && d.noise.n_replicated > 0 && rep != null && Number.isFinite(rep)) {
+    return { value: rep, kind: "reproducible" };
+  }
+  return { value: measuredBest ?? d.best, kind: "single" };
+}
+
+/** Short label for a baseline kind, for "vs ..." captions. */
+export function baselineLabel(kind: ProposalBaseline["kind"]): string {
+  return kind === "reproducible" ? "best reproducible (replicate-averaged)" : "best single measurement";
+}
+
+/**
+ * One-line reading of the reproducible best and the ICC, for display beside
+ * "Best so far". `null` when the engine reported no `noise` block, or when
+ * there is neither a reproducible best nor an ICC to show (an unreplicated
+ * sheet) - render nothing rather than a fabricated number.
+ */
+export function noiseNote(noise: NoiseReport | null | undefined, digits = 2): string | null {
+  if (!noise) return null;
+  const parts: string[] = [];
+  if (noise.best_reproducible != null) parts.push(`reproducible ${noise.best_reproducible.toFixed(digits)}`);
+  if (noise.icc != null) parts.push(`ICC ${noise.icc.toFixed(2)}`);
+  if (!parts.length) return null;
+  return `${parts.join(" · ")} (${noise.n_replicated} of ${noise.n_recipes} recipes replicated)`;
+}
+
+/**
+ * Plain-language disclosure of the orientation pre-pass. `null` for a standard
+ * sheet or when the engine did not report it - there is nothing to disclose.
+ */
+export function orientationNote(o: OrientationReport | null | undefined): string | null {
+  if (!o || o.orientation === "standard") return null;
+  const conf = Number.isFinite(o.confidence) ? ` (confidence ${o.confidence.toFixed(2)})` : "";
+  if (o.orientation === "transposed") {
+    return `This sheet was detected as transposed (runs laid out in columns) and flipped to one run per row before analysis${conf}. The table that was modeled is not byte-for-byte the file you uploaded - check the run and input counts.`;
+  }
+  return `This sheet's orientation was ambiguous${conf}, so it was analyzed exactly as uploaded rather than guessed. Check that each row is one run.`;
 }
 
 /**
@@ -736,6 +830,14 @@ export type Campaign =
       pending: CampaignRun[];
       n_awaiting: number;
       n_measured: number;
+      /**
+       * Whether the analysis on /api/latest provably describes this campaign's
+       * dataset (kalos/docs/CAMPAIGN_LOOP.md, "Analysis/campaign coherence").
+       * `false` means the two may describe different run sheets - a missing or
+       * stale stamp reads as false, never as fine. Absent on engine builds
+       * before the stamp existed; treat absent as unknown, not as in sync.
+       */
+      analysis_in_sync?: boolean;
     };
 
 export const getCampaign = (): Promise<Campaign> =>

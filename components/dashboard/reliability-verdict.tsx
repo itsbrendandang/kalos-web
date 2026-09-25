@@ -1,4 +1,4 @@
-import { isReliable, type PopulatedResult } from "@/lib/api";
+import { isReliable, proposalBaseline, type PopulatedResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,8 +26,12 @@ export function ReliabilityVerdict({ d }: { d: PopulatedResult }) {
   // How many recommended recipes are actually predicted to beat the incumbent,
   // using the conformal band - so a reliable ranking doesn't get overstated as
   // "act on these" when none of them clears the current best.
+  // Measured against the same baseline the proposal list uses (the
+  // reproducible best when the sheet has replicates), so the count agrees
+  // with the per-recipe deltas below it.
   const band = d.conformal_q ?? null;
-  const beats = d.proposals.filter((p) => p.pred - (band ?? p.std) >= d.best).length;
+  const baseline = proposalBaseline(d).value;
+  const beats = d.proposals.filter((p) => p.pred - (band ?? p.std) >= baseline).length;
   const nProps = d.proposals.length;
   // The verdict is only "green" when the model both ranks reliably (the same
   // isReliable() bar as everywhere else) AND is proposing something it

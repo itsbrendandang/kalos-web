@@ -6,6 +6,7 @@ import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide
 import {
   getLatest,
   isReliable,
+  noiseNote,
   reliabilityReason,
   type LatestResult,
   type PopulatedResult,
@@ -197,7 +198,8 @@ function KpiStrip({ d }: { d: PopulatedResult }) {
             {unit ? <span className="ml-1 text-[13px] font-normal text-muted">{unit}</span> : null}
           </>
         }
-        hint="Best observed run"
+        hint={noiseNote(d.noise, 1) ?? "Best single observed run"}
+        tooltip="The best single measurement. When the sheet has replicates, the reproducible best is the best replicate-averaged recipe, and ICC is the share of variance that is real recipe-to-recipe signal rather than assay noise."
       />
       <StatTile
         label="Model reliability"

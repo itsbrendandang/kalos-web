@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
+import { OrientationNotice } from "@/components/analysis-readout";
 import { cn } from "@/lib/utils";
 
 type EngineErrorKind = "unreachable" | "rejected";
@@ -123,6 +124,7 @@ export default function AnalyzePage() {
                 {file?.name} parsed into {res.n} runs across {res.d} inputs
                 {res.group_col ? `, grouped by ${res.group_col}` : ""}, fit against {res.target}.
               </p>
+              <OrientationNotice orientation={res.orientation} className="mt-4 max-w-[62ch]" />
               <div className="mt-4">
                 <Badge
                   variant="outline"

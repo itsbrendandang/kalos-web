@@ -18,7 +18,9 @@ on a single unified blue design system, consuming the Kalos engine API.
   measured target values with non-producers called out, and Recommended
   actions - the optimizer's next-best experiments, ranked by the acquisition
   function (`#next-experiments`; this is where the old standalone Optimize
-  page folded in). Reads `GET /api/latest`; shows an upload prompt until you
+  page folded in). A transposed or ambiguous sheet (the engine's orientation
+  pre-pass) is disclosed at the top, and on the upload result in `/analyze`.
+  Reads `GET /api/latest`; shows an upload prompt until you
   analyze a dataset (it is not a demo).
 - **Decide** (`/decide`) - the decision cockpit and the closed optimization loop.
   The recommended batch is the hero (each experiment's recipe, predicted value +
@@ -29,7 +31,11 @@ on a single unified blue design system, consuming the Kalos engine API.
   which folds the results into the dataset and returns the next batch, with a
   best-so-far progress chart. Wired to the engine's `/api/campaign*` endpoints
   (see `docs/CAMPAIGN_LOOP.md` in the engine repo); best-so-far and round come
-  from the live campaign, never a prediction. Below the loop, a small card
+  from the live campaign, never a prediction. When the sheet has replicates, the
+  reproducible (replicate-averaged) best and ICC sit beside "Best so far" and
+  proposal deltas are measured against the reproducible best, labeled as such;
+  when the engine reports `analysis_in_sync: false`, a warning says the analysis
+  and the campaign may describe different run sheets. Below the loop, a small card
   points scale-up questions to the Scale-up readout, which predicts from your
   own multi-scale data and refuses when that data cannot support a prediction
   (the old priors-based scale-up timeline was retired so there is one scale-up

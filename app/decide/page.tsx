@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, FlaskConical, RefreshCw, Ruler, SlidersHorizontal, Upload } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronDown, FlaskConical, RefreshCw, Ruler, SlidersHorizontal, Upload } from "lucide-react";
 import {
   coveragePct,
   driverSelectionNote,
   getCampaign,
   getLatest,
+  baselineLabel,
   isReliable,
   logResult,
+  proposalBaseline,
   reanalyze,
   reliabilityReason,
   startRuns,
@@ -19,6 +21,7 @@ import {
   type LatestResult,
   type PopulatedResult,
   type Proposal,
+  type ProposalBaseline,
 } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -165,6 +168,10 @@ function DecideBody({
   const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
   const active: ActiveCampaign | null = campaign?.has_campaign ? campaign : null;
+  // What every proposal delta is measured against: the reproducible best when
+  // the sheet has replicates, else the best single measurement. Shown by name.
+  const baseline = proposalBaseline(d, active?.best);
+  const noise = d.noise;
   const hasPredicted = Boolean(d.response_surface || d.correlation);
 
   function toggle(i: number) {
@@ -221,10 +228,38 @@ function DecideBody({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The recommended batch comes from /api/latest, the round and best from
+          /api/campaign. When the engine cannot show they describe the same run
+          sheet, say so before anything else is read. */}
+      {active?.analysis_in_sync === false ? (
+        <Alert variant="default" className="items-start gap-2.5 border-amber/30 bg-amber-soft px-3.5 py-3">
+          <AlertTriangle className="size-4 text-amber" aria-hidden />
+          <AlertDescription className="text-[13px] leading-5 text-amber">
+            <span className="font-semibold">This analysis may not match the active campaign.</span> The recommended
+            batch comes from the latest analysis, while the round, best so far and pending runs come from the campaign,
+            and the engine cannot confirm they describe the same run sheet. Upload the run sheet again, or re-propose
+            after logging results, to bring them back in sync.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {/* Campaign strip: target, best-so-far, evidence, and the trust chip */}
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
         <Stat label="Optimizing" value={targetName} sub={`maximize${unit ? ` (${unit})` : ""}`} />
-        <Stat label="Best so far" value={num(active?.best ?? d.best, 2)} sub={`across ${d.n} runs`} mono />
+        <Stat
+          label="Best so far"
+          value={num(active?.best ?? d.best, 2)}
+          sub={`single measurement · ${d.n} runs${noise?.best_reproducible == null && noise?.icc != null ? ` · ICC ${noise.icc.toFixed(2)}` : ""}`}
+          mono
+        />
+        {noise?.best_reproducible != null ? (
+          <Stat
+            label="Best reproducible"
+            value={num(noise.best_reproducible, 2)}
+            sub={`replicate-averaged${noise.icc != null ? ` · ICC ${noise.icc.toFixed(2)}` : ""}`}
+            mono
+          />
+        ) : null}
         {active ? (
           <Stat
             label="Round"
@@ -240,7 +275,7 @@ function DecideBody({
       </Card>
 
       {/* Honest lead: what this batch actually buys you, before the recipes. */}
-      <HonestVerdict d={d} best={active?.best ?? d.best} band={d.conformal_q ?? null} unit={unit} />
+      <HonestVerdict d={d} best={baseline.value} baselineKind={baseline.kind} band={d.conformal_q ?? null} unit={unit} />
 
       {/* HERO: the recommended batch */}
       <section>
@@ -251,6 +286,7 @@ function DecideBody({
             {d.conformal_q != null
               ? ` · ± ${num(d.conformal_q, 2)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
               : ""}
+            {` · deltas vs ${baselineLabel(baseline.kind)}`}
           </span>
         </div>
         <ProposalDisclosures d={d} />
@@ -263,7 +299,8 @@ function DecideBody({
                 p={p}
                 features={d.proposal_features}
                 unit={unit}
-                best={active?.best ?? d.best}
+                best={baseline.value}
+                baselineKind={baseline.kind}
                 band={d.conformal_q ?? null}
                 queued={queued.has(i)}
                 onToggle={() => toggle(i)}
@@ -518,11 +555,13 @@ function ScaleReadoutCard() {
 function HonestVerdict({
   d,
   best,
+  baselineKind,
   band,
   unit,
 }: {
   d: PopulatedResult;
   best: number;
+  baselineKind: ProposalBaseline["kind"];
   band: number | null;
   unit: string;
 }) {
@@ -537,7 +576,8 @@ function HonestVerdict({
   const rankingOk = isReliable(d);
   const rho = rel?.spearman ?? d.cv_spearman;
   const good = trust.trusted && beats > 0;
-  const bestStr = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
+  const bestVal = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
+  const bestStr = baselineKind === "reproducible" ? `best reproducible recipe (${bestVal})` : `current best of ${bestVal}`;
   return (
     <div
       className={cn(
@@ -547,10 +587,10 @@ function HonestVerdict({
     >
       <p className="font-semibold">
         {good
-          ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}.`
+          ? `${beats} of ${props.length} recipes are predicted to beat your ${bestStr}.`
           : beats > 0
-            ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}, but the model is not yet trusted - treat this batch as exploration, not a confident bet.`
-            : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} - this batch is exploration, not a confident bet.`}
+            ? `${beats} of ${props.length} recipes are predicted to beat your ${bestStr}, but the model is not yet trusted - treat this batch as exploration, not a confident bet.`
+            : `None of these ${props.length} recipes clearly beats your ${bestStr} - this batch is exploration, not a confident bet.`}
       </p>
       <p className="mt-1 opacity-90">
         {trust.trusted
@@ -585,6 +625,7 @@ function ProposalCard({
   features,
   unit,
   best,
+  baselineKind,
   band,
   queued,
   onToggle,
@@ -594,6 +635,7 @@ function ProposalCard({
   features: string[];
   unit: string;
   best: number;
+  baselineKind: ProposalBaseline["kind"];
   band: number | null;
   queued: boolean;
   onToggle: () => void;
@@ -632,7 +674,9 @@ function ProposalCard({
       <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-3">
         {/* The number that matters: predicted change vs the recipe you already have. */}
         <div className="flex items-baseline justify-between">
-          <span className="text-[11px] text-muted">vs current best</span>
+          <span className="text-[11px] text-muted">
+            {baselineKind === "reproducible" ? "vs best reproducible" : "vs best single"}
+          </span>
           <span
             className={cn(
               "tabular font-mono text-[16px] font-semibold",

@@ -486,6 +486,34 @@ export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "c
 }
 
 /**
+ * The /decide trust verdict: whether the analysis is trusted to drive the next
+ * batch, and if not, the one reason to show for it.
+ *
+ * Stricter than `isReliable()` on purpose. `isReliable()` only asks whether the
+ * held-out ranking clears the floor; the engine's fail-closed promotion gate
+ * (`promotion.passed`) additionally checks feasibility AUC and calibration, and
+ * fails closed when any of them is unmeasurable. A positive verdict therefore
+ * needs BOTH, and an engine build that does not report `promotion` at all is
+ * never trusted - an unreported gate is not a passed one.
+ *
+ * `reason` is `null` only when trusted. Otherwise it is the ranking reason (from
+ * `reliabilityReason`, using the engine's own floor) when the ranking itself is
+ * not reliable, or the engine's FIRST gate failure line verbatim when the
+ * ranking is fine but the gate is not.
+ */
+export type TrustVerdict = { trusted: boolean; reason: string | null };
+
+export function trustVerdict(
+  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman" | "promotion">,
+): TrustVerdict {
+  if (!isReliable(d)) return { trusted: false, reason: reliabilityReason(d) };
+  const p = d.promotion;
+  if (!p) return { trusted: false, reason: "Promotion gate not reported by this engine" };
+  if (!p.passed) return { trusted: false, reason: `Promotion gate: ${p.failures[0] ?? p.summary}` };
+  return { trusted: true, reason: null };
+}
+
+/**
  * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
  * or `null` when the engine didn't report `conformal_coverage` (an older
  * engine build). Callers must never hardcode a coverage number - when this

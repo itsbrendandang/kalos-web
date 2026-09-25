@@ -22,7 +22,9 @@ on a single unified blue design system, consuming the Kalos engine API.
   analyze a dataset (it is not a demo).
 - **Decide** (`/decide`) - the decision cockpit and the closed optimization loop.
   The recommended batch is the hero (each experiment's recipe, predicted value +
-  uncertainty, and why); the honest reliability verdict is a compact chip. Queue
+  uncertainty, and why); the trust verdict is a compact chip that turns green
+  only when the ranking is reliable AND the engine's fail-closed promotion gate
+  passed, and otherwise names the first reason it is not trusted. Queue
   proposals and Start them, log each run's measured outcome, then Re-propose -
   which folds the results into the dataset and returns the next batch, with a
   best-so-far progress chart. Wired to the engine's `/api/campaign*` endpoints

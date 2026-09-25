@@ -11,7 +11,9 @@ import {
   isReliable,
   logResult,
   reanalyze,
+  reliabilityReason,
   startRuns,
+  trustVerdict,
   type Campaign,
   type CampaignRun,
   type LatestResult,
@@ -158,7 +160,7 @@ function DecideBody({
   const [startErr, setStartErr] = useState(false);
   const [reanalyzeBusy, setReanalyzeBusy] = useState(false);
   const [reanalyzeErr, setReanalyzeErr] = useState(false);
-  const reliable = isReliable(d);
+  const trust = trustVerdict(d);
   const unit = parseUnit(d.target);
   const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
@@ -233,7 +235,7 @@ function DecideBody({
         ) : null}
         <Stat label="Batch ready" value={String(d.proposals.length)} sub="recommended runs" mono />
         <div className="ml-auto">
-          <TrustChip reliable={reliable} spearman={d.reliability?.spearman ?? d.cv_spearman} />
+          <TrustChip trusted={trust.trusted} reason={trust.reason} spearman={d.reliability?.spearman ?? d.cv_spearman} />
         </div>
       </Card>
 
@@ -452,25 +454,35 @@ function ProgressPanel({ active, targetName, unit }: { active: ActiveCampaign; t
   );
 }
 
-function TrustChip({ reliable, spearman }: { reliable: boolean; spearman: number | null }) {
+/**
+ * The compact trust verdict beside the campaign strip. Green only when
+ * `trustVerdict()` says so - the ranking is reliable AND the engine's
+ * fail-closed promotion gate passed. Otherwise amber, with the reason (the
+ * first gate failure, or the ranking reason) as secondary text so the chip
+ * never reads as a bare "no" without saying why.
+ */
+function TrustChip({ trusted, reason, spearman }: { trusted: boolean; reason: string | null; spearman: number | null }) {
   return (
     <Badge
       variant="outline"
       className={cn(
-        "h-auto gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium",
-        reliable ? "border-green-soft bg-green-soft text-green" : "border-amber-soft bg-amber-soft text-amber",
+        "h-auto max-w-full flex-wrap gap-x-2 gap-y-0.5 rounded-2xl px-3 py-1.5 text-[12px] font-medium whitespace-normal",
+        trusted ? "border-green-soft bg-green-soft text-green" : "border-amber-soft bg-amber-soft text-amber",
       )}
     >
-      <span className={cn("size-2 shrink-0 rounded-full", reliable ? "bg-green" : "bg-amber")} />
-      {reliable ? "Reliable - safe to optimize" : "Exploring - gathering signal"}
-      {spearman != null ? (
-        <Tooltip>
-          <TooltipTrigger className="tabular font-mono opacity-70 focus-visible:outline-none">
-            · ρ {spearman.toFixed(2)}
-          </TooltipTrigger>
-          <TooltipContent>Held-out rank agreement (Spearman correlation between predicted and measured order).</TooltipContent>
-        </Tooltip>
-      ) : null}
+      <span className="flex items-center gap-2">
+        <span className={cn("size-2 shrink-0 rounded-full", trusted ? "bg-green" : "bg-amber")} />
+        {trusted ? "Reliable - promotion gates passed" : "Exploring - gathering signal"}
+        {spearman != null ? (
+          <Tooltip>
+            <TooltipTrigger className="tabular font-mono opacity-70 focus-visible:outline-none">
+              · ρ {spearman.toFixed(2)}
+            </TooltipTrigger>
+            <TooltipContent>Held-out rank agreement (Spearman correlation between predicted and measured order).</TooltipContent>
+          </Tooltip>
+        ) : null}
+      </span>
+      {reason ? <span className="basis-full pl-4 text-[11px] font-normal opacity-85">{reason}</span> : null}
     </Badge>
   );
 }
@@ -518,12 +530,13 @@ function HonestVerdict({
   const props = d.proposals;
   if (!props.length) return null;
   const beats = props.filter((p) => p.pred - (band ?? p.std) >= best).length;
-  // The SAME isReliable() predicate the TrustChip pill uses (lib/api.ts) - never
-  // re-derive trustworthiness locally, or this verdict can disagree with the pill
-  // shown right above it.
-  const reliable = isReliable(d);
+  // The SAME trustVerdict() the TrustChip uses (lib/api.ts) - never re-derive
+  // trustworthiness locally, or this verdict can disagree with the chip shown
+  // right above it.
+  const trust = trustVerdict(d);
+  const rankingOk = isReliable(d);
   const rho = rel?.spearman ?? d.cv_spearman;
-  const good = reliable && beats > 0;
+  const good = trust.trusted && beats > 0;
   const bestStr = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
   return (
     <div
@@ -535,12 +548,16 @@ function HonestVerdict({
       <p className="font-semibold">
         {good
           ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}.`
-          : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} - this batch is exploration, not a confident bet.`}
+          : beats > 0
+            ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}, but the model is not yet trusted - treat this batch as exploration, not a confident bet.`
+            : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} - this batch is exploration, not a confident bet.`}
       </p>
       <p className="mt-1 opacity-90">
-        {reliable
-          ? `The model ranks recipes with ${rho != null ? `ρ ${rho.toFixed(2)}` : "moderate"} agreement - a genuine head start over guessing. But the ± bands are wide, so read the order as a guide, not a guarantee.`
-          : `Rank agreement is ${rho != null ? rho.toFixed(2) : "low"}${rel ? ` (below the ${rel.spearman_floor.toFixed(2)} floor)` : ""} and the ± bands are wide. On data this noisy, undirected search is competitive - running these earns the model confidence; expect a modest head start, not certainty.`}
+        {trust.trusted
+          ? `The model ranks recipes with ${rho != null ? `ρ ${rho.toFixed(2)}` : "moderate"} agreement and passed the engine's promotion gates - a genuine head start over guessing. But the ± bands are wide, so read the order as a guide, not a guarantee.`
+          : rankingOk
+            ? `The model ranks recipes with ${rho != null ? `ρ ${rho.toFixed(2)}` : "moderate"} agreement, but the engine's fail-closed promotion gate has not passed (${trust.reason ?? "no reason reported"}). Running these earns the evidence the gate needs; read the order as a guide, not a guarantee.`
+            : `Rank agreement is ${rho != null ? rho.toFixed(2) : "low"} (${reliabilityReason(d).toLowerCase()}) and the ± bands are wide. On data this noisy, undirected search is competitive - running these earns the model confidence; expect a modest head start, not certainty.`}
       </p>
       {rel?.unmodeled?.length ? (
         <p className="mt-1.5 text-[12px] opacity-75">

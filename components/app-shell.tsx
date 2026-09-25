@@ -7,13 +7,9 @@ import {
   ClipboardList,
   Compass,
   Database,
-  FolderKanban,
   LayoutDashboard,
-  LayoutGrid,
-  ListChecks,
   Ruler,
   ShieldCheck,
-  TestTubes,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,48 +18,34 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 type NavItem = { href: string; label: string; short: string; helper: string; icon: LucideIcon };
 
-// The internal scientist workflow is grouped by lifecycle stage (watch the lab
-// -> analyze results -> the data behind it) so the nav reads as a workflow,
-// not a flat wall of links. Experiments is the single hub for planning,
-// running, and tracking runs (Live / Board / Table views live at "/"), so
-// Operations/Planning/Optimize are no longer separate destinations, and Run
-// analysis is an action button rather than a nav entry. "Clients" is split
-// off with a divider: it's the client-facing surface (Bioqore's customers
-// viewing their own runs), a different audience from the internal tool, so it
-// doesn't belong inside "Analyze". The desktop sidebar renders the section
-// labels; the compact mobile bar flattens them.
-//
-// Decide sits at nav slot 2, right after Experiments: it's the campaign-loop
-// home (propose -> run -> log outcome -> re-propose, kalos/docs/CAMPAIGN_LOOP.md)
-// and belongs beside "watch the lab", not filed under Analyze - it was
-// orphaned by accident (no nav entry at all), not left out on purpose.
-const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
+// Grouped by what the engine actually does, so the nav reads as a workflow
+// rather than a flat wall of links. The Scale-up readout is the home route
+// ("/" redirects to it): it answers the scale-up question from the user's own
+// multi-scale data and refuses when that data cannot support a prediction.
+// "Optimize" is the campaign loop (propose -> run -> log outcome ->
+// re-propose, kalos/docs/CAMPAIGN_LOOP.md) plus the analysis it rests on; Run
+// analysis is an action button on Decide and Results, not a nav entry. The
+// desktop sidebar renders the section labels; the compact mobile bar flattens
+// them.
+const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
   {
-    label: "Monitor",
+    label: "Scale-up",
     items: [
-      { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board · Table", icon: ListChecks },
-      { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
       { href: "/scale-readout", label: "Scale-up readout", short: "Scale-up", helper: "Data-backed at a new scale", icon: Ruler },
-      { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
     ],
   },
   {
-    label: "Analyze",
+    label: "Optimize",
     items: [
+      { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
       { href: "/validate", label: "Validate", short: "Validate", helper: "Pre-flight data checks", icon: ShieldCheck },
       { href: "/results", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
-      { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
       { href: "/simulate", label: "In-silico optimizer", short: "Simulate", helper: "Synthetic BO benchmark", icon: Atom },
     ],
   },
   {
     label: "Data",
     items: [{ href: "/data", label: "Data room", short: "Data", helper: "Registry", icon: Database }],
-  },
-  {
-    label: "Clients",
-    divided: true,
-    items: [{ href: "/voyager", label: "Projects", short: "Projects", helper: "Client portal", icon: FolderKanban }],
   },
 ];
 
@@ -80,11 +62,6 @@ function Leaf({ size = 22 }: { size?: number }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
-  // The Voyager product surface (app/voyager/layout.tsx) brings its own inner
-  // max-width/padding wrapper (`.voyager-root`), so the shell's content
-  // container is skipped there to avoid double padding - the sidebar/top nav
-  // chrome below is shared by every route, Voyager included.
-  const isVoyager = path.startsWith("/voyager");
   return (
     <div className="flex min-h-svh bg-bg">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card px-3 py-5 max-md:hidden">
@@ -100,15 +77,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {NAV_SECTIONS.map((section) => (
-            <div
-              key={section.label}
-              className={cn("flex flex-col gap-1", section.divided && "mt-1 border-t border-border pt-4")}
-            >
+            <div key={section.label} className="flex flex-col gap-1">
               <div className="px-3 pb-0.5 text-[10px] font-semibold tracking-[0.08em] text-muted uppercase">
                 {section.label}
               </div>
               {section.items.map((n) => {
-                const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+                const active = path.startsWith(n.href);
                 return (
                   <Link
                     key={n.href}
@@ -153,9 +127,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="font-head font-bold">Kalos</span>
             <ThemeToggle className="ml-auto" />
           </div>
-          <nav className="grid grid-cols-4 gap-1">
+          <nav className="grid grid-cols-3 gap-1">
             {NAV.map((n) => {
-              const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+              const active = path.startsWith(n.href);
               return (
                 // The compact mobile bar only has room for an icon and a 3-4
                 // character short label - the per-item helper subtitle the
@@ -186,13 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </div>
-        {isVoyager ? (
-          children
-        ) : (
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-6 md:py-8">
-            {children}
-          </div>
-        )}
+        <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-6 md:py-8">{children}</div>
       </main>
     </div>
   );

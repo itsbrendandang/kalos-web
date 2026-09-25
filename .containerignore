@@ -1,0 +1,22 @@
+# Build context for ./Containerfile (context = repo root). The builder stage
+# runs `COPY . .` then `npm run build`, so exclude everything the build does
+# not need: installed/built output, VCS, local env files, tests and docs.
+# Podman reads this file; .dockerignore is a symlink to it for Docker.
+node_modules
+.next
+out
+build
+coverage
+.git
+.github
+.env*
+!env.example
+*.pem
+*.log
+.DS_Store
+__tests__
+docs
+*.md
+Containerfile
+.containerignore
+.dockerignore

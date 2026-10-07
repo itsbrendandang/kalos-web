@@ -1,8 +1,8 @@
 import { Info } from "lucide-react";
 
 /**
- * Disclaimer shown on every non-live Voyager screen. These screens render
- * seed data (see app/voyager/data.ts) with numbers that look like a real
+ * Disclaimer shown on every non-live Projects screen. These screens render
+ * seed data (see app/projects/data.ts) with numbers that look like a real
  * scored analysis, so without this a viewer could mistake fabricated figures
  * (a success probability, a scale-up curve, a calibration score) for real
  * engine output. Only the `live: true` project is scored by the engine; that

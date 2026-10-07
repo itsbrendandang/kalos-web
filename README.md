@@ -76,7 +76,7 @@ so existing links and bookmarks still resolve.
 
 ## Design system
 
-The whole app, optimizer surface and Voyager product surface alike, shares one
+The whole app, optimizer surface and Projects surface alike, shares one
 unified blue design system. Tokens (color, radius, type) are defined once in
 `app/globals.css` and consumed everywhere via Tailwind v4's `@theme inline`.
 See `DESIGN.md` at the repo root for the full token reference, color roles,
@@ -104,19 +104,20 @@ template. Two rules matter when adding one:
 Note that `npx shadcn add` currently hangs with no output in this environment;
 `DESIGN.md` documents the direct-registry workaround.
 
-## Voyager surface
+## Projects surface
 
-A customer-facing product surface lives under `/voyager`, with its own
-top-nav chrome and a denser layout than the rest of the app. It shares the
-same blue tokens as the optimizer surface (aliased in `app/voyager/voyager.css`
-under `.voyager-root`) and renders in Satoshi, the original prototype's
-typeface, self-hosted via `next/font/local`; see `DESIGN.md` for the token
-reference. The optimizer sidebar is bypassed for these routes in
-`components/app-shell.tsx`.
+A customer-facing product surface lives under `/projects` (it was `/voyager`
+until the rename; old links redirect), inside the shared sidebar but with a
+denser layout than the rest of the app. It shares the same blue tokens as the
+optimizer surface (aliased in `app/projects/projects.css` under
+`.projects-root`) and renders in Satoshi, the original prototype's typeface,
+self-hosted via `next/font/local`; see `DESIGN.md` for the token reference.
+`components/app-shell.tsx` skips the shell's content container for these
+routes, since `.projects-root` brings its own.
 
-- **`/voyager`** - Projects home: customers and their projects, each tagged by
+- **`/projects`** - Projects home: customers and their projects, each tagged by
   workflow stage. Add/Edit customer and project modals open here.
-- **`/voyager/projects/[id]`** - project workspace with three tabs:
+- **`/projects/[id]`** - project workspace with three tabs:
   - **Phase 1** - the iterative DoE/Bayesian-opt loop as iteration cards
     (LHS then BO Explore/Exploit), batch-ticket upload, and unlock gating.
   - **Phase 2** - scale-up: either the setup state (config + 9-stage pipeline) or
@@ -134,10 +135,10 @@ reference. The optimizer sidebar is bypassed for these routes in
     notice when the API is unreachable.
   - **Linkage tree** - an interactive SVG experiment lineage (Phase 1 and
     Phase 1+2) with a clickable per-node detail panel.
-- **`/voyager/projects/[id]/report`** - the final report: stat cards, drivers and
+- **`/projects/[id]/report`** - the final report: stat cards, drivers and
   ideal ranges, scale-up projection curve, candidate decisions, and export.
 
-Seed data lives in `app/voyager/data.ts`. The engine does not yet expose a
+Seed data lives in `app/projects/data.ts`. The engine does not yet expose a
 customers/projects API, so these screens are illustrative and do not call it;
 the types are shaped so a real API can drop in without touching the views.
 The completed-projects home variant is not yet wired.

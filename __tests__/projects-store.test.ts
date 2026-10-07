@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOMERS, getProject as getSeedProject } from "@/app/voyager/data";
+import { CUSTOMERS, getProject as getSeedProject } from "@/app/projects/data";
 import {
   buildProjectReportCsv,
   findProjectInCustomers,
   getProjectWithFallback,
-  initialVoyagerState,
-  voyagerReducer,
-} from "@/lib/voyager-store";
+  initialProjectsState,
+  LEGACY_STORAGE_KEY,
+  projectsReducer,
+  readPersistedState,
+  STORAGE_KEY,
+} from "@/lib/projects-store";
 
-describe("voyagerReducer addCustomer", () => {
+describe("projectsReducer addCustomer", () => {
   it("appends a new customer with no projects, leaving existing customers untouched", () => {
-    const before = initialVoyagerState();
-    const after = voyagerReducer(before, {
+    const before = initialProjectsState();
+    const after = projectsReducer(before, {
       type: "addCustomer",
       customer: { id: "c-new", name: "New Biotech", address: "1 Test Way" },
     });
@@ -23,13 +26,13 @@ describe("voyagerReducer addCustomer", () => {
   });
 });
 
-describe("voyagerReducer addProject", () => {
+describe("projectsReducer addProject", () => {
   it("attaches the new project to the customer matching customerName, not any other customer", () => {
-    const before = initialVoyagerState();
+    const before = initialProjectsState();
     const customerName = before.customers[0].name;
     const otherCustomer = before.customers[1];
 
-    const after = voyagerReducer(before, {
+    const after = projectsReducer(before, {
       type: "addProject",
       customerName,
       project: { id: "p-new", name: "New Project", objective: "Test objective", status: "in_progress" },
@@ -55,8 +58,8 @@ describe("voyagerReducer addProject", () => {
   });
 
   it("is a no-op when no customer matches customerName", () => {
-    const before = initialVoyagerState();
-    const after = voyagerReducer(before, {
+    const before = initialProjectsState();
+    const after = projectsReducer(before, {
       type: "addProject",
       customerName: "Does Not Exist",
       project: { id: "p-new", name: "New Project", objective: "Test", status: "in_progress" },
@@ -66,9 +69,9 @@ describe("voyagerReducer addProject", () => {
   });
 
   it("stages a project added as Completed with the given completion date", () => {
-    const before = initialVoyagerState();
+    const before = initialProjectsState();
     const customerName = before.customers[0].name;
-    const after = voyagerReducer(before, {
+    const after = projectsReducer(before, {
       type: "addProject",
       customerName,
       project: { id: "p-done", name: "Done Project", objective: "Test", status: "completed" },
@@ -79,13 +82,13 @@ describe("voyagerReducer addProject", () => {
   });
 });
 
-describe("voyagerReducer updateProject", () => {
+describe("projectsReducer updateProject", () => {
   it("mutates only the target project's editable fields, leaving every other project unchanged", () => {
-    const before = initialVoyagerState();
+    const before = initialProjectsState();
     const targetId = CUSTOMERS[0].projects[0].id;
     const siblingId = CUSTOMERS[0].projects[1]?.id;
 
-    const after = voyagerReducer(before, {
+    const after = projectsReducer(before, {
       type: "updateProject",
       id: targetId,
       patch: { name: "Renamed project", objective: "New objective", status: "terminated" },
@@ -108,8 +111,8 @@ describe("voyagerReducer updateProject", () => {
   });
 
   it("is a no-op for an unknown project id", () => {
-    const before = initialVoyagerState();
-    const after = voyagerReducer(before, {
+    const before = initialProjectsState();
+    const after = projectsReducer(before, {
       type: "updateProject",
       id: "does-not-exist",
       patch: { name: "X", objective: "Y", status: "drafting" },
@@ -118,13 +121,13 @@ describe("voyagerReducer updateProject", () => {
   });
 });
 
-describe("voyagerReducer advanceIteration", () => {
+describe("projectsReducer advanceIteration", () => {
   it("marks the active iteration done and unlocks the next one", () => {
-    const before = initialVoyagerState();
+    const before = initialProjectsState();
     const mab = findProjectInCustomers(before.customers, "p-mab");
     expect(mab?.stage.kind).toBe("phase1");
 
-    const after = voyagerReducer(before, { type: "advanceIteration", projectId: "p-mab" });
+    const after = projectsReducer(before, { type: "advanceIteration", projectId: "p-mab" });
     const mabAfter = findProjectInCustomers(after.customers, "p-mab");
 
     expect(mabAfter?.iterations.find((it) => it.n === 2)?.state).toBe("done");
@@ -133,19 +136,19 @@ describe("voyagerReducer advanceIteration", () => {
   });
 });
 
-describe("voyagerReducer runPipeline and markProjectComplete", () => {
+describe("projectsReducer runPipeline and markProjectComplete", () => {
   it("transitions the run to complete and marks all stages done", () => {
-    const before = initialVoyagerState();
+    const before = initialProjectsState();
     const template = [{ n: 1, name: "Stage one", state: "pending" as const, chips: [] }];
-    const after = voyagerReducer(before, { type: "runPipeline", projectId: "p-mab", stageTemplate: template });
+    const after = projectsReducer(before, { type: "runPipeline", projectId: "p-mab", stageTemplate: template });
     const mabAfter = findProjectInCustomers(after.customers, "p-mab");
     expect(mabAfter?.run).toEqual({ number: 1, status: "complete" });
     expect(mabAfter?.pipeline.every((s) => s.state === "done")).toBe(true);
   });
 
   it("marks a project completed with the given date", () => {
-    const before = initialVoyagerState();
-    const after = voyagerReducer(before, { type: "markProjectComplete", projectId: "p-mab", completedOn: "Jun 1, 2026" });
+    const before = initialProjectsState();
+    const after = projectsReducer(before, { type: "markProjectComplete", projectId: "p-mab", completedOn: "Jun 1, 2026" });
     const mabAfter = findProjectInCustomers(after.customers, "p-mab");
     expect(mabAfter?.status).toBe("completed");
     expect(mabAfter?.stage).toEqual({ kind: "completed", completedOn: "Jun 1, 2026" });
@@ -163,8 +166,8 @@ describe("getProjectWithFallback", () => {
   });
 
   it("prefers the live store's version over the seed when both have the id", () => {
-    const before = initialVoyagerState();
-    const after = voyagerReducer(before, {
+    const before = initialProjectsState();
+    const after = projectsReducer(before, {
       type: "updateProject",
       id: "p-mab",
       patch: { name: "Renamed", objective: "Test", status: "in_progress" },
@@ -193,5 +196,30 @@ describe("buildProjectReportCsv", () => {
     const project = getSeedProject("p-mab");
     if (!project) throw new Error("expected seed project p-mab to exist");
     expect(buildProjectReportCsv(project)).toBe("Section,Name,Value,Detail");
+  });
+});
+
+describe("readPersistedState", () => {
+  const storage = (items: Record<string, string>) => ({ getItem: (key: string) => items[key] ?? null });
+  const saved = { customers: [{ id: "c-x", name: "Saved Co", address: "", projects: [] }] };
+
+  it("reads the current key", () => {
+    expect(readPersistedState(storage({ [STORAGE_KEY]: JSON.stringify(saved) }))).toEqual(saved);
+  });
+
+  it("falls back to the pre-rename key, so data saved under the Voyager name survives", () => {
+    expect(readPersistedState(storage({ [LEGACY_STORAGE_KEY]: JSON.stringify(saved) }))).toEqual(saved);
+  });
+
+  it("prefers the current key over the pre-rename key", () => {
+    const legacy = { customers: [] };
+    const items = { [STORAGE_KEY]: JSON.stringify(saved), [LEGACY_STORAGE_KEY]: JSON.stringify(legacy) };
+    expect(readPersistedState(storage(items))).toEqual(saved);
+  });
+
+  it("returns null when nothing usable is stored", () => {
+    expect(readPersistedState(storage({}))).toBeNull();
+    expect(readPersistedState(storage({ [STORAGE_KEY]: "{not json" }))).toBeNull();
+    expect(readPersistedState(storage({ [STORAGE_KEY]: JSON.stringify({ customers: "nope" }) }))).toBeNull();
   });
 });

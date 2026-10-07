@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, ChevronRight } from "lucide-react";
-import type { Project, ProjectStage } from "@/app/voyager/data";
+import type { Project, ProjectStage } from "@/app/projects/data";
 
 function phaseLabel(stage: ProjectStage): { text: string; cls: string } {
   switch (stage.kind) {
@@ -21,7 +21,7 @@ export function ProjectCard({ project, onEdit }: { project: Project; onEdit?: (p
   const router = useRouter();
   const phase = phaseLabel(project.stage);
   const isP2 = project.stage.kind === "phase2";
-  const open = () => router.push(`/voyager/projects/${project.id}`);
+  const open = () => router.push(`/projects/${project.id}`);
 
   return (
     <div

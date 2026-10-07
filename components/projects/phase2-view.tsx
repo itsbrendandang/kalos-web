@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 import { FileText, Upload, ChevronDown, AlertTriangle, Info, RefreshCw, Play, Settings, FlaskConical, Flag } from "lucide-react";
-import type { Project, Candidate, PipelineStage } from "@/app/voyager/data";
+import type { Project, Candidate, PipelineStage } from "@/app/projects/data";
 import { Phase2Live } from "./phase2-live";
 import { IllustrativeBanner } from "./illustrative-banner";
-import { useVoyagerStore } from "./store-context";
+import { useProjectsStore } from "./store-context";
 
 /** A hidden file input + "Browse" button, staging the chosen filename into local state - no upload. */
 function FileBrowseButton({ label, onFileName }: { label: string; onFileName: (name: string) => void }) {
@@ -174,7 +174,7 @@ const IDLE_STAGES: PipelineStage[] = [
 ];
 
 function SetupView({ project }: { project: Project }) {
-  const { runPipeline } = useVoyagerStore();
+  const { runPipeline } = useProjectsStore();
   const [configFile, setConfigFile] = useState<string | null>(null);
   const [experimentFile, setExperimentFile] = useState<string | null>(null);
   const canRun = configFile != null;
@@ -241,7 +241,7 @@ function SetupView({ project }: { project: Project }) {
 }
 
 function ResultsView({ project }: { project: Project }) {
-  const { runPipeline, markProjectComplete } = useVoyagerStore();
+  const { runPipeline, markProjectComplete } = useProjectsStore();
   const [validationFile, setValidationFile] = useState<string | null>(null);
 
   return (

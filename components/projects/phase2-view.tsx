@@ -99,7 +99,7 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
           ) : null}
           {c.warning ? (
             <div className="warnbox">
-              <AlertTriangle className="mr-1 inline size-3 align-[-2px]" />
+              <AlertTriangle className="v-tone-accent mr-1 inline size-3 align-[-2px]" />
               {c.warning}
             </div>
           ) : null}
@@ -194,14 +194,14 @@ function SetupView({ project }: { project: Project }) {
             </div>
             <div className="cfg-body">
               <div className="dz">
-                <Settings className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+                <Settings className="mx-auto mb-1.5 size-[18px] text-[color:var(--v-ink)]/14" />
                 <div className="dzt">Upload pipeline config YAML</div>
                 <div className="dzs">{configFile ? `Selected: ${configFile}` : "Scale-up volumes · domain transfer · gating thresholds"}</div>
                 <FileBrowseButton label="Browse" onFileName={setConfigFile} />
               </div>
             </div>
           </div>
-          <div className={`run-bar ${canRun ? "" : "opacity-50"}`}>
+          <div className={`run-bar ${canRun ? "" : "run-bar--off"}`}>
             <div>
               <div className="rbt">Run scale-up pipeline</div>
               <div className="rbs">{canRun ? "Ready to run" : "Upload config to enable"}</div>
@@ -212,7 +212,7 @@ function SetupView({ project }: { project: Project }) {
           </div>
           <div className="sh mt-3.5">Experiment batch tickets</div>
           <div className="dz mb-2">
-            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:var(--v-ink)]/14" />
             <div className="dzt">Upload experiment batch ticket</div>
             <div className="dzs">{experimentFile ? `Selected: ${experimentFile}` : "CSV · parsed and saved to DB under this project"}</div>
             <FileBrowseButton label="Browse files" onFileName={setExperimentFile} />
@@ -266,7 +266,7 @@ function ResultsView({ project }: { project: Project }) {
           )}
           <div className="sh mt-3.5">Upload more experiments</div>
           <div className="dz mb-2">
-            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:var(--v-ink)]/14" />
             <div className="dzt">Upload validation batch ticket</div>
             <div className="dzs">{validationFile ? `Selected: ${validationFile}` : "Each upload sharpens the next pipeline run"}</div>
             <FileBrowseButton label="Browse files" onFileName={setValidationFile} />

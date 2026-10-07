@@ -103,12 +103,32 @@ app/projects/projects.css <- .projects-root aliases root tokens to --v-* names,
 | `--red` | `#c0392b` | `#f16354` | Fail / error status. AA-checked both modes (light ~4.6:1; dark 5.4-5.8:1) |
 | `--sidebar` | `#0a1233` | `#0a1233` | Dark sidebar background (optimizer nav) - already dark, unchanged in dark mode |
 | `--grid` | `#e5e9f7` | `#232a3d` | Chart gridlines |
-| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | - | Secondary / tertiary caption text on the Projects surface. Both clear WCAG AA (>= 4.5:1) on white. They replaced low-opacity ink (`rgba(17,17,17,.3-.4)`), which read 2.3-2.6:1 and failed AA at caption sizes. Use these for muted text under `.projects-root`, never a raw low-opacity ink. Not yet re-tuned for dark mode - see "Dark mode" below |
+| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | alias `--muted` (`#a1a1aa`) / `oklch(0.66 0.013 286.067)` (`#91919a`) | Secondary / tertiary caption text on the Projects surface. Measured on every surface they render on: light `--v-muted` 4.6-6.0:1, `--v-faint` 4.55-4.8:1; dark `--v-muted` 5.7-7.7:1, `--v-faint` 5.7-6.4:1. They replaced low-opacity ink (`rgba(17,17,17,.28-.6)`), which read 1.9-4.1:1 in light mode and about 1:1 in dark mode (the ink stays near-black on the near-black page). Use these for muted text under `.projects-root`, never a raw low-opacity ink |
 
-Status colors beyond this table (warn/bad banner tones, decision-card
-promote/hold/retire colors) live as additional `--v-*` tokens inside
+Status colors beyond this table live as additional `--v-*` tokens inside
 `.projects-root` in `app/projects/projects.css`, since they are only used by the
 Projects screens.
+Light mode tints whole rows and banners with the tone.
+Dark mode keeps rows and banners on the neutral `--card` with page ink and puts the tone only in the small marks: the decision chip, the thin border, the probability bar, and a banner's icon and key value (`.v-tone-accent`).
+Product-owner call (2026-10-07): green- and amber-tinted panels on the near-black page looked generated rather than designed, so do not reintroduce them in dark mode.
+Every token has a `.dark .projects-root` override; light values are the original palette, re-picked only where they failed AA.
+Ratios are the lowest measured on the rendered page for the text on each fill (retire and the warn/bad banners do not occur in the seed data, so they were measured by switching a rendered card or banner to that class).
+
+| Token | Light | Dark | Role | Light / dark |
+| --- | --- | --- | --- | --- |
+| `--v-ok-bg` / `-ink` / `-accent` | alias `--green-soft` / `#1b5e20` / `#1b5e20` | alias `--card` / alias `--v-ink` / alias `--green` | Reliability "ok" banner: fill, body text, icon and key value. `-accent` also inks the Phase 1 pill | 7.00 / 16.98 body, 8.10 accent |
+| `--v-warn-bg` / `-border` / `-ink` / `-accent` | `#fff9f0` / `#ffd580` / `#5d4037` / `#5d4037` | alias `--card` / `#5c4710` / alias `--v-ink` / alias `--amber` | Warn reliability and offline banners, candidate warning box, the illustrative-data banner | 8.90 / 16.98 body, 8.10 accent |
+| `--v-bad-bg` / `-border` / `-ink` / `-accent` | `#fdf3f3` / `#f0b4b4` / `#8a2b2b` / `#8a2b2b` | alias `--card` / `#6e2c2c` / alias `--v-ink` / alias `--red` | Bad reliability banner | 7.84 / 16.98 body, 5.62 accent |
+| `--v-ok-wash`, `--v-hold-wash`, `--v-retire-wash` | `#f4fbf4`, `#fffef2`, `#fff9f2` | alias `--card` | Row fill behind promote, hold and retire decisions and exploit proposals (`--v-explore-bg`: `--blue-soft` in light, `--card` in dark) | 5.7 / 6.9 (`--v-muted` text) |
+| `--v-ok-border` / `--v-ok-chip-ink` | `#a5d6a7` / `#1b5e20` | `#1a5434` / `#7ee2a8` | Promote and exploit border, solid chip fill and chip text | 4.79 / 5.64 |
+| `--v-hold-border` / `--v-hold-chip-ink` | `#ffe082` / `#5d4037` | `#4a3a0c` / `#f5cf7a` | Hold border, chip fill and chip text | 7.20 / 7.41 |
+| `--v-retire-border` / `--v-retire-chip-ink` | `#ffcc80` / `#9a3600` | `#55300f` / `#ffb074` | Retire border, chip fill and chip text. The chip ink was `#e65100`, 2.56:1 on its chip | 4.89 / 6.45 |
+| `--v-explore-badge-ink` | alias `--blue-deep` | alias `--accent-text` | Explore chip text on `--blue-border` | 6.59 / 4.83 |
+| `--v-done-badge-ink` | `#ffffff` | alias `--bg` | "Ingested" chip text on `--green` | 5.40 / 9.04 |
+| `--v-chip-bg` | `#f0f0f0` | alias `--secondary` | Neutral chip fill (customer project count, idle pipeline badge), `--v-muted` text | 5.26 / 5.81 |
+
+The "Accepted" chip and Phase 1 pill keep their `--green-soft` fill in dark mode (they are small marks).
+The "Required" chip uses the shared `--amber` on `--amber-soft` (4.95 / 6.79); its old `#e65100` read 3.46:1.
 
 All contrast ratios above were computed against both `--bg` and `--card` in
 each mode using the standard WCAG relative-luminance formula, not eyeballed.
@@ -199,22 +219,27 @@ query - so it can be toggled independently of the OS setting and persisted.
   unchanged; in dark mode the text alias is `#6f93ff` and clears 5.36-6.39:1 on
   every surface it lands on (verified against the live rendered cascade, not
   eyeballed).
-- **Explore badge** (`.dcb--explore`): its ink (`--v-explore-badge-ink`) was
-  `--blue-hover` on a `--blue-border` (`#33406e`) background, only 1.59:1 in dark
-  mode; even swapping to `--accent-text` reached just 3.47:1. The ink is now
-  `--blue-deep` (dark `#8fb0ff`, the system's designated "emphasis blue text on
-  dark"), which clears 4.68:1 while keeping the `--blue-border` badge visibly
-  distinct (1.73:1) from its `--blue-soft` explore row - a darker `--blue-tint`
-  badge would have hit 5.36:1 text but nearly vanished into that row (1.12:1).
-  Light mode improves to 9.78:1 (from 6.33:1), no regression.
-- **Not yet covered**: the remaining Projects-only status tones defined directly
-  in `app/projects/projects.css` (`--v-warn-*`/`--v-bad-*` banner tones, the
-  green exploit badge and the amber/orange decision-card promote/hold/retire
-  colors) and `--v-muted`/`--v-faint` do not have `.dark` overrides yet - they
-  still render their light-mode values on dark surfaces (all currently
-  >= 4.5:1, so legible, just visually untuned). They live in a separate
-  stylesheet outside this pass's AA scope; flagged here as follow-up rather than
-  silently left inconsistent.
+- **Explore badge** (`.dcb--explore`): its ink (`--v-explore-badge-ink`) is
+  `--blue-deep` in light mode (6.59:1 on its `--blue-border` badge).
+  In dark mode `--blue-deep` is now a fill-strength blue (`#2251c6`, 1.78:1 on the badge), so the `.dark` block points the ink at `--accent-text` instead (4.83:1).
+  The badge keeps the `--blue-border` fill, which stays visibly distinct from its `--blue-soft` explore row.
+- **Projects muted text and status tones** (`app/projects/projects.css`):
+  `--v-muted`/`--v-faint`, the `--v-ok-*`/`--v-warn-*`/`--v-bad-*` banner tones,
+  the promote/exploit, hold and retire decision colors, the "Ingested" and
+  explore chips and the neutral chip fill all have a `.dark .projects-root`
+  override (values and measured ratios in the Projects status table above).
+  In dark mode the rows and banners sit on the neutral card and only the small marks carry the tone (see the note above that table).
+  Before it, the light values rendered on the dark surfaces: muted captions read 3.0-3.3:1, the light decision rows put near-white text on near-white fills (1.01:1), and the green banner ink read 1.82:1.
+  The same pass found text that failed in light mode too and fixed it there:
+  - Raw low-opacity ink (`rgba(17,17,17,.28-.6)`) on eyebrows, card objectives, the project-count tag, legends, rationale and report prose, linkage-tree band and yield labels and the report chart axis now uses `--v-muted`/`--v-faint` (it read 1.9-4.1:1 in light mode and about 1:1 in dark mode).
+  - Locked iteration cards and the not-yet-runnable run bar no longer dim with `opacity`, which pulled their text to 1.6-2.4:1 in light mode; they switch their text to `--v-muted` instead.
+    Do not dim text with `opacity`: no opacity keeps `--v-faint` above 4.5:1.
+    Disabled buttons keep their `opacity: .5`, since WCAG exempts inactive controls.
+  - The modal field placeholders (Tailwind's 50%-of-ink default, 3.4:1) use `--v-faint`, and the "Required" chip uses `--amber` on `--amber-soft` (it was `#e65100`, 3.46:1).
+  - Blue text, hover text included, uses `--v-blue-7-text` (`--b7`), never the `--v-blue`/`--b5` fill, which reads 3.5-3.9:1 as text in dark mode.
+    In light mode both resolve to `--blue`, so light blue text is unchanged.
+  - Decorative, non-text marks (empty-state icons, the card chevron, linkage-tree edges and band rules) keep their faint look through an ink-relative alpha such as `text-[color:var(--v-ink)]/14`, which follows the theme.
+    In light mode that renders the same as the old `rgba(17,17,17,.14)`; text never uses it.
 
 ## shadcn semantic tokens
 
@@ -364,7 +389,11 @@ dictionary (`Record<NodeType, {...}>`) as a plain TypeScript constant rather
 than CSS classes. Each node type in the experiment lineage SVG maps to a fixed
 fill/stroke/text/badge combination that is only read in that one file and
 rendered imperatively into SVG attributes; a CSS-class version would just be
-the same mapping expressed less directly. Remaining `style={{ width: ... }}`
+the same mapping expressed less directly.
+The pastel node fills are the same in both themes, so each node's `text` color only has to clear AA against its own fill (4.79-6.78:1; the validation label moved from `#E65100`, 3.54:1, to `#BF360C`, 5.23:1), and it also inks the detail-panel badge.
+Validation nodes are sized so their "V-00n" labels fit inside the circle; a label that spills past its fill lands on the page background, which fails in dark mode.
+Everything in the tree that sits on the page instead (band and yield labels, edges, band rules) uses the theme tokens.
+Remaining `style={{ width: ... }}`
 props across the app are legitimate data-driven values (progress bar widths,
 bar-chart fills) and are not colors.
 

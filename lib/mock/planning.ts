@@ -7,7 +7,7 @@
 // time, so server- and client-rendered HTML always match (no hydration
 // warnings) and the board doesn't silently drift as real time passes.
 //
-// Swap this module for a real client (mirroring lib/experiments.ts's shape)
+// Swap this module for a real client (mirroring lib/api.ts's client functions)
 // once there's a real planning/task-tracking source.
 
 /** Column definitions, in board order. `tone` drives the header dot color
@@ -51,9 +51,7 @@ export interface PlanTask {
   vessel?: string;
 }
 
-/** The lab operators already introduced on the Operations board
- *  (lib/mock/pipeline.ts) - reused here so Planning and Operations read as
- *  the same team, not two disconnected mocks. */
+/** The lab operators planning tasks are assigned to. */
 export const ASSIGNEES: Assignee[] = [
   { initials: "JA", name: "J. Alvarez" },
   { initials: "RC", name: "R. Chen" },

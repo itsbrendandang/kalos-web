@@ -6,9 +6,8 @@ import { cn } from "@/lib/utils";
  * Grouping header: a bold label, an optional one-line descriptor, a hairline
  * that runs to the edge, and an optional trailing badge. This is the "bold
  * label, hairline rule" pattern that was hand-duplicated in
- * components/analysis-readout.tsx, components/operations/operations-view.tsx
- * and elsewhere - consolidated here as the one shared primitive so future
- * surfaces don't reimplement it a fourth time.
+ * components/analysis-readout.tsx and elsewhere - consolidated here as the
+ * one shared primitive so future surfaces don't reimplement it again.
  *
  * Renders a real `<h2>` so the section title participates in the document
  * outline (not just a styled `<div>`).

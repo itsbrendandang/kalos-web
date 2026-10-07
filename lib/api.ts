@@ -708,6 +708,14 @@ export type Campaign =
       pending: CampaignRun[];
       n_awaiting: number;
       n_measured: number;
+      /**
+       * Whether /api/latest provably describes this campaign as it is now
+       * (kalos/docs/CAMPAIGN_LOOP.md, "Analysis/campaign coherence"). Every
+       * campaign write (start, result, fold, reseed) re-mints the stamp, so
+       * this is false from the first run started after an analysis until the
+       * next re-analyze. Optional only because older engines do not send it.
+       */
+      analysis_in_sync?: boolean;
     };
 
 export const getCampaign = (): Promise<Campaign> =>

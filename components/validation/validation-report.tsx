@@ -55,7 +55,7 @@ const SEVERITY_LABEL: Record<ValidationSeverity, string> = {
 };
 
 /** Colored dot + count + text label - never color alone, same convention as
- *  components/plate/status-chip.tsx and components/experiments/status-chip.tsx. */
+ *  components/plate/status-chip.tsx. */
 function SeverityChip({ severity, count }: { severity: ValidationSeverity; count: number }) {
   return (
     <span className={cn("inline-flex items-center gap-1 text-[13px] font-bold", SEVERITY_TEXT[severity])}>

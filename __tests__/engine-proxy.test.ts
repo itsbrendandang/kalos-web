@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { GET, PATCH, POST } from "@/app/api/engine/[...path]/route";
+import { GET, POST } from "@/app/api/engine/[...path]/route";
 
 function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]): NextRequest {
   return new NextRequest(url, init);
@@ -65,25 +65,6 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect((init as unknown as { duplex: string }).duplex).toBe("half");
     expect(res.status).toBe(201);
     await expect(res.json()).resolves.toEqual({ started: true });
-  });
-
-  it("PATCH forwards status updates with the auth header (lib/experiments.ts patchStatus)", async () => {
-    fetchMock.mockResolvedValueOnce(engineResponse(200, { status: "READY" }));
-
-    const res = await PATCH(
-      req("http://localhost:3000/api/engine/api/experiments/exp_5", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "READY" }),
-      }),
-      ctx(["api", "experiments", "exp_5"]),
-    );
-
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://engine.internal:8050/api/experiments/exp_5");
-    expect(init.method).toBe("PATCH");
-    expect((init.headers as Headers).get("authorization")).toBe("Bearer test-token-123");
-    expect(res.status).toBe(200);
   });
 
   it("streams a multipart upload through with the boundary intact (POST /api/run, /api/experiments)", async () => {

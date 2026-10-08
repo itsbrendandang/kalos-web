@@ -32,8 +32,8 @@ export function StatTile({
   return (
     <Card
       className={cn(
-        "flex h-[76px] items-center gap-3 rounded-xl px-3.5 py-2",
-        tone === "accent" ? "bg-accent-soft" : "bg-blue-soft",
+        "flex h-[76px] items-center gap-3 rounded-xl border border-border px-3.5 py-2",
+        tone === "accent" ? "bg-accent-soft" : "bg-card",
         className,
       )}
     >

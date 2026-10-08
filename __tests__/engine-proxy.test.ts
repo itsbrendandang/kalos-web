@@ -11,8 +11,16 @@ function ctx(path: string[]) {
 }
 
 /** A real Response, mirroring what the engine would send back untouched. */
-function engineResponse(status: number, body: unknown, contentType = "application/json"): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": contentType } });
+function engineResponse(
+  status: number,
+  body: unknown,
+  contentType = "application/json",
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": contentType, ...extraHeaders },
+  });
 }
 
 describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
@@ -42,6 +50,24 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect((init.headers as Headers).get("authorization")).toBe("Bearer test-token-123");
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("forwards Retry-After on a 503 (kalos/portal/busy.py's single analysis slot)", async () => {
+    // Regression test: found live in the 2026-09-16 production test cycle's
+    // concurrency check - a real 503 from the engine's busy slot carries
+    // Retry-After, but the proxy's header allowlist only copied
+    // content-type, so every caller through this route (including
+    // kalos-web's own client code) silently lost it.
+    fetchMock.mockResolvedValueOnce(
+      engineResponse(503, { error: "An analysis is already running." }, "application/json", {
+        "retry-after": "60",
+      }),
+    );
+
+    const res = await POST(req("http://localhost:3000/api/engine/api/run", { method: "POST" }), ctx(["api", "run"]));
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("retry-after")).toBe("60");
   });
 
   it("forwards POST with a JSON body and the bearer auth header, status and body untouched", async () => {

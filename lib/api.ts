@@ -126,7 +126,65 @@ export type Calibration = {
   levels: { nominal: number; empirical: number }[];
 };
 
-export type Reliability = {
+export type ProducerFields = {
+  producer_spearman: number | null;
+  producer_clears_floor: boolean;
+  n_producers: number;
+  producer_threshold: number;
+};
+
+export type Diagnostics = {
+  noise: {
+    n_recipes: number;
+    n_replicated: number;
+    replicate_aware: boolean;
+    icc: number | null;
+    noise_sd: number | null;
+    signal_sd: number | null;
+    best_single: number | null;
+    best_reproducible: number | null;
+    scale: null | {
+      variance_mean_rho: number | null;
+      homoscedastic: boolean | null;
+      icc_raw: number | null;
+      icc_log: number | null;
+      icc_gain: number | null;
+      log_offset: number | null;
+      suggests_transform: boolean;
+      reason: string | null;
+    };
+  };
+  alternative_scale: {
+    scale: "log1p" | null;
+    offset: number | null;
+    cv_spearman: number | null;
+    cv_ci95: [number, number] | null;
+    calibration: Calibration | null;
+    icc: number | null;
+    interpretation: string | null;
+    reason: string | null;
+  };
+  gp_shapes: {
+    available: boolean;
+    reason: string | null;
+    swept_at: string;
+    n_features: number;
+    features: {
+      name: string;
+      relevance: number;
+      lengthscale: number;
+      shape: "flat" | "monotonic_up" | "monotonic_down" | "interior_optimum" | "interior_minimum";
+      optimum_at: number | null;
+      peak_gain: number | null;
+      peak_separation_sd: number | null;
+      spearman_rho: number;
+      missed_by_spearman: boolean;
+    }[];
+    unmodeled: string[];
+  };
+};
+
+export type Reliability = Partial<ProducerFields> & {
   spearman: number | null;
   ci95: [number, number] | null;
   spearman_floor: number;
@@ -268,7 +326,7 @@ export type ProvenanceEntry = {
   non_null: number;
 };
 
-export type AnalyzeResult = {
+export type AnalyzeResult = Partial<Diagnostics> & {
   n: number;
   d: number;
   target: string;
@@ -429,8 +487,13 @@ export async function runFile(file: File, target?: string): Promise<AnalyzeResul
 
 // The most recent real (uploaded) analysis — what the Overview reflects.
 export type LatestResult =
-  | { has_data: false }
-  | (AnalyzeResult & { has_data: true; dataset: string; updated: number });
+  | { has_data: false; campaign_generation?: string | null }
+  | (AnalyzeResult & { has_data: true; dataset: string; updated: number; campaign_generation?: string | null });
+
+/** Use the same incumbent as acquisition; never fall back for replicate-aware fits. */
+export function proposalIncumbent(d: Pick<AnalyzeResult, "best" | "noise">): number | null {
+  return d.noise?.replicate_aware ? d.noise.best_reproducible ?? null : d.best;
+}
 
 export const getLatest = (): Promise<LatestResult> =>
   fetch(`${API}/api/latest`).then((r) => {
@@ -698,6 +761,7 @@ export type Campaign =
       n_base: number;
       best: number | null;
       round: number;
+      analysis_in_sync?: boolean;
       /**
        * The progress trajectory: one { round, best, n_base } point per round
        * (round 0 = the seeded base, then one per re-analyze). `best` is the
@@ -709,6 +773,36 @@ export type Campaign =
       n_awaiting: number;
       n_measured: number;
     };
+
+export type CampaignComparison = {
+  baseline_round: number;
+  current_round: number;
+  baseline_best: number | null;
+  current_best: number | null;
+  improvement: number | null;
+  n_runs_added: number;
+  comparison_type: "initial" | "previous";
+};
+
+/** Only compare endpoints in this campaign's history, including missing measurements. */
+export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>): CampaignComparison[] {
+  const currentIndex = c.history.findIndex((h) => h.round === c.round);
+  if (currentIndex < 1) return [];
+  const current = c.history[currentIndex];
+  return (["initial", "previous"] as const).map((comparison_type) => {
+    const baseline = c.history[comparison_type === "initial" ? 0 : currentIndex - 1];
+    const delta = baseline.best == null || current.best == null ? null : current.best - baseline.best;
+    return {
+      baseline_round: baseline.round,
+      current_round: current.round,
+      baseline_best: baseline.best,
+      current_best: current.best,
+      improvement: delta == null ? null : baseline.best! > 0 ? delta / baseline.best! * 100 : delta,
+      n_runs_added: current.n_base - baseline.n_base,
+      comparison_type,
+    };
+  });
+}
 
 export const getCampaign = (): Promise<Campaign> =>
   fetch(`${API}/api/campaign`).then((r) => {

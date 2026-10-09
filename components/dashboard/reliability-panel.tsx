@@ -104,6 +104,19 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         </div>
       </div>
 
+      {rel && [rel.producer_spearman, rel.producer_clears_floor, rel.n_producers, rel.producer_threshold].some((v) => v !== undefined) ? (
+        <div className="mt-2 rounded-[10px] border border-border p-3 text-[12px] text-muted">
+          <div className="font-semibold text-fg">Producer-only ranking</div>
+          <p className="mt-1">
+            {rel.producer_spearman === undefined ? "n/a — producer rank agreement not reported." : rel.producer_spearman == null
+              ? "n/a — producer rank agreement unavailable; no reason reported by the engine."
+              : `Spearman ${num(rel.producer_spearman, 2)} · ${rel.producer_clears_floor === undefined ? "floor verdict not reported" : rel.producer_clears_floor ? "clears floor" : "does not clear floor"}`}
+          </p>
+          <p>{rel.n_producers ?? "n/a"} producers · threshold {rel.producer_threshold == null ? "not reported" : num(rel.producer_threshold, 2)}</p>
+          <p className="mt-1">Supplementary diagnostic; the reliability verdict uses the full held-out evaluation.</p>
+        </div>
+      ) : null}
+
       {d.reliability?.calibration ? (
         <div className="mt-2 rounded-[10px] border border-border p-3">
           <div className="flex items-center justify-between gap-2">

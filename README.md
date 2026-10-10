@@ -8,8 +8,8 @@ on a single unified blue design system, consuming the Kalos engine API.
 
 - **Experiments** (`/`) - the single hub for planning, running, and tracking every
   experiment.
-  A Live / Board / Table view switcher sits under the header, driven by the
-  `?view=live|board|table` search param (default `live`), so each view is
+  A Live / Board view switcher sits under the header, driven by the
+  `?view=live|board` search param (default `live`), so each view is
   directly linkable and the back button moves between them.
   - **Live** (`?view=live`) - the operations view: summary tiles, in-flight run
     cards (attention-needed first), the next batch to run, and recently
@@ -22,9 +22,6 @@ on a single unified blue design system, consuming the Kalos engine API.
     a lightweight inline input adds a new card to a column without a modal.
     Task data is a static mock in `lib/mock/planning.ts`, pending a real
     task/experiment-status source.
-  - **Table** (`?view=table`) - the real experiment queue wired to the Kalos
-    portal: upload a run sheet, flag it ready, and run the engine on demand or
-    for every ready experiment at once.
 - **Results** (`/results`) - your last analyzed dataset at a glance: model
   reliability (honest held-out rank correlation + 95% CI), what drives the
   outcome, predicted-vs-measured, a run landscape (a low-dimensional
@@ -71,7 +68,7 @@ on a single unified blue design system, consuming the Kalos engine API.
   `RUNS_BY_DATASET`).
 
 The old `/planning`, `/experiments`, and `/optimize` routes redirect to
-`/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,
+`/?view=board`, `/`, and `/results#next-experiments` respectively,
 so existing links and bookmarks still resolve.
 
 ## Design system

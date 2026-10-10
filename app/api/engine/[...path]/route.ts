@@ -140,10 +140,3 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const { path } = await params;
   return forward(req, path ?? []);
 }
-
-// PATCH is used by lib/experiments.ts (patchStatus) - included so every
-// existing consumer keeps working, not just the GET/POST the task named.
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const { path } = await params;
-  return forward(req, path ?? []);
-}

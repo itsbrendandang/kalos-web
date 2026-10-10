@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { GET, PATCH, POST } from "@/app/api/engine/[...path]/route";
+import { GET, POST } from "@/app/api/engine/[...path]/route";
 
 function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]): NextRequest {
   return new NextRequest(url, init);
@@ -11,8 +11,16 @@ function ctx(path: string[]) {
 }
 
 /** A real Response, mirroring what the engine would send back untouched. */
-function engineResponse(status: number, body: unknown, contentType = "application/json"): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": contentType } });
+function engineResponse(
+  status: number,
+  body: unknown,
+  contentType = "application/json",
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": contentType, ...extraHeaders },
+  });
 }
 
 describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
@@ -44,6 +52,24 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     await expect(res.json()).resolves.toEqual({ ok: true });
   });
 
+  it("forwards Retry-After on a 503 (kalos/portal/busy.py's single analysis slot)", async () => {
+    // Regression test: found live in the 2026-09-16 production test cycle's
+    // concurrency check - a real 503 from the engine's busy slot carries
+    // Retry-After, but the proxy's header allowlist only copied
+    // content-type, so every caller through this route (including
+    // kalos-web's own client code) silently lost it.
+    fetchMock.mockResolvedValueOnce(
+      engineResponse(503, { error: "An analysis is already running." }, "application/json", {
+        "retry-after": "60",
+      }),
+    );
+
+    const res = await POST(req("http://localhost:3000/api/engine/api/run", { method: "POST" }), ctx(["api", "run"]));
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("retry-after")).toBe("60");
+  });
+
   it("forwards POST with a JSON body and the bearer auth header, status and body untouched", async () => {
     fetchMock.mockResolvedValueOnce(engineResponse(201, { started: true }));
 
@@ -65,25 +91,6 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect((init as unknown as { duplex: string }).duplex).toBe("half");
     expect(res.status).toBe(201);
     await expect(res.json()).resolves.toEqual({ started: true });
-  });
-
-  it("PATCH forwards status updates with the auth header (lib/experiments.ts patchStatus)", async () => {
-    fetchMock.mockResolvedValueOnce(engineResponse(200, { status: "READY" }));
-
-    const res = await PATCH(
-      req("http://localhost:3000/api/engine/api/experiments/exp_5", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "READY" }),
-      }),
-      ctx(["api", "experiments", "exp_5"]),
-    );
-
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://engine.internal:8050/api/experiments/exp_5");
-    expect(init.method).toBe("PATCH");
-    expect((init.headers as Headers).get("authorization")).toBe("Bearer test-token-123");
-    expect(res.status).toBe(200);
   });
 
   it("streams a multipart upload through with the boundary intact (POST /api/run, /api/experiments)", async () => {

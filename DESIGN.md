@@ -359,7 +359,9 @@ Type:
   alongside it).
 - Optimizer surface: Satoshi drives both `--font-head` (headings) and
   `--font-sans` (body) via `--font-satoshi` in `app/layout.tsx`; JetBrains Mono
-  (`--font-jbmono`, tabular/mono data) via `next/font/google`.
+  (`--font-jbmono`, tabular/mono data) is self-hosted the same way from
+  `app/fonts/JetBrainsMono-Variable.ttf` (SIL OFL 1.1,
+  `JETBRAINS-MONO-LICENSE.txt` alongside).
 - Projects surface: Satoshi is exported as `--font-projects` in
   `app/projects/layout.tsx`, the variable `projects.css` reads.
 - Base sizes stay small and dense (11px-19px) across both surfaces, matching
@@ -399,10 +401,27 @@ bar-chart fills) and are not colors.
 
 ## Fonts, one more time
 
-Do not download font files from unverified sources. Satoshi is self-hosted
-app-wide as of the 2026-07-24 consolidation: both `app/layout.tsx` (optimizer
-surface, `--font-satoshi`) and `app/projects/layout.tsx` (`--font-projects`)
-load the same licensed variable font
-(`app/fonts/Satoshi-Variable.woff2`, Fontshare Font License) via
-`next/font/local`, so there is exactly one font file and one license on disk
-for both surfaces.
+Do not download font files from unverified sources, and do not load fonts
+through `next/font/google`: it fetches the files from fonts.gstatic.com during
+`next build`, so one flaky fetch fails the build (it failed CI run
+37693455188 on PR #40). Every typeface is a licensed file under `app/fonts/`
+loaded via `next/font/local`, and `__tests__/self-hosted-fonts.test.ts` fails
+if a `next/font/google` import comes back.
+
+- Satoshi is self-hosted app-wide as of the 2026-07-24 consolidation: both
+  `app/layout.tsx` (optimizer surface, `--font-satoshi`) and
+  `app/projects/layout.tsx` (`--font-projects`) load the same licensed variable
+  font (`app/fonts/Satoshi-Variable.woff2`, Fontshare Font License), so there
+  is exactly one font file and one license on disk for both surfaces.
+- JetBrains Mono (`--font-jbmono`) is `app/fonts/JetBrainsMono-Variable.ttf`,
+  the official variable font from the JetBrains Mono v2.304 release, byte for
+  byte (upstream `fonts/variable/JetBrainsMono[wght].ttf`, renamed). Verify it
+  with `git hash-object`, which must print the upstream blob
+  `b60e77f5dbf5505436c1904cb7a9ac4111ee76d0`. Its license is
+  `JETBRAINS-MONO-LICENSE.txt` (upstream `OFL.txt`). Upstream ships the
+  variable font only as TTF, hence no woff2. The weight range is pinned to
+  `500 600` because those are the only two weights the app ever loaded from
+  Google Fonts: normal mono text still renders at 500 and bold at 600.
+  Vertical metrics and advance widths match the v2.211 build Google served,
+  so no table, KPI or chart label moved; the full font also covers arrows,
+  `≥` and super/subscripts, which used to fall back to a system font.

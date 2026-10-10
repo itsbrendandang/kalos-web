@@ -24,7 +24,7 @@ type NavItem = { href: string; label: string; short: string; helper: string; ico
 // The internal scientist workflow is grouped by lifecycle stage (watch the lab
 // -> analyze results -> the data behind it) so the nav reads as a workflow,
 // not a flat wall of links. Experiments is the single hub for planning,
-// running, and tracking runs (Live / Board / Table views live at "/"), so
+// running, and tracking runs (Live / Board views live at "/"), so
 // Operations/Planning/Optimize are no longer separate destinations, and Run
 // analysis is an action button rather than a nav entry. "Clients" is split
 // off with a divider: it's the client-facing surface (Bioqore's customers
@@ -40,7 +40,7 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
   {
     label: "Monitor",
     items: [
-      { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board · Table", icon: ListChecks },
+      { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board", icon: ListChecks },
       { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
       { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
     ],

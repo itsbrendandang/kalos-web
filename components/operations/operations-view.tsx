@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { PlugZap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Loading, DemoBadge } from "@/components/page-header";
@@ -328,16 +327,6 @@ export function OperationsView() {
           )}
         </Card>
       </section>
-
-      {liveState === "live" ? (
-        <p className="text-[11px] text-muted">
-          Full detail and actions live in the{" "}
-          <Link href="/?view=table" className="font-semibold text-accent-text underline">
-            Table view
-          </Link>
-          .
-        </p>
-      ) : null}
     </div>
   );
 }

@@ -766,7 +766,6 @@ export type Campaign =
       n_base: number;
       best: number | null;
       round: number;
-      analysis_in_sync?: boolean;
       /**
        * The progress trajectory: one { round, best, n_base } point per round
        * (round 0 = the seeded base, then one per re-analyze). `best` is the
@@ -777,6 +776,14 @@ export type Campaign =
       pending: CampaignRun[];
       n_awaiting: number;
       n_measured: number;
+      /**
+       * Whether /api/latest provably describes this campaign as it is now
+       * (kalos/docs/CAMPAIGN_LOOP.md, "Analysis/campaign coherence"). Every
+       * campaign write (start, result, fold, reseed) re-mints the stamp, so
+       * this is false from the first run started after an analysis until the
+       * next re-analyze. Optional only because older engines do not send it.
+       */
+      analysis_in_sync?: boolean;
     };
 
 export type CampaignComparison = {

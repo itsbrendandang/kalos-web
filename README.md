@@ -30,9 +30,13 @@ has not actually cleared its feasibility bar, exactly as it would for real data.
   A Live / Board view switcher sits under the header, driven by the
   `?view=live|board` search param (default `live`), so each view is
   directly linkable and the back button moves between them.
-  - **Live** (`?view=live`) - the operations view: summary tiles, in-flight run
-    cards (attention-needed first), the next batch to run, and recently
-    completed runs.
+  - **Live** (`?view=live`) - a VS Code-style workbench over the campaign the
+    `/decide` loop runs: an explorer tree of runs in flight, runs measured this
+    round and the rounds so far; editor tabs for the next batch, the
+    best-so-far trajectory and any single run; and a status bar summarizing
+    the campaign. Read-only - runs are started and logged on `/decide`.
+    With `NEXT_PUBLIC_DEMO_MODE=true` and no campaign yet, it shows a badged
+    demo campaign (`lib/mock/campaign.ts`).
   - **Board** (`?view=board`) - a Kanban board of experiment/planning tasks
     moving through To Do -> Draft -> In Progress -> Review Requested ->
     Completed, with a Table sub-view (the same tasks grouped by column) and a

@@ -93,19 +93,19 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     await expect(res.json()).resolves.toEqual({ started: true });
   });
 
-  it("streams a multipart upload through with the boundary intact (POST /api/run, /api/experiments)", async () => {
-    fetchMock.mockResolvedValueOnce(engineResponse(200, { id: "exp_1" }));
+  it("streams a multipart upload through with the boundary intact (POST /api/run)", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(200, { has_data: true }));
     const fd = new FormData();
     fd.append("file", new File(["a,b\n1,2"], "sheet.csv", { type: "text/csv" }));
     fd.append("name", "Feed test");
-    const request = req("http://localhost:3000/api/engine/api/experiments", { method: "POST", body: fd });
+    const request = req("http://localhost:3000/api/engine/api/run", { method: "POST", body: fd });
     const sentContentType = request.headers.get("content-type");
     expect(sentContentType).toMatch(/^multipart\/form-data; boundary=/);
 
-    const res = await POST(request, ctx(["api", "experiments"]));
+    const res = await POST(request, ctx(["api", "run"]));
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://engine.internal:8050/api/experiments");
+    expect(url).toBe("http://engine.internal:8050/api/run");
     // The exact same boundary, and the request body streamed (not buffered
     // and re-parsed) straight to the engine.
     expect((init.headers as Headers).get("content-type")).toBe(sentContentType);
@@ -121,6 +121,13 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/no such engine route/);
+  });
+
+  it("no longer proxies the removed experiment-store routes (api/experiments)", async () => {
+    const res = await GET(req("http://localhost:3000/api/engine/api/experiments"), ctx(["api", "experiments"]));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(404);
   });
 
   it("rejects a bare prefix-collision path (api/campaignish) that is not actually allowlisted", async () => {

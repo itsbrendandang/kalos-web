@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Upload } from "lucide-react";
 import { PageHeader, Loading } from "@/components/page-header";
-import { OperationsView } from "@/components/operations/operations-view";
 import { PlanningBoard } from "@/components/planning/planning-board";
+import { LiveWorkbench } from "@/components/workbench/live-workbench";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +63,7 @@ function HubBody() {
   return (
     <div className="flex flex-col gap-6">
       <HubTabs view={view} />
-      {view === "live" ? <OperationsView /> : null}
+      {view === "live" ? <LiveWorkbench /> : null}
       {view === "board" ? <PlanningBoard /> : null}
     </div>
   );

@@ -8,6 +8,7 @@ import {
   driverSelectionNote,
   getCampaign,
   getLatest,
+  incumbentLabel,
   isReliable,
   logResult,
   proposalIncumbent,
@@ -257,11 +258,6 @@ function DecideBody({
           </span>
         </div>
         <ProposalDisclosures d={d} />
-        <p className="mb-3 text-[12px] text-muted">
-          {incumbent == null
-            ? "Comparison unavailable — the engine did not report a reproducible incumbent for this replicate-aware fit."
-            : `Compared with ${d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run"}: ${num(incumbent, 2)}.`}
-        </p>
         {d.proposals.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {d.proposals.map((p, i) => (
@@ -484,7 +480,7 @@ function HonestVerdict({
   if (!props.length) return null;
   if (best == null) return (
     <div className="rounded-2xl border-l-4 border-l-border bg-bg p-4 text-[13px] text-muted">
-      Comparison unavailable — no reproducible incumbent reported for this replicate-aware fit. Predictions remain available below.
+      Comparison unavailable: the engine reported no reproducible incumbent for this replicate-aware fit. Predictions remain available below.
     </div>
   );
   const beats = props.filter((p) => p.pred - (band ?? p.std) >= best).length;
@@ -494,7 +490,7 @@ function HonestVerdict({
   const reliable = isReliable(d);
   const rho = rel?.spearman ?? d.cv_spearman;
   const good = reliable && beats > 0;
-  const bestStr = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
+  const bestStr = `${incumbentLabel(d)} of ${num(best, 2)}${unit ? ` ${unit}` : ""}`;
   return (
     <div
       className={cn(
@@ -504,8 +500,8 @@ function HonestVerdict({
     >
       <p className="font-semibold">
         {beats > 0
-          ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}.`
-          : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} - this batch is exploration, not a confident bet.`}
+          ? `${beats} of ${props.length} recipes are predicted to beat your ${bestStr}.`
+          : `None of these ${props.length} recipes clearly beats your ${bestStr} - this batch is exploration, not a confident bet.`}
       </p>
       <p className="mt-1 opacity-90">
         {reliable

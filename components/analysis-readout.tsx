@@ -1,5 +1,5 @@
 import { SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
-import { coveragePct, driverSelectionNote, proposalIncumbent, type PopulatedResult } from "@/lib/api";
+import { coveragePct, driverSelectionNote, incumbentLabel, proposalIncumbent, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { SectionHead } from "@/components/ui/section-head";
 import { EmptyState } from "@/components/ui/honest-state";
@@ -123,8 +123,8 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
         <ProposalDisclosures d={d} />
         <p className="mb-3 text-[12px] text-muted">
           {incumbent == null
-            ? "Comparison unavailable — the engine did not report a reproducible incumbent for this replicate-aware fit."
-            : `Compared with ${d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run"}: ${num(incumbent, 2)}.`}
+            ? "Comparison unavailable: the engine reported no reproducible incumbent for this replicate-aware fit."
+            : `Compared with the ${incumbentLabel(d)}: ${num(incumbent, 2)}.`}
         </p>
         <Card>
           {d.proposals.length ? (

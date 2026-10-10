@@ -495,6 +495,11 @@ export function proposalIncumbent(d: Pick<AnalyzeResult, "best" | "noise">): num
   return d.noise?.replicate_aware ? d.noise.best_reproducible ?? null : d.best;
 }
 
+/** Names the incumbent `proposalIncumbent` returns, for copy that compares against it. */
+export function incumbentLabel(d: Pick<AnalyzeResult, "noise">): string {
+  return d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run";
+}
+
 export const getLatest = (): Promise<LatestResult> =>
   fetch(`${API}/api/latest`).then((r) => {
     // fetch only rejects on network failure; treat a non-2xx engine response as an
@@ -789,7 +794,9 @@ export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>
   const currentIndex = c.history.findIndex((h) => h.round === c.round);
   if (currentIndex < 1) return [];
   const current = c.history[currentIndex];
-  return (["initial", "previous"] as const).map((comparison_type) => {
+  // At round 1 the previous round IS the initial one; one card, not two identical ones.
+  const types = currentIndex === 1 ? (["initial"] as const) : (["initial", "previous"] as const);
+  return types.map((comparison_type) => {
     const baseline = c.history[comparison_type === "initial" ? 0 : currentIndex - 1];
     const delta = baseline.best == null || current.best == null ? null : current.best - baseline.best;
     return {

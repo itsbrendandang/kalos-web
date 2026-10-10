@@ -108,8 +108,8 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
         <div className="mt-2 rounded-[10px] border border-border p-3 text-[12px] text-muted">
           <div className="font-semibold text-fg">Producer-only ranking</div>
           <p className="mt-1">
-            {rel.producer_spearman === undefined ? "n/a — producer rank agreement not reported." : rel.producer_spearman == null
-              ? "n/a — producer rank agreement unavailable; no reason reported by the engine."
+            {rel.producer_spearman === undefined ? "Producer rank agreement not reported." : rel.producer_spearman == null
+              ? "Producer rank agreement not measured; the engine gave no reason."
               : `Spearman ${num(rel.producer_spearman, 2)} · ${rel.producer_clears_floor === undefined ? "floor verdict not reported" : rel.producer_clears_floor ? "clears floor" : "does not clear floor"}`}
           </p>
           <p>{rel.n_producers ?? "n/a"} producers · threshold {rel.producer_threshold == null ? "not reported" : num(rel.producer_threshold, 2)}</p>

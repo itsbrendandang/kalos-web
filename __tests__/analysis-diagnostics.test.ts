@@ -4,11 +4,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { campaignComparisons, isReliable, proposalIncumbent, type Campaign, type Diagnostics } from "@/lib/api";
 import { AnalysisDiagnostics } from "@/components/dashboard/analysis-diagnostics";
 import { CampaignProgress } from "@/components/dashboard/campaign-progress";
+import { fmt, num } from "@/lib/utils";
 
 // Chart geometry is checked through its input; server rendering exercises the real copy.
 vi.mock("@/components/charts", () => ({
   ProgressChart: ({ data }: { data: unknown }) => createElement("pre", null, JSON.stringify(data)),
 }));
+
+// Rendered text with tags collapsed, so label/value pairs in a <dl> read as one string.
+const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 const noise: Diagnostics["noise"] = {
   n_recipes: 12, n_replicated: 8, replicate_aware: true,
@@ -54,8 +58,12 @@ describe("campaign round comparisons", () => {
     expect(result[1]).toMatchObject({ baseline_round: 1, improvement: 25, n_runs_added: 3, comparison_type: "previous" });
   });
   it("shows plateau and zero added runs honestly", () => {
-    expect(campaignComparisons(campaign([{ round: 0, best: 4, n_base: 20 }, { round: 1, best: 4, n_base: 20 }]))[1])
+    expect(campaignComparisons(campaign([{ round: 0, best: 4, n_base: 20 }, { round: 1, best: 4, n_base: 20 }]))[0])
       .toMatchObject({ improvement: 0, n_runs_added: 0 });
+  });
+  it("gives one comparison at round 1, where the previous round is the initial one", () => {
+    expect(campaignComparisons(campaign([{ round: 0, best: 4, n_base: 20 }, { round: 1, best: 5, n_base: 23 }]))
+      .map((c) => c.comparison_type)).toEqual(["initial"]);
   });
   it.each([0, -2])("uses absolute change for nonpositive baseline %s", (best) => {
     expect(campaignComparisons(campaign([{ round: 0, best, n_base: 20 }, { round: 1, best: 4, n_base: 22 }]))[0].improvement).toBe(4 - best);
@@ -88,13 +96,16 @@ describe("diagnostic readout", () => {
         features: [{ name: "pH", relevance: 0.8, lengthscale: 1.2, shape: "interior_optimum", optimum_at: 6.5,
           peak_gain: 2, peak_separation_sd: 1.5, spearman_rho: 0.1, missed_by_spearman: true }], unmodeled: ["interactions"] },
     } }));
-    expect(html).toContain("12 recipes");
-    expect(html).toContain("best reproducible recipe: 6.00");
-    expect(html).toContain("log(y + offset)");
-    expect(html).toContain("not causal importance");
-    expect(html).toContain("interior optimum");
-    expect(html).toContain("Shape missed by Spearman");
-    expect(html).toContain("interactions");
+    const t = text(html);
+    expect(t).toContain("12 recipes");
+    expect(t).toContain("Best reproducible recipe 6.00");
+    expect(t).toContain("log(y + 2)");
+    expect(t).toContain("Evaluation only");
+    expect(t).toContain("not causation");
+    expect(t).toContain("interior peak rank misses it");
+    expect(t).toContain("pH interior peak rank misses it 0.80 6.50 2.00 1.50 0.10");
+    expect(t).toContain("interactions");
+    expect(t).not.toContain("Not measured means");
   });
   it("renders null estimates and the engine's unavailability reasons without fabricated values", () => {
     const html = renderToStaticMarkup(createElement(AnalysisDiagnostics, { d: {
@@ -102,10 +113,55 @@ describe("diagnostic readout", () => {
       alternative_scale: { scale: null, offset: null, cv_spearman: null, cv_ci95: null, calibration: null, icc: null, interpretation: null, reason: "transform not suggested" },
       gp_shapes: { available: false, reason: "too few recipes", swept_at: "median", n_features: 0, features: [], unmodeled: [] },
     } }));
-    expect(html).toContain("ICC: n/a (not measured)");
-    expect(html).toContain("transform not suggested");
-    expect(html).toContain("too few recipes");
-    expect(html).not.toContain("ICC: 0.00");
+    const t = text(html);
+    expect(t).toContain("ICC not measured");
+    expect(t).toContain("Best reproducible recipe not measured");
+    expect(t).toContain("not zero noise");
+    expect(t).toContain("Not run: transform not suggested.");
+    expect(t).toContain("Unavailable: too few recipes.");
+    expect(t).not.toContain("ICC 0.00");
+  });
+  it("does not repeat the variance check's reason in the log-scale box", () => {
+    const reason = "only 0 replicated recipe(s)";
+    const scale = { variance_mean_rho: null, homoscedastic: null, icc_raw: null, icc_log: null, icc_gain: null, log_offset: null, suggests_transform: false, reason };
+    const t = text(renderToStaticMarkup(createElement(AnalysisDiagnostics, { d: {
+      noise: { ...noise, scale },
+      alternative_scale: { scale: null, offset: null, cv_spearman: null, cv_ci95: null, calibration: null, icc: null, interpretation: null, reason },
+    } })));
+    expect(t).toContain(`Variance check not run: ${reason}.`);
+    expect(t).toContain("Not run, for the same reason as the variance check.");
+    expect(t.split(reason)).toHaveLength(2);
+  });
+  it("prints a tiny log offset and near-one ICCs without rounding them away", () => {
+    const reason = "variance rises with the mean";
+    const scale = { variance_mean_rho: 0.98, homoscedastic: false, icc_raw: 0.936, icc_log: 0.997, icc_gain: 0.061, log_offset: 0.0003, suggests_transform: true, reason };
+    const t = text(renderToStaticMarkup(createElement(AnalysisDiagnostics, { d: {
+      noise: { ...noise, scale },
+      alternative_scale: { scale: "log1p", offset: 0.0003, cv_spearman: 0.18, cv_ci95: [-0.09, 0.45], calibration: null, icc: 0.997, interpretation: null, reason },
+    } })));
+    expect(t).toContain("log(y + 0.0003)");
+    expect(t).toContain("ICC raw → log 0.936 → 0.997");
+    expect(t).toContain("ICC 0.997");
+    expect(t).not.toContain("→ 1.00");
+    expect(t).toContain("stay on the raw scale");
+    expect(t.split(reason)).toHaveLength(2);
+  });
+  it("marks optimum and peak columns as not applicable for non-interior shapes", () => {
+    const t = text(renderToStaticMarkup(createElement(AnalysisDiagnostics, { d: {
+      gp_shapes: { available: true, reason: null, swept_at: "incumbent", n_features: 1,
+        features: [{ name: "DO", relevance: 0.2, lengthscale: 2, shape: "monotonic_up", optimum_at: null,
+          peak_gain: null, peak_separation_sd: null, spearman_rho: 0.4, missed_by_spearman: false }], unmodeled: [] },
+    } })));
+    expect(t).toContain("DO rises 0.20 - - - 0.40");
+    expect(t).toContain("apply only to interior shapes");
+    expect(t).not.toContain("not measured");
+  });
+});
+
+describe("num", () => {
+  it("prints a value that rounds to zero without a sign, and keeps real negatives", () => {
+    expect([num(-0.004), num(-0), num(-0.0001, 3), num(-0.01), num(-0.4, 0)]).toEqual(["0.00", "0.00", "0.000", "-0.01", "0"]);
+    expect([fmt(-0.004), fmt(-0.2)]).toEqual(["0.00", "-0.20"]);
   });
 });
 
@@ -123,7 +179,8 @@ describe("campaign progress readout", () => {
     expect(html).toContain("baseline is zero or negative");
     expect(html).not.toContain("4.00%");
     const initial = renderToStaticMarkup(createElement(CampaignProgress, { campaign: campaign([{ round: 0, best: 3, n_base: 20 }]) }));
-    expect(initial).toContain("Round comparisons unavailable");
+    expect(initial).toContain("Round comparisons start after the first re-analyze.");
+    expect(initial).toContain("over 1 recorded round.");
     expect(initial).not.toContain("Engine status");
   });
 });

@@ -766,7 +766,6 @@ export type Campaign =
       n_base: number;
       best: number | null;
       round: number;
-      analysis_in_sync?: boolean;
       /**
        * The progress trajectory: one { round, best, n_base } point per round
        * (round 0 = the seeded base, then one per re-analyze). `best` is the

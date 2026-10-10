@@ -8,8 +8,10 @@ import {
   driverSelectionNote,
   getCampaign,
   getLatest,
+  incumbentLabel,
   isReliable,
   logResult,
+  proposalIncumbent,
   reanalyze,
   startRuns,
   type Campaign,
@@ -26,7 +28,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { EmptyState } from "@/components/ui/honest-state";
 import { PageHeader, Loading } from "@/components/page-header";
 import { ServiceUnavailable } from "@/components/service-unavailable";
-import { ProgressChart } from "@/components/charts";
+import { CampaignProgress } from "@/components/dashboard/campaign-progress";
+import { AnalysisDiagnostics } from "@/components/dashboard/analysis-diagnostics";
 import { DriversTornado } from "@/components/dashboard/drivers-tornado";
 import { DriverInsights } from "@/components/dashboard/driver-insights";
 import { ReliabilityPanel, ModelCoverage } from "@/components/dashboard/reliability-panel";
@@ -127,6 +130,7 @@ export default function Decide() {
         />
       ) : (
         <DecideBody
+          key={JSON.stringify([data.campaign_generation, data.dataset, data.updated])}
           d={data}
           campaign={campaign}
           onStarted={setCampaign}
@@ -165,6 +169,7 @@ function DecideBody({
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
   const active: ActiveCampaign | null = campaign?.has_campaign ? campaign : null;
   const hasPredicted = Boolean(d.response_surface || d.correlation);
+  const incumbent = proposalIncumbent(d);
 
   function toggle(i: number) {
     setQueued((prev) => {
@@ -239,7 +244,7 @@ function DecideBody({
       </Card>
 
       {/* Honest lead: what this batch actually buys you, before the recipes. */}
-      <HonestVerdict d={d} best={active?.best ?? d.best} band={d.conformal_q ?? null} unit={unit} />
+      <HonestVerdict d={d} best={incumbent} band={d.conformal_q ?? null} unit={unit} />
 
       {/* HERO: the recommended batch */}
       <section>
@@ -262,7 +267,7 @@ function DecideBody({
                 p={p}
                 features={d.proposal_features}
                 unit={unit}
-                best={active?.best ?? d.best}
+                best={incumbent}
                 band={d.conformal_q ?? null}
                 queued={queued.has(i)}
                 onToggle={() => toggle(i)}
@@ -320,8 +325,8 @@ function DecideBody({
       ) : null}
 
       {/* Optimization progress: measured best-so-far by round, not a prediction */}
-      {active && active.history.length >= 2 ? (
-        <ProgressPanel active={active} targetName={targetName} unit={unit} />
+      {active ? (
+        <CampaignProgress campaign={active} />
       ) : null}
 
       {/* Scale-up projection: demoted behind a disclosure and labelled as NOT
@@ -380,6 +385,7 @@ function DecideBody({
         <ReliabilityPanel d={d} />
         <ModelCoverage d={d} />
         <EvaluationChecks d={d} />
+        <AnalysisDiagnostics d={d} />
       </Details>
 
       <Details summary="Run structure - where the measured runs sit">
@@ -432,38 +438,6 @@ function Stat({ label, value, sub, mono }: { label: string; value: string; sub?:
   );
 }
 
-/**
- * Best-measured-so-far by round - a slim trajectory chart, not a forecast.
- * Only rendered by the caller when there are >= 2 history points (a single
- * point isn't a trajectory). Nulls (a round with no measured base rows yet)
- * are filtered before plotting, per the CAMPAIGN_LOOP.md history contract.
- */
-function ProgressPanel({ active, targetName, unit }: { active: ActiveCampaign; targetName: string; unit: string }) {
-  const points = active.history
-    .filter((h): h is { round: number; best: number; n_base: number } => h.best != null)
-    .map((h) => ({ round: h.round, best: h.best }));
-  if (points.length < 2) return null;
-  const current = points[points.length - 1].best;
-
-  return (
-    <Card className="flex flex-col gap-2 p-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <div className="text-[13px] font-semibold text-fg">Best {targetName} so far</div>
-          <div className="text-[11px] text-muted">measured, over {points.length} rounds</div>
-        </div>
-        <div className="tabular font-mono text-[20px] font-semibold text-fg">
-          {num(current, 2)}
-          {unit ? <span className="ml-1 text-[12px] font-normal text-muted">{unit}</span> : null}
-        </div>
-      </div>
-      <div className="h-[110px] w-full">
-        <ProgressChart data={points} />
-      </div>
-    </Card>
-  );
-}
-
 function TrustChip({ reliable, spearman }: { reliable: boolean; spearman: number | null }) {
   return (
     <Badge
@@ -497,13 +471,18 @@ function HonestVerdict({
   unit,
 }: {
   d: PopulatedResult;
-  best: number;
+  best: number | null;
   band: number | null;
   unit: string;
 }) {
   const rel = d.reliability;
   const props = d.proposals;
   if (!props.length) return null;
+  if (best == null) return (
+    <div className="rounded-2xl border-l-4 border-l-border bg-bg p-4 text-[13px] text-muted">
+      Comparison unavailable: the engine reported no reproducible incumbent for this replicate-aware fit. Predictions remain available below.
+    </div>
+  );
   const beats = props.filter((p) => p.pred - (band ?? p.std) >= best).length;
   // The SAME isReliable() predicate the TrustChip pill uses (lib/api.ts) - never
   // re-derive trustworthiness locally, or this verdict can disagree with the pill
@@ -511,7 +490,7 @@ function HonestVerdict({
   const reliable = isReliable(d);
   const rho = rel?.spearman ?? d.cv_spearman;
   const good = reliable && beats > 0;
-  const bestStr = `${num(best, 2)}${unit ? ` ${unit}` : ""}`;
+  const bestStr = `${incumbentLabel(d)} of ${num(best, 2)}${unit ? ` ${unit}` : ""}`;
   return (
     <div
       className={cn(
@@ -520,9 +499,9 @@ function HonestVerdict({
       )}
     >
       <p className="font-semibold">
-        {good
-          ? `${beats} of ${props.length} recipes are predicted to beat your current best of ${bestStr}.`
-          : `None of these ${props.length} recipes clearly beats your current best of ${bestStr} - this batch is exploration, not a confident bet.`}
+        {beats > 0
+          ? `${beats} of ${props.length} recipes are predicted to beat your ${bestStr}.`
+          : `None of these ${props.length} recipes clearly beats your ${bestStr} - this batch is exploration, not a confident bet.`}
       </p>
       <p className="mt-1 opacity-90">
         {reliable
@@ -543,7 +522,8 @@ function HonestVerdict({
  * if it sits below, the recipe is predicted worse; otherwise it's a coin-flip
  * the model can't call. This is what stops five wide-banded predictions from
  * reading as a confident ranked list. */
-function recipeVerdict(pred: number, band: number, best: number) {
+function recipeVerdict(pred: number, band: number, best: number | null) {
+  if (best == null) return { label: "comparison unavailable", tone: "neutral" as const };
   if (pred - band >= best) return { label: "likely beats best", tone: "good" as const };
   if (pred + band <= best) return { label: "below current best", tone: "weak" as const };
   return { label: "coin-flip vs best", tone: "neutral" as const };
@@ -563,13 +543,13 @@ function ProposalCard({
   p: Proposal;
   features: string[];
   unit: string;
-  best: number;
+  best: number | null;
   band: number | null;
   queued: boolean;
   onToggle: () => void;
 }) {
   const bandV = band ?? p.std;
-  const delta = p.pred - best;
+  const delta = best == null ? null : p.pred - best;
   const v = recipeVerdict(p.pred, bandV, best);
   const toneClass =
     v.tone === "good" ? "bg-green-soft text-green" : v.tone === "weak" ? "bg-amber-soft text-amber" : "bg-bg text-muted";
@@ -606,12 +586,11 @@ function ProposalCard({
           <span
             className={cn(
               "tabular font-mono text-[16px] font-semibold",
-              delta > 0 ? "text-green" : "text-muted",
+              delta != null && delta > 0 ? "text-green" : "text-muted",
             )}
           >
-            {delta >= 0 ? "+" : "−"}
-            {num(Math.abs(delta), 2)}
-            {unit ? <span className="ml-1 text-[10px] font-normal text-muted">{unit}</span> : null}
+            {delta == null ? "n/a" : `${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)}`}
+            {delta != null && unit ? <span className="ml-1 text-[10px] font-normal text-muted">{unit}</span> : null}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">

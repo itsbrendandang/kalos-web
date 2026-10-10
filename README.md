@@ -1,15 +1,34 @@
 # Kalos web
 
+[![CI](https://github.com/itsbrendandang/kalos-web/actions/workflows/ci.yml/badge.svg)](https://github.com/itsbrendandang/kalos-web/actions/workflows/ci.yml)
+
 The production front end for [Kalos](https://github.com/itsbrendandang/kalos) - a
 Bayesian-optimization platform for bioprocess development. Next.js 16 + Tailwind v4,
 on a single unified blue design system, consuming the Kalos engine API.
+
+![Results view: real model reliability, significant process drivers, and an honest gate verdict on a 160-run synthetic bioprocess sheet](docs/images/dashboard-results.jpg)
+
+The Results view above is a real run against `examples/synthetic_bioprocess.csv`
+in the engine repo, not a mock - the "GATES FAILED" badge is the honesty gate
+(`docs/HARDENING.md` in the engine repo) refusing to promote a model that
+has not actually cleared its feasibility bar, exactly as it would for real data.
+
+## Contents
+
+- [Views](#views)
+- [Design system](#design-system)
+- [Voyager surface](#voyager-surface)
+- [Run it](#run-it)
+- [Testing](#testing)
+- [Production deployment](#production-deployment)
+- [Stack](#stack)
 
 ## Views
 
 - **Experiments** (`/`) - the single hub for planning, running, and tracking every
   experiment.
-  A Live / Board / Table view switcher sits under the header, driven by the
-  `?view=live|board|table` search param (default `live`), so each view is
+  A Live / Board view switcher sits under the header, driven by the
+  `?view=live|board` search param (default `live`), so each view is
   directly linkable and the back button moves between them.
   - **Live** (`?view=live`) - the operations view: summary tiles, in-flight run
     cards (attention-needed first), the next batch to run, and recently
@@ -22,9 +41,6 @@ on a single unified blue design system, consuming the Kalos engine API.
     a lightweight inline input adds a new card to a column without a modal.
     Task data is a static mock in `lib/mock/planning.ts`, pending a real
     task/experiment-status source.
-  - **Table** (`?view=table`) - the real experiment queue wired to the Kalos
-    portal: upload a run sheet, flag it ready, and run the engine on demand or
-    for every ready experiment at once.
 - **Results** (`/results`) - your last analyzed dataset at a glance: model
   reliability (honest held-out rank correlation + 95% CI), what drives the
   outcome, predicted-vs-measured, a run landscape (a low-dimensional
@@ -71,7 +87,7 @@ on a single unified blue design system, consuming the Kalos engine API.
   `RUNS_BY_DATASET`).
 
 The old `/planning`, `/experiments`, and `/optimize` routes redirect to
-`/?view=board`, `/?view=table`, and `/results#next-experiments` respectively,
+`/?view=board`, `/`, and `/results#next-experiments` respectively,
 so existing links and bookmarks still resolve.
 
 ## Design system
@@ -171,6 +187,28 @@ Escape hatch for local dev: set `NEXT_PUBLIC_API_URL` in `.env.local` to
 point the browser straight at an engine, bypassing the proxy entirely. Only
 use this against an engine with no auth configured - it is not the deployed
 posture.
+
+## Testing
+
+```bash
+npm run lint    # eslint
+npm run test    # vitest - 182 tests as of this writing
+npm run build   # next build; also the typecheck gate (see ci.yml's comment
+                 # on why there is no separate `tsc --noEmit` step)
+```
+
+All three run in CI (`.github/workflows/ci.yml`) on every push and PR.
+
+## Production deployment
+
+The deploy pack (Docker images for the engine, this app, and a SQLite
+backup sidecar; one published front door; `docker compose`) lives in the
+engine repo at
+[`kalos/deploy/`](https://github.com/itsbrendandang/kalos/tree/main/deploy).
+See that repo's
+[`deploy/RUNBOOK.md`](https://github.com/itsbrendandang/kalos/blob/main/deploy/RUNBOOK.md)
+for the verified quickstart, the security checklist, and backup/restore
+drills - it documents real numbers from an actual run, not a plan.
 
 ## Stack
 

@@ -7,20 +7,18 @@ import { Upload } from "lucide-react";
 import { PageHeader, Loading } from "@/components/page-header";
 import { OperationsView } from "@/components/operations/operations-view";
 import { PlanningBoard } from "@/components/planning/planning-board";
-import { ExperimentsQueue } from "@/components/experiments/experiments-queue";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type HubView = "live" | "board" | "table";
+type HubView = "live" | "board";
 
 const VIEWS: { key: HubView; label: string }[] = [
   { key: "live", label: "Live" },
   { key: "board", label: "Board" },
-  { key: "table", label: "Table" },
 ];
 
 function parseView(raw: string | null): HubView {
-  return raw === "board" || raw === "table" ? raw : "live";
+  return raw === "board" ? raw : "live";
 }
 
 /** The view switcher tabs, styled after the segmented-button pattern in
@@ -67,14 +65,13 @@ function HubBody() {
       <HubTabs view={view} />
       {view === "live" ? <OperationsView /> : null}
       {view === "board" ? <PlanningBoard /> : null}
-      {view === "table" ? <ExperimentsQueue /> : null}
     </div>
   );
 }
 
 /** Experiments hub: the single landing surface that replaces the old
  *  Operations / Planning / Experiments three-way split. One header, one nav
- *  entry, three views (Live · Board · Table) switched by the `view` search
+ *  entry, two views (Live · Board) switched by the `view` search
  *  param - each view's body is unchanged, just relocated. */
 export default function ExperimentsHubPage() {
   return (

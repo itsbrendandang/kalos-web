@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
@@ -13,7 +12,16 @@ const satoshi = localFont({
   weight: "300 900",
   display: "swap",
 });
-const jbmono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono", weight: ["500", "600"] });
+// JetBrains Mono (SIL OFL 1.1, files under app/fonts/) is the tabular/mono
+// face, self-hosted so the build never fetches from Google Fonts. The range
+// is pinned to 500-600: the app only ever loaded those two weights, so a
+// normal-weight request renders at 500 and a bold one at 600, as before.
+const jbmono = localFont({
+  src: "./fonts/JetBrainsMono-Variable.ttf",
+  variable: "--font-jbmono",
+  weight: "500 600",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Kalos",

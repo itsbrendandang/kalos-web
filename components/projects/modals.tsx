@@ -2,8 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Pencil, Plus, X } from "lucide-react";
-import type { Customer, Project, ProjectStatus } from "@/app/voyager/data";
-import { useVoyagerStore } from "./store-context";
+import type { Customer, Project, ProjectStatus } from "@/app/projects/data";
+import { useProjectsStore } from "./store-context";
 
 export type ModalState =
   | { kind: "add-customer" }
@@ -51,7 +51,7 @@ function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>) {
 
     // The modal renders inline in the page tree (no portal), so the trigger
     // button and the rest of the page live alongside it under shared
-    // ancestors (e.g. .voyager-root). Marking only document.body's direct
+    // ancestors (e.g. .projects-root). Marking only document.body's direct
     // children inert would miss all of that. Instead walk up from the modal
     // to <body>, marking every other sibling inert at each level.
     const siblings: HTMLElement[] = [];
@@ -147,7 +147,7 @@ function Shell({
 const STATUS_OPTIONS = ["Drafting", "In Progress", "Completed", "Terminated"];
 
 function AddCustomerModal({ onClose }: { onClose: () => void }) {
-  const { addCustomer } = useVoyagerStore();
+  const { addCustomer } = useProjectsStore();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const valid = name.trim().length > 0;
@@ -186,7 +186,7 @@ function AddCustomerModal({ onClose }: { onClose: () => void }) {
 }
 
 function EditCustomerModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
-  const { updateCustomer } = useVoyagerStore();
+  const { updateCustomer } = useProjectsStore();
   const [name, setName] = useState(customer.name);
   const [address, setAddress] = useState(customer.address);
   const valid = name.trim().length > 0;
@@ -242,7 +242,7 @@ function EditCustomerModal({ customer, onClose }: { customer: Customer; onClose:
 }
 
 function AddProjectModal({ customerName, onClose }: { customerName: string; onClose: () => void }) {
-  const { addProject } = useVoyagerStore();
+  const { addProject } = useProjectsStore();
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("");
   const [status, setStatus] = useState("In Progress");
@@ -297,7 +297,7 @@ function AddProjectModal({ customerName, onClose }: { customerName: string; onCl
 }
 
 function EditProjectModal({ project, onClose }: { project: Project; onClose: () => void }) {
-  const { updateProject } = useVoyagerStore();
+  const { updateProject } = useProjectsStore();
   const [name, setName] = useState(project.name);
   const [objective, setObjective] = useState(project.objective);
   const [status, setStatus] = useState(statusValue(project.status));
@@ -340,7 +340,7 @@ function EditProjectModal({ project, onClose }: { project: Project; onClose: () 
   );
 }
 
-export function VoyagerModal({ state, onClose }: { state: ModalState; onClose: () => void }) {
+export function ProjectsModal({ state, onClose }: { state: ModalState; onClose: () => void }) {
   if (!state) return null;
   if (state.kind === "add-customer") return <AddCustomerModal onClose={onClose} />;
   if (state.kind === "edit-customer") return <EditCustomerModal customer={state.customer} onClose={onClose} />;

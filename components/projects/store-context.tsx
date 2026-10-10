@@ -1,29 +1,29 @@
 "use client";
 
 /*
- * React wiring around lib/voyager-store.ts. Mounted once in app/voyager/layout.tsx
+ * React wiring around lib/projects-store.ts. Mounted once in app/projects/layout.tsx
  * so it survives client-side navigation between the index and the per-project
  * workspace routes - that's what lets a create/edit in one route still be
  * visible after navigating to the other.
  *
- * Seeded from the CUSTOMERS constant (app/voyager/data.ts stays the source of
+ * Seeded from the CUSTOMERS constant (app/projects/data.ts stays the source of
  * truth for initial content), then hydrated from localStorage in an effect -
  * never read localStorage during render, so the first client render matches
  * the server-rendered seed HTML exactly and there is no hydration mismatch.
  */
 
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
-import type { Customer, PipelineStage, Project, ProjectStatus } from "@/app/voyager/data";
+import type { Customer, PipelineStage, Project, ProjectStatus } from "@/app/projects/data";
 import {
   getProjectWithFallback,
-  initialVoyagerState,
-  voyagerReducer,
+  initialProjectsState,
+  LEGACY_STORAGE_KEY,
+  projectsReducer,
+  readPersistedState,
+  STORAGE_KEY,
   type NewCustomerInput,
   type ProjectEditInput,
-  type VoyagerState,
-} from "@/lib/voyager-store";
-
-const STORAGE_KEY = "voyager-store-v1";
+} from "@/lib/projects-store";
 
 function generateId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}-${crypto.randomUUID()}`;
@@ -34,7 +34,7 @@ function today(): string {
   return new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-interface VoyagerStoreValue {
+interface ProjectsStoreValue {
   customers: Customer[];
   getProject: (id: string) => Project | undefined;
   addCustomer: (input: Omit<NewCustomerInput, "id">) => void;
@@ -46,10 +46,10 @@ interface VoyagerStoreValue {
   markProjectComplete: (projectId: string) => void;
 }
 
-const VoyagerStoreContext = createContext<VoyagerStoreValue | null>(null);
+const ProjectsStoreContext = createContext<ProjectsStoreValue | null>(null);
 
-export function VoyagerStoreProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(voyagerReducer, undefined, initialVoyagerState);
+export function ProjectsStoreProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(projectsReducer, undefined, initialProjectsState);
   // Gates the persist effect below. Deliberately state (not a ref): the hydrate
   // effect calls dispatch(...) and setHydrated(true) together in the same tick,
   // so React batches them into a single re-render - the persist effect below
@@ -62,15 +62,10 @@ export function VoyagerStoreProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed && typeof parsed === "object" && Array.isArray((parsed as VoyagerState).customers)) {
-          dispatch({ type: "hydrate", state: parsed as VoyagerState });
-        }
-      }
+      const persisted = readPersistedState(window.localStorage);
+      if (persisted) dispatch({ type: "hydrate", state: persisted });
     } catch {
-      // Corrupt or inaccessible storage - fall back to the seed state.
+      // Inaccessible storage - fall back to the seed state.
     } finally {
       setHydrated(true);
     }
@@ -80,12 +75,13 @@ export function VoyagerStoreProvider({ children }: { children: React.ReactNode }
     if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
       // Ignore quota/availability errors - persistence is best-effort.
     }
   }, [state, hydrated]);
 
-  const value = useMemo<VoyagerStoreValue>(
+  const value = useMemo<ProjectsStoreValue>(
     () => ({
       customers: state.customers,
       getProject: (id) => getProjectWithFallback(state.customers, id),
@@ -101,11 +97,11 @@ export function VoyagerStoreProvider({ children }: { children: React.ReactNode }
     [state],
   );
 
-  return <VoyagerStoreContext.Provider value={value}>{children}</VoyagerStoreContext.Provider>;
+  return <ProjectsStoreContext.Provider value={value}>{children}</ProjectsStoreContext.Provider>;
 }
 
-export function useVoyagerStore(): VoyagerStoreValue {
-  const ctx = useContext(VoyagerStoreContext);
-  if (!ctx) throw new Error("useVoyagerStore must be used within a VoyagerStoreProvider");
+export function useProjectsStore(): ProjectsStoreValue {
+  const ctx = useContext(ProjectsStoreContext);
+  if (!ctx) throw new Error("useProjectsStore must be used within a ProjectsStoreProvider");
   return ctx;
 }

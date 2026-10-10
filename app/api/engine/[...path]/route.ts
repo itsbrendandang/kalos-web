@@ -101,10 +101,20 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
     } as RequestInit);
 
     // Status code and body are passed through untouched - the proxy adds
-    // auth, it never rewrites what the engine said.
+    // auth, it never rewrites what the engine said. Headers are an explicit
+    // allowlist, not a blanket copy - most of a fetch Response's headers
+    // (content-encoding, transfer-encoding, connection) describe framing
+    // undici already resolved and would be wrong to replay verbatim.
+    // Retry-After was missing from that allowlist (found live in the
+    // 2026-09-16 production test cycle's concurrency check: a 503 from
+    // kalos/portal/busy.py's single analysis slot carries a real
+    // Retry-After, but any caller going through this proxy - including
+    // kalos-web's own client code - saw it silently dropped).
     const outHeaders = new Headers();
     const outContentType = engineRes.headers.get("content-type");
     if (outContentType) outHeaders.set("content-type", outContentType);
+    const retryAfter = engineRes.headers.get("retry-after");
+    if (retryAfter) outHeaders.set("retry-after", retryAfter);
 
     return new Response(engineRes.body, { status: engineRes.status, headers: outHeaders });
   } catch (err) {

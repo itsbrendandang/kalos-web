@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { Building2, Pencil, Plus } from "lucide-react";
 import type { Customer } from "./data";
-import { ProjectCard, AddProjectCard } from "@/components/voyager/project-card";
-import { VoyagerModal, type ModalState } from "@/components/voyager/modals";
-import { useVoyagerStore } from "@/components/voyager/store-context";
+import { ProjectCard, AddProjectCard } from "@/components/projects/project-card";
+import { ProjectsModal, type ModalState } from "@/components/projects/modals";
+import { useProjectsStore } from "@/components/projects/store-context";
 
-export default function VoyagerProjectsPage() {
+export default function ProjectsPage() {
   const [modal, setModal] = useState<ModalState>(null);
-  const { customers } = useVoyagerStore();
+  const { customers } = useProjectsStore();
 
   return (
     <div>
@@ -28,7 +28,7 @@ export default function VoyagerProjectsPage() {
         <CustomerSection key={c.id} customer={c} onModal={setModal} />
       ))}
 
-      <VoyagerModal state={modal} onClose={() => setModal(null)} />
+      <ProjectsModal state={modal} onClose={() => setModal(null)} />
     </div>
   );
 }

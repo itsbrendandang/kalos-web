@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, FileType, Table } from "lucide-react";
-import type { Project, ReportData } from "@/app/voyager/data";
-import { buildProjectReportCsv } from "@/lib/voyager-store";
+import type { Project, ReportData } from "@/app/projects/data";
+import { buildProjectReportCsv } from "@/lib/projects-store";
 import { IllustrativeBanner } from "./illustrative-banner";
-import { useVoyagerStore } from "./store-context";
+import { useProjectsStore } from "./store-context";
 
 function slugify(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "project";
@@ -72,13 +72,13 @@ function ScaleUpCurve({ points }: { points: ReportData["scaleUp"] }) {
 
 export function ProjectReport({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const store = useVoyagerStore();
+  const store = useProjectsStore();
   const project = store.getProject(projectId);
   const r = project?.report;
   if (!project || !r) {
     return (
       <div>
-        <button className="bb" onClick={() => router.push("/voyager")}>
+        <button className="bb" onClick={() => router.push("/projects")}>
           <ArrowLeft className="size-3" /> All projects
         </button>
         <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
@@ -90,7 +90,7 @@ export function ProjectReport({ projectId }: { projectId: string }) {
 
   return (
     <div>
-      <button className="bb" onClick={() => router.push("/voyager")}>
+      <button className="bb" onClick={() => router.push("/projects")}>
         <ArrowLeft className="size-3" /> All projects
       </button>
 

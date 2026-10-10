@@ -61,7 +61,7 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
   {
     label: "Clients",
     divided: true,
-    items: [{ href: "/voyager", label: "Projects", short: "Projects", helper: "Client portal", icon: FolderKanban }],
+    items: [{ href: "/projects", label: "Projects", short: "Projects", helper: "Client portal", icon: FolderKanban }],
   },
 ];
 
@@ -78,11 +78,11 @@ function Leaf({ size = 22 }: { size?: number }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
-  // The Voyager product surface (app/voyager/layout.tsx) brings its own inner
-  // max-width/padding wrapper (`.voyager-root`), so the shell's content
+  // The Projects surface (app/projects/layout.tsx) brings its own inner
+  // max-width/padding wrapper (`.projects-root`), so the shell's content
   // container is skipped there to avoid double padding - the sidebar/top nav
-  // chrome below is shared by every route, Voyager included.
-  const isVoyager = path.startsWith("/voyager");
+  // chrome below is shared by every route, Projects included.
+  const isProjects = path.startsWith("/projects");
   return (
     <div className="flex min-h-svh bg-bg">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card px-3 py-5 max-md:hidden">
@@ -184,7 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </div>
-        {isVoyager ? (
+        {isProjects ? (
           children
         ) : (
           <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-6 md:py-8">

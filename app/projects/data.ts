@@ -1,5 +1,5 @@
 /*
- * Seed data for the Voyager product surface.
+ * Seed data for the Projects surface.
  *
  * Illustrative content that mirrors voyager_complete_v3.html. The engine does
  * not yet expose a customers/projects API, so these screens render from this

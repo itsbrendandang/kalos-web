@@ -93,9 +93,9 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
  * Best-measured-so-far vs. round, for the campaign progress strip on /decide.
  * Deliberately plain (no yLabel/axis titles) so it stays compact under a
  * header that already states the target and unit - see the ProgressPanel
- * wrapper in app/decide/page.tsx.
+ * wrapper in components/dashboard/campaign-progress.tsx.
  */
-export function ProgressChart({ data }: { data: { round: number; best: number }[] }) {
+export function ProgressChart({ data }: { data: { round: number; best: number | null }[] }) {
   const config = { best: { label: "best", color: ACCENT } } satisfies ChartConfig;
   return (
     <ChartContainer config={config} className="aspect-auto h-full w-full">
@@ -127,6 +127,7 @@ export function ProgressChart({ data }: { data: { round: number; best: number }[
         <Area
           type="monotone"
           dataKey="best"
+          connectNulls={false}
           stroke={ACCENT}
           strokeWidth={2.5}
           fill="url(#progress-fill)"

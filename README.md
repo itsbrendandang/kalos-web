@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/itsbrendandang/kalos-web/actions/workflows/ci.yml/badge.svg)](https://github.com/itsbrendandang/kalos-web/actions/workflows/ci.yml)
 
-The production front end for [Kalos](https://github.com/itsbrendandang/kalos), a Bayesian-optimization platform for bioprocess development.
+The production front end for [Kalos](https://github.com/itsbrendandang/kalos-engine), a Bayesian-optimization platform for bioprocess development.
 Next.js 16 + Tailwind v4, on a single unified blue design system, consuming the Kalos engine API.
 
 ![Results view: real model reliability, significant process drivers, and an honest gate verdict on a 160-run synthetic bioprocess sheet](docs/images/dashboard-results.jpg)
@@ -27,7 +27,7 @@ The "GATES FAILED" badge is the engine's fail-closed promotion gate (`kalos/core
 
 ### Run it
 
-The engine API must be running first (in the `kalos` repo):
+The engine API must be running first (in the `kalos-engine` repo):
 
 ```bash
 python -m kalos.portal        # serves the API on http://127.0.0.1:8050
@@ -142,8 +142,8 @@ All three run in CI (`.github/workflows/ci.yml`) on every push and pull request.
 
 ## Deployment
 
-The deploy pack (container images for the engine, this app, and a SQLite backup sidecar, behind one published front door with `docker compose`) lives in the engine repo at [`kalos/deploy/`](https://github.com/itsbrendandang/kalos/tree/main/deploy).
-[`deploy/RUNBOOK.md`](https://github.com/itsbrendandang/kalos/blob/main/deploy/RUNBOOK.md) has the verified quickstart, the security checklist, and backup/restore drills.
+The deploy pack (container images for the engine, this app, and a SQLite backup sidecar, behind one published front door with `docker compose`) lives in the engine repo at [`kalos-engine/deploy/`](https://github.com/itsbrendandang/kalos-engine/tree/main/deploy).
+[`deploy/RUNBOOK.md`](https://github.com/itsbrendandang/kalos-engine/blob/main/deploy/RUNBOOK.md) has the verified quickstart, the security checklist, and backup/restore drills.
 
 ## Stack
 

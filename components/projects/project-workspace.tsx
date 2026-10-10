@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Pencil, FileText, GitBranch, Activity } from "lucide-react";
-import type { Project } from "@/app/voyager/data";
+import type { Project } from "@/app/projects/data";
 import { Phase1View } from "./phase1-view";
 import { Phase2View } from "./phase2-view";
 import { LinkageTree } from "./linkage-tree";
 import { IllustrativeBanner } from "./illustrative-banner";
-import { VoyagerModal, type ModalState } from "./modals";
-import { useVoyagerStore } from "./store-context";
+import { ProjectsModal, type ModalState } from "./modals";
+import { useProjectsStore } from "./store-context";
 
 type Tab = "phase1" | "phase2" | "tree";
 
@@ -29,7 +29,7 @@ function subtitle(p: Project): string {
 
 export function ProjectWorkspace({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const store = useVoyagerStore();
+  const store = useProjectsStore();
   const project = store.getProject(projectId);
   // Tab defaults from the project's own defaultTab; falls back to "phase1"
   // for the render before the project resolves (see the guard below).
@@ -39,7 +39,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
   if (!project) {
     return (
       <div>
-        <button className="bb" onClick={() => router.push("/voyager")}>
+        <button className="bb" onClick={() => router.push("/projects")}>
           <ArrowLeft className="size-3" /> All projects
         </button>
         <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
@@ -51,7 +51,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
 
   return (
     <div>
-      <button className="bb" onClick={() => router.push("/voyager")}>
+      <button className="bb" onClick={() => router.push("/projects")}>
         <ArrowLeft className="size-3" /> All projects
       </button>
 
@@ -73,7 +73,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
             <Pencil className="size-[11px]" /> Edit
           </button>
           {project.report ? (
-            <Link className="gbtn" href={`/voyager/projects/${project.id}/report`}>
+            <Link className="gbtn" href={`/projects/${project.id}/report`}>
               <FileText className="size-[11px]" /> View report
             </Link>
           ) : null}
@@ -106,7 +106,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
         </>
       ) : null}
 
-      <VoyagerModal state={modal} onClose={() => setModal(null)} />
+      <ProjectsModal state={modal} onClose={() => setModal(null)} />
     </div>
   );
 }

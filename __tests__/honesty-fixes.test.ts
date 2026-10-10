@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { coveragePct, driverSelectionNote, isReliable, type DriverSelection, type Reliability, reliabilityReason } from "@/lib/api";
-import { verdict } from "@/components/voyager/phase2-live";
+import { verdict } from "@/components/projects/phase2-live";
 
 function reliability(overrides: Partial<Reliability>): Reliability {
   return {

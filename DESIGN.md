@@ -1,8 +1,9 @@
 # Kalos design system
 
-Kalos-web has a single, unified design system: the Voyager blue product look,
-applied across every surface. This replaces the earlier split between a
-black-and-white "optimizer" surface and a blue "Voyager" surface. There is
+Kalos-web has a single, unified design system: the blue product look from the
+original Voyager prototype, applied across every surface. This replaces the
+earlier split between a black-and-white "optimizer" surface and a blue product
+surface (then named Voyager, now Projects). There is
 now one visual language for the whole app - light and dark.
 
 ## Token architecture
@@ -25,17 +26,17 @@ kalos brand, instead of shadcn's default neutral-gray theme. See
 "shadcn semantic tokens" and "Dark mode" below for the details and one
 deliberate naming exception.
 
-`app/voyager/voyager.css` (scoped under `.voyager-root`) does not define its
+`app/projects/projects.css` (scoped under `.projects-root`) does not define its
 own palette anymore. It aliases the shared root tokens to the short
 `--v-*` / `--b5` / `--b7` / `--b9` names that the original Voyager prototype
-markup and CSS classes expect, then layers Voyager-specific component classes
+markup and CSS classes expect, then layers Projects-specific component classes
 (cards, pipeline stages, linkage tree, modals) on top. If you change a color
 in `app/globals.css`, both surfaces update together.
 
 ```
-app/globals.css        <- single source of truth: :root tokens + @theme inline
-app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
-                            then Voyager-only component classes
+app/globals.css           <- single source of truth: :root tokens + @theme inline
+app/projects/projects.css <- .projects-root aliases root tokens to --v-* names,
+                             then Projects-only component classes
 ```
 
 ## Color roles
@@ -64,7 +65,7 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 > 1. **`--muted` is a TEXT gray here, not a surface.** Stock shadcn and the
 >    base-nova registry treat `--muted` as a subtle surface and reach for
 >    `bg-muted` on hover. This app has 254 `text-muted` call sites across 54
->    files (mirrored as `--v-muted` in `app/voyager/voyager.css`), so the app
+>    files (mirrored as `--v-muted` in `app/projects/projects.css`), so the app
 >    keeps its meaning. Every shadcn primitive added here has `bg-muted`
 >    rewritten to `bg-secondary` (or `bg-blue-soft` for hovers). Anything added
 >    with `shadcn add` in future needs the same patch.
@@ -102,12 +103,12 @@ app/voyager/voyager.css <- .voyager-root aliases root tokens to --v-* names,
 | `--red` | `#c0392b` | `#f16354` | Fail / error status. AA-checked both modes (light ~4.6:1; dark 5.4-5.8:1) |
 | `--sidebar` | `#0a1233` | `#0a1233` | Dark sidebar background (optimizer nav) - already dark, unchanged in dark mode |
 | `--grid` | `#e5e9f7` | `#232a3d` | Chart gridlines |
-| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | - | Secondary / tertiary caption text on the Voyager surface. Both clear WCAG AA (>= 4.5:1) on white. They replaced low-opacity ink (`rgba(17,17,17,.3-.4)`), which read 2.3-2.6:1 and failed AA at caption sizes. Use these for muted text under `.voyager-root`, never a raw low-opacity ink. Not yet re-tuned for dark mode - see "Dark mode" below |
+| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | - | Secondary / tertiary caption text on the Projects surface. Both clear WCAG AA (>= 4.5:1) on white. They replaced low-opacity ink (`rgba(17,17,17,.3-.4)`), which read 2.3-2.6:1 and failed AA at caption sizes. Use these for muted text under `.projects-root`, never a raw low-opacity ink. Not yet re-tuned for dark mode - see "Dark mode" below |
 
 Status colors beyond this table (warn/bad banner tones, decision-card
 promote/hold/retire colors) live as additional `--v-*` tokens inside
-`.voyager-root` in `app/voyager/voyager.css`, since they are only used by the
-Voyager product screens.
+`.projects-root` in `app/projects/projects.css`, since they are only used by the
+Projects screens.
 
 All contrast ratios above were computed against both `--bg` and `--card` in
 each mode using the standard WCAG relative-luminance formula, not eyeballed.
@@ -149,9 +150,9 @@ documentation gap (blue-hex rows vs. the achromatic code, and the dark-mode
 column throughout this table) is out of scope for this merge and is flagged
 here as follow-up rather than silently left inconsistent.
 
-`components/voyager/illustrative-banner.tsx` reuses the `--v-warn-*` tokens for
+`components/projects/illustrative-banner.tsx` reuses the `--v-warn-*` tokens for
 the "Sample data - illustrative, not a real analysis" disclaimer shown on every
-non-live Voyager screen (Phase 1, Phase 2 setup/results, and the final report -
+non-live Projects screen (Phase 1, Phase 2 setup/results, and the final report -
 anywhere `project.live` is not true). The live, engine-backed Phase 2 view
 keeps its own "Live · engine" badge instead.
 
@@ -186,8 +187,8 @@ query - so it can be toggled independently of the OS setting and persisted.
   point of use, an alias defined once in `:root` (e.g. `--primary: var(--blue)`)
   automatically follows `--blue`'s `.dark` value with no duplicate rule
   needed.
-- **Voyager blue-accent AA tuning pass** (`app/voyager/voyager.css`): the
-  Voyager surface aliased its accent *text* onto `--v-blue-7` (`= --blue-hover`),
+- **Projects blue-accent AA tuning pass** (`app/projects/projects.css`): the
+  Projects surface aliased its accent *text* onto `--v-blue-7` (`= --blue-hover`),
   which flips to `#204af4` in dark mode and read only 2.46-2.93:1 as text on the
   tint/card/bg surfaces - failing AA - everywhere it was used for text (phase
   labels, chip/badge/pill labels, advisory text, the "Live · engine" pill).
@@ -206,8 +207,8 @@ query - so it can be toggled independently of the OS setting and persisted.
   distinct (1.73:1) from its `--blue-soft` explore row - a darker `--blue-tint`
   badge would have hit 5.36:1 text but nearly vanished into that row (1.12:1).
   Light mode improves to 9.78:1 (from 6.33:1), no regression.
-- **Not yet covered**: the remaining Voyager-only status tones defined directly
-  in `app/voyager/voyager.css` (`--v-warn-*`/`--v-bad-*` banner tones, the
+- **Not yet covered**: the remaining Projects-only status tones defined directly
+  in `app/projects/projects.css` (`--v-warn-*`/`--v-bad-*` banner tones, the
   green exploit badge and the amber/orange decision-card promote/hold/retire
   colors) and `--v-muted`/`--v-faint` do not have `.dark` overrides yet - they
   still render their light-mode values on dark surfaces (all currently
@@ -319,10 +320,10 @@ a visual pass.
   a mismatched rounded-rectangle ring over pill-shaped and circular elements
   (phase tabs, round badges). Leaving radius unset lets the ring follow each
   element's own `border-radius` instead.
-- Voyager component-level radii (pills, small chips, pipeline stage rows) are
-  set directly in `voyager.css` class rules and range `6px`-`12px`
+- Projects component-level radii (pills, small chips, pipeline stage rows) are
+  set directly in `projects.css` class rules and range `6px`-`12px`
   depending on element size; they intentionally stay slightly tighter than
-  the app-wide `16px` card radius to match the denser Voyager product
+  the app-wide `16px` card radius to match the denser Projects
   layouts.
 
 Type:
@@ -336,8 +337,8 @@ Type:
   (`--font-jbmono`, tabular/mono data) is self-hosted the same way from
   `app/fonts/JetBrainsMono-Variable.ttf` (SIL OFL 1.1,
   `JETBRAINS-MONO-LICENSE.txt` alongside).
-- Voyager surface: Satoshi is exported as `--font-voyager` in
-  `app/voyager/layout.tsx`, so `voyager.css` needs no change.
+- Projects surface: Satoshi is exported as `--font-projects` in
+  `app/projects/layout.tsx`, the variable `projects.css` reads.
 - Base sizes stay small and dense (11px-19px) across both surfaces, matching
   the original Voyager product screens: `10px` eyebrow/uppercase labels,
   `11px`-`13px` body and controls, `14px`-`19px` headings/titles, `26px`+
@@ -352,15 +353,15 @@ cursor tint) built from the shared CSS variables above. Every chart
 this object instead of hardcoded hex, so chart styling updates automatically
 when the root tokens change.
 
-## Inline styles in Voyager components
+## Inline styles in Projects components
 
-Voyager components (`components/voyager/*`) were audited for hardcoded hex in
-`style={{...}}` props. Loose one-off colors were moved into `voyager.css`
+Projects components (`components/projects/*`) were audited for hardcoded hex in
+`style={{...}}` props. Loose one-off colors were moved into `projects.css`
 classes (e.g. `.v-tone-ok` / `.v-tone-warn` / `.v-tone-bad` for reliability
 banners, `.dc-row--exploit` / `.dc-row--explore` for candidate rows,
 `.v-pipeline-badge--*` for pipeline status badges) or onto shared tokens.
 
-One exception: `components/voyager/linkage-tree.tsx` keeps a `STYLE` node-color
+One exception: `components/projects/linkage-tree.tsx` keeps a `STYLE` node-color
 dictionary (`Record<NodeType, {...}>`) as a plain TypeScript constant rather
 than CSS classes. Each node type in the experiment lineage SVG maps to a fixed
 fill/stroke/text/badge combination that is only read in that one file and
@@ -380,7 +381,7 @@ if a `next/font/google` import comes back.
 
 - Satoshi is self-hosted app-wide as of the 2026-07-24 consolidation: both
   `app/layout.tsx` (optimizer surface, `--font-satoshi`) and
-  `app/voyager/layout.tsx` (`--font-voyager`) load the same licensed variable
+  `app/projects/layout.tsx` (`--font-projects`) load the same licensed variable
   font (`app/fonts/Satoshi-Variable.woff2`, Fontshare Font License), so there
   is exactly one font file and one license on disk for both surfaces.
 - JetBrains Mono (`--font-jbmono`) is `app/fonts/JetBrainsMono-Variable.ttf`,

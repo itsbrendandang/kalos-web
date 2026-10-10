@@ -1,12 +1,12 @@
 /*
- * Client-side persistence store for the Voyager surface.
+ * Client-side persistence store for the Projects surface.
  *
- * Voyager has no backend for customers/projects (see app/voyager/data.ts) - the
+ * The Projects surface has no backend for customers/projects (see app/projects/data.ts) - the
  * product decision is to wire creates/edits to real client-side state instead,
  * so the modals and workspace controls stop being active-but-inert. This module
  * holds the pure, framework-free reducer + helpers; the React context that
  * wraps it (with useReducer + localStorage) lives in
- * components/voyager/store-context.tsx. Keeping the logic here means it can be
+ * components/projects/store-context.tsx. Keeping the logic here means it can be
  * unit tested directly, with no DOM involved.
  */
 
@@ -18,14 +18,37 @@ import {
   type Project,
   type ProjectStage,
   type ProjectStatus,
-} from "@/app/voyager/data";
+} from "@/app/projects/data";
 
-export interface VoyagerState {
+export interface ProjectsState {
   customers: Customer[];
 }
 
-export function initialVoyagerState(): VoyagerState {
+export function initialProjectsState(): ProjectsState {
   return { customers: CUSTOMERS };
+}
+
+export const STORAGE_KEY = "projects-store-v1";
+// The key this store used while the surface was named Voyager. Still read
+// (when STORAGE_KEY is absent) so creates/edits saved before the rename
+// survive it; the provider deletes it once STORAGE_KEY has been written.
+export const LEGACY_STORAGE_KEY = "voyager-store-v1";
+
+/** The persisted state, or null when nothing usable is stored (absent,
+ *  corrupt, or the wrong shape) - the caller then keeps the seed state. */
+export function readPersistedState(storage: Pick<Storage, "getItem">): ProjectsState | null {
+  const raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY);
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (parsed && typeof parsed === "object" && Array.isArray((parsed as ProjectsState).customers)) {
+    return parsed as ProjectsState;
+  }
+  return null;
 }
 
 export interface NewCustomerInput {
@@ -47,8 +70,8 @@ export interface ProjectEditInput {
   status: ProjectStatus;
 }
 
-export type VoyagerAction =
-  | { type: "hydrate"; state: VoyagerState }
+export type ProjectsAction =
+  | { type: "hydrate"; state: ProjectsState }
   | { type: "addCustomer"; customer: NewCustomerInput }
   | { type: "updateCustomer"; id: string; patch: { name: string; address: string } }
   | { type: "addProject"; customerName: string; project: NewProjectInput; today: string }
@@ -142,7 +165,7 @@ function mapProject(customers: Customer[], id: string, fn: (project: Project) =>
   });
 }
 
-export function voyagerReducer(state: VoyagerState, action: VoyagerAction): VoyagerState {
+export function projectsReducer(state: ProjectsState, action: ProjectsAction): ProjectsState {
   switch (action.type) {
     case "hydrate":
       return action.state;
@@ -196,7 +219,7 @@ export function voyagerReducer(state: VoyagerState, action: VoyagerAction): Voya
   }
 }
 
-// --- CSV export (Voyager report "Export CSV") --------------------------------
+// --- CSV export (Projects report "Export CSV") -------------------------------
 
 function csvField(value: string | number): string {
   const s = String(value);

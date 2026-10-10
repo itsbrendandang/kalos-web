@@ -1,14 +1,14 @@
 /*
- * Voyager product surface - scoped rules on top of the shared design system.
+ * Projects surface - scoped rules on top of the shared design system.
  *
- * The Voyager screens use the same blue token set as the rest of kalos-web
+ * The Projects screens use the same blue token set as the rest of kalos-web
  * (defined once in app/globals.css). This file only aliases those shared
  * tokens to the short "--v-*" / "--b5" style names the ported prototype
- * markup expects, and layers the Voyager-specific component classes (cards,
+ * markup expects, and layers the Projects-specific component classes (cards,
  * pipeline stages, linkage tree, modals, ...) on top. See DESIGN.md at the
  * repo root for the full token reference.
  */
-.voyager-root {
+.projects-root {
   /* Aliases onto the shared root tokens (app/globals.css) */
   --v-ink: var(--fg);
   --v-border: var(--border);
@@ -92,12 +92,12 @@
   min-height: 100svh;
   background: var(--v-bg);
   color: var(--v-ink);
-  font-family: var(--font-voyager), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-projects), ui-sans-serif, system-ui, sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }
 
-.voyager-root ::selection {
+.projects-root ::selection {
   background: var(--v-blue-tint);
 }
 
@@ -238,7 +238,7 @@
 }
 
 /* ---- Workspace shared ---- */
-.voyager-root .bb {
+.projects-root .bb {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -250,10 +250,10 @@
   padding: 0;
   margin-bottom: 12px;
 }
-.voyager-root .bb:hover {
+.projects-root .bb:hover {
   color: var(--b5);
 }
-.voyager-root .sh {
+.projects-root .sh {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 1.2px;
@@ -261,18 +261,18 @@
   color: var(--v-faint);
   margin-bottom: 7px;
 }
-.voyager-root .hdr2 {
+.projects-root .hdr2 {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
 }
-.voyager-root .ph-tabs {
+.projects-root .ph-tabs {
   display: flex;
   gap: 5px;
 }
-.voyager-root .phtab {
+.projects-root .phtab {
   font-size: 11px;
   font-weight: 500;
   padding: 5px 10px;
@@ -282,22 +282,22 @@
   color: var(--v-muted);
   background: transparent;
 }
-.voyager-root .phtab.on {
+.projects-root .phtab.on {
   background: var(--b5);
   color: var(--primary-foreground);
   border-color: var(--b5);
 }
-.voyager-root .two {
+.projects-root .two {
   display: grid;
   grid-template-columns: 1fr 272px;
   gap: 14px;
 }
 @media (max-width: 820px) {
-  .voyager-root .two {
+  .projects-root .two {
     grid-template-columns: 1fr;
   }
 }
-.voyager-root .abtn {
+.projects-root .abtn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -310,7 +310,7 @@
   border: none;
   cursor: pointer;
 }
-.voyager-root .gbtn {
+.projects-root .gbtn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -323,11 +323,11 @@
   border-radius: 7px;
   cursor: pointer;
 }
-.voyager-root .gbtn:hover {
+.projects-root .gbtn:hover {
   border-color: var(--b5);
   color: var(--b5);
 }
-.voyager-root .rbtn {
+.projects-root .rbtn {
   background: var(--b5);
   color: var(--primary-foreground);
   border: none;
@@ -342,28 +342,28 @@
 }
 
 /* ---- Iteration cards (Phase 1) ---- */
-.voyager-root .ic {
+.projects-root .ic {
   border: 0.5px solid var(--p2);
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 8px;
 }
-.voyager-root .ic.done {
+.projects-root .ic.done {
   border-color: var(--v-blue-border);
 }
-.voyager-root .ic.active {
+.projects-root .ic.active {
   border: 1.5px solid var(--b5);
 }
-.voyager-root .ic.locked {
+.projects-root .ic.locked {
   opacity: 0.38;
 }
-.voyager-root .ich {
+.projects-root .ich {
   padding: 10px 13px;
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.voyager-root .icnum {
+.projects-root .icnum {
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -374,60 +374,60 @@
   font-weight: 500;
   flex-shrink: 0;
 }
-.voyager-root .done .icnum {
+.projects-root .done .icnum {
   background: var(--b9);
   color: var(--primary-foreground);
 }
-.voyager-root .active .icnum {
+.projects-root .active .icnum {
   background: var(--b5);
   color: var(--primary-foreground);
 }
-.voyager-root .locked .icnum {
+.projects-root .locked .icnum {
   background: var(--p2);
   color: var(--v-muted);
 }
-.voyager-root .icbody {
+.projects-root .icbody {
   flex: 1;
 }
-.voyager-root .iclabel {
+.projects-root .iclabel {
   font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--v-faint);
 }
-.voyager-root .done .iclabel,
-.voyager-root .active .iclabel {
+.projects-root .done .iclabel,
+.projects-root .active .iclabel {
   color: var(--b7);
 }
-.voyager-root .icname {
+.projects-root .icname {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink);
   margin: 2px 0;
 }
-.voyager-root .icsub {
+.projects-root .icsub {
   font-size: 11px;
   color: var(--v-muted);
 }
-.voyager-root .icright {
+.projects-root .icright {
   display: flex;
   align-items: center;
   gap: 9px;
   flex-shrink: 0;
   text-align: right;
 }
-.voyager-root .icct {
+.projects-root .icct {
   font-size: 18px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1;
 }
-.voyager-root .icctl {
+.projects-root .icctl {
   font-size: 10px;
   color: var(--v-muted);
 }
-.voyager-root .scdone {
+.projects-root .scdone {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -435,7 +435,7 @@
   font-weight: 500;
   color: var(--v-green);
 }
-.voyager-root .scact {
+.projects-root .scact {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -443,21 +443,21 @@
   font-weight: 500;
   color: var(--b5);
 }
-.voyager-root .pld {
+.projects-root .pld {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--b5);
   animation: v-pulse 1.2s infinite;
 }
-.voyager-root .icba {
+.projects-root .icba {
   border-top: 0.5px solid var(--p2);
   background: var(--sf);
   padding: 12px 13px;
 }
 
 /* Dropzone */
-.voyager-root .dz {
+.projects-root .dz {
   border: 1.5px dashed var(--p2);
   border-radius: 8px;
   padding: 13px;
@@ -465,21 +465,21 @@
   cursor: pointer;
   background: var(--bg);
 }
-.voyager-root .dz:hover {
+.projects-root .dz:hover {
   border-color: var(--b5);
   background: var(--v-hover);
 }
-.voyager-root .dzt {
+.projects-root .dzt {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink);
   margin-bottom: 2px;
 }
-.voyager-root .dzs {
+.projects-root .dzs {
   font-size: 10px;
   color: var(--v-muted);
 }
-.voyager-root .dzb {
+.projects-root .dzb {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -495,12 +495,12 @@
 }
 
 /* Ingested batch preview table */
-.voyager-root .pb {
+.projects-root .pb {
   border: 0.5px solid var(--v-blue-border);
   border-radius: 8px;
   overflow: hidden;
 }
-.voyager-root .pbh {
+.projects-root .pbh {
   padding: 7px 11px;
   border-bottom: 0.5px solid #dce4ff;
   background: var(--v-blue-soft);
@@ -509,7 +509,7 @@
   justify-content: space-between;
   gap: 8px;
 }
-.voyager-root .pbf {
+.projects-root .pbf {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -517,7 +517,7 @@
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .pbbadge {
+.projects-root .pbbadge {
   font-size: 9px;
   font-weight: 500;
   background: var(--v-blue-tint);
@@ -525,12 +525,12 @@
   padding: 2px 5px;
   border-radius: 20px;
 }
-.voyager-root .pbtbl {
+.projects-root .pbtbl {
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
 }
-.voyager-root .pbtbl th {
+.projects-root .pbtbl th {
   text-align: left;
   font-size: 10px;
   font-weight: 500;
@@ -541,19 +541,19 @@
   border-bottom: 0.5px solid var(--v-blue-tint);
   background: #fafcff;
 }
-.voyager-root .pbtbl td {
+.projects-root .pbtbl td {
   padding: 5px 11px;
   border-bottom: 0.5px solid #f0f4ff;
   color: var(--ink);
 }
-.voyager-root .pbtbl tr:last-child td {
+.projects-root .pbtbl tr:last-child td {
   border-bottom: none;
 }
-.voyager-root .rc {
+.projects-root .rc {
   color: var(--b5);
   font-weight: 500;
 }
-.voyager-root .ac {
+.projects-root .ac {
   font-size: 10px;
   font-weight: 500;
   background: #e8f5e9;
@@ -561,7 +561,7 @@
   padding: 2px 5px;
   border-radius: 20px;
 }
-.voyager-root .advbar {
+.projects-root .advbar {
   background: var(--v-blue-tint);
   border-radius: 7px;
   padding: 9px 13px;
@@ -571,11 +571,11 @@
   gap: 8px;
   margin-top: 9px;
 }
-.voyager-root .advtxt {
+.projects-root .advtxt {
   font-size: 11px;
   color: var(--b7);
 }
-.voyager-root .advbtn {
+.projects-root .advbtn {
   background: var(--b5);
   color: var(--primary-foreground);
   border: none;
@@ -590,13 +590,13 @@
 }
 
 /* ---- Phase 2 pipeline config + stages ---- */
-.voyager-root .cfg-card {
+.projects-root .cfg-card {
   border: 0.5px solid var(--p2);
   border-radius: 9px;
   overflow: hidden;
   margin-bottom: 10px;
 }
-.voyager-root .cfg-hdr {
+.projects-root .cfg-hdr {
   padding: 9px 12px;
   border-bottom: 0.5px solid var(--p2);
   display: flex;
@@ -606,7 +606,7 @@
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .bok {
+.projects-root .bok {
   font-size: 9px;
   font-weight: 500;
   background: #e8f5e9;
@@ -614,7 +614,7 @@
   padding: 2px 5px;
   border-radius: 20px;
 }
-.voyager-root .breq {
+.projects-root .breq {
   font-size: 9px;
   font-weight: 500;
   background: #fff3e0;
@@ -622,10 +622,10 @@
   padding: 2px 5px;
   border-radius: 20px;
 }
-.voyager-root .cfg-body {
+.projects-root .cfg-body {
   padding: 10px 12px;
 }
-.voyager-root .upl {
+.projects-root .upl {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -634,25 +634,25 @@
   border: 0.5px solid var(--v-blue-border);
   border-radius: 7px;
 }
-.voyager-root .upln {
+.projects-root .upln {
   font-size: 11px;
   font-weight: 500;
   color: var(--ink);
   flex: 1;
 }
-.voyager-root .upls {
+.projects-root .upls {
   font-size: 10px;
   color: var(--v-muted);
   margin-top: 1px;
 }
-.voyager-root .uplr {
+.projects-root .uplr {
   font-size: 10px;
   color: var(--b5);
   cursor: pointer;
   background: none;
   border: none;
 }
-.voyager-root .run-bar {
+.projects-root .run-bar {
   background: var(--v-blue-tint);
   border: 0.5px solid var(--v-blue-border);
   border-radius: 9px;
@@ -663,23 +663,23 @@
   justify-content: space-between;
   gap: 8px;
 }
-.voyager-root .rbt {
+.projects-root .rbt {
   font-size: 12px;
   font-weight: 500;
   color: var(--b7);
 }
-.voyager-root .rbs {
+.projects-root .rbs {
   font-size: 10px;
   color: var(--b7);
   opacity: 0.7;
   margin-top: 1px;
 }
-.voyager-root .pipe-box {
+.projects-root .pipe-box {
   border: 0.5px solid var(--p2);
   border-radius: 10px;
   overflow: hidden;
 }
-.voyager-root .pipe-hd {
+.projects-root .pipe-hd {
   padding: 8px 12px;
   border-bottom: 0.5px solid var(--p2);
   display: flex;
@@ -689,13 +689,13 @@
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .stage-list {
+.projects-root .stage-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding: 5px 8px;
 }
-.voyager-root .stg {
+.projects-root .stg {
   display: flex;
   align-items: flex-start;
   gap: 7px;
@@ -703,17 +703,17 @@
   border: 0.5px solid var(--p2);
   border-radius: 8px;
 }
-.voyager-root .stg.done {
+.projects-root .stg.done {
   background: var(--v-blue-soft);
   border-color: #dce4ff;
 }
-.voyager-root .stg.run {
+.projects-root .stg.run {
   border: 1.5px solid var(--b5);
 }
-.voyager-root .stg.pend {
+.projects-root .stg.pend {
   opacity: 0.35;
 }
-.voyager-root .snum {
+.projects-root .snum {
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -725,24 +725,24 @@
   font-weight: 500;
   margin-top: 1px;
 }
-.voyager-root .done .snum {
+.projects-root .done .snum {
   background: var(--b9);
   color: var(--primary-foreground);
 }
-.voyager-root .run .snum {
+.projects-root .run .snum {
   background: var(--b5);
   color: var(--primary-foreground);
 }
-.voyager-root .pend .snum {
+.projects-root .pend .snum {
   background: var(--p2);
   color: var(--v-muted);
 }
-.voyager-root .sn {
+.projects-root .sn {
   font-size: 11px;
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .chip {
+.projects-root .chip {
   display: inline-flex;
   font-size: 10px;
   font-weight: 500;
@@ -752,7 +752,7 @@
   border-radius: 20px;
   margin: 2px 2px 0 0;
 }
-.voyager-root .spulse {
+.projects-root .spulse {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -761,19 +761,19 @@
   font-weight: 500;
   margin-top: 2px;
 }
-.voyager-root .spd {
+.projects-root .spd {
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: var(--b5);
   animation: v-pulse 1.2s infinite;
 }
-.voyager-root .hist-box {
+.projects-root .hist-box {
   border: 0.5px solid var(--p2);
   border-radius: 8px;
   overflow: hidden;
 }
-.voyager-root .hist-hd {
+.projects-root .hist-hd {
   padding: 7px 10px;
   border-bottom: 0.5px solid var(--p2);
   font-size: 10px;
@@ -782,7 +782,7 @@
   letter-spacing: 0.7px;
   color: var(--v-faint);
 }
-.voyager-root .hrow {
+.projects-root .hrow {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -790,51 +790,51 @@
   border-bottom: 0.5px solid var(--p2);
   font-size: 11px;
 }
-.voyager-root .hrow:last-child {
+.projects-root .hrow:last-child {
   border-bottom: none;
 }
-.voyager-root .hrn {
+.projects-root .hrn {
   flex: 1;
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .hrc {
+.projects-root .hrc {
   color: var(--v-muted);
 }
 
 /* ---- Candidate decisions (Phase 2 results) ---- */
-.voyager-root .dc {
+.projects-root .dc {
   border: 0.5px solid var(--p2);
   border-radius: 9px;
   overflow: hidden;
   margin-bottom: 7px;
 }
-.voyager-root .dc.pro {
+.projects-root .dc.pro {
   border-color: #a5d6a7;
 }
-.voyager-root .dc.hld {
+.projects-root .dc.hld {
   border-color: #ffe082;
 }
-.voyager-root .dc.ret {
+.projects-root .dc.ret {
   border-color: #ffcc80;
 }
-.voyager-root .dc-row {
+.projects-root .dc-row {
   display: flex;
   align-items: center;
   gap: 11px;
   padding: 10px 13px;
   cursor: pointer;
 }
-.voyager-root .dc.pro .dc-row {
+.projects-root .dc.pro .dc-row {
   background: #f4fbf4;
 }
-.voyager-root .dc.hld .dc-row {
+.projects-root .dc.hld .dc-row {
   background: #fffef2;
 }
-.voyager-root .dc.ret .dc-row {
+.projects-root .dc.ret .dc-row {
   background: #fff9f2;
 }
-.voyager-root .dcb {
+.projects-root .dcb {
   font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
@@ -843,30 +843,30 @@
   border-radius: 20px;
   flex-shrink: 0;
 }
-.voyager-root .pro .dcb {
+.projects-root .pro .dcb {
   background: #a5d6a7;
   color: #1b5e20;
 }
-.voyager-root .hld .dcb {
+.projects-root .hld .dcb {
   background: #ffe082;
   color: #5d4037;
 }
-.voyager-root .ret .dcb {
+.projects-root .ret .dcb {
   background: #ffcc80;
   color: #e65100;
 }
-.voyager-root .dcn {
+.projects-root .dcn {
   flex: 1;
   font-size: 12px;
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .dcsub {
+.projects-root .dcsub {
   font-size: 10px;
   color: var(--v-muted);
   margin-top: 1px;
 }
-.voyager-root .dcp {
+.projects-root .dcp {
   font-size: 18px;
   font-weight: 700;
   color: var(--ink);
@@ -874,45 +874,45 @@
   flex-shrink: 0;
   text-align: right;
 }
-.voyager-root .dcu {
+.projects-root .dcu {
   font-size: 10px;
   color: var(--v-muted);
   margin-top: 1px;
 }
-.voyager-root .dcbar {
+.projects-root .dcbar {
   height: 3px;
   background: var(--p2);
   overflow: hidden;
 }
-.voyager-root .pro .dcf {
+.projects-root .pro .dcf {
   background: #4caf50;
 }
-.voyager-root .hld .dcf {
+.projects-root .hld .dcf {
   background: #ffc107;
 }
-.voyager-root .ret .dcf {
+.projects-root .ret .dcf {
   background: #ff9800;
 }
-.voyager-root .dcf {
+.projects-root .dcf {
   height: 100%;
 }
-.voyager-root .dc-expand {
+.projects-root .dc-expand {
   border-top: 0.5px solid var(--p2);
   padding: 11px 13px;
   background: var(--bg);
 }
-.voyager-root .dc-detail-grid {
+.projects-root .dc-detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-bottom: 8px;
 }
 @media (max-width: 620px) {
-  .voyager-root .dc-detail-grid {
+  .projects-root .dc-detail-grid {
     grid-template-columns: 1fr;
   }
 }
-.voyager-root .dc-detail-label {
+.projects-root .dc-detail-label {
   font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
@@ -920,84 +920,84 @@
   color: var(--v-muted);
   margin-bottom: 5px;
 }
-.voyager-root .dc-rationale {
+.projects-root .dc-rationale {
   font-size: 11px;
   color: rgba(17, 17, 17, 0.55);
   line-height: 1.5;
   margin-bottom: 8px;
 }
-.voyager-root .mini-bar-row {
+.projects-root .mini-bar-row {
   display: flex;
   align-items: center;
   gap: 5px;
   margin-bottom: 4px;
 }
-.voyager-root .mini-bar-label {
+.projects-root .mini-bar-label {
   font-size: 11px;
   color: var(--ink);
   font-weight: 500;
   width: 90px;
   flex-shrink: 0;
 }
-.voyager-root .mini-bar-track {
+.projects-root .mini-bar-track {
   flex: 1;
   height: 3px;
   background: var(--p2);
   border-radius: 2px;
   overflow: hidden;
 }
-.voyager-root .mini-bar-fill {
+.projects-root .mini-bar-fill {
   height: 100%;
   background: var(--b5);
   border-radius: 2px;
 }
-.voyager-root .mini-bar-pct {
+.projects-root .mini-bar-pct {
   font-size: 10px;
   color: var(--v-muted);
   min-width: 26px;
   text-align: right;
 }
-.voyager-root .scale-row {
+.projects-root .scale-row {
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 11px;
   margin-bottom: 3px;
 }
-.voyager-root .scale-label {
+.projects-root .scale-label {
   color: var(--v-muted);
   width: 72px;
   flex-shrink: 0;
 }
-.voyager-root .scale-val {
+.projects-root .scale-val {
   font-weight: 500;
   color: var(--ink);
   width: 32px;
 }
-.voyager-root .scale-bar-track {
+.projects-root .scale-bar-track {
   flex: 1;
   height: 3px;
   background: var(--p2);
   border-radius: 2px;
   overflow: hidden;
 }
-.voyager-root .scale-bar-fill {
+.projects-root .scale-bar-fill {
   height: 100%;
   border-radius: 2px;
 }
-.voyager-root .pro-fill {
+.projects-root .pro-fill {
   background: #4caf50;
 }
-.voyager-root .hld-fill {
+.projects-root .hld-fill {
   background: #ffc107;
 }
-.voyager-root .scale-trend {
+.projects-root .scale-trend {
   font-size: 10px;
   color: var(--v-muted);
   min-width: 48px;
   text-align: right;
 }
-.voyager-root .warnbox {
+.projects-root .warnbox {
   background: #fff9f0;
   border: 0.5px solid #ffd580;
   border-radius: 7px;
@@ -1008,7 +1008,7 @@
 }
 
 /* ---- Banners ---- */
-.voyager-root .compl-banner {
+.projects-root .compl-banner {
   background: #f4fbf4;
   border: 0.5px solid #a5d6a7;
   border-radius: 9px;
@@ -1018,7 +1018,7 @@
   align-items: center;
   gap: 10px;
 }
-.voyager-root .cb-ico {
+.projects-root .cb-ico {
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -1031,12 +1031,12 @@
 }
 
 /* ---- Suggested experiments (Phase 1 results) ---- */
-.voyager-root .exp-tbl {
+.projects-root .exp-tbl {
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
 }
-.voyager-root .exp-tbl th {
+.projects-root .exp-tbl th {
   text-align: left;
   font-size: 10px;
   font-weight: 500;
@@ -1049,15 +1049,15 @@
   top: 0;
   background: var(--sf);
 }
-.voyager-root .exp-tbl td {
+.projects-root .exp-tbl td {
   padding: 6px 9px;
   border-bottom: 0.5px solid var(--p2);
   color: var(--ink);
 }
-.voyager-root .exp-tbl tr:hover td {
+.projects-root .exp-tbl tr:hover td {
   background: var(--v-hover);
 }
-.voyager-root .pri-hi {
+.projects-root .pri-hi {
   font-size: 9px;
   font-weight: 500;
   background: var(--v-blue-tint);
@@ -1065,7 +1065,7 @@
   padding: 1px 6px;
   border-radius: 20px;
 }
-.voyager-root .pri-md {
+.projects-root .pri-md {
   font-size: 9px;
   font-weight: 500;
   background: #f0f0f0;
@@ -1075,7 +1075,7 @@
 }
 
 /* ---- Linkage tree ---- */
-.voyager-root .tree-layout {
+.projects-root .tree-layout {
   display: grid;
   grid-template-columns: 1fr 255px;
   gap: 0;
@@ -1084,39 +1084,39 @@
   overflow: hidden;
 }
 @media (max-width: 820px) {
-  .voyager-root .tree-layout {
+  .projects-root .tree-layout {
     grid-template-columns: 1fr;
   }
 }
-.voyager-root .tree-panel {
+.projects-root .tree-panel {
   padding: 20px;
   border-right: 0.5px solid var(--p2);
   overflow-x: auto;
 }
-.voyager-root .det-panel {
+.projects-root .det-panel {
   padding: 18px;
   background: var(--sf);
 }
-.voyager-root .legend {
+.projects-root .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
   margin-bottom: 12px;
 }
-.voyager-root .leg-i {
+.projects-root .leg-i {
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 11px;
   color: rgba(17, 17, 17, 0.5);
 }
-.voyager-root .leg-d {
+.projects-root .leg-d {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.voyager-root .det-empty {
+.projects-root .det-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1126,30 +1126,30 @@
   color: var(--v-muted);
   gap: 7px;
 }
-.voyager-root .cond-grid {
+.projects-root .cond-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 5px;
   margin-bottom: 8px;
 }
-.voyager-root .cond-cell {
+.projects-root .cond-cell {
   background: var(--bg);
   border: 0.5px solid var(--p2);
   border-radius: 6px;
   padding: 6px 8px;
 }
-.voyager-root .cond-lbl {
+.projects-root .cond-lbl {
   font-size: 10px;
   color: var(--v-muted);
   margin-bottom: 2px;
 }
-.voyager-root .cond-val {
+.projects-root .cond-val {
   font-size: 12px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1;
 }
-.voyager-root .lin-item {
+.projects-root .lin-item {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1160,7 +1160,7 @@
   background: var(--bg);
   margin-bottom: 3px;
 }
-.voyager-root .lin-dot {
+.projects-root .lin-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -1168,28 +1168,28 @@
 }
 
 /* ---- Report ---- */
-.voyager-root .r-stat {
+.projects-root .r-stat {
   background: var(--sf);
   border-radius: 8px;
   padding: 9px 10px;
 }
-.voyager-root .r-stat-l {
+.projects-root .r-stat-l {
   font-size: 10px;
   color: var(--v-muted);
   margin-bottom: 2px;
 }
-.voyager-root .r-stat-v {
+.projects-root .r-stat-v {
   font-size: 17px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1;
 }
-.voyager-root .r-stat-s {
+.projects-root .r-stat-s {
   font-size: 10px;
   color: var(--v-muted);
   margin-top: 1px;
 }
-.voyager-root .r-sec-t {
+.projects-root .r-sec-t {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink);
@@ -1197,49 +1197,49 @@
   padding-bottom: 5px;
   border-bottom: 0.5px solid var(--p2);
 }
-.voyager-root .r-prose {
+.projects-root .r-prose {
   font-size: 11px;
   color: rgba(17, 17, 17, 0.6);
   line-height: 1.7;
 }
-.voyager-root .r-driver-row {
+.projects-root .r-driver-row {
   display: flex;
   align-items: center;
   gap: 7px;
   margin-bottom: 5px;
 }
-.voyager-root .r-driver-name {
+.projects-root .r-driver-name {
   font-size: 11px;
   font-weight: 500;
   color: var(--ink);
   width: 100px;
   flex-shrink: 0;
 }
-.voyager-root .r-driver-bar {
+.projects-root .r-driver-bar {
   flex: 1;
   height: 4px;
   background: var(--p2);
   border-radius: 2px;
   overflow: hidden;
 }
-.voyager-root .r-driver-fill {
+.projects-root .r-driver-fill {
   height: 100%;
   background: var(--b5);
   border-radius: 2px;
 }
-.voyager-root .r-driver-pct {
+.projects-root .r-driver-pct {
   font-size: 11px;
   color: var(--v-muted);
   min-width: 26px;
   text-align: right;
 }
-.voyager-root .r-driver-range {
+.projects-root .r-driver-range {
   font-size: 10px;
   color: var(--v-muted);
   min-width: 78px;
   text-align: right;
 }
-.voyager-root .r-cand {
+.projects-root .r-cand {
   border: 0.5px solid var(--p2);
   border-radius: 7px;
   padding: 8px 11px;
@@ -1248,32 +1248,32 @@
   align-items: center;
   gap: 10px;
 }
-.voyager-root .r-cand.pro {
+.projects-root .r-cand.pro {
   border-color: #a5d6a7;
   background: #f4fbf4;
 }
-.voyager-root .r-cand.hld {
+.projects-root .r-cand.hld {
   border-color: #ffe082;
   background: #fffef2;
 }
-.voyager-root .rcn {
+.projects-root .rcn {
   flex: 1;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink);
 }
-.voyager-root .rcp {
+.projects-root .rcp {
   font-size: 15px;
   font-weight: 700;
   color: var(--ink);
 }
-.voyager-root .rcu {
+.projects-root .rcu {
   font-size: 10px;
   color: var(--v-muted);
 }
 
 /* ---- Modals ---- */
-.voyager-root .modal-scrim {
+.projects-root .modal-scrim {
   position: fixed;
   inset: 0;
   background: rgba(9, 11, 15, 0.55);
@@ -1283,7 +1283,7 @@
   padding: 60px 20px;
   z-index: 50;
 }
-.voyager-root .modal {
+.projects-root .modal {
   background: var(--sf);
   border: 1px solid var(--p2);
   border-radius: 12px;
@@ -1291,25 +1291,25 @@
   max-width: 440px;
   overflow: hidden;
 }
-.voyager-root .mhdr {
+.projects-root .mhdr {
   padding: 15px 18px;
   border-bottom: 0.5px solid var(--p2);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
 }
-.voyager-root .mt {
+.projects-root .mt {
   font-size: 14px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.2px;
   margin-bottom: 2px;
 }
-.voyager-root .ms {
+.projects-root .ms {
   font-size: 11px;
   color: var(--v-muted);
 }
-.voyager-root .mx {
+.projects-root .mx {
   font-size: 16px;
   color: var(--v-faint);
   cursor: pointer;
@@ -1318,24 +1318,24 @@
   line-height: 1;
   padding: 2px;
 }
-.voyager-root .mbody {
+.projects-root .mbody {
   padding: 16px 18px;
 }
-.voyager-root .fg {
+.projects-root .fg {
   display: flex;
   flex-direction: column;
   gap: 3px;
   margin-bottom: 10px;
 }
-.voyager-root .fl {
+.projects-root .fl {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.7px;
   text-transform: uppercase;
   color: var(--v-muted);
 }
-.voyager-root .fi,
-.voyager-root .fsel {
+.projects-root .fi,
+.projects-root .fsel {
   height: 33px;
   border: 0.5px solid var(--p2);
   border-radius: 7px;
@@ -1350,23 +1350,23 @@
   width: 100%;
   color: var(--ink);
 }
-.voyager-root .fi:focus,
-.voyager-root .fsel:focus {
+.projects-root .fi:focus,
+.projects-root .fsel:focus {
   border-color: var(--b5);
 }
-.voyager-root .fhint {
+.projects-root .fhint {
   font-size: 10px;
   color: var(--v-muted);
   margin-top: 3px;
   line-height: 1.5;
 }
-.voyager-root .macts {
+.projects-root .macts {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
   margin-top: 4px;
 }
-.voyager-root .btn-c {
+.projects-root .btn-c {
   border: 0.5px solid var(--p2);
   background: transparent;
   color: var(--ink);
@@ -1376,7 +1376,7 @@
   border-radius: 7px;
   cursor: pointer;
 }
-.voyager-root .btn-s {
+.projects-root .btn-s {
   background: var(--b5);
   color: var(--primary-foreground);
   border: none;
@@ -1386,91 +1386,91 @@
   border-radius: 7px;
   cursor: pointer;
 }
-.voyager-root .btn-s:disabled,
-.voyager-root .rbtn:disabled {
+.projects-root .btn-s:disabled,
+.projects-root .rbtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* ---- Reliability / status banners (tone variants) ---- */
-.voyager-root .v-tone-ok {
+.projects-root .v-tone-ok {
   background: var(--v-ok-bg);
   border-color: var(--v-ok-border);
   color: var(--v-ok-ink);
 }
-.voyager-root .v-tone-warn {
+.projects-root .v-tone-warn {
   background: var(--v-warn-bg);
   border-color: var(--v-warn-border);
   color: var(--v-warn-ink);
 }
-.voyager-root .v-tone-bad {
+.projects-root .v-tone-bad {
   background: var(--v-bad-bg);
   border-color: var(--v-bad-border);
   color: var(--v-bad-ink);
 }
 
 /* ---- Candidate row background by decision (Phase 2 live) ---- */
-.voyager-root .dc-row--exploit {
+.projects-root .dc-row--exploit {
   background: var(--v-exploit-bg);
 }
-.voyager-root .dc-row--explore {
+.projects-root .dc-row--explore {
   background: var(--v-explore-bg);
 }
-.voyager-root .dcb--exploit {
+.projects-root .dcb--exploit {
   background: var(--v-exploit-badge-bg);
   color: var(--v-exploit-badge-ink);
 }
-.voyager-root .dcb--explore {
+.projects-root .dcb--explore {
   background: var(--v-explore-badge-bg);
   color: var(--v-explore-badge-ink);
 }
 
 /* ---- Misc status chips reused as inline-hex replacements ---- */
-.voyager-root .v-badge-done {
+.projects-root .v-badge-done {
   background: var(--v-done-badge-bg);
   color: var(--v-done-badge-ink);
 }
-.voyager-root .v-driver-fill--down {
+.projects-root .v-driver-fill--down {
   background: var(--explore);
 }
-.voyager-root .v-driver-fill--ns {
+.projects-root .v-driver-fill--ns {
   background: var(--v-faint);
   opacity: 0.5;
 }
-.voyager-root .mini-bar-ns {
+.projects-root .mini-bar-ns {
   color: var(--v-faint);
   font-weight: 500;
 }
-.voyager-root .v-pipeline-badge--complete {
+.projects-root .v-pipeline-badge--complete {
   background: var(--green-soft);
   color: var(--green);
 }
-.voyager-root .v-pipeline-badge--run {
+.projects-root .v-pipeline-badge--run {
   background: var(--v-blue-tint);
   color: var(--v-blue-7-text);
 }
-.voyager-root .v-pipeline-badge--idle {
+.projects-root .v-pipeline-badge--idle {
   background: #f0f0f0;
   color: var(--v-muted);
 }
-.voyager-root .v-stage-dot--phase2 {
+.projects-root .v-stage-dot--phase2 {
   background: var(--v-blue);
 }
-.voyager-root .v-stage-dot--phase1 {
+.projects-root .v-stage-dot--phase1 {
   background: var(--v-green);
 }
-.voyager-root .v-stage-pill--phase2 {
+.projects-root .v-stage-pill--phase2 {
   background: var(--v-blue-tint);
   color: var(--v-blue-7-text);
 }
-.voyager-root .v-stage-pill--phase1 {
+.projects-root .v-stage-pill--phase1 {
   background: var(--v-ok-bg);
   color: var(--v-ok-ink);
 }
-.voyager-root .v-scale-warn {
+.projects-root .v-scale-warn {
   color: var(--amber);
 }
-.voyager-root .v-report-accent {
+.projects-root .v-report-accent {
   color: var(--v-blue);
 }
 

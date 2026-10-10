@@ -1,5 +1,5 @@
-import { getProject, allProjectIds } from "@/app/voyager/data";
-import { ProjectReport } from "@/components/voyager/project-report";
+import { getProject, allProjectIds } from "@/app/projects/data";
+import { ProjectReport } from "@/components/projects/project-report";
 
 export function generateStaticParams() {
   return allProjectIds()
@@ -8,7 +8,7 @@ export function generateStaticParams() {
 }
 
 // ProjectReport resolves the live project from the client-side store itself
-// (see components/voyager/store-context.tsx) and renders its own "not found"
+// (see components/projects/store-context.tsx) and renders its own "not found"
 // state, so this route doesn't 404 on the server - see the sibling
 // projects/[id]/page.tsx for why.
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {

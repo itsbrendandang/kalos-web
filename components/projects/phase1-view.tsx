@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react";
 import { FileText, Upload, Lock, ArrowRight, Check } from "lucide-react";
-import type { Project, Iteration } from "@/app/voyager/data";
+import type { Project, Iteration } from "@/app/projects/data";
 import { IllustrativeBanner } from "./illustrative-banner";
-import { useVoyagerStore } from "./store-context";
+import { useProjectsStore } from "./store-context";
 
 function IterationCard({
   it,
@@ -120,7 +120,7 @@ function IterationCard({
 }
 
 export function Phase1View({ project }: { project: Project }) {
-  const { advanceIteration } = useVoyagerStore();
+  const { advanceIteration } = useProjectsStore();
   const [stagedFile, setStagedFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

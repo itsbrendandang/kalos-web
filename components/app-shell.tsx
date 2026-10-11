@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
+  Ruler,
   ShieldCheck,
   TestTubes,
   type LucideIcon,
@@ -42,6 +43,7 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
     items: [
       { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board", icon: ListChecks },
       { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
+      { href: "/scale-readout", label: "Scale-up readout", short: "Scale-up", helper: "Data-backed at a new scale", icon: Ruler },
       { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
     ],
   },

@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // deploy/Dockerfile.web (kalos repo) copies .next/standalone at build
-  // time and fails loudly without this - see that file's header comment.
+  // The Dockerfile copies .next/standalone at build time and fails loudly
+  // without this - see its header comment.
   output: "standalone",
   // The Projects surface lived under /voyager until it was renamed; keep old
   // links and bookmarks working. Two rules, because /voyager/projects/:id

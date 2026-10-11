@@ -115,7 +115,7 @@ export function Kpi({
     <div
       className={cn(
         "min-h-[96px] rounded-xl px-4 py-3.5",
-        hero ? "bg-accent-hover" : "bg-blue-soft",
+        hero ? "bg-accent-hover" : "border border-border bg-card",
       )}
     >
       <div className={cn("text-[11px] font-medium", hero ? "text-[color:var(--primary-foreground)]" : "text-muted")}>{label}</div>

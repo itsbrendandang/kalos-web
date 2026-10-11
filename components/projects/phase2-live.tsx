@@ -67,10 +67,10 @@ function Reliability_({ d }: { d: AnalyzeResult }) {
   return (
     <div className={`rounded-[10px] border-[0.5px] px-3.5 py-3 ${toneClass}`}>
       <div className="mb-1.5 flex items-center gap-2">
-        <Gauge className="size-3.5" />
+        <Gauge className="v-tone-accent size-3.5" />
         <span className="text-[12px] font-medium">Model reliability</span>
         {r?.spearman != null ? (
-          <span className="ml-auto font-mono text-[12px] font-semibold">
+          <span className="v-tone-accent ml-auto font-mono text-[12px] font-semibold">
             Spearman {fmt(r.spearman, 2)}
             {r.ci95 ? ` · 95% CI [${fmt(r.ci95[0], 2)}, ${fmt(r.ci95[1], 2)}]` : ""}
           </span>
@@ -184,7 +184,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
           <>
             <div className="sh mt-3.5">Not modeled by this engine</div>
             <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] p-3">
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[color:rgba(17,17,17,0.6)]">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[color:var(--v-muted)]">
                 <Info className="size-3 text-[color:var(--v-blue)]" /> Shown elsewhere in the mock, absent here on purpose
               </div>
               <ul className="space-y-1 text-[11px] text-[color:var(--v-muted)]">
@@ -210,7 +210,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center">
-      <FlaskConical className="mx-auto mb-2 size-5 text-[color:rgba(17,17,17,0.2)]" />
+      <FlaskConical className="mx-auto mb-2 size-5 text-[color:var(--v-ink)]/20" />
       <div className="text-[12px] text-[color:var(--v-muted)]">{children}</div>
     </div>
   );

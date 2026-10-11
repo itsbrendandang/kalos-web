@@ -97,7 +97,7 @@ function IterationCard({
       {it.state === "active" ? (
         <div className="icba">
           <div className="dz">
-            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:rgba(17,17,17,0.14)]" />
+            <FileText className="mx-auto mb-1.5 size-[18px] text-[color:var(--v-ink)]/14" />
             <div className="dzt">Upload iteration {it.n} batch ticket when runs complete</div>
             <div className="dzs">{stagedFile ? `Selected: ${stagedFile}` : "Results feed the next iteration immediately"}</div>
             <button className="dzb" onClick={onBrowseClick}>

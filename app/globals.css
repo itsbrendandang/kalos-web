@@ -54,8 +54,8 @@
 :root {
   color-scheme: light;
 
-  /* Base surfaces. Softened toward blue per the feat/satoshi-font direction
-   * (REDESIGN.md 4.1): --bg/--fg/--muted/--border sit a hair off achromatic
+  /* Base surfaces. Softened toward blue per the feat/satoshi-font direction:
+   * --bg/--fg/--muted/--border sit a hair off achromatic
    * gray. --card stays pure white. Unchanged by the 2026-08-08 re-hue. */
   --bg: #f6f8fc;
   --card: oklch(1 0 0);

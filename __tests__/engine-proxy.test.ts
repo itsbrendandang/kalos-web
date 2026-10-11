@@ -130,6 +130,30 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect(res.status).toBe(404);
   });
 
+  it("forwards POST /api/scale/readout (the Scale-Up Readout upload)", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(200, "<html></html>", "text/html"));
+    const fd = new FormData();
+    fd.append("file", new File(["scale_L,titer\n1,2"], "sheet.csv", { type: "text/csv" }));
+    fd.append("target", JSON.stringify({ scale_L: 7500, target_column: "titer", process_params: {} }));
+
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/scale/readout", { method: "POST", body: fd }),
+      ctx(["api", "scale", "readout"]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://engine.internal:8050/api/scale/readout");
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a near-miss prefix (api/scaley) that is not actually allowlisted", async () => {
+    const res = await GET(req("http://localhost:3000/api/engine/api/scaley"), ctx(["api", "scaley"]));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(404);
+  });
+
   it("returns a 502 JSON error when the engine is unreachable", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
 

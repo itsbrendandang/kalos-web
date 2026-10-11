@@ -64,7 +64,7 @@ function StatusPill({ status }: { status: DatasetRecord["status"] }) {
   );
 }
 
-/** Engine credit, relocated here from the primary nav (see REDESIGN.md 6.4):
+/** Engine credit, relocated here from the primary nav:
  *  the Data room is the registry/provenance surface, so this is where the
  *  model that consumes the registry gets attributed rather than in chrome
  *  that's visible on every route. */

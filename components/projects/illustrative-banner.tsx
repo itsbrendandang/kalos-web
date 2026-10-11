@@ -11,7 +11,7 @@ import { Info } from "lucide-react";
 export function IllustrativeBanner() {
   return (
     <div className="mb-3.5 flex items-center gap-2 rounded-[9px] border-[0.5px] border-[color:var(--v-warn-border)] bg-[var(--v-warn-bg)] px-3.5 py-2.5 text-[color:var(--v-warn-ink)]">
-      <Info className="size-4 shrink-0" />
+      <Info className="size-4 shrink-0 text-[color:var(--v-warn-accent)]" />
       <span className="text-[12px] font-medium">Sample data - illustrative, not a real analysis</span>
     </div>
   );

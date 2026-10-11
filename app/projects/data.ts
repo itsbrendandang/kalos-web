@@ -1,7 +1,7 @@
 /*
  * Seed data for the Projects surface.
  *
- * Illustrative content that mirrors voyager_complete_v3.html. The engine does
+ * Illustrative content that mirrors the original v3 prototype. The engine does
  * not yet expose a customers/projects API, so these screens render from this
  * module. Types are shaped so a real API can drop in without touching views.
  */

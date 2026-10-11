@@ -1,5 +1,5 @@
 import { SlidersHorizontal, TestTubeDiagonal } from "lucide-react";
-import { coveragePct, driverSelectionNote, type PopulatedResult } from "@/lib/api";
+import { coveragePct, driverSelectionNote, incumbentLabel, proposalIncumbent, type PopulatedResult } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { SectionHead } from "@/components/ui/section-head";
 import { EmptyState } from "@/components/ui/honest-state";
@@ -16,16 +16,18 @@ import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { num } from "@/lib/utils";
+import { AnalysisDiagnostics } from "@/components/dashboard/analysis-diagnostics";
 
 /**
- * The shared "reliability + drivers + predicted-vs-measured + proposals" readout
- * (REDESIGN 4.4, 5). Model quality, run structure, predicted landscape, and
+ * The shared "reliability + drivers + predicted-vs-measured + proposals" readout.
+ * Model quality, run structure, predicted landscape, and
  * recommended actions - the single authoritative rendering of an analysis result.
  * Dashboard renders this; no other page should reimplement it.
  */
 export function AnalysisReadout({ d }: { d: PopulatedResult }) {
   const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
   const hasPredicted = Boolean(d.response_surface || d.correlation);
+  const incumbent = proposalIncumbent(d);
 
   return (
     <>
@@ -74,6 +76,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
         </div>
         <ModelCoverage d={d} />
         <EvaluationChecks d={d} />
+        <AnalysisDiagnostics d={d} />
       </section>
 
       <section>
@@ -118,6 +121,11 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
           The optimizer&rsquo;s next-best experiments, chosen to balance expected improvement against uncertainty.
         </p>
         <ProposalDisclosures d={d} />
+        <p className="mb-3 text-[12px] text-muted">
+          {incumbent == null
+            ? "Comparison unavailable: the engine reported no reproducible incumbent for this replicate-aware fit."
+            : `Compared with the ${incumbentLabel(d)}: ${num(incumbent, 2)}.`}
+        </p>
         <Card>
           {d.proposals.length ? (
             <Proposals
@@ -126,9 +134,10 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
               predHead={`pred. ${d.target} · vs best`}
               predFn={(p) => {
                 const band = d.conformal_q ?? p.std;
-                const delta = p.pred - d.best;
-                const v = p.pred - band >= d.best ? "beats" : p.pred + band <= d.best ? "below" : "~best";
                 const feas = p.p_feasible != null ? `  P(feasible) ${num(p.p_feasible, 2)}` : "";
+                if (incumbent == null) return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (comparison unavailable)${feas}`;
+                const delta = p.pred - incumbent;
+                const v = p.pred - band >= incumbent ? "beats" : p.pred + band <= incumbent ? "below" : "~best";
                 return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})${feas}`;
               }}
             />

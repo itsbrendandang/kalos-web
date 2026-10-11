@@ -1,9 +1,9 @@
 # Kalos design system
 
 Kalos-web has a single, unified design system: the blue product look from the
-original Voyager prototype, applied across every surface. This replaces the
+original product prototype, applied across every surface. This replaces the
 earlier split between a black-and-white "optimizer" surface and a blue product
-surface (then named Voyager, now Projects). There is
+surface (now Projects). There is
 now one visual language for the whole app - light and dark.
 
 ## Token architecture
@@ -28,7 +28,7 @@ deliberate naming exception.
 
 `app/projects/projects.css` (scoped under `.projects-root`) does not define its
 own palette anymore. It aliases the shared root tokens to the short
-`--v-*` / `--b5` / `--b7` / `--b9` names that the original Voyager prototype
+`--v-*` / `--b5` / `--b7` / `--b9` names that the original prototype
 markup and CSS classes expect, then layers Projects-specific component classes
 (cards, pipeline stages, linkage tree, modals) on top. If you change a color
 in `app/globals.css`, both surfaces update together.
@@ -116,7 +116,7 @@ each mode using the standard WCAG relative-luminance formula, not eyeballed.
 ### 2026-07-24 consolidation: the softened-neutral baseline
 
 `redesign/consolidation` merged in the `feat/satoshi-font` direction and
-formalized it as the documented baseline (REDESIGN.md 4.1), rather than
+formalized it as the documented baseline, rather than
 leaving it an uncommitted WIP diff. Five base-surface tokens moved off pure
 achromatic gray to a hair of blue tint: `--bg` (`#f6f8fc`), `--fg`
 (`#101828`), `--muted` (`#667085`), `--border` (`#d9e2f2`), and `--blue-soft`
@@ -137,8 +137,8 @@ softened background.
 
 The brand blue/accent scale (`--blue`, `--blue-hover`, `--blue-deep`,
 `--blue-tint`, `--blue-border`, `--accent-text`), `--chart-1`...`--chart-5`,
-and `--sidebar` are unchanged by this merge, per REDESIGN.md 4.1 ("the brand
-blue scale ... are unchanged. No new hue is introduced."): `app/globals.css`
+and `--sidebar` are unchanged by this merge, and no
+new hue is introduced: `app/globals.css`
 still carries the 2026-07-16 neutral-chrome migration (main #15, "Design
 overhaul: neutral theme, Experiments hub, Kanban, data catalog") - CHROME
 (buttons, active nav, `--accent*`) stays achromatic gray, while
@@ -328,7 +328,7 @@ a visual pass.
 
 Type:
 
-- Satoshi is the single app-wide typeface, matching the Voyager v3 prototype.
+- Satoshi is the single app-wide typeface, matching the original v3 prototype.
   It is self-hosted via `next/font/local` from the variable font under
   `app/fonts/Satoshi-Variable.woff2` (Fontshare Font License, `SATOSHI-LICENSE.txt`
   alongside it).
@@ -340,7 +340,7 @@ Type:
 - Projects surface: Satoshi is exported as `--font-projects` in
   `app/projects/layout.tsx`, the variable `projects.css` reads.
 - Base sizes stay small and dense (11px-19px) across both surfaces, matching
-  the original Voyager product screens: `10px` eyebrow/uppercase labels,
+  the original product screens: `10px` eyebrow/uppercase labels,
   `11px`-`13px` body and controls, `14px`-`19px` headings/titles, `26px`+
   reserved for hero KPI numbers.
 

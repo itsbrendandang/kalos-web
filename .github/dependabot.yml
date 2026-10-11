@@ -6,6 +6,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # react-dom requires the matching react, so a lone bump of either fails
+      # `npm ci` (#33 and #34 did, separately). Move all four together.
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
 
   # Keeps the actions pinned in .github/workflows/ci.yml (checkout,
   # setup-node) current without a human remembering to check.

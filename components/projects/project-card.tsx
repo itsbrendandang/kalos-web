@@ -46,12 +46,12 @@ export function ProjectCard({ project, onEdit }: { project: Project; onEdit?: (p
             e.stopPropagation();
             onEdit?.(project);
           }}
-          className="inline-flex items-center gap-1 text-[color:inherit] transition-colors hover:text-[color:var(--v-blue)]"
+          className="inline-flex items-center gap-1 text-[color:inherit] transition-colors hover:text-[color:var(--v-blue-7-text)]"
         >
           <Pencil className="size-2.5" />
           Edit
         </button>
-        <ChevronRight className="size-3.5 text-[color:rgba(17,17,17,0.2)]" />
+        <ChevronRight className="size-3.5 text-[color:var(--v-ink)]/20" />
       </div>
     </div>
   );

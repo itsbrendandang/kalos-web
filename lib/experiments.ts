@@ -48,5 +48,7 @@ async function handle<T>(r: Response): Promise<T> {
   throw new ExperimentApiError(message, r.status);
 }
 
+// A 404 means this engine has no run store (kalos #59 removed it), which is a
+// confirmed-empty board, not a connection failure.
 export const listExperiments = (): Promise<ExperimentSummary[]> =>
-  fetch(`${API}/api/experiments`).then((r) => handle<ExperimentSummary[]>(r));
+  fetch(`${API}/api/experiments`).then((r) => (r.status === 404 ? [] : handle<ExperimentSummary[]>(r)));

@@ -62,7 +62,7 @@ export function Proposals<T extends Row>({
             <TableCell className="rounded-r-xl border-y border-r border-border/70 bg-card px-2 py-2 text-left whitespace-normal group-hover:bg-blue-soft">
               <span className="inline-flex items-center gap-1.5">
                 <ModeBadge mode={r.mode} />
-                <span className="text-muted">{r.reason}</span>
+                <span className="font-sans text-muted">{r.reason}</span>
               </span>
             </TableCell>
           </TableRow>

@@ -10,7 +10,7 @@ import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { PageHeader } from "@/components/page-header";
 import { ConvergenceChart, ParetoChart } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
-import { num } from "@/lib/utils";
+import { cn, num } from "@/lib/utils";
 
 type Mode = "single" | "multi";
 
@@ -215,8 +215,14 @@ function SingleView({
                   <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-fg">
                     Found by search
                   </td>
-                  {data.best_recipe.map((v, i) => (
-                    <td key={i} className="border-y border-border/70 bg-card px-2 py-2 text-right text-fg">
+                  {data.best_recipe.map((v, i, a) => (
+                    <td
+                      key={i}
+                      className={cn(
+                        "border-y border-border/70 bg-card px-2 py-2 text-right text-fg",
+                        i === a.length - 1 && "rounded-r-xl border-r",
+                      )}
+                    >
                       {num(v, 3)}
                     </td>
                   ))}
@@ -225,8 +231,14 @@ function SingleView({
                   <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-muted">
                     Known optimum
                   </td>
-                  {data.optimum.map((v, i) => (
-                    <td key={i} className="rounded-r-xl border-y border-r border-border/70 bg-card px-2 py-2 text-right text-muted">
+                  {data.optimum.map((v, i, a) => (
+                    <td
+                      key={i}
+                      className={cn(
+                        "border-y border-border/70 bg-card px-2 py-2 text-right text-muted",
+                        i === a.length - 1 && "rounded-r-xl border-r",
+                      )}
+                    >
                       {num(v, 3)}
                     </td>
                   ))}

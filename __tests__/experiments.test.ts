@@ -53,6 +53,12 @@ describe("lib/experiments.ts", () => {
     });
   });
 
+  it("returns an empty list on 404 - an engine without a run store has no live runs, not a dead connection", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 404, { detail: "Not Found" }));
+
+    await expect(listExperiments()).resolves.toEqual([]);
+  });
+
   it("throws a status-based message when the error body isn't valid JSON", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,

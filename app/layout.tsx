@@ -4,7 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
 // Satoshi (Fontshare Font License, files under app/fonts/) is the product
-// typeface, matching the Voyager v3 prototype. One variable font covers the
+// typeface, matching the original v3 prototype. One variable font covers the
 // full weight range.
 const satoshi = localFont({
   src: "./fonts/Satoshi-Variable.woff2",

@@ -50,20 +50,20 @@ function ScaleUpCurve({ points }: { points: ReportData["scaleUp"] }) {
           cx={x(i)}
           cy={y(p.value)}
           r={i === n - 1 ? 2.5 : 3}
-          fill={i === n - 1 ? "white" : "var(--v-blue)"}
+          fill={i === n - 1 ? "var(--v-surface)" : "var(--v-blue)"}
           stroke={i === n - 1 ? "var(--v-blue)" : undefined}
           strokeWidth={i === n - 1 ? 1.5 : undefined}
         />
       ))}
       {points.map((p, i) => (
-        <text key={`l-${p.label}`} x={x(i)} y={72} fontSize={7.5} textAnchor="middle" fill="rgba(17,17,17,.35)">
+        <text key={`l-${p.label}`} x={x(i)} y={72} fontSize={7.5} textAnchor="middle" fill="var(--v-muted)">
           {p.label}
         </text>
       ))}
-      <text x={x(0)} y={y(points[0].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="var(--v-blue)">
+      <text x={x(0)} y={y(points[0].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="var(--v-blue-7-text)">
         {points[0].value}%
       </text>
-      <text x={x(n - 1)} y={y(points[n - 1].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="var(--v-blue)">
+      <text x={x(n - 1)} y={y(points[n - 1].value) - 9} fontSize={7.5} fontWeight={500} textAnchor="middle" fill="var(--v-blue-7-text)">
         {points[n - 1].value}%
       </text>
     </svg>

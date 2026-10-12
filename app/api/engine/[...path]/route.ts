@@ -33,6 +33,7 @@ const ALLOWED_PATH_PREFIXES = [
   "api/latest",
   "api/campaign",
   "api/providers",
+  "api/scale",
 ] as const;
 
 // Long enough for a COLD containerized GP fit, short enough that a dead

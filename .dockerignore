@@ -1,0 +1,22 @@
+# Build context for ./Dockerfile (context = repo root). The builder stage runs
+# `COPY . .` then `npm run build`, so keep out everything the build does not
+# need: host node_modules (macOS binaries would overwrite the image's own),
+# build output, VCS, local env files (secrets), tests and docs.
+# Podman reads this file too when there is no .containerignore.
+node_modules
+.next
+out
+build
+coverage
+.git
+.github
+.env*
+!env.example
+*.pem
+*.log
+.DS_Store
+__tests__
+docs
+*.md
+Dockerfile
+.dockerignore

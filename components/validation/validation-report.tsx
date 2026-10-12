@@ -91,7 +91,7 @@ function CountsRow({ report }: { report: ValidationReport }) {
       <StatTile label="Checks run" value={report.checks_run} />
       {/* Not a StatTile: the value is three chips, not one number - truncate
           on StatTile's fixed-width value slot would clip a multi-chip row. */}
-      <Card className="flex h-[76px] flex-col justify-center gap-1.5 rounded-xl bg-blue-soft px-3.5 py-2">
+      <Card className="flex h-[76px] flex-col justify-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2">
         <div className="text-[10.5px] font-semibold tracking-wide text-muted uppercase">Error / Warning / Info</div>
         <div className="flex flex-wrap items-baseline gap-1 text-[15px]">
           <SeverityChip severity="error" count={report.counts.error} />

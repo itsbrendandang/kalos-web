@@ -1,7 +1,7 @@
 /*
  * Seed data for the Projects surface.
  *
- * Illustrative content that mirrors voyager_complete_v3.html. The engine does
+ * Illustrative content that mirrors the original v3 prototype. The engine does
  * not yet expose a customers/projects API, so these screens render from this
  * module. Types are shaped so a real API can drop in without touching views.
  */
@@ -427,7 +427,7 @@ const P_LNP: Project = {
 const P_LIVE: Project = {
   id: "p-live",
   customerId: "c3",
-  customerName: "Bioqore R&D",
+  customerName: "In-house R&D",
   name: "Media DoE (live engine)",
   objective: "Recommend the next media experiments from the real uploaded dataset",
   status: "in_progress",
@@ -460,7 +460,7 @@ export const CUSTOMERS: Customer[] = [
   },
   {
     id: "c3",
-    name: "Bioqore R&D",
+    name: "In-house R&D",
     address: "Internal · scored live by the kalos engine",
     projects: [P_LIVE],
   },

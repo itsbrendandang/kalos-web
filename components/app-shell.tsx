@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
+  Ruler,
   ShieldCheck,
   TestTubes,
   type LucideIcon,
@@ -27,7 +28,7 @@ type NavItem = { href: string; label: string; short: string; helper: string; ico
 // running, and tracking runs (Live / Board views live at "/"), so
 // Operations/Planning/Optimize are no longer separate destinations, and Run
 // analysis is an action button rather than a nav entry. "Clients" is split
-// off with a divider: it's the client-facing surface (Bioqore's customers
+// off with a divider: it's the client-facing surface (customers
 // viewing their own runs), a different audience from the internal tool, so it
 // doesn't belong inside "Analyze". The desktop sidebar renders the section
 // labels; the compact mobile bar flattens them.
@@ -42,6 +43,7 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
     items: [
       { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board", icon: ListChecks },
       { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
+      { href: "/scale-readout", label: "Scale-up readout", short: "Scale-up", helper: "Data-backed at a new scale", icon: Ruler },
       { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
     ],
   },

@@ -19,8 +19,8 @@ import { num } from "@/lib/utils";
 import { AnalysisDiagnostics } from "@/components/dashboard/analysis-diagnostics";
 
 /**
- * The shared "reliability + drivers + predicted-vs-measured + proposals" readout
- * (REDESIGN 4.4, 5). Model quality, run structure, predicted landscape, and
+ * The shared "reliability + drivers + predicted-vs-measured + proposals" readout.
+ * Model quality, run structure, predicted landscape, and
  * recommended actions - the single authoritative rendering of an analysis result.
  * Dashboard renders this; no other page should reimplement it.
  */

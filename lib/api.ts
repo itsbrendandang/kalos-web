@@ -565,6 +565,72 @@ export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "c
   return d.cv_spearman != null && ci != null && ci[0] > 0;
 }
 
+export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
+
+export type ReliabilityVerdict = {
+  state: ReliabilityState;
+  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough data". */
+  label: "Reliable" | "Not yet reliable" | "Not enough data";
+  /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
+  rho: number | null;
+  /** Its 95% interval, when the engine reported one. */
+  ci: [number, number] | null;
+  /** The engine's trust floor for `rho`, when reported. */
+  floor: number | null;
+  /** One plain sentence saying why. Never says "clears" while the interval reaches below the floor. */
+  reason: string;
+};
+
+/**
+ * The one reliability verdict app-wide (redesign brief, rule 1). `state` is
+ * `isReliable()` - the same predicate as before - plus the honest third case
+ * where the engine could not score rank agreement at all. Promotion gates are
+ * a separate question with their own line; nothing here reads `promotion`.
+ */
+export function reliabilityVerdict(
+  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
+): ReliabilityVerdict {
+  const rel = d.reliability;
+  const rho = rel?.spearman ?? d.cv_spearman ?? null;
+  const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
+  const floor = rel?.spearman_floor ?? null;
+  const floorText = floor != null ? ` (${floor.toFixed(2)})` : "";
+  if (rho == null) {
+    return {
+      state: "insufficient",
+      label: "Not enough data",
+      rho,
+      ci,
+      floor,
+      reason: "There are not enough held-out runs to measure how well the model ranks recipes.",
+    };
+  }
+  if (isReliable(d)) {
+    const reachesBelow = floor != null && ci != null && ci[0] < floor;
+    return {
+      state: "reliable",
+      label: "Reliable",
+      rho,
+      ci,
+      floor,
+      reason: reachesBelow
+        ? `The model ranks held-out runs above the trust floor${floorText} on average, but its 95% interval still reaches below it.`
+        : `The model ranks held-out runs above the trust floor${floorText}, and its 95% interval stays above it.`,
+    };
+  }
+  const belowFloor = rel ? !rel.clears_floor : true;
+  return {
+    state: "not-yet",
+    label: "Not yet reliable",
+    rho,
+    ci,
+    floor,
+    reason: belowFloor
+      ? `The model's ranking of held-out runs is below the trust floor${floorText}.`
+      : "The model's ranking of held-out runs is above the trust floor on average, but its 95% interval still includes zero, so it is not confirmed yet.",
+  };
+}
+
 /**
  * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
  * or `null` when the engine didn't report `conformal_coverage` (an older

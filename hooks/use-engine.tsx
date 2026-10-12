@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getCampaign, getLatest, type Campaign, type LatestResult } from "@/lib/api";
 
 /**
@@ -66,12 +66,33 @@ function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
   return { ...state, status, refreshing, refresh, set };
 }
 
+type EngineData = { latest: EngineResource<LatestResult>; campaign: EngineResource<Campaign> };
+
+const EngineContext = createContext<EngineData | null>(null);
+
+/**
+ * Mounted once by the app shell, so the explorer, the status bar and every
+ * page read the same two responses: after a page writes (starts runs, logs a
+ * result, re-analyzes) and refreshes or `set`s, everything updates together.
+ */
+export function EngineDataProvider({ children }: { children: ReactNode }) {
+  const latest = useEngineResource(getLatest);
+  const campaign = useEngineResource(getCampaign);
+  return <EngineContext.Provider value={{ latest, campaign }}>{children}</EngineContext.Provider>;
+}
+
+function useEngineData(): EngineData {
+  const data = useContext(EngineContext);
+  if (!data) throw new Error("useLatest/useCampaign need <EngineDataProvider> (mounted by the app shell)");
+  return data;
+}
+
 /** GET /api/latest: the most recent analysis (or `{ has_data: false }`). */
 export function useLatest(): EngineResource<LatestResult> {
-  return useEngineResource(getLatest);
+  return useEngineData().latest;
 }
 
 /** GET /api/campaign: the live campaign (or `{ has_campaign: false }`). */
 export function useCampaign(): EngineResource<Campaign> {
-  return useEngineResource(getCampaign);
+  return useEngineData().campaign;
 }

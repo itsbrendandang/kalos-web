@@ -12,6 +12,7 @@
  * Run (honest: results are outstanding) and the next action is Record, the Run
  * stage's own primary action. Record and Learn only complete once every
  * started run has a result. Stages are ordered: done ... current ... upcoming.
+ * Setup is done once an analysis exists and stays done across rounds.
  */
 
 import type { Campaign, LatestResult } from "@/lib/api";
@@ -30,8 +31,8 @@ export type StageStep = {
 };
 
 export type NextAction = {
-  /** The stage page the action lives on (Setup before the first analysis). */
-  stage: StageKey | "setup";
+  /** The stage page the action lives on. */
+  stage: StageKey;
   /** Verb + object, also the button label: "Record 3 results". */
   action: string;
   href: string;
@@ -55,7 +56,7 @@ function steps(states: Record<StageKey, [StepState, string]>): StageStep[] {
   return CAMPAIGN_STAGES.map((s) => ({ key: s.key, label: s.label, href: s.href, state: states[s.key][0], detail: states[s.key][1] }));
 }
 
-const href = (stage: StageKey | "setup") => `/campaign/${stage}`;
+const href = (stage: StageKey) => `/campaign/${stage}`;
 
 /**
  * `latest` only needs to say whether an analysis exists (and, when it does,
@@ -76,7 +77,8 @@ export function campaignStage(
       round: null,
       ...counts,
       steps: steps({
-        plan: ["upcoming", "After your first upload"],
+        setup: ["current", "No run sheet yet"],
+        plan: ["upcoming", ""],
         run: ["upcoming", ""],
         record: ["upcoming", ""],
         learn: ["upcoming", ""],
@@ -91,6 +93,7 @@ export function campaignStage(
   }
 
   const round = (active?.round ?? 0) + 1;
+  const setupDone: [StepState, string] = ["done", latest.has_data ? "Run sheet analyzed" : "Campaign seeded"];
 
   if (started === 0) {
     const proposed = latest.proposals?.length;
@@ -98,6 +101,7 @@ export function campaignStage(
       round,
       ...counts,
       steps: steps({
+        setup: setupDone,
         plan: ["current", proposed ? `${plural(proposed, "recipe")} proposed` : "Batch ready to review"],
         run: ["upcoming", ""],
         record: ["upcoming", ""],
@@ -121,6 +125,7 @@ export function campaignStage(
       round,
       ...counts,
       steps: steps({
+        setup: setupDone,
         plan: ["done", startedText],
         run: ["current", `${awaiting} awaiting results`],
         record: ["upcoming", done > 0 ? `${done} of ${started} recorded` : "Nothing recorded yet"],
@@ -142,6 +147,7 @@ export function campaignStage(
     round,
     ...counts,
     steps: steps({
+      setup: setupDone,
       plan: ["done", startedText],
       run: ["done", `All ${started} back`],
       record: ["done", `${plural(done, "result")} recorded`],

@@ -1,14 +1,14 @@
 /*
- * Every page in the app, in one place: the sidebar, the header breadcrumb,
- * the command palette, the Library index and the stage stepper all read from
- * here, so a route is renamed or added once. Labels are what people see.
+ * Every page in the app, in one place: the activity rail, the explorers, the
+ * editor tabs and breadcrumb, the command palette and the Library index all
+ * read from here, so a route is renamed or added once. Labels are what people see.
  */
 
-export type StageKey = "plan" | "run" | "record" | "learn";
+export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
 
 export type RouteItem = { href: string; label: string; description: string };
 
-/** The five sidebar destinations, in order. Icons live with the sidebar. */
+/** The activity rail's sections, in order; Settings is pinned at the rail's foot. */
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
   { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
@@ -19,14 +19,11 @@ export const NAV_ITEMS = [
 
 export type NavKey = (typeof NAV_ITEMS)[number]["key"];
 
-export const SETUP_ROUTE: RouteItem = {
-  href: "/campaign/setup",
-  label: "Setup",
-  description: "Upload a run sheet, check data quality and choose the target.",
-};
+export const OVERVIEW_ROUTE: RouteItem = { href: "/", label: "Overview", description: "Where the campaign is and what to do next." };
 
-/** The four stages of a round, in order. */
+/** The campaign stages, in order: Setup once, then Plan, Run, Record, Learn each round. */
 export const CAMPAIGN_STAGES = [
+  { key: "setup", href: "/campaign/setup", label: "Setup", description: "Upload a run sheet, check data quality and choose the target." },
   { key: "plan", href: "/campaign/plan", label: "Plan", description: "Review and start the proposed batch." },
   { key: "run", href: "/campaign/run", label: "Run", description: "Runs in flight and their recipes." },
   { key: "record", href: "/campaign/record", label: "Record", description: "Enter measured results." },
@@ -41,7 +38,9 @@ export const LIBRARY_ITEMS: readonly RouteItem[] = [
   { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
 ];
 
-/** Which sidebar item a pathname belongs to. */
+const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
+
+/** Which rail section a pathname belongs to. */
 export function navKeyFor(pathname: string): NavKey {
   if (pathname === "/" || pathname.startsWith("/campaign")) return "campaign";
   if (pathname.startsWith("/data")) return "data";
@@ -58,7 +57,18 @@ export function navKeyFor(pathname: string): NavKey {
  */
 export function breadcrumbFor(pathname: string): RouteItem[] {
   const section = NAV_ITEMS.find((n) => n.key === navKeyFor(pathname))!;
-  const pages: readonly RouteItem[] = [SETUP_ROUTE, ...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
-  const page = pages.find((p) => p.href === pathname && p.href !== section.href);
+  const page = PAGES.find((p) => p.href === pathname && p.href !== section.href);
   return page ? [section, page] : [section];
+}
+
+/**
+ * A short tab title for any pathname: the page's label, Overview for "/", the
+ * section label for a section index, and otherwise the last path segment.
+ */
+export function titleFor(pathname: string): string {
+  if (pathname === "/") return OVERVIEW_ROUTE.label;
+  const known = PAGES.find((p) => p.href === pathname) ?? NAV_ITEMS.find((n) => n.href === pathname);
+  if (known) return known.label;
+  const last = pathname.split("/").filter(Boolean).pop() ?? "";
+  return last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, " ");
 }

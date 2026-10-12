@@ -2,374 +2,264 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Tailwind v4 defaults `dark:` to prefers-color-scheme. This app drives dark
- * mode from a `dark` class on <html> (app/layout.tsx's no-flash script and
- * components/theme-toggle.tsx), so the variant has to be re-pointed at the
- * class or every `dark:` utility a shadcn primitive ships would silently
- * follow the OS instead of the toggle. Before the shadcn migration nothing in
- * the app used `dark:` at all - dark mode worked purely by flipping token
- * VALUES in the `.dark` block below - so this was previously unnecessary. */
+/* Dark mode is a `dark` class on <html> (set before first paint by the inline
+ * script in app/layout.tsx, changed by lib/theme.ts), not the OS media query,
+ * so every `dark:` utility follows the in-app theme choice. */
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Kalos design system - the kalos blue brand on Satoshi, expressed through
- * shadcn's CSS-variable contract.
- *
- * 2026-08-08 (shadcn/ui migration): brand chrome is BLUE again. The
- * 2026-07-16 "neutral grayscale" migration is reverted per the product
- * owner's non-negotiable brand constraint (kalos owns a blue hue + Satoshi;
- * it must not read as a stock shadcn neutral admin template). Only the
- * BRAND family below changed value - surfaces (--bg/--card/--fg), status
- * colors, radii, and the type stack are exactly as they were, so the
- * migration is a re-hue rather than a redesign. To flip the brand hue again,
- * edit only the "BRAND" blocks; nothing else reads a hue directly.
- *
- * The whole app (optimizer surface + Projects surface) shares one
- * source of truth for color, radius, and type. Tokens are defined once here
- * and consumed via Tailwind v4's @theme inline, so every surface reads the
- * same palette. See DESIGN.md at the repo root for the full rationale.
- *
- * Two token layers live side by side:
- *  1. The original kalos tokens (--bg, --fg, --card, --muted, --border,
- *     --blue*, --accent*, --explore*, --green/--amber/--red, --sidebar,
- *     --grid). Every existing component already reads these, so their
- *     *meaning* never changes - only their *value* flips in `.dark`.
- *  2. The shadcn-standard semantic names (--background, --foreground,
- *     --primary, --secondary, --popover, --destructive, --input, --ring,
- *     --chart-1..5, --radius, --sidebar-*) for any component built or pulled
- *     in against that convention. Where a shadcn name is a pure synonym for
- *     an existing kalos token (e.g. --primary = the kalos "blue"), it is
- *     wired as an alias so both names always agree and dark mode only has to
- *     be taught once.
- *
- * KNOWN DIVERGENCE from stock shadcn, deliberate: `--muted` here is a TEXT
- * gray (254 `text-muted` call sites across 54 files, mirrored as `--v-muted`
- * in app/projects/projects.css), whereas stock shadcn/base-nova treats
- * `--muted` as a subtle SURFACE and reaches for `bg-muted` on hover. Renaming
- * would churn the entire codebase, so the app keeps its meaning and every
- * shadcn primitive added here has `bg-muted` rewritten to `bg-secondary`
- * (the token that genuinely is a subtle surface). Anything added with
- * `shadcn add` in future needs the same one-line patch - see DESIGN.md.
+ * Kalos design tokens. The single source of truth for color, type, radius and
+ * elevation; DESIGN.md explains the roles. Every text and UI pair is checked
+ * for WCAG contrast in both themes by __tests__/contrast.test.ts, which parses
+ * this file, so keep values as oklch() literals or var() references and keep
+ * braces out of comments inside the token blocks.
  */
 :root {
   color-scheme: light;
 
-  /* Base surfaces. Softened toward blue per the feat/satoshi-font direction:
-   * --bg/--fg/--muted/--border sit a hair off achromatic
-   * gray. --card stays pure white. Unchanged by the 2026-08-08 re-hue. */
-  --bg: #f6f8fc;
-  --card: oklch(1 0 0);
-  --fg: #101828;
-  --muted: #667085;
-  --border: #d9e2f2;
+  /* Neutrals: warm paper, ink text. */
+  --bg: oklch(0.985 0.003 90);
+  --surface: oklch(1 0 0);
+  --subtle: oklch(0.965 0.004 90);
+  --border: oklch(0.91 0.005 90);
+  --border-strong: oklch(0.84 0.006 90);
+  --fg: oklch(0.22 0.01 270);
+  --fg-muted: oklch(0.46 0.01 270);
 
-  /* ---- BRAND (light): the kalos blue scale. -------------------------------
-   * Contrast verified (WCAG 2.1, sRGB):
-   *   white on --blue ............ 6.27:1  (AA normal, AAA large)
-   *   --blue text on --card ...... 6.27:1  (AA normal)
-   *   --blue text on --bg ........ 5.90:1  (AA normal)
-   *   white on --blue-hover ...... 8.21:1  (AAA normal)
-   *   --fg on --blue-tint ....... 16.03:1
-   *   --blue on --blue-tint ...... 5.67:1  (AA normal)
-   * Hover goes DARKER, not lighter, so white button text keeps its ratio. */
-  --blue: #204af4;
-  --blue-hover: #1442be;
-  --blue-deep: #123eb2;
-  --blue-soft: #f7faff;
-  --blue-tint: #eef4fe;
-  --blue-border: #d1def9;
-  --blue-hover-bg: #eef4fe;
+  /* Accent: the primary action, links, focus, the model's proposal. */
+  --accent: oklch(0.48 0.16 285);
+  --accent-hover: oklch(0.43 0.16 285);
+  --accent-soft: oklch(0.95 0.024 285);
+  --accent-fg: oklch(1 0 0);
+  --ring: var(--accent);
 
-  /* Semantic accent = the kalos blue everywhere in the app */
-  --accent: var(--blue);
-  --accent-hover: var(--blue-hover);
-  --accent-soft: var(--blue-tint);
-  /* Accent-colored TEXT/icons on page/card/tint surfaces. Split from
-   * --accent-hover (which is the interactive-fill hover BACKGROUND, and must
-   * hold white text) because in dark mode no single blue can both read as
-   * text on a dark surface AND carry white text as a fill. */
-  --accent-text: var(--blue);
+  /* Status: state only, never a chart series, always paired with a word or icon. */
+  --good: oklch(0.5 0.12 150);
+  --good-soft: oklch(0.95 0.04 150);
+  --warn: oklch(0.52 0.11 70);
+  --warn-soft: oklch(0.96 0.04 85);
+  --bad: oklch(0.52 0.17 25);
+  --bad-soft: oklch(0.955 0.02 25);
 
-  /* Secondary "explore" tone (neutral gray, used for exploratory/low-emphasis
-   * states). Deliberately achromatic so "explore vs exploit" reads as a
-   * hue contrast against the blue accent rather than two similar blues. */
-  --explore: #9ca3af;
-  --explore-deep: #52525b;
-  --explore-soft: #ededed;
-
-  /* Status - AA-checked against --card white / --bg page (>=4.5:1):
-   * green 5.40 / 5.08, amber 5.43 / 5.10, red 5.44 / 5.11.
-   * Unchanged by the re-hue - status colors carry meaning. Severity is never
-   * conveyed by color alone; every status also carries an icon or a label. */
-  --green: #1f7a34;
-  --green-soft: #e8f5e9;
-  --amber: #9a5b00;
-  --amber-soft: #fff3e0;
-  --red: #c0392b;
-
-  /* Chrome. --sidebar has no live consumer today (the sidebar chrome uses
-   * bg-card directly) - kept in step with --bg for when it is. */
-  --sidebar: #fbfcfe;
-  --grid: #e4ebf7;
-
-  --radius-card: 16px;
-  --radius-control: 10px;
-
-  /*
-   * shadcn-standard semantic tokens (light). Most are aliases onto the
-   * tokens above so there is exactly one source of truth per color; the
-   * ones that are genuinely new surfaces get their own value.
-   */
-  --background: var(--bg);
-  --foreground: var(--fg);
-  --card-foreground: var(--fg);
-  --popover: var(--card);
-  --popover-foreground: var(--fg);
-
-  --primary: var(--blue);
-  --primary-foreground: #ffffff;
-
-  /* The subtle neutral SURFACE stock shadcn would call `--muted`. Every
-   * shadcn primitive in this repo uses bg-secondary for hover/quiet fills. */
-  --secondary: #eef1f6;
-  --secondary-foreground: var(--fg);
-
-  --muted-foreground: var(--muted);
-
-  /* --accent is a saturated brand fill here (not shadcn's quiet hover gray),
-   * so text on it must be white. */
-  --accent-foreground: #ffffff;
-
-  /* Stock shadcn destructive red - independent of the kalos --red status
-   * token above, which stays exactly as it was. */
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-
-  /* Inputs keep a slightly firmer edge than --border so form affordances stay
-   * legible. --ring is the brand blue: focus is an on-brand, visible event. */
-  --input: #c8d5ec;
-  --ring: var(--blue);
-
-  /* Generic radius for shadcn-convention components. See the radius scale in
-   * @theme inline below for which steps are overridden and which are left at
-   * Tailwind's defaults. */
-  --radius: 0.75rem;
-
-  /*
-   * DATA COLOR. Two distinct roles, and they must not be confused:
-   *
-   *  --chart-1..5  SEQUENTIAL, single-hue blue (light -> dark). For ordered
-   *                magnitude: heatmaps, response surfaces, run landscapes,
-   *                the plate grid. Single-hue is a hard requirement - it is
-   *                the only ramp that survives every form of color vision
-   *                deficiency and greyscale printing. Ratios vs white:
-   *                2.07 / 3.26 / 6.27 / 9.99 / 14.76. These are FILLS, not
-   *                text; use --chart-1-ink when a value needs a label.
-   *
-   *  --series-1..6 CATEGORICAL, the Okabe-Ito colorblind-safe qualitative
-   *                palette. For unordered multi-series overlays only
-   *                (kinetic traces, per-vessel lines, trajectory compares).
-   *                Never use a sequential step to distinguish categories, and
-   *                never use a series color to imply magnitude.
-   *                Series must ALSO be distinguished non-chromatically (dash
-   *                pattern, marker shape, or a direct label): --series-2
-   *                (2.25:1) and --series-5 (2.31:1) are too light to carry
-   *                meaning by hue alone on white, so they need >=2px strokes.
-   */
-  --chart-1: #93b4fb;
-  --chart-2: #5c8af8;
-  --chart-3: #204af4;
-  --chart-4: #1533ac;
-  --chart-5: #0b1f6b;
-
-  --series-1: #0072b2;
-  --series-2: #e69f00;
-  --series-3: #009e73;
-  --series-4: #d55e00;
-  --series-5: #56b4e9;
-  --series-6: #cc79a7;
-
-  /* The sequential ramp as a text/ink color. The mid ramp steps are fine as
-   * fills but fail AA as text, so a chart-colored VALUE label uses this
-   * instead: 7.88:1 on white. Overridden in .dark. */
-  --chart-1-ink: #1a3fd0;
+  /* Data viz. chart-1..6 are categorical, Okabe-Ito order (blue, orange,
+   * bluish green, vermillion, sky blue, reddish purple), darkened until every
+   * mark clears 3:1 on the plot surface. chart-seq-1..5 is the ordered
+   * magnitude ramp on the accent hue: seq-5, the highest value, is always the
+   * most visible step against the page. */
+  --chart-1: oklch(0.53 0.13 245);
+  --chart-2: oklch(0.64 0.14 65);
+  --chart-3: oklch(0.6 0.12 165);
+  --chart-4: oklch(0.6 0.17 42);
+  --chart-5: oklch(0.6 0.11 235);
+  --chart-6: oklch(0.58 0.14 345);
+  --chart-seq-1: oklch(0.93 0.03 285);
+  --chart-seq-2: oklch(0.82 0.07 285);
+  --chart-seq-3: oklch(0.68 0.12 285);
+  --chart-seq-4: oklch(0.53 0.15 285);
+  --chart-seq-5: oklch(0.38 0.14 285);
+  --chart-band: oklch(0.48 0.16 285 / 0.14);
+  --chart-reference: var(--fg-muted);
+  --chart-predicted: var(--accent);
+  --chart-measured: var(--fg);
+  --chart-grid: var(--border);
 }
 
-/*
- * Dark mode. Toggled by adding `.dark` to <html> (see app/layout.tsx for the
- * no-flash inline script and components/theme-toggle.tsx for the toggle).
- * Every token whose *value* needs to change for a dark surface is
- * overridden here; tokens that are pure aliases (e.g. --primary: var(--blue))
- * automatically follow without repeating them.
- */
 .dark {
   color-scheme: dark;
 
-  --bg: oklch(0.145 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --fg: oklch(0.985 0 0);
-  --muted: oklch(0.712 0.013 286.067);
-  --border: oklch(0.248 0.004 286.033); /* softened toward --card so boxes recede (dark) */
+  --bg: oklch(0.17 0.006 270);
+  --surface: oklch(0.2 0.006 270);
+  --subtle: oklch(0.235 0.007 270);
+  --border: oklch(0.3 0.008 270);
+  --border-strong: oklch(0.38 0.01 270);
+  --fg: oklch(0.95 0.005 90);
+  --fg-muted: oklch(0.72 0.01 270);
 
-  /* ---- BRAND (dark). ------------------------------------------------------
-   * The fill has to be light enough to separate from the dark page yet dark
-   * enough to hold white text, so it is a mid blue, and hover goes DARKER
-   * (same direction as light mode). Verified against the dark surfaces
-   * (--bg #0a0a0a, --card #18181b):
-   *   white on --blue ............ 5.04:1  (AA normal)
-   *   white on --blue-hover ...... 5.74:1  (AA normal)
-   *   --blue fill vs --bg ........ 3.93:1  (AA non-text UI, >=3:1)
-   *   --accent-text on --card .... 7.01:1  (AAA normal)
-   *   --accent-text on --bg ...... 7.83:1  (AAA normal)
-   *   --accent-text on --blue-tint 5.77:1  (AA normal) */
-  --blue: #3567de;
-  --blue-hover: #2d5ed4;
-  --blue-deep: #2251c6;
-  --blue-soft: #182031;
-  --blue-tint: #20293a;
-  --blue-border: #2a354d;
-  --blue-hover-bg: #20293a;
+  /* A light accent fill on a dark page, so the label on it is dark ink. */
+  --accent: oklch(0.72 0.13 285);
+  --accent-hover: oklch(0.78 0.11 285);
+  --accent-soft: oklch(0.29 0.06 285);
+  --accent-fg: oklch(0.17 0.02 285);
 
-  /* Accent text decoupled from the fill in dark mode: a mid-blue fill cannot
-   * also read as body text on a dark surface. */
-  --accent-text: #74a1ff;
+  --good: oklch(0.76 0.13 150);
+  --good-soft: oklch(0.28 0.05 150);
+  --warn: oklch(0.8 0.12 75);
+  --warn-soft: oklch(0.29 0.045 75);
+  --bad: oklch(0.72 0.15 25);
+  --bad-soft: oklch(0.29 0.06 25);
 
-  /* CRITICAL: the brand fill is a mid blue in dark mode, so "on-fill" text
-   * must be WHITE here. (Under the 2026-07-16 neutral theme this was
-   * near-black, because the neutral "blue" flipped to near-white in dark
-   * mode. Restoring the hue requires restoring white, or every dark-mode
-   * button label would drop to ~3.5:1 on its own fill.) */
-  --primary-foreground: #ffffff;
+  --chart-1: oklch(0.68 0.13 245);
+  --chart-2: oklch(0.78 0.14 75);
+  --chart-3: oklch(0.72 0.12 165);
+  --chart-4: oklch(0.7 0.15 42);
+  --chart-5: oklch(0.8 0.1 235);
+  --chart-6: oklch(0.75 0.12 345);
+  --chart-seq-1: oklch(0.3 0.05 285);
+  --chart-seq-2: oklch(0.42 0.09 285);
+  --chart-seq-3: oklch(0.56 0.12 285);
+  --chart-seq-4: oklch(0.7 0.12 285);
+  --chart-seq-5: oklch(0.86 0.07 285);
+  --chart-band: oklch(0.72 0.13 285 / 0.2);
+}
 
-  --explore-deep: #b6bcc9;
-  --explore-soft: #232733;
-
-  /* Status colors re-picked (not just lightened) so they clear >=4.5:1 AA
-   * against both --bg and --card here - verified 5.4-8.4:1, see DESIGN.md. */
-  --green: #34c77a;
-  --green-soft: #10301f;
-  --amber: #e0a530;
-  --amber-soft: #362408;
-  --red: #f16354;
-
-  --grid: oklch(0.274 0.005 286.033);
-  --sidebar: oklch(0.21 0.006 285.885);
-
-  --secondary: oklch(0.274 0.005 286.033);
-  --input: oklch(1 0 0 / 15%);
-  --ring: #74a1ff;
-
-  /* Sequential ramp flips direction in dark mode: low values must be the DARK
-   * end so "more" still reads as "more visible" against a dark page. Same
-   * single hue, reversed lightness order. */
-  --chart-1: #16265e;
-  --chart-2: #1d3fa8;
-  --chart-3: #3567de;
-  --chart-4: #6f9bfa;
-  --chart-5: #b3caff;
-
-  /* Okabe-Ito is designed for light backgrounds; on the dark card the two
-   * darkest members are lifted so every series clears 3:1 non-text contrast. */
-  --series-1: #4ea3e0;
-  --series-2: #e69f00;
-  --series-3: #2ec49a;
-  --series-4: #f47b3d;
-  --series-5: #56b4e9;
-  --series-6: #e2a0c4;
-
-  --chart-1-ink: #a8c4fc;
+/*
+ * COMPATIBILITY ALIASES - temporary. The old token names below are read by
+ * pages that have not been rebuilt yet (app/data, the library tools, the
+ * campaign stage pages, components/dashboard, components/projects and
+ * app/projects/projects.css). Each maps onto a new token so those pages render
+ * in the new palette. Page engineers delete an alias once nothing reads it;
+ * DESIGN.md lists them. Do not use them in new code.
+ */
+:root {
+  --card: var(--surface);
+  --muted: var(--fg-muted);
+  --accent-text: var(--accent);
+  --blue: var(--accent);
+  --blue-hover: var(--accent-hover);
+  --blue-deep: var(--accent);
+  --blue-soft: var(--subtle);
+  --blue-tint: var(--accent-soft);
+  --blue-border: var(--border-strong);
+  --blue-hover-bg: var(--subtle);
+  --explore: var(--border-strong);
+  --explore-deep: var(--fg-muted);
+  --explore-soft: var(--subtle);
+  --green: var(--good);
+  --green-soft: var(--good-soft);
+  --amber: var(--warn);
+  --amber-soft: var(--warn-soft);
+  --red: var(--bad);
+  --grid: var(--chart-grid);
+  --series-1: var(--chart-1);
+  --series-2: var(--chart-2);
+  --series-3: var(--chart-3);
+  --series-4: var(--chart-4);
+  --series-5: var(--chart-5);
+  --series-6: var(--chart-6);
+  --chart-1-ink: var(--accent);
+  --primary-foreground: var(--accent-fg);
+  --secondary: var(--subtle);
+  --font-jbmono: var(--font-geist-mono);
 }
 
 @theme inline {
   --color-bg: var(--bg);
-  --color-card: var(--card);
-  --color-fg: var(--fg);
-  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
   --color-border: var(--border);
-
-  --color-blue: var(--blue);
-  --color-blue-hover: var(--blue-hover);
-  --color-blue-deep: var(--blue-deep);
-  --color-blue-soft: var(--blue-soft);
-  --color-blue-tint: var(--blue-tint);
-  --color-blue-border: var(--blue-border);
-
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
-  --color-accent-text: var(--accent-text);
-
-  --color-explore: var(--explore);
-  --color-explore-deep: var(--explore-deep);
-  --color-explore-soft: var(--explore-soft);
-
-  --color-green: var(--green);
-  --color-green-soft: var(--green-soft);
-  --color-amber: var(--amber);
-  --color-amber-soft: var(--amber-soft);
-  --color-red: var(--red);
-
-  --color-sidebar: var(--sidebar);
-  --color-grid: var(--grid);
-
-  --radius-card: var(--radius-card);
-  --radius-control: var(--radius-control);
-
-  --font-head: var(--font-geist);
-  --font-sans: var(--font-geist);
-  --font-heading: var(--font-geist);
-  --font-mono: var(--font-geist-mono);
-
-  /* shadcn-standard semantic utilities (bg-primary, text-muted-foreground,
-   * bg-chart-1, etc.). */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-input: var(--input);
+  --color-accent-fg: var(--accent-fg);
   --color-ring: var(--ring);
-
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-chart-1-ink: var(--chart-1-ink);
+  --color-chart-6: var(--chart-6);
+  --color-chart-seq-1: var(--chart-seq-1);
+  --color-chart-seq-2: var(--chart-seq-2);
+  --color-chart-seq-3: var(--chart-seq-3);
+  --color-chart-seq-4: var(--chart-seq-4);
+  --color-chart-seq-5: var(--chart-seq-5);
+  --color-chart-band: var(--chart-band);
+  --color-chart-reference: var(--chart-reference);
+  --color-chart-predicted: var(--chart-predicted);
+  --color-chart-measured: var(--chart-measured);
+  --color-chart-grid: var(--chart-grid);
 
-  --color-series-1: var(--series-1);
-  --color-series-2: var(--series-2);
-  --color-series-3: var(--series-3);
-  --color-series-4: var(--series-4);
-  --color-series-5: var(--series-5);
-  --color-series-6: var(--series-6);
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* Radius scale. Only the CONTROL steps are overridden, onto the kalos 10px
-   * control radius, so base-nova primitives (which reach for rounded-lg and
-   * var(--radius-md)) match the app's existing rounded-[10px] controls.
-   * --radius-xl / 2xl / 3xl / 4xl are deliberately left at Tailwind's
-   * defaults (12 / 16 / 24 / 32px) so the 22 existing rounded-xl and
-   * rounded-2xl surfaces stay pixel-identical through the migration.
-   * shadcn init had overwritten the WHOLE scale as multiples of --radius,
-   * which silently shifted every one of those surfaces. */
-  --radius-md: 8px;
-  --radius-lg: 10px;
+  /* COMPATIBILITY utilities for not-yet-rebuilt pages (see the alias block). */
+  --color-card: var(--surface);
+  --color-muted: var(--fg-muted);
+  --color-accent-text: var(--accent);
+  --color-blue: var(--accent);
+  --color-blue-hover: var(--accent-hover);
+  --color-blue-deep: var(--accent);
+  --color-blue-soft: var(--subtle);
+  --color-blue-tint: var(--accent-soft);
+  --color-blue-border: var(--border-strong);
+  --color-explore: var(--border-strong);
+  --color-explore-deep: var(--fg-muted);
+  --color-explore-soft: var(--subtle);
+  --color-green: var(--good);
+  --color-green-soft: var(--good-soft);
+  --color-amber: var(--warn);
+  --color-amber-soft: var(--warn-soft);
+  --color-red: var(--bad);
+  --color-grid: var(--chart-grid);
+  --color-chart-1-ink: var(--accent);
+  --color-series-1: var(--chart-1);
+  --color-series-2: var(--chart-2);
+  --color-series-3: var(--chart-3);
+  --color-series-4: var(--chart-4);
+  --color-series-5: var(--chart-5);
+  --color-series-6: var(--chart-6);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--fg);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-fg);
+  --color-secondary: var(--subtle);
+  --color-secondary-foreground: var(--fg);
+  --color-muted-foreground: var(--fg-muted);
+  --color-accent-foreground: var(--accent-fg);
+  --color-destructive: var(--bad);
+  --color-input: var(--border-strong);
+  --font-head: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+}
 
-  /* No elevation anywhere in the kalos UI - flat surfaces only, borders carry
-   * separation. This zeroes the box-shadow SCALE rather than using a blanket
-   * `box-shadow: none !important`, which is what the file did before. That
-   * blanket rule also killed `ring-*`, because Tailwind composes rings into
-   * the box-shadow property - so every focus-visible:ring on a shadcn
-   * primitive would have been invisible, an accessibility regression. Zeroing
-   * the scale keeps shadow-* a no-op while leaving rings fully functional. */
+/* Type scale: role tokens, one per job. `text-metric` numbers also take
+ * `tabular-nums` (Metric and KpiCard apply it). Geist Mono via `font-mono
+ * text-code` is for code-like values only (ids, column keys), never numbers. */
+@theme {
+  --text-display: 2rem;
+  --text-display--line-height: 2.375rem;
+  --text-display--font-weight: 600;
+  --text-display--letter-spacing: -0.015em;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.01em;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--font-weight: 600;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+  --text-body--font-weight: 400;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-label--font-weight: 500;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-caption--font-weight: 400;
+  --text-metric: 2.25rem;
+  --text-metric--line-height: 2.5rem;
+  --text-metric--font-weight: 600;
+  --text-metric--letter-spacing: -0.02em;
+  --text-code: 0.8125rem;
+  --text-code--line-height: 1.125rem;
+
+  /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
+   * are Tailwind's defaults, so the scale is not overridden. */
+
+  /* Elevation: none, except overlays (popovers, menus, dialogs, the palette),
+   * which use shadow-popover. The scale is zeroed rather than banned with
+   * `box-shadow: none !important`, which would also kill ring-* focus rings. */
   --shadow-2xs: none;
   --shadow-xs: none;
   --shadow-sm: none;
@@ -377,7 +267,7 @@
   --shadow-lg: none;
   --shadow-xl: none;
   --shadow-2xl: none;
-  --shadow-inner: none;
+  --shadow-popover: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12);
   --inset-shadow-2xs: none;
   --inset-shadow-xs: none;
   --inset-shadow-sm: none;
@@ -392,18 +282,23 @@
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-geist), system-ui, sans-serif;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
 }
 
 ::selection {
-  background: var(--blue-tint);
-  color: var(--blue-deep);
+  background: var(--accent-soft);
+  color: var(--fg);
 }
 
+/* COMPATIBILITY: old pages use `.tabular`; new code uses `tabular-nums`. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
+/* One focus ring everywhere, visible in both themes (accent clears 3:1 on
+ * every surface; see the contrast test). */
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;

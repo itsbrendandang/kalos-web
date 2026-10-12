@@ -36,7 +36,7 @@ Two Sonnet reviews (design + eng) reshaped the order and cut the honesty risks. 
 
 ## The scale-up timeline (the marquee — spec in detail)
 
-The distinctive Bioqore wedge: the optimization does not end at a good 96-well recipe — it has to survive scale-up to production vessels.
+The distinctive Kalos wedge: the optimization does not end at a good 96-well recipe — it has to survive scale-up to production vessels.
 This view shows the projected scale-up **path** for the current best recipe as a multi-objective, **branching** timeline.
 
 **Stages (x-axis, left → right, increasing scale):**

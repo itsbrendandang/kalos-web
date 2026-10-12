@@ -52,11 +52,11 @@ const GRAY = CHART_THEME.seriesDown;
 const GRID = CHART_THEME.grid;
 const INK = CHART_THEME.axis;
 
-export const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-jbmono)" } as const;
+export const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-geist-mono)" } as const;
 export const tip = {
   contentStyle: {
     fontSize: 12,
-    fontFamily: "var(--font-jbmono)",
+    fontFamily: "var(--font-geist-mono)",
     borderRadius: 8,
     border: `1px solid ${CHART_THEME.tooltip.border}`,
     background: CHART_THEME.tooltip.background,

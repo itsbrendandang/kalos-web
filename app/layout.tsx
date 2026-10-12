@@ -3,23 +3,20 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
-// Satoshi (Fontshare Font License, files under app/fonts/) is the product
-// typeface, matching the original v3 prototype. One variable font covers the
-// full weight range.
-const satoshi = localFont({
-  src: "./fonts/Satoshi-Variable.woff2",
-  variable: "--font-satoshi",
-  weight: "300 900",
+// Geist (UI and text) and Geist Mono (code-like values only), SIL OFL 1.1,
+// self-hosted from app/fonts/ so the build never fetches a font. The files are
+// the vercel/geist-font v1.7.2 variable webfonts, renamed only - see DESIGN.md
+// "Fonts" for the blob hashes. Numbers use Geist with tabular-nums, not mono.
+const geist = localFont({
+  src: "./fonts/Geist-Variable.woff2",
+  variable: "--font-geist",
+  weight: "100 900",
   display: "swap",
 });
-// JetBrains Mono (SIL OFL 1.1, files under app/fonts/) is the tabular/mono
-// face, self-hosted so the build never fetches from Google Fonts. The range
-// is pinned to 500-600: the app only ever loaded those two weights, so a
-// normal-weight request renders at 500 and a bold one at 600, as before.
-const jbmono = localFont({
-  src: "./fonts/JetBrainsMono-Variable.ttf",
-  variable: "--font-jbmono",
-  weight: "500 600",
+const geistMono = localFont({
+  src: "./fonts/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
   display: "swap",
 });
 
@@ -38,7 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="en"
-      className={`${satoshi.variable} ${jbmono.variable} antialiased`}
+      className={`${geist.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

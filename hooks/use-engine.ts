@@ -27,34 +27,35 @@ function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
   const [state, setState] = useState<{ data: T | null; error: boolean }>({ data: null, error: false });
   const [refreshing, setRefreshing] = useState(false);
   // Every request takes a ticket; only the newest one may write state, so a
-  // slow early response never overwrites a newer one, and unmount drops all.
+  // slow early response never overwrites a newer one.
   const ticket = useRef(0);
 
-  const load = useCallback(async () => {
-    const mine = ++ticket.current;
-    try {
-      const data = await fetcher();
-      if (mine === ticket.current) setState({ data, error: false });
-    } catch {
-      if (mine === ticket.current) setState((s) => ({ data: s.data, error: true }));
-    }
-  }, [fetcher]);
+  const request = useCallback(
+    () => fetcher().then((data) => ({ ok: true as const, data }), () => ({ ok: false as const })),
+    [fetcher],
+  );
+  const settle = useCallback((mine: number, outcome: { ok: true; data: T } | { ok: false }) => {
+    if (mine !== ticket.current) return;
+    setState((s) => (outcome.ok ? { data: outcome.data, error: false } : { data: s.data, error: true }));
+  }, []);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    const mine = ++ticket.current;
+    request().then((outcome) => {
+      if (!cancelled) settle(mine, outcome);
+    });
     return () => {
-      ticket.current++;
+      cancelled = true;
     };
-  }, [load]);
+  }, [request, settle]);
 
   const refresh = useCallback(async () => {
+    const mine = ++ticket.current;
     setRefreshing(true);
-    try {
-      await load();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [load]);
+    settle(mine, await request());
+    setRefreshing(false);
+  }, [request, settle]);
 
   const set = useCallback((next: T) => {
     ticket.current++;

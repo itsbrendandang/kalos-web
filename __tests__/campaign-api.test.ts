@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { API, getCampaign, logResult, reanalyze, startRuns, type Campaign } from "@/lib/api";
+import { API, getCampaign, logResult, proposalRecipe, reanalyze, startRuns, type Campaign, type Proposal } from "@/lib/api";
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
 function fakeResponse(ok: boolean, status: number, body: unknown): Response {
@@ -153,5 +153,22 @@ describe("campaign client (lib/api.ts)", () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
 
     await expect(reanalyze()).rejects.toThrow("engine responded 500");
+  });
+});
+
+// Regression guard: Start used to record only the proposal_features columns,
+// so a started run lost every other setpoint - the campaign then reported those
+// inputs as "missing" after re-analysis, and the in-flight block zero-filled
+// them (marking the wrong region as already being run).
+describe("proposalRecipe", () => {
+  const base: Proposal = { vals: [7.1, 36.5], pred: 1.2, std: 0.1, mode: "exploit", reason: "" };
+
+  it("returns every setpoint the engine sent, not just the proposal_features", () => {
+    const recipe = { pH: 7.1, temperature_C: 36.5, glucose_gL: 3.1, DO_pct: 30 };
+    expect(proposalRecipe({ ...base, recipe }, ["pH", "temperature_C"])).toEqual(recipe);
+  });
+
+  it("falls back to the proposal_features for older engines without a recipe", () => {
+    expect(proposalRecipe(base, ["pH", "temperature_C"])).toEqual({ pH: 7.1, temperature_C: 36.5 });
   });
 });

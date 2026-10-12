@@ -31,7 +31,19 @@ export type Proposal = {
    * engine builds.
    */
   p_feasible?: number | null;
+  /**
+   * Every setpoint of the recipe, keyed by input: the `proposal_features`
+   * shown as columns plus every other input the recipe sets. This is what the
+   * lab runs and what a started run must record. Absent on older engines.
+   */
+  recipe?: Record<string, number>;
 };
+
+/** The full recipe to run and record for a proposal. Falls back to the
+ *  proposal_features alone only for older engines that do not send `recipe`. */
+export function proposalRecipe(p: Proposal, features: string[]): Record<string, number> {
+  return p.recipe ?? Object.fromEntries(features.map((f, i) => [f, p.vals[i]]));
+}
 
 export type MultiProposal = {
   vals: number[];

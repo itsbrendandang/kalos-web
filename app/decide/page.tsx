@@ -14,6 +14,7 @@ import {
   proposalIncumbent,
   reanalyze,
   startRuns,
+  proposalRecipe,
   type Campaign,
   type CampaignRun,
   type LatestResult,
@@ -184,7 +185,7 @@ function DecideBody({
     const recipes = [...queued].map((i) => {
       const p = d.proposals[i];
       return {
-        recipe: Object.fromEntries(d.proposal_features.map((f, fi) => [f, p.vals[fi]])),
+        recipe: proposalRecipe(p, d.proposal_features),
         pred: p.pred,
         std: p.std,
         mode: p.mode,
@@ -335,7 +336,7 @@ function DecideBody({
       {d.proposals.length ? (
         <Details summary="Projected scale-up - physics priors, not from your data">
           <ScaleUpTimeline
-            bestRecipe={Object.fromEntries(d.proposal_features.map((f, i) => [f, d.proposals[0].vals[i]]))}
+            bestRecipe={proposalRecipe(d.proposals[0], d.proposal_features)}
             bestValue={active?.best ?? d.best}
             targetName={targetName}
             unit={unit}
@@ -549,6 +550,7 @@ function ProposalCard({
   onToggle: () => void;
 }) {
   const bandV = band ?? p.std;
+  const others = Object.entries(proposalRecipe(p, features)).filter(([k]) => !features.includes(k));
   const delta = best == null ? null : p.pred - best;
   const v = recipeVerdict(p.pred, bandV, best);
   const toneClass =
@@ -578,6 +580,17 @@ function ProposalCard({
           </div>
         ))}
       </div>
+      {others.length ? (
+        <div className="text-[11px] leading-relaxed text-muted">
+          Other setpoints:{" "}
+          {others.map(([k, v], i) => (
+            <span key={k} className="whitespace-nowrap">
+              {i ? " · " : ""}
+              {k} <span className="tabular font-mono text-fg">{num(v, 2)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-3">
         {/* The number that matters: predicted change vs the recipe you already have. */}
@@ -671,7 +684,7 @@ function PendingRunRow({
       </Badge>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {features.map((f) => (
+        {[...features, ...Object.keys(run.recipe).filter((k) => !features.includes(k))].map((f) => (
           <div key={f} className="text-[12px] whitespace-nowrap">
             <span className="text-muted">{f}</span>{" "}
             <span className="tabular font-mono font-semibold text-fg">{num(run.recipe[f], 2)}</span>

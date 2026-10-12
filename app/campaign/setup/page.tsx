@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { ValidationReportCard } from "@/components/validation/validation-report";
-import { ProviderStatus } from "@/components/validation/provider-status";
 import { cn } from "@/lib/utils";
 
 type EngineErrorKind = "unreachable" | "rejected";
@@ -174,9 +173,8 @@ export default function SetupPage() {
         </Card>
       ) : null}
 
-      {/* Interim: the old /validate page's verdict and provider status, until Setup is rebuilt. */}
+      {/* Interim: the old /validate page's verdict, until Setup is rebuilt. Provider status lives in Settings. */}
       {res ? <ValidationReportCard report={res.validation} /> : null}
-      <ProviderStatus />
     </div>
   );
 }

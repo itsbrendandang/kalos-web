@@ -1,217 +1,190 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ChevronRight, CircleCheck, CircleDashed, History } from "lucide-react";
-import { cn, num } from "@/lib/utils";
-import { inFlight, measured, shortId, type ActiveCampaign, type SectionKey, type WorkbenchTab } from "@/lib/workbench";
+import { usePathname } from "next/navigation";
+import { Circle, CircleCheck, CircleDashed, CircleDot, FileSpreadsheet, FolderOpen, History, LayoutDashboard, Wrench } from "lucide-react";
+import { ExplorerTree, type TreeLeaf, type TreeNode } from "@/components/workbench/explorer-tree";
+import { useProjectsStore } from "@/components/projects/store-context";
+import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { useCampaign, useLatest } from "@/hooks/use-engine";
+import { campaignStage, type StepState } from "@/lib/campaign-stage";
+import { DEMO_MODE } from "@/lib/demo";
+import { formatNumber } from "@/lib/format";
+import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
+import { DATASETS } from "@/lib/mock/registry";
+import { LIBRARY_ITEMS, type NavKey } from "@/lib/routes";
+import { campaignView, inFlight, measured, shortId } from "@/lib/workbench";
 
-type Item =
-  | { kind: "section"; key: SectionKey; label: string; count: number }
-  | { kind: "leaf"; key: string; parent: SectionKey; tab: WorkbenchTab; icon: ReactNode; label: string; detail: string; title: string };
+const ICON = "size-4 shrink-0";
 
-/**
- * The workbench's EXPLORER: the campaign as a tree - runs in flight, runs
- * measured this round, and the rounds so far. A real ARIA tree with VS Code's
- * keyboard model (arrows move/expand/collapse, Enter opens, Home/End) and a
- * single roving tab stop, so it is one Tab press to get in and one to get out.
- */
-export function Explorer({
-  campaign,
-  activeKey,
-  onOpen,
-}: {
-  campaign: ActiveCampaign;
-  activeKey: string | null;
-  onOpen: (tab: WorkbenchTab) => void;
-}) {
-  const [collapsed, setCollapsed] = useState<Set<SectionKey>>(new Set());
-  const [focusKey, setFocusKey] = useState<string>("in-flight");
-  const refs = useRef(new Map<string, HTMLDivElement>());
+const STEP_ICON: Record<StepState, React.ReactNode> = {
+  done: <CircleCheck className={`${ICON} text-good`} aria-hidden />,
+  current: <CircleDot className={`${ICON} text-accent`} aria-hidden />,
+  upcoming: <Circle className={`${ICON} text-fg-muted`} aria-hidden />,
+};
 
-  const flying = inFlight(campaign);
-  const done = measured(campaign);
-  const rounds = [...campaign.history].reverse();
+const STEP_WORD: Record<StepState, string> = { done: "done", current: "current", upcoming: "upcoming" };
 
-  const sections: { key: SectionKey; label: string; leaves: Item[] }[] = [
+/** Whether the current section shows an example-data label in the explorer header. */
+export function useExplorerIsExample(section: NavKey): boolean {
+  const campaign = useCampaign();
+  if (section === "projects") return true;
+  if (section === "data") return DEMO_MODE;
+  if (section !== "campaign") return false;
+  const view = campaignView(campaign.data, campaign.error, DEMO_MODE, DEMO_CAMPAIGN);
+  return view.state === "data" && view.demo;
+}
+
+/** The explorer tree for one rail section. Settings has none. */
+export function SectionExplorer({ section }: { section: NavKey }) {
+  if (section === "campaign") return <CampaignExplorer />;
+  if (section === "data") return <DataExplorer />;
+  if (section === "library") return <LibraryExplorer />;
+  if (section === "projects") return <ProjectsExplorer />;
+  return null;
+}
+
+function CampaignExplorer() {
+  const pathname = usePathname();
+  const latest = useLatest();
+  const campaign = useCampaign();
+  const view = campaignView(campaign.data, campaign.error, DEMO_MODE, DEMO_CAMPAIGN);
+
+  if (view.state === "error" || latest.status === "error") {
+    return (
+      <div className="p-2">
+        <ErrorState
+          title="Could not load the campaign"
+          description="The engine did not answer. This is a connection problem, not an empty campaign."
+          onRetry={() => {
+            void latest.refresh();
+            void campaign.refresh();
+          }}
+          busy={campaign.refreshing || latest.refreshing}
+        />
+      </div>
+    );
+  }
+  if (view.state === "loading" || latest.status === "loading") {
+    return <LoadingSkeleton rows={6} label="Loading the campaign" className="p-4" />;
+  }
+
+  const active = view.state === "data" ? view.campaign : null;
+  const stage = campaignStage(view.state === "data" && view.demo ? { has_data: true } : latest.data!, active ?? { has_campaign: false });
+
+  const overview: TreeLeaf = {
+    kind: "leaf",
+    key: "overview",
+    href: "/",
+    label: "Overview",
+    icon: <LayoutDashboard className={`${ICON} text-fg-muted`} aria-hidden />,
+    name: "Overview",
+  };
+  const stages: TreeNode = {
+    kind: "group",
+    key: "stages",
+    label: stage.round ? `Stages, round ${stage.round}` : "Stages",
+    leaves: stage.steps.map((s) => ({
+      kind: "leaf",
+      key: `stage:${s.key}`,
+      href: s.href,
+      label: s.label,
+      detail: s.detail ? <span className="max-md:hidden">{s.detail}</span> : undefined,
+      icon: STEP_ICON[s.state],
+      name: `${s.label}, ${STEP_WORD[s.state]}${s.detail ? `: ${s.detail}` : ""}`,
+    })),
+  };
+  if (!active) return <ExplorerTree label="Campaign" nodes={[overview, stages]} activeHref={pathname} />;
+
+  const runLeaf = (r: (typeof active.pending)[number], awaiting: boolean): TreeLeaf => ({
+    kind: "leaf",
+    key: `run:${r.id}`,
+    href: `/campaign/run#run-${r.id}`,
+    label: shortId(r.id),
+    mono: true,
+    detail: awaiting ? formatNumber(r.pred) : formatNumber(r.result),
+    icon: awaiting ? <CircleDashed className={`${ICON} text-warn`} aria-hidden /> : <CircleCheck className={`${ICON} text-good`} aria-hidden />,
+    name: awaiting
+      ? `Run ${shortId(r.id)}, awaiting a result, predicted ${formatNumber(r.pred)}`
+      : `Run ${shortId(r.id)}, measured ${formatNumber(r.result)}`,
+  });
+
+  const nodes: TreeNode[] = [
+    overview,
+    stages,
+    { kind: "group", key: "in-flight", label: "In flight", leaves: inFlight(active).map((r) => runLeaf(r, true)), empty: "None running" },
+    { kind: "group", key: "measured", label: "Measured", leaves: measured(active).map((r) => runLeaf(r, false)), empty: "None this round" },
     {
-      key: "in-flight",
-      label: "In flight",
-      leaves: flying.map((r) => ({
-        kind: "leaf",
-        key: `run:${r.id}`,
-        parent: "in-flight",
-        tab: { kind: "run", runId: r.id },
-        icon: <CircleDashed className="size-3.5 text-amber" aria-hidden />,
-        label: shortId(r.id),
-        // "pred", not "~": in 11px mono a tilde reads as a minus sign, right
-        // beside measured values that can genuinely be negative.
-        detail: `pred ${num(r.pred, 2)}`,
-        title: `Run ${shortId(r.id)}, awaiting a result, predicted ${num(r.pred, 2)}`,
-      })),
-    },
-    {
-      key: "measured",
-      label: "Measured",
-      leaves: done.map((r) => ({
-        kind: "leaf",
-        key: `run:${r.id}`,
-        parent: "measured",
-        tab: { kind: "run", runId: r.id },
-        icon: <CircleCheck className="size-3.5 text-green" aria-hidden />,
-        label: shortId(r.id),
-        detail: r.result == null ? "-" : num(r.result, 2),
-        title: `Run ${shortId(r.id)}, measured ${r.result == null ? "-" : num(r.result, 2)}`,
-      })),
-    },
-    {
+      kind: "group",
       key: "rounds",
       label: "Rounds",
-      leaves: rounds.map((h) => ({
+      empty: "No rounds yet",
+      leaves: [...active.history].reverse().map((h) => ({
         kind: "leaf",
         key: `round:${h.round}`,
-        parent: "rounds",
-        tab: { kind: "progress" },
-        icon: <History className="size-3.5 text-muted" aria-hidden />,
-        label: `Round ${h.round}`,
-        detail: h.best == null ? "-" : num(h.best, 2),
-        title: `Round ${h.round}, best ${h.best == null ? "none measured" : num(h.best, 2)}, ${h.n_base} rows`,
+        href: `/campaign/learn#round-${h.round}`,
+        label: h.round === 0 ? "Uploaded data" : `After round ${h.round}`,
+        detail: formatNumber(h.best),
+        icon: <History className={`${ICON} text-fg-muted`} aria-hidden />,
+        name: `${h.round === 0 ? "Uploaded data" : `After round ${h.round}`}, best ${h.best == null ? "not measured" : formatNumber(h.best)}, ${h.n_base} runs`,
       })),
     },
   ];
-
-  // The visible rows in order: what arrow keys walk through.
-  const visible: Item[] = sections.flatMap((s) => [
-    { kind: "section", key: s.key, label: s.label, count: s.leaves.length } as Item,
-    ...(collapsed.has(s.key) ? [] : s.leaves),
-  ]);
-  const focus = visible.some((i) => i.key === focusKey) ? focusKey : visible[0]?.key;
-
-  const toggle = (key: SectionKey, open?: boolean) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      const isOpen = !prev.has(key);
-      if (open ?? !isOpen) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
-  const moveTo = (key: string | undefined) => {
-    if (!key) return;
-    setFocusKey(key);
-    refs.current.get(key)?.focus();
-  };
-
-  const onKeyDown = (e: KeyboardEvent, item: Item) => {
-    const at = visible.findIndex((i) => i.key === item.key);
-    switch (e.key) {
-      case "ArrowDown":
-        moveTo(visible[at + 1]?.key);
-        break;
-      case "ArrowUp":
-        moveTo(visible[at - 1]?.key);
-        break;
-      case "Home":
-        moveTo(visible[0]?.key);
-        break;
-      case "End":
-        moveTo(visible[visible.length - 1]?.key);
-        break;
-      case "ArrowRight":
-        if (item.kind === "section") {
-          if (collapsed.has(item.key)) toggle(item.key, true);
-          else if (visible[at + 1]?.kind === "leaf") moveTo(visible[at + 1].key);
-        }
-        break;
-      case "ArrowLeft":
-        if (item.kind === "leaf") moveTo(item.parent);
-        else if (!collapsed.has(item.key)) toggle(item.key, false);
-        break;
-      case "Enter":
-      case " ":
-        if (item.kind === "section") toggle(item.key);
-        else onOpen(item.tab);
-        break;
-      default:
-        return;
-    }
-    e.preventDefault();
-  };
-
-  const row = (item: Item, level: number, children?: ReactNode) => {
-    const isSection = item.kind === "section";
-    const expanded = isSection ? !collapsed.has(item.key) : undefined;
-    const selected = !isSection && item.tab.kind === "run" && `run:${item.tab.runId}` === activeKey;
-    return (
-      <div
-        key={item.key}
-        role="treeitem"
-        aria-level={level}
-        aria-expanded={expanded}
-        aria-selected={isSection ? undefined : selected}
-        aria-label={isSection ? `${item.label}, ${item.count}` : item.title}
-        tabIndex={item.key === focus ? 0 : -1}
-        ref={(el) => {
-          if (el) refs.current.set(item.key, el);
-          else refs.current.delete(item.key);
-        }}
-        onKeyDown={(e) => {
-          if (e.target === e.currentTarget) onKeyDown(e, item);
-        }}
-        onClick={(e) => {
-          if (e.target !== e.currentTarget && !(e.currentTarget.firstElementChild?.contains(e.target as Node) ?? false)) return;
-          setFocusKey(item.key);
-          if (isSection) toggle(item.key);
-          else onOpen(item.tab);
-        }}
-        className="outline-none [&:focus-visible>div:first-child]:ring-1 [&:focus-visible>div:first-child]:ring-accent [&:focus-visible>div:first-child]:ring-inset"
-      >
-        <div
-          className={cn(
-            "flex h-[22px] cursor-pointer items-center gap-1.5 pr-2 text-[12px] select-none",
-            selected ? "bg-blue-tint text-fg" : "text-fg hover:bg-blue-soft",
-          )}
-          style={{ paddingLeft: isSection ? 6 : 26 }}
-        >
-          {isSection ? (
-            <>
-              <ChevronRight className={cn("size-3.5 shrink-0 text-muted transition-transform", expanded && "rotate-90")} aria-hidden />
-              <span className="flex-1 truncate text-[11px] font-semibold tracking-wide uppercase">{item.label}</span>
-              <span className="tabular rounded-full bg-blue-soft px-1.5 font-mono text-[10px] text-muted">{item.count}</span>
-            </>
-          ) : (
-            <>
-              {item.icon}
-              <span className="flex-1 truncate font-mono">{item.label}</span>
-              <span className="tabular font-mono text-[11px] text-muted">{item.detail}</span>
-            </>
-          )}
-        </div>
-        {children}
-      </div>
-    );
-  };
-
-  return (
-    <div role="tree" aria-label={`Campaign ${campaign.target}`} className="py-1">
-      {sections.map((s) => {
-        const sectionItem = visible.find((i) => i.key === s.key) as Item;
-        const open = !collapsed.has(s.key);
-        return row(
-          sectionItem,
-          1,
-          open ? (
-            <div role="group">
-              {s.leaves.length ? (
-                s.leaves.map((leaf) => row(leaf, 2))
-              ) : (
-                <div className="h-[22px] pl-[26px] text-[11px] leading-[22px] text-muted italic">
-                  {s.key === "in-flight" ? "none running" : s.key === "measured" ? "none this round" : "no rounds yet"}
-                </div>
-              )}
-            </div>
-          ) : null,
-        );
-      })}
-    </div>
-  );
+  return <ExplorerTree label={`Campaign ${active.target}`} nodes={nodes} activeHref={pathname} />;
 }
+
+function DataExplorer() {
+  const pathname = usePathname();
+  if (!DEMO_MODE) return <p className="px-4 py-3 text-caption text-fg-muted">No live datasets are connected yet.</p>;
+  const nodes: TreeNode[] = [
+    {
+      kind: "group",
+      key: "datasets",
+      label: "Datasets",
+      leaves: DATASETS.map((d) => ({
+        kind: "leaf",
+        key: d.barcode,
+        href: `/data#dataset-${d.barcode}`,
+        label: d.name,
+        mono: true,
+        detail: formatNumber(d.runs, "count"),
+        icon: <FileSpreadsheet className={`${ICON} text-fg-muted`} aria-hidden />,
+        name: `${d.name}, ${d.runs} runs`,
+      })),
+    },
+  ];
+  return <ExplorerTree label="Data" nodes={nodes} activeHref={pathname} />;
+}
+
+function LibraryExplorer() {
+  const pathname = usePathname();
+  const nodes: TreeNode[] = LIBRARY_ITEMS.filter((i) => i.href.startsWith("/library/")).map((i) => ({
+    kind: "leaf",
+    key: i.href,
+    href: i.href,
+    label: i.label,
+    icon: <Wrench className={`${ICON} text-fg-muted`} aria-hidden />,
+    name: i.label,
+  }));
+  return <ExplorerTree label="Library" nodes={nodes} activeHref={pathname} />;
+}
+
+function ProjectsExplorer() {
+  const pathname = usePathname();
+  const { customers } = useProjectsStore();
+  const nodes: TreeNode[] = customers.map((c) => ({
+    kind: "group",
+    key: c.id,
+    label: c.name,
+    empty: "No projects",
+    leaves: c.projects.map((p) => ({
+      kind: "leaf",
+      key: p.id,
+      href: `/projects/${p.id}`,
+      label: p.name,
+      icon: <FolderOpen className={`${ICON} text-fg-muted`} aria-hidden />,
+      name: `${p.name}, ${c.name}`,
+    })),
+  }));
+  return <ExplorerTree label="Projects" nodes={nodes} activeHref={pathname} />;
+}
+

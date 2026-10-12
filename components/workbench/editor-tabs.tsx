@@ -1,105 +1,104 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import { Pin, X } from "lucide-react";
+import { createStorageStore } from "@/lib/storage-store";
+import { closeRoute, INITIAL_ROUTE_TABS, parseRouteTabs, PINNED_TAB, visitRoute } from "@/lib/route-tabs";
 import { cn } from "@/lib/utils";
 
-export type EditorTab = { key: string; title: string; icon: ReactNode };
+const tabsStore = createStorageStore("session", "kalos.tabs", parseRouteTabs, INITIAL_ROUTE_TABS);
 
 /**
- * The workbench's editor tab strip. The active tab is marked the way VS Code
- * marks it (an accent top border on the card surface), arrow keys move
- * between tabs and activate them, and every tab closes from its X button, a
- * middle click, or Delete while the tab has focus.
+ * The editor tab strip. Every tab is a route: visiting a route focuses or
+ * opens its tab, closing the active tab navigates to its neighbour, and the
+ * Overview is pinned. Arrow keys move between tabs (and open them), Delete
+ * closes the focused one. The strip scrolls sideways inside itself.
  */
-export function EditorTabs({
-  tabs,
-  active,
-  panelId,
-  onActivate,
-  onClose,
-}: {
-  tabs: EditorTab[];
-  active: string | null;
-  panelId: string;
-  onActivate: (key: string) => void;
-  onClose: (key: string) => void;
-}) {
+export function EditorTabs({ titleFor, panelId }: { titleFor: (href: string) => string; panelId: string }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const tabs = tabsStore.useValue();
   const refs = useRef(new Map<string, HTMLButtonElement>());
-  // The tab to focus once a keyboard close has committed. An effect, not
-  // requestAnimationFrame: rAF is throttled in background panes, and losing
-  // focus to <body> strands a keyboard user.
-  const focusAfterClose = useRef<string | null>(null);
+
   useEffect(() => {
-    if (focusAfterClose.current == null) return;
-    refs.current.get(focusAfterClose.current)?.focus();
-    focusAfterClose.current = null;
-  });
+    tabsStore.set(visitRoute(tabsStore.get(), pathname));
+  }, [pathname]);
+
+  // Until the effect above runs (first paint), the active route still gets a tab.
+  const open = tabs.open.includes(pathname) ? tabs.open : [...tabs.open, pathname];
+
+  const close = (href: string) => {
+    const { tabs: next, navigateTo } = closeRoute(tabsStore.get(), href, pathname);
+    tabsStore.set(next);
+    if (navigateTo) router.push(navigateTo);
+  };
 
   const onKeyDown = (e: KeyboardEvent, at: number) => {
-    if (e.key === "Delete") {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (open[at] === PINNED_TAB) return;
       e.preventDefault();
-      const next = tabs[at + 1] ?? tabs[at - 1];
-      focusAfterClose.current = next ? next.key : null;
-      onClose(tabs[at].key);
+      const neighbour = open[at + 1] ?? open[at - 1];
+      close(open[at]);
+      if (neighbour) requestAnimationFrame(() => refs.current.get(neighbour)?.focus());
       return;
     }
-    const target =
-      e.key === "ArrowRight" ? tabs[(at + 1) % tabs.length] : e.key === "ArrowLeft" ? tabs[(at - 1 + tabs.length) % tabs.length] : null;
+    const target = e.key === "ArrowRight" ? open[(at + 1) % open.length] : e.key === "ArrowLeft" ? open[(at - 1 + open.length) % open.length] : null;
     if (!target) return;
     e.preventDefault();
-    onActivate(target.key);
-    refs.current.get(target.key)?.focus();
+    refs.current.get(target)?.focus();
+    router.push(target);
   };
 
   return (
-    <div role="tablist" aria-label="Open editors" className="flex h-[34px] shrink-0 overflow-x-auto border-b border-border bg-bg">
-      {tabs.map((t, i) => {
-        const isActive = t.key === active;
+    <div role="tablist" aria-label="Open pages" className="flex h-9 shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-subtle [scrollbar-width:none]">
+      {open.map((href, i) => {
+        const active = href === pathname;
+        const pinned = href === PINNED_TAB;
+        const title = titleFor(href);
         return (
           <div
-            key={t.key}
+            key={href}
             className={cn(
-              "group flex shrink-0 items-center border-t-2 border-r border-r-border",
-              isActive ? "border-t-accent bg-card" : "border-t-transparent",
+              "group relative flex shrink-0 items-center border-r border-border",
+              active ? "-mb-px border-b border-b-bg bg-bg text-fg" : "text-fg-muted hover:text-fg",
             )}
             onAuxClick={(e) => {
-              if (e.button === 1) onClose(t.key);
+              if (e.button === 1 && !pinned) close(href);
             }}
           >
             <button
               type="button"
               role="tab"
-              id={`${panelId}-tab-${t.key}`}
-              aria-selected={isActive}
-              aria-controls={panelId}
-              tabIndex={isActive || (active == null && i === 0) ? 0 : -1}
+              aria-selected={active}
+              aria-controls={active ? panelId : undefined}
+              tabIndex={active ? 0 : -1}
               ref={(el) => {
-                if (el) refs.current.set(t.key, el);
-                else refs.current.delete(t.key);
+                if (el) refs.current.set(href, el);
+                else refs.current.delete(href);
               }}
-              onClick={() => onActivate(t.key)}
+              onClick={() => router.push(href)}
               onKeyDown={(e) => onKeyDown(e, i)}
-              className={cn(
-                "flex h-full items-center gap-1.5 pr-1 pl-3 text-[12px] whitespace-nowrap outline-none focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-inset",
-                isActive ? "text-fg" : "text-muted hover:text-fg",
-              )}
+              className={cn("flex h-full items-center gap-1.5 pl-3 text-label whitespace-nowrap focus-visible:outline-offset-[-2px]", pinned ? "pr-3" : "pr-1", active ? "font-medium" : "font-normal")}
             >
-              {t.icon}
-              {t.title}
+              {pinned ? <Pin className="size-3.5 text-fg-muted" aria-hidden /> : null}
+              {title}
+              {pinned ? <span className="sr-only"> (pinned)</span> : null}
             </button>
-            <button
-              type="button"
-              aria-label={`Close ${t.title}`}
-              tabIndex={-1}
-              onClick={() => onClose(t.key)}
-              className={cn(
-                "mr-1.5 grid size-5 place-items-center rounded-[4px] text-muted hover:bg-blue-soft hover:text-fg",
-                isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-              )}
-            >
-              <X className="size-3.5" aria-hidden />
-            </button>
+            {pinned ? null : (
+              <button
+                type="button"
+                aria-label={`Close ${title}`}
+                tabIndex={-1}
+                onClick={() => close(href)}
+                className={cn(
+                  "mr-1.5 grid size-5 place-items-center rounded text-fg-muted hover:bg-border hover:text-fg",
+                  active ? "visible" : "invisible group-hover:visible group-focus-within:visible",
+                )}
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            )}
           </div>
         );
       })}

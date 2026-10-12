@@ -1,10 +1,11 @@
 "use client";
 
 /*
- * React wiring around lib/projects-store.ts. Mounted once in app/projects/layout.tsx
- * so it survives client-side navigation between the index and the per-project
- * workspace routes - that's what lets a create/edit in one route still be
- * visible after navigating to the other.
+ * React wiring around lib/projects-store.ts. Mounted once by the app shell
+ * (components/workbench/app-shell.tsx), so it survives client-side navigation
+ * between the index and the per-project workspace routes (a create or edit in
+ * one route is still visible after navigating to the other), and the Projects
+ * explorer lists the same projects.
  *
  * Seeded from the CUSTOMERS constant (app/projects/data.ts stays the source of
  * truth for initial content), then hydrated from localStorage in an effect -

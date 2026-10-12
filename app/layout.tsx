@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
+import { AppShell } from "@/components/workbench/app-shell";
 
 // Geist (UI and text) and Geist Mono (code-like values only), SIL OFL 1.1,
 // self-hosted from app/fonts/ so the build never fetches a font. The files are

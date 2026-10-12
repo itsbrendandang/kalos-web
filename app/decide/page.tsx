@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, FlaskConical, RefreshCw, SlidersHorizontal, Upload } from "lucide-react";
 import {
@@ -584,10 +584,13 @@ function ProposalCard({
         <div className="text-[11px] leading-relaxed text-muted">
           Other setpoints:{" "}
           {others.map(([k, v], i) => (
-            <span key={k} className="whitespace-nowrap">
+            // Separator outside the nowrap span so the line can wrap between setpoints.
+            <Fragment key={k}>
               {i ? " · " : ""}
-              {k} <span className="tabular font-mono text-fg">{num(v, 2)}</span>
-            </span>
+              <span className="whitespace-nowrap">
+                {k} <span className="tabular font-mono text-fg">{num(v, 2)}</span>
+              </span>
+            </Fragment>
           ))}
         </div>
       ) : null}

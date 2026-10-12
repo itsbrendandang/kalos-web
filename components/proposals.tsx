@@ -1,24 +1,8 @@
-import { Badge } from "@/components/ui/badge";
+import { ModeBadge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn, num } from "@/lib/utils";
+import { num } from "@/lib/utils";
 
 type Row = { vals: number[]; mode: "explore" | "exploit"; reason: string };
-
-/** Explore/exploit label. Mode is never conveyed by color alone - the text
- *  label itself is the primary signal; the fill is a secondary reinforcement. */
-function ModeBadge({ mode }: { mode: "explore" | "exploit" }) {
-  return (
-    <Badge
-      variant={mode === "exploit" ? "default" : "secondary"}
-      className={cn(
-        "rounded-full text-[10px] font-semibold uppercase",
-        mode === "exploit" ? "bg-accent text-[color:var(--primary-foreground)]" : "bg-explore-soft text-explore-deep",
-      )}
-    >
-      {mode}
-    </Badge>
-  );
-}
 
 export function Proposals<T extends Row>({
   cols,

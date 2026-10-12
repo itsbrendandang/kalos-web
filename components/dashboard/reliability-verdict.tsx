@@ -37,10 +37,10 @@ export function ReliabilityVerdict({ d }: { d: PopulatedResult }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4 text-[13px] leading-relaxed",
+        "rounded-xl border p-4 text-[13px] leading-relaxed",
         strong
-          ? "border-l-4 border-green/30 border-l-green bg-green-soft text-green"
-          : "border-l-4 border-amber/30 border-l-amber bg-amber-soft text-amber",
+          ? "border border-green/30 bg-green-soft text-green"
+          : "border border-amber/30 bg-amber-soft text-amber",
       )}
     >
       {reliable ? (

@@ -32,7 +32,7 @@ function PanelHead({ crumbs, badge }: { crumbs: string[]; badge?: ReactNode }) {
 
 function DecideLink({ children }: { children: ReactNode }) {
   return (
-    <Link href="/decide" className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent-text hover:underline">
+    <Link href="/campaign/plan" className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent-text hover:underline">
       {children}
       <ArrowRight className="size-3.5" aria-hidden />
     </Link>
@@ -131,7 +131,7 @@ export function BatchPanel({
           ) : (
             <p className="text-[12px] text-muted">
               No proposals yet.{" "}
-              <Link href="/analyze" className="font-semibold text-accent-text hover:underline">
+              <Link href="/campaign/setup" className="font-semibold text-accent-text hover:underline">
                 Run an analysis
               </Link>{" "}
               to get a next batch.

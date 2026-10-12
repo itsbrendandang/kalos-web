@@ -71,7 +71,7 @@ export default function Results() {
               <RefreshCw />
               {busy ? "..." : "Refresh"}
             </Button>
-            <Link href="/analyze" className={buttonVariants()}>
+            <Link href="/campaign/setup" className={buttonVariants()}>
               <Upload />
               Run analysis
             </Link>
@@ -117,7 +117,7 @@ function StartAnalysisCard() {
           <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
             Start with an experiment table: one run per row, recipe inputs in columns, and at least one measured output.
           </p>
-          <Link href="/analyze" className={buttonVariants({ className: "mt-5" })}>
+          <Link href="/campaign/setup" className={buttonVariants({ className: "mt-5" })}>
             <Upload />
             Upload run sheet
           </Link>

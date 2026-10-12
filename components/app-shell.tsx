@@ -42,18 +42,18 @@ const NAV_SECTIONS: { label: string; items: NavItem[]; divided?: boolean }[] = [
     label: "Monitor",
     items: [
       { href: "/", label: "Experiments", short: "Exp", helper: "Live · Board", icon: ListChecks },
-      { href: "/decide", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
-      { href: "/scale-readout", label: "Scale-up readout", short: "Scale-up", helper: "Data-backed at a new scale", icon: Ruler },
-      { href: "/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
+      { href: "/campaign/plan", label: "Decide", short: "Decide", helper: "Next batch to run", icon: Compass },
+      { href: "/library/scale-up", label: "Scale-up readout", short: "Scale-up", helper: "Data-backed at a new scale", icon: Ruler },
+      { href: "/library/vessels", label: "Vessels", short: "Vessels", helper: "ambr kinetics", icon: TestTubes },
     ],
   },
   {
     label: "Analyze",
     items: [
-      { href: "/validate", label: "Validate", short: "Validate", helper: "Pre-flight data checks", icon: ShieldCheck },
-      { href: "/results", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
-      { href: "/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
-      { href: "/simulate", label: "In-silico optimizer", short: "Simulate", helper: "Synthetic BO benchmark", icon: Atom },
+      { href: "/campaign/setup", label: "Validate", short: "Validate", helper: "Pre-flight data checks", icon: ShieldCheck },
+      { href: "/campaign/learn", label: "Results", short: "Results", helper: "Model · drivers · next experiments", icon: LayoutDashboard },
+      { href: "/library/plate", label: "Plate analysis", short: "Plate", helper: "96-well QC", icon: LayoutGrid },
+      { href: "/library/simulator", label: "In-silico optimizer", short: "Simulate", helper: "Synthetic BO benchmark", icon: Atom },
     ],
   },
   {

@@ -29,11 +29,11 @@ const STATUS_LABEL: Record<ValidationStatus, string> = {
 
 // Red has no dedicated "-soft" background token (see app/globals.css), so the
 // fail state uses the same border/30 + bg/10 opacity recipe already used for
-// error callouts elsewhere (app/error.tsx, components/planning/task-card.tsx).
+// error callouts elsewhere (app/error.tsx).
 const STATUS_STYLE: Record<ValidationStatus, string> = {
-  fail: "border-red/30 border-l-red bg-red/10 text-red",
-  pass_with_warnings: "border-amber/30 border-l-amber bg-amber-soft text-amber",
-  pass: "border-green/30 border-l-green bg-green-soft text-green",
+  fail: "border-red/30 bg-red/10 text-red",
+  pass_with_warnings: "border-amber/30 bg-amber-soft text-amber",
+  pass: "border-green/30 bg-green-soft text-green",
 };
 
 const SEVERITY_TEXT: Record<ValidationSeverity, string> = {
@@ -68,7 +68,7 @@ function SeverityChip({ severity, count }: { severity: ValidationSeverity; count
 function VerdictHeader({ report }: { report: ValidationReport }) {
   const Icon = STATUS_ICON[report.status];
   return (
-    <div className={cn("flex items-start gap-3 rounded-2xl border border-l-4 p-4", STATUS_STYLE[report.status])}>
+    <div className={cn("flex items-start gap-3 rounded-xl border p-4", STATUS_STYLE[report.status])}>
       <Icon className="mt-0.5 size-5 shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">

@@ -95,10 +95,7 @@ export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle
                 className={cn("cursor-pointer border-b border-grid", selected && "bg-blue-tint hover:bg-blue-tint")}
               >
                 <TableCell
-                  className={cn(
-                    "border-r border-l-[3px] border-grid px-2.5 py-1 font-mono text-[11px] text-muted",
-                    selected ? "border-l-blue" : "border-l-transparent",
-                  )}
+                  className="border-r border-grid px-2.5 py-1 font-mono text-[11px] text-muted"
                 >
                   {v.idx}
                 </TableCell>

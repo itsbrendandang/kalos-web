@@ -29,7 +29,7 @@ export function EvaluationChecks({ d }: { d: PopulatedResult }) {
   return (
     <div className="mt-4">
       {baseline?.prominent ? (
-        <div className="mb-3 rounded-2xl border-l-4 border-amber/30 border-l-amber bg-amber-soft p-3 text-[12.5px] leading-relaxed text-amber">
+        <div className="mb-3 rounded-xl border border-amber/30 bg-amber-soft p-3 text-[12.5px] leading-relaxed text-amber">
           {baseline.text}
         </div>
       ) : null}

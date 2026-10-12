@@ -57,7 +57,7 @@ export function StatusBar({ view, onRetry, busy }: { view: CampaignView; onRetry
         </>
       )}
       <Link
-        href="/decide"
+        href="/campaign/plan"
         className="ml-auto inline-flex h-[22px] items-center rounded-[3px] px-1.5 whitespace-nowrap hover:bg-accent-hover"
       >
         open Decide

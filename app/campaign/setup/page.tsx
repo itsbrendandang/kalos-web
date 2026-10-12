@@ -11,11 +11,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
+import { ValidationReportCard } from "@/components/validation/validation-report";
+import { ProviderStatus } from "@/components/validation/provider-status";
 import { cn } from "@/lib/utils";
 
 type EngineErrorKind = "unreachable" | "rejected";
 
-export default function AnalyzePage() {
+export default function SetupPage() {
   const [res, setRes] = useState<AnalyzeResult | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -140,7 +142,7 @@ export default function AnalyzePage() {
                 </Badge>
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Link href="/results" className={buttonVariants()}>
+                <Link href="/campaign/learn" className={buttonVariants()}>
                   View results
                   <ArrowRight />
                 </Link>
@@ -171,6 +173,10 @@ export default function AnalyzePage() {
           </div>
         </Card>
       ) : null}
+
+      {/* Interim: the old /validate page's verdict and provider status, until Setup is rebuilt. */}
+      {res ? <ValidationReportCard report={res.validation} /> : null}
+      <ProviderStatus />
     </div>
   );
 }

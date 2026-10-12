@@ -97,7 +97,7 @@ export default function Decide() {
               <RefreshCw />
               {busy ? "..." : "Refresh"}
             </Button>
-            <Link href="/analyze" className={buttonVariants()}>
+            <Link href="/campaign/setup" className={buttonVariants()}>
               <Upload />
               New run sheet
             </Link>
@@ -122,7 +122,7 @@ export default function Decide() {
           title="No analysis yet"
           description={
             <>
-              <Link href="/analyze" className="font-semibold text-accent-text underline">
+              <Link href="/campaign/setup" className="font-semibold text-accent-text underline">
                 Upload a run sheet
               </Link>{" "}
               to get a recommended batch.
@@ -480,7 +480,7 @@ function HonestVerdict({
   const props = d.proposals;
   if (!props.length) return null;
   if (best == null) return (
-    <div className="rounded-2xl border-l-4 border-l-border bg-bg p-4 text-[13px] text-muted">
+    <div className="rounded-xl border border-border bg-bg p-4 text-[13px] text-muted">
       Comparison unavailable: the engine reported no reproducible incumbent for this replicate-aware fit. Predictions remain available below.
     </div>
   );
@@ -495,8 +495,8 @@ function HonestVerdict({
   return (
     <div
       className={cn(
-        "rounded-2xl border-l-4 p-4 text-[13px] leading-relaxed",
-        good ? "border-l-green bg-green-soft text-green" : "border-l-amber bg-amber-soft text-amber",
+        "rounded-xl border p-4 text-[13px] leading-relaxed",
+        good ? "border-green/30 bg-green-soft text-green" : "border-amber/30 bg-amber-soft text-amber",
       )}
     >
       <p className="font-semibold">

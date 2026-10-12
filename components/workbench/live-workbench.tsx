@@ -203,11 +203,11 @@ export function LiveWorkbench() {
                 <p className="font-semibold text-fg">No campaign yet</p>
                 <p>
                   Upload a run sheet on{" "}
-                  <Link href="/analyze" className="font-semibold text-accent-text hover:underline">
+                  <Link href="/campaign/setup" className="font-semibold text-accent-text hover:underline">
                     Analyze
                   </Link>
                   , then pick and start runs on{" "}
-                  <Link href="/decide" className="font-semibold text-accent-text hover:underline">
+                  <Link href="/campaign/plan" className="font-semibold text-accent-text hover:underline">
                     Decide
                   </Link>
                   .

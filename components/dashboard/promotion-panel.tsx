@@ -30,10 +30,10 @@ export function PromotionPanel({ d }: { d: PopulatedResult }) {
   return (
     <div
       className={cn(
-        "mt-4 rounded-2xl border-l-4 p-4 text-[13px] leading-relaxed",
+        "mt-4 rounded-xl border p-4 text-[13px] leading-relaxed",
         p.passed
-          ? "border-l-green/30 border-l-green bg-green-soft text-green"
-          : "border-l-amber/30 border-l-amber bg-amber-soft text-amber",
+          ? "border-green/30 bg-green-soft text-green"
+          : "border-amber/30 bg-amber-soft text-amber",
       )}
     >
       <div className="flex flex-wrap items-center gap-2">

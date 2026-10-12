@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { num } from "@/lib/utils";
@@ -14,8 +13,7 @@ export type QueueRow = {
  * The "next batch to run" queue. Callers normalize either the real portal
  * proposals (getLatest()) or the mock queued PipelineRuns into `QueueRow`s,
  * so this component doesn't need to know which source it's rendering.
- * "Start run" is intentionally not wired to anything yet - it's the
- * affordance, not a working action.
+ * Read-only: starting a run lives in /decide, which sends the full recipe.
  */
 export function RunQueue({ rows }: { rows: QueueRow[] }) {
   if (!rows.length) {
@@ -44,9 +42,6 @@ export function RunQueue({ rows }: { rows: QueueRow[] }) {
           <TableHead scope="col" className="text-[10px] text-muted uppercase">
             Why
           </TableHead>
-          <TableHead scope="col" className="text-right text-[10px] text-muted uppercase">
-            <span className="sr-only">Actions</span>
-          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -66,13 +61,8 @@ export function RunQueue({ rows }: { rows: QueueRow[] }) {
             <TableCell className="whitespace-normal">
               <span className="inline-flex items-center gap-1.5">
                 <Tag mode={r.pred.mode} />
-                <span className="text-muted">{r.pred.why}</span>
+                <span className="font-sans text-muted">{r.pred.why}</span>
               </span>
-            </TableCell>
-            <TableCell className="text-right">
-              <Button variant="outline" size="sm">
-                Start run
-              </Button>
             </TableCell>
           </TableRow>
         ))}

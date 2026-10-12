@@ -72,7 +72,7 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
   const config = { best: { label: yLabel, color: ACCENT } } satisfies ChartConfig;
   return (
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-      <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: 0 }}>
         <defs>
           <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={ACCENT} stopOpacity={0.18} />
@@ -147,7 +147,7 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
   } satisfies ChartConfig;
   return (
     <ChartContainer config={config} className="aspect-auto h-[280px] w-full">
-      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
+      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: 0 }}>
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey="titer" name="titer" tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("titer (mg/L)", "x")} />
         <YAxis type="number" dataKey="purity" name="purity" tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("purity (%)", "y")} />
@@ -198,7 +198,7 @@ export function PredScatter({ oof }: { oof: [number, number][] }) {
   const config = { predicted: { label: "predicted", color: ACCENT } } satisfies ChartConfig;
   return (
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
+      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: 0 }}>
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey="measured" name="measured" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("measured", "x")} />
         <YAxis type="number" dataKey="predicted" name="predicted" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("predicted", "y")} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import * as api from "@/lib/api";
 import { getCampaign, getLatest, type Campaign, type LatestResult } from "@/lib/api";
 
 /**
@@ -95,4 +96,55 @@ export function useLatest(): EngineResource<LatestResult> {
 /** GET /api/campaign: the live campaign (or `{ has_campaign: false }`). */
 export function useCampaign(): EngineResource<Campaign> {
   return useEngineData().campaign;
+}
+
+/*
+ * The one write path. Pages must call these instead of the lib/api writes so
+ * the status bar, Explorer stages and Next card update without a reload:
+ *
+ *   const { runFile, startRuns, logResult, reanalyze } = useEngineWrites();
+ *
+ *   runFile(file, target?)  -> AnalyzeResult   (same contract as lib/api runFile; refreshes latest + campaign unless the engine rejected the upload)
+ *   startRuns(recipes)      -> void            (refreshes campaign)
+ *   logResult(id, value)    -> void            (refreshes campaign)
+ *   reanalyze()             -> { analysis, campaign }  (sets campaign from the response, refreshes latest)
+ *
+ * Each throws exactly as the lib/api function does and updates the provider
+ * only after the write succeeded. Read state with useLatest()/useCampaign().
+ */
+export function useEngineWrites() {
+  const { latest, campaign } = useEngineData();
+  const { refresh: refreshLatest } = latest;
+  const { refresh: refreshCampaign, set: setCampaign } = campaign;
+
+  const runFile = useCallback(
+    async (file: File, target?: string) => {
+      const d = await api.runFile(file, target);
+      if (!d.error) await Promise.all([refreshLatest(), refreshCampaign()]);
+      return d;
+    },
+    [refreshLatest, refreshCampaign],
+  );
+  const startRuns = useCallback(
+    async (recipes: api.StartRecipe[]) => {
+      await api.startRuns(recipes);
+      await refreshCampaign();
+    },
+    [refreshCampaign],
+  );
+  const logResult = useCallback(
+    async (id: string, value: number) => {
+      await api.logResult(id, value);
+      await refreshCampaign();
+    },
+    [refreshCampaign],
+  );
+  const reanalyze = useCallback(async () => {
+    const out = await api.reanalyze();
+    setCampaign(out.campaign);
+    await refreshLatest();
+    return out;
+  }, [setCampaign, refreshLatest]);
+
+  return { runFile, startRuns, logResult, reanalyze };
 }

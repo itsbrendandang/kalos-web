@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, WifiOff, X } from "lucide-react";
-import { isReliable, runFile, type AnalyzeResult } from "@/lib/api";
+import { useEngineWrites } from "@/hooks/use-engine";
+import { isReliable, type AnalyzeResult } from "@/lib/api";
 import { Card, SectionLabel } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 type EngineErrorKind = "unreachable" | "rejected";
 
 export default function SetupPage() {
+  const { runFile } = useEngineWrites();
   const [res, setRes] = useState<AnalyzeResult | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);

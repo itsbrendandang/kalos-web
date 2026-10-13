@@ -10,10 +10,7 @@ import {
   getLatest,
   incumbentLabel,
   isReliable,
-  logResult,
   proposalIncumbent,
-  reanalyze,
-  startRuns,
   proposalRecipe,
   type Campaign,
   type CampaignRun,
@@ -43,6 +40,7 @@ import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { ScaleUpTimeline } from "@/components/scale-up-timeline";
 import { cn, parseUnit } from "@/lib/utils";
+import { useEngineWrites } from "@/hooks/use-engine";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 
@@ -161,6 +159,7 @@ function DecideBody({
   onStarted: (c: Campaign) => void;
   onReanalyzed: (analysis: PopulatedResult, campaign: Campaign) => void;
 }) {
+  const { startRuns, logResult, reanalyze } = useEngineWrites();
   const [queued, setQueued] = useState<Set<number>>(new Set());
   const [startBusy, setStartBusy] = useState(false);
   const [startErr, setStartErr] = useState(false);

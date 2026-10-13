@@ -132,7 +132,7 @@ function Integrations() {
               <li key={p.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
                 <div className="min-w-0">
                   <p className="text-label text-fg">{p.capability}</p>
-                  {!p.available ? <p className="text-body text-fg-muted">Without it: {p.fallback}</p> : null}
+                  {!p.available ? <p className="text-body text-fg-muted">Without it, a built-in check is used instead.</p> : null}
                 </div>
                 <Badge tone={p.available ? "good" : "neutral"} variant={p.available ? "soft" : "outline"} className="shrink-0">
                   {p.available ? <CircleCheck aria-hidden /> : <Circle aria-hidden />}
@@ -148,6 +148,7 @@ function Integrations() {
                   <dt className="text-fg-muted">Provider {p.name}</dt>
                   <dd className="text-fg">
                     {p.available ? "configured" : `set ${p.missing_env.join(", ") || p.required_env.join(", ")} on the engine to enable`}
+                    <span className="block text-fg-muted">Fallback: {p.fallback}</span>
                   </dd>
                 </div>
               ))}

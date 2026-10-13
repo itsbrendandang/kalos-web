@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
       { source: "/validate", destination: "/campaign/setup", permanent: true },
       { source: "/optimize", destination: "/campaign/plan", permanent: true },
       { source: "/experiments", destination: "/", permanent: true },
+      { source: "/experiments/:path*", destination: "/", permanent: true },
       { source: "/planning", destination: "/", permanent: true },
       { source: "/scale-readout", destination: "/library/scale-up", permanent: true },
       { source: "/vessels", destination: "/library/vessels", permanent: true },

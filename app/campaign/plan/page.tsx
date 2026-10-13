@@ -141,6 +141,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
       );
     } catch {
       setFailed(true);
+    } finally {
       setBusy(false);
     }
   }
@@ -173,8 +174,8 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
       />
 
       {failed ? (
-        <Callout tone="bad" title="Could not start these runs">
-          The engine did not accept the batch, so nothing was started. Try again.
+        <Callout tone="bad" title="Could not confirm these runs started">
+          The engine did not confirm the batch. Check Run to see whether any runs started before you try again.
         </Callout>
       ) : null}
 

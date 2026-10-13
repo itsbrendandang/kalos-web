@@ -19,14 +19,14 @@ export function Proposals<T extends Row>({
     <Table className="tabular min-w-[620px] border-separate border-spacing-y-1 font-mono text-xs">
       <TableHeader>
         <TableRow className="border-b-0 hover:bg-transparent">
-          <TableHead className="h-auto px-2 py-1.5 text-left text-[10px] font-semibold text-muted uppercase"></TableHead>
+          <TableHead className="h-auto px-2 py-1.5 text-left text-caption text-muted"></TableHead>
           {cols.map((c) => (
-            <TableHead key={c} className="h-auto px-2 py-1.5 text-right text-[10px] font-semibold text-muted uppercase">
+            <TableHead key={c} className="h-auto px-2 py-1.5 text-right text-caption text-muted">
               {c}
             </TableHead>
           ))}
-          <TableHead className="h-auto px-2 py-1.5 text-right text-[10px] font-semibold text-muted uppercase">{predHead}</TableHead>
-          <TableHead className="h-auto px-2 py-1.5 text-left text-[10px] font-semibold text-muted uppercase">why</TableHead>
+          <TableHead className="h-auto px-2 py-1.5 text-right text-caption text-muted">{predHead}</TableHead>
+          <TableHead className="h-auto px-2 py-1.5 text-left text-caption text-muted">why</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

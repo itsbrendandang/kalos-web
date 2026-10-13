@@ -55,12 +55,13 @@ function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
     const mine = ++ticket.current;
     setRefreshing(true);
     settle(mine, await request());
-    setRefreshing(false);
+    if (mine === ticket.current) setRefreshing(false);
   }, [request, settle]);
 
   const set = useCallback((next: T) => {
     ticket.current++;
     setState({ data: next, error: false });
+    setRefreshing(false); // a refresh this supersedes no longer clears it itself
   }, []);
 
   const status = state.data != null ? "data" : state.error ? "error" : "loading";

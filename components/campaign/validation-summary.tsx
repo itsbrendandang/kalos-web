@@ -19,15 +19,9 @@ import { capFindings } from "@/components/campaign/stage-logic";
 
 const TONE: Record<ValidationStatus, Tone> = { pass: "good", pass_with_warnings: "warn", fail: "bad" };
 
-// The engine sends the names of the checks it ran; the shared type says a count.
-function checkNames(r: ValidationReport): string[] {
-  const raw: unknown = r.checks_run;
-  return Array.isArray(raw) ? raw.filter((c): c is string => typeof c === "string") : [];
-}
-
 function sentence(report: ValidationReport): string {
   const { status, counts } = report;
-  const checks = checkNames(report).length;
+  const checks = report.checks_run.length;
   const n = (k: number, one: string) => `${formatNumber(k, "count")} ${one}${k === 1 ? "" : "s"}`;
   if (status === "fail") return `Fix ${n(counts.error, "problem")} in this run sheet before you rely on it.`;
   if (status === "pass_with_warnings") return `This run sheet is usable, with ${n(counts.warning, "warning")} to review.`;
@@ -39,7 +33,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
   const [all, setAll] = useState(false);
   const { shown, hidden } = capFindings(report.findings, all ? Infinity : undefined);
   const total = report.findings.length;
-  const names = checkNames(report);
+  const names = report.checks_run;
   const found = new Map(groupFindingsByCheck(report.findings).map((g) => [g.check, g.findings.length]));
 
   return (

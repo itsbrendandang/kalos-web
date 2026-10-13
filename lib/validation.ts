@@ -9,7 +9,7 @@ export type ValidationStatus = "pass" | "pass_with_warnings" | "fail";
 export type ValidationMode = "warn" | "strict";
 
 /**
- * The nine checks the engine runs today. Exhaustive by construction: `CHECK_INFO`
+ * The eleven checks the engine runs today. Exhaustive by construction: `CHECK_INFO`
  * below is typed `Record<CheckId, ...>`, so adding a tenth id here without also
  * adding it to `CHECK_INFO` fails typecheck - a new check can never ship
  * without a scientist-facing label (see __tests__/validation.test.ts for the
@@ -25,6 +25,8 @@ export const CHECK_IDS = [
   "replicate_adequacy",
   "controls_present",
   "constant_columns",
+  "informative_missingness",
+  "constant_within_group",
 ] as const;
 
 export type CheckId = (typeof CHECK_IDS)[number];
@@ -68,7 +70,8 @@ export type ValidationReport = {
   mode: ValidationMode;
   n_rows: number;
   n_columns: number;
-  checks_run: number;
+  /** Names of the checks the engine ran. */
+  checks_run: string[];
   counts: { error: number; warning: number; info: number };
   findings: ValidationFinding[];
   conversions: UnitConversion[];
@@ -118,6 +121,16 @@ export const CHECK_INFO: Record<CheckId, { label: string; explanation: string }>
   constant_columns: {
     label: "Constant columns",
     explanation: "An input never varies across runs, so it can't explain any of the observed variation - the model gets no signal from it.",
+  },
+  informative_missingness: {
+    label: "Blanks that track the outcome",
+    explanation:
+      "Blank cells line up with the result (e.g. poor performers were never measured), so a blank is itself a clue and filling it in would quietly teach the model the answer.",
+  },
+  constant_within_group: {
+    label: "Constant within each group",
+    explanation:
+      "An input varies across the sheet but has a single value inside every group, so it is really a stand-in for which group a row is in, not a real driver.",
   },
 };
 
@@ -212,7 +225,7 @@ export function validationHeadline(report: ValidationReport): string {
   if (status === "pass_with_warnings") {
     return `No errors, but ${counts.warning} warning${counts.warning === 1 ? "" : "s"} to review before you trust this run sheet.`;
   }
-  return `All ${checks_run} checks passed on ${n_rows} rows / ${n_columns} columns.`;
+  return `All ${checks_run.length} checks passed on ${n_rows} rows / ${n_columns} columns.`;
 }
 
 // --- unit conversions ---------------------------------------------------------

@@ -18,7 +18,6 @@ import type { Customer, PipelineStage, Project, ProjectStatus } from "@/app/proj
 import {
   getProjectWithFallback,
   initialProjectsState,
-  LEGACY_STORAGE_KEY,
   projectsReducer,
   readPersistedState,
   STORAGE_KEY,
@@ -76,7 +75,6 @@ export function ProjectsStoreProvider({ children }: { children: React.ReactNode 
     if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
       // Ignore quota/availability errors - persistence is best-effort.
     }

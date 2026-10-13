@@ -5,7 +5,6 @@ import {
   findProjectInCustomers,
   getProjectWithFallback,
   initialProjectsState,
-  LEGACY_STORAGE_KEY,
   projectsReducer,
   readPersistedState,
   STORAGE_KEY,
@@ -205,16 +204,6 @@ describe("readPersistedState", () => {
 
   it("reads the current key", () => {
     expect(readPersistedState(storage({ [STORAGE_KEY]: JSON.stringify(saved) }))).toEqual(saved);
-  });
-
-  it("falls back to the pre-rename key, so data saved under the Voyager name survives", () => {
-    expect(readPersistedState(storage({ [LEGACY_STORAGE_KEY]: JSON.stringify(saved) }))).toEqual(saved);
-  });
-
-  it("prefers the current key over the pre-rename key", () => {
-    const legacy = { customers: [] };
-    const items = { [STORAGE_KEY]: JSON.stringify(saved), [LEGACY_STORAGE_KEY]: JSON.stringify(legacy) };
-    expect(readPersistedState(storage(items))).toEqual(saved);
   });
 
   it("returns null when nothing usable is stored", () => {

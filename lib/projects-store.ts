@@ -29,15 +29,11 @@ export function initialProjectsState(): ProjectsState {
 }
 
 export const STORAGE_KEY = "projects-store-v1";
-// The key this store used while the surface was named Voyager. Still read
-// (when STORAGE_KEY is absent) so creates/edits saved before the rename
-// survive it; the provider deletes it once STORAGE_KEY has been written.
-export const LEGACY_STORAGE_KEY = "voyager-store-v1";
 
 /** The persisted state, or null when nothing usable is stored (absent,
  *  corrupt, or the wrong shape) - the caller then keeps the seed state. */
 export function readPersistedState(storage: Pick<Storage, "getItem">): ProjectsState | null {
-  const raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY);
+  const raw = storage.getItem(STORAGE_KEY);
   if (!raw) return null;
   let parsed: unknown;
   try {

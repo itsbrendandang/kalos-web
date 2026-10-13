@@ -42,6 +42,7 @@ export type BarChartProps = {
   showXAxis?: boolean;
   showYAxis?: boolean;
   showGridLines?: boolean;
+  /** Defaults to 56, or for vertical layout the widest category label. */
   yAxisWidth?: number;
   showTooltip?: boolean;
   showLegend?: boolean;
@@ -69,6 +70,16 @@ export type BarChartProps = {
   "aria-label"?: string;
 };
 
+const CAPTION_PX = 12; // text-caption, 0.75rem
+const MAX_LABEL_PX = 220;
+
+/** Widest tick label in px, measured at the caption font; 0.6em per char where no canvas exists. */
+function measureLabels(labels: string[]): number {
+  const ctx = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+  if (ctx) ctx.font = `${CAPTION_PX}px ${getComputedStyle(document.body).fontFamily}`;
+  return Math.max(0, ...labels.map((l) => (ctx ? ctx.measureText(l).width : l.length * 0.6 * CAPTION_PX)));
+}
+
 export function BarChart({
   data,
   index,
@@ -79,7 +90,7 @@ export function BarChart({
   showXAxis = true,
   showYAxis = true,
   showGridLines = true,
-  yAxisWidth = 56,
+  yAxisWidth,
   showTooltip = true,
   showLegend = true,
   legend,
@@ -104,6 +115,8 @@ export function BarChart({
   const color = (c: string) => categoryColors.get(c) ?? "accent";
   const vertical = layout === "vertical";
   const domain = getYAxisDomain(autoMinValue, minValue, maxValue);
+  const axisWidth =
+    yAxisWidth ?? (vertical ? Math.min(MAX_LABEL_PX, Math.ceil(measureLabels(data.map((d) => indexFormatter(String(d[index])))) + 12)) : 56);
   const valueAxis = { type: "number" as const, domain, tickFormatter: valueFormatter, allowDecimals };
   const categoryAxis = { dataKey: index, type: "category" as const, tickFormatter: indexFormatter, interval: 0 as const };
 
@@ -123,7 +136,7 @@ export function BarChart({
             {showGridLines ? <CartesianGrid className="stroke-chart-grid stroke-1" horizontal={!vertical} vertical={vertical} /> : null}
             <XAxis
               hide={!showXAxis}
-              tick={{ transform: vertical ? undefined : "translate(0, 6)" }}
+              tick={{ transform: vertical ? undefined : "translate(0, 6)", className: AXIS_TICK_CLASS }}
               fill=""
               stroke=""
               className={AXIS_TICK_CLASS}
@@ -139,14 +152,14 @@ export function BarChart({
               ) : null}
             </XAxis>
             <YAxis
-              width={yAxisWidth}
+              width={axisWidth}
               hide={!showYAxis}
               axisLine={false}
               tickLine={false}
               fill=""
               stroke=""
               className={AXIS_TICK_CLASS}
-              tick={{ transform: vertical ? "translate(-3, 0)" : "translate(-3, 0)" }}
+              tick={{ transform: "translate(-3, 0)", className: AXIS_TICK_CLASS }}
               {...(vertical ? categoryAxis : valueAxis)}
             >
               {yAxisLabel ? (

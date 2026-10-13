@@ -181,9 +181,6 @@ function BestSoFarChart({ active, target, unit }: { active: ActiveCampaign | nul
 
 function DriversChart({ analysis, target }: { analysis: PopulatedResult | null; target: string }) {
   const bars = analysis ? topDrivers(analysis.drivers) : [];
-  const longest = Math.max(4, ...bars.map((b) => b.name.length));
-  const yAxisWidth = Math.min(140, 16 + longest * 7);
-  const maxChars = Math.floor((yAxisWidth - 16) / 7);
   return (
     <ChartFrame
       title="Top process drivers"
@@ -203,8 +200,6 @@ function DriversChart({ analysis, target }: { analysis: PopulatedResult | null; 
         maxValue={1}
         referenceValue={0}
         errorKey="ci"
-        yAxisWidth={yAxisWidth}
-        indexFormatter={(v) => (v.length > maxChars ? `${v.slice(0, maxChars - 1)}…` : v)}
         valueFormatter={(v) => formatNumber(v, "corr")}
         barStyle={(d) => (d.significant ? { color: "accent" } : { color: "muted", outline: true })}
         legend={[

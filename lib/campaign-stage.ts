@@ -62,10 +62,31 @@ function steps(states: Record<StageKey, [StepState, string]>): StageStep[] {
 const href = (stage: StageKey) => `/campaign/${stage}`;
 
 /**
+ * The engine's `campaign.stage` and `next_action` win when present; the local
+ * derivation below is the fallback for engines that do not send them yet.
+ */
+export function campaignStage(
+  latest: Pick<LatestResult, "has_data"> & { proposals?: readonly unknown[] },
+  campaign: Campaign,
+): CampaignStage {
+  const local = localStage(latest, campaign);
+  const { stage, next_action: next } = campaign;
+  if (stage == null) return local;
+  const meta = (key: StageKey) => CAMPAIGN_STAGES.find((s) => s.key === key)!;
+  return {
+    ...local,
+    round: stage.round,
+    started: stage.started,
+    steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key).label, href: meta(s.key).href, state: s.state, detail: s.detail })),
+    next: next ? { ...next, href: meta(next.stage).href } : local.next,
+  };
+}
+
+/**
  * `latest` only needs to say whether an analysis exists (and, when it does,
  * how many recipes it proposed), so demo data can pass `{ has_data: true }`.
  */
-export function campaignStage(
+function localStage(
   latest: Pick<LatestResult, "has_data"> & { proposals?: readonly unknown[] },
   campaign: Campaign,
 ): CampaignStage {

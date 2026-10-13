@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Campaign, CampaignRun } from "@/lib/api";
+import type { Campaign, CampaignRun, EngineNextAction, EngineStage } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage, displayRound, type StepState } from "@/lib/campaign-stage";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { breadcrumbFor, navKeyFor, titleFor } from "@/lib/routes";
@@ -145,5 +145,75 @@ describe("routes", () => {
 describe("displayRound", () => {
   it("shows the engine's 0-based round as a 1-based round", () => {
     expect([displayRound(0), displayRound(2)]).toEqual([1, 3]);
+  });
+});
+
+describe("engine stage", () => {
+  const engineStage: EngineStage = {
+    round: 7,
+    current: "learn",
+    started: 4,
+    steps: [
+      { key: "setup", state: "done", detail: "engine setup" },
+      { key: "plan", state: "done", detail: "engine plan" },
+      { key: "run", state: "done", detail: "engine run" },
+      { key: "record", state: "done", detail: "engine record" },
+      { key: "learn", state: "current", detail: "engine learn" },
+    ],
+  };
+  const engineNext: EngineNextAction = { stage: "learn", action: "Engine action", reason: "Engine reason." };
+
+  it("engine stage wins when present", () => {
+    const s = campaignStage({ has_data: true }, { ...campaign([run("a", null)]), stage: engineStage, next_action: engineNext });
+    expect(s.round).toBe(7);
+    expect(s.started).toBe(4);
+    expect(s.steps.map((x) => x.detail)).toEqual(["engine setup", "engine plan", "engine run", "engine record", "engine learn"]);
+    expect(s.steps[4]).toMatchObject({ key: "learn", label: "Learn", href: "/campaign/learn", state: "current" });
+    expect(s.next).toEqual({ stage: "learn", action: "Engine action", reason: "Engine reason.", href: "/campaign/learn" });
+  });
+
+  it("falls back when stage absent", () => {
+    const s = campaignStage({ has_data: true }, campaign([]));
+    expect(s.next.action).toBe("Review and start round 1");
+  });
+
+  const step = (key: EngineStage["steps"][number]["key"], state: EngineStage["steps"][number]["state"], detail = "") => ({ key, state, detail });
+  const parity: [string, Parameters<typeof campaignStage>[0], Campaign, EngineStage, EngineNextAction][] = [
+    [
+      "no analysis",
+      { has_data: false },
+      NONE,
+      { round: null, current: "setup", started: 0, steps: [step("setup", "current", "No run sheet yet"), step("plan", "upcoming"), step("run", "upcoming"), step("record", "upcoming"), step("learn", "upcoming")] },
+      { stage: "setup", action: "Upload a run sheet", reason: "Kalos fits a model to the runs you already have, then proposes the first batch." },
+    ],
+    [
+      "analysis, no runs",
+      { has_data: true },
+      campaign([]),
+      { round: 1, current: "plan", started: 0, steps: [step("setup", "done", "Run sheet analyzed"), step("plan", "current", "Batch ready to review"), step("run", "upcoming"), step("record", "upcoming"), step("learn", "upcoming")] },
+      { stage: "plan", action: "Review and start round 1", reason: "Review the proposed batch, untick any recipe you will not run, then start the rest." },
+    ],
+    [
+      "started with awaiting",
+      { has_data: true },
+      campaign([run("a", 1), run("b", null)]),
+      { round: 1, current: "run", started: 2, steps: [step("setup", "done", "Run sheet analyzed"), step("plan", "done", "2 runs started"), step("run", "current", "1 awaiting results"), step("record", "upcoming", "1 of 2 recorded"), step("learn", "upcoming")] },
+      { stage: "record", action: "Record 1 result", reason: "1 of 2 results are in. Enter the rest as they come back from the lab." },
+    ],
+    [
+      "all measured",
+      { has_data: true },
+      campaign([run("a", 1), run("b", 2)]),
+      { round: 1, current: "learn", started: 2, steps: [step("setup", "done", "Run sheet analyzed"), step("plan", "done", "2 runs started"), step("run", "done", "All 2 back"), step("record", "done", "2 results recorded"), step("learn", "current", "Ready to update the model")] },
+      { stage: "learn", action: "Learn from round 1", reason: "Every run in round 1 has a result. See what changed, then plan round 2." },
+    ],
+  ];
+
+  it.each(parity)("engine-shaped %s equals the local derivation", (_name, latest, c, stage, next) => {
+    const local = campaignStage(latest, c);
+    const engine = campaignStage(latest, { ...c, stage, next_action: next });
+    expect(engine.steps).toEqual(local.steps);
+    expect(engine.next).toEqual(local.next);
+    expect(engine.round).toBe(local.round);
   });
 });

@@ -1,4 +1,5 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 
 /**
@@ -838,12 +839,25 @@ export type CampaignRun = {
   reason: string;
   result: number | null;
   awaiting: boolean;
+  /** The round the run was started in; optional until the engine sends it. */
+  round?: number;
 };
 
+/** The engine's own stage state (forward-compatible: optional until the engine sends it). */
+export type EngineStage = {
+  round: number | null;
+  current: "setup" | "plan" | "run" | "record" | "learn";
+  started: number;
+  steps: { key: StageKey; state: "done" | "current" | "upcoming"; detail: string }[];
+};
+export type EngineNextAction = { stage: StageKey; action: string; reason: string };
+
 export type Campaign =
-  | { has_campaign: false }
+  | { has_campaign: false; stage?: EngineStage; next_action?: EngineNextAction }
   | {
       has_campaign: true;
+      stage?: EngineStage;
+      next_action?: EngineNextAction;
       target: string;
       features: string[];
       n_base: number;

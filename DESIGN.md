@@ -1,427 +1,165 @@
-# Kalos design system
+# Kalos web design system
 
-Kalos-web has a single, unified design system: the blue product look from the
-original product prototype, applied across every surface. This replaces the
-earlier split between a black-and-white "optimizer" surface and a blue product
-surface (now Projects). There is
-now one visual language for the whole app - light and dark.
+Calm, editorial, light first, with full dark mode.
+Generous whitespace, few boxes, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
+Every value below is quoted from `app/globals.css`, which is the single source of truth.
+If this file and the CSS disagree, the CSS wins.
 
 ## Token architecture
 
-All color, radius, and type tokens are defined once in `app/globals.css`,
-under `:root` (light) with a `.dark` override block, and re-exported to
-Tailwind v4 utilities via `@theme inline`. That makes `bg-accent`,
-`text-muted`, `border-border`, `bg-blue-tint`, and so on available as
-Tailwind classes everywhere in the app, and means every one of those classes
-already flips correctly when `.dark` is applied to `<html>` - no component
-needs to know dark mode exists.
+- Tokens live only in `app/globals.css`.
+  Components never hard-code a color, and never read a token that is not defined there.
+- `:root` holds the light values and `.dark` overrides them.
+  Dark mode is a `dark` class on `<html>`, set before first paint by the inline script in `app/layout.tsx` and changed through `hooks/use-theme.ts`.
+  It does not follow the OS media query directly, so every `dark:` utility follows the in-app choice (Light, Dark or System, set in Settings or the workspace menu).
+- `@theme inline` maps each token to a Tailwind color utility (`bg-surface`, `text-fg-muted`, `border-border`, `bg-accent`, `text-good`, `bg-chart-3`).
+  The same block sets `--font-sans` and `--font-mono`.
+- A second `@theme` block defines the type roles and zeroes the shadow scale.
+- `__tests__/contrast.test.ts` parses `app/globals.css` and checks WCAG contrast for every text and UI pair in both themes.
+  Keep values as `oklch()` literals or `var()` references, and keep braces out of comments inside the token blocks.
+- Fonts are Geist (UI and text) and Geist Mono (code-like values only), self-hosted from `app/fonts/` with `next/font/local`.
+  Both are SIL OFL 1.1, see `app/fonts/GEIST-LICENSE.txt`.
+  `__tests__/self-hosted-fonts.test.ts` fails the build on any `next/font/google` use.
 
-`app/globals.css` also carries a second, additive token layer using the
-shadcn-standard semantic names (`--background`, `--primary`, `--secondary`,
-`--popover`, `--destructive`, `--input`, `--ring`, `--chart-1`...`--chart-5`,
-`--radius`). Existing components do not use these names; they exist so any
-future shadcn-convention component (the CLI, a pasted snippet, a library
-built on the same convention) drops in against tokens that already carry the
-kalos brand, instead of shadcn's default neutral-gray theme. See
-"shadcn semantic tokens" and "Dark mode" below for the details and one
-deliberate naming exception.
+## Neutrals
 
-`app/projects/projects.css` (scoped under `.projects-root`) does not define its
-own palette anymore. It aliases the shared root tokens to the short
-`--v-*` / `--b5` / `--b7` / `--b9` names that the original prototype
-markup and CSS classes expect, then layers Projects-specific component classes
-(cards, pipeline stages, linkage tree, modals) on top. If you change a color
-in `app/globals.css`, both surfaces update together.
-
-```
-app/globals.css           <- single source of truth: :root tokens + @theme inline
-app/projects/projects.css <- .projects-root aliases root tokens to --v-* names,
-                             then Projects-only component classes
-```
-
-## Color roles
-
-> **Current as of 2026-08-08, confirmed directly by the product owner: the app
-> chrome is kalos blue.** The 2026-07-24 "achromatic neutral" direction below is
-> **superseded** and must not be reinstated. kalos owns a blue hue on Satoshi and
-> must not read as a stock shadcn neutral admin template.
->
-> This was asked and answered explicitly during the shadcn migration, because the
-> repo contradicted itself: the 2026-07-24 note claimed owner confirmation for
-> achromatic chrome, and the code agreed with it (the token named `--blue` was
-> `oklch(0.205 0 0)` - chroma zero, literally grayscale). Blue is the live
-> direction. If a future note claims otherwise, it needs a date later than this
-> one and its own owner confirmation.
->
-> `app/globals.css` `:root` / `.dark` is the single source of truth for live
-> values; the hex values in the table below are indicative, not authoritative.
-> Only the BRAND family changed value in the re-hue - surfaces (`--bg`,
-> `--card`, `--fg`, `--muted`, `--border`), status colors, radii, and the type
-> stack are untouched, so the migration is a re-hue rather than a redesign.
-> Every brand token is contrast-verified in comments beside its declaration.
->
-> Three rules that are easy to get wrong, all enforced in `app/globals.css`:
->
-> 1. **`--muted` is a TEXT gray here, not a surface.** Stock shadcn and the
->    base-nova registry treat `--muted` as a subtle surface and reach for
->    `bg-muted` on hover. This app has 254 `text-muted` call sites across 54
->    files (mirrored as `--v-muted` in `app/projects/projects.css`), so the app
->    keeps its meaning. Every shadcn primitive added here has `bg-muted`
->    rewritten to `bg-secondary` (or `bg-blue-soft` for hovers). Anything added
->    with `shadcn add` in future needs the same patch.
-> 2. **Sequential vs categorical data color are different token families.**
->    `--chart-1..5` is a single-hue blue ramp for ordered magnitude (heatmaps,
->    response surfaces, plate grids) and is the only thing that may encode
->    magnitude. `--series-1..6` is the Okabe-Ito colorblind-safe qualitative
->    palette, for unordered multi-series overlays only. Never use a sequential
->    step to separate categories, and never let a series color imply magnitude.
-> 3. **No elevation, but rings must work.** `shadow-*` is a no-op because the
->    box-shadow scale is zeroed in `@theme`. Do NOT restore the old blanket
->    `box-shadow: none !important` rule: Tailwind composes `ring-*` into the
->    `box-shadow` property, so that rule silently disabled every focus ring on
->    every shadcn primitive.
+Warm paper, ink text.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--bg` | `#f6f8fc` | `#10141e` | Page background |
-| `--card` | `#ffffff` | `#161b29` | Card / surface background |
-| `--fg` | `#101828` | `#eef1f7` | Primary text |
-| `--muted` | `#667085` | `#9aa5ba` | Secondary text |
-| `--border` | `#d9e2f2` | `#262d40` | Default border |
-| `--blue` | `#204af4` | `#3259f5` | Primary brand color. Buttons, active nav, links, chart series, focus rings. Nudged lighter in dark mode (white button text stays 5.4:1 AA on it); the light-mode blue becomes the dark-mode hover/pressed shade |
-| `--blue-hover` | `#1434b5` | `#204af4` | Hover/pressed state for `--blue` |
-| `--blue-deep` | `#061c72` | `#8fb0ff` | Emphasis blue text (e.g. "done" step numbers). Inverts from "very dark on light bg" to "bright on dark bg" so it keeps doing the same job - 7-9:1 AA either way |
-| `--blue-soft` | `#f8faff` | `#141a2c` | Very light/dark blue wash, large surfaces |
-| `--blue-tint` | `#eef1fe` | `#1b2340` | Blue fill for badges/chips/active tab backgrounds |
-| `--blue-border` | `#c8d0fa` | `#33406e` | Border color paired with `--blue-tint` |
-| `--blue-hover-bg` | `#f4f6ff` | `#1a2036` | Hover background for ghost/dashed controls |
-| `--accent` / `--accent-hover` / `--accent-soft` | alias `--blue` / `--blue-hover` / `--blue-tint` | (follows) | Semantic accent fills. `bg-accent` (buttons), `hover:bg-accent-hover` (interactive hover/pressed - carries white text), `bg-accent-soft` (active-nav/badge tint) |
-| `--accent-text` | `#1434b5` (alias `--blue-hover`) | `#6f93ff` | Accent-colored **text/icons** on page/card/tint surfaces (`text-accent-text`): active nav, links, eyebrows, badges, chip labels. Split from `--accent-hover` because a hover fill dark enough to hold white text (dark `#204af4`) reads only 2.5-2.9:1 as text on the dark surfaces (fails AA); this decoupled value clears >=5.36:1. Light mode equals the old accent-hover text value, so the light theme is unchanged |
-| `--explore` / `--explore-deep` / `--explore-soft` | `#9ca3af` / `#52525b` / `#ededed` | `#9ca3af` (unchanged, still 6.8-7.3:1 on the dark surfaces) / `#b6bcc9` / `#232733` | Neutral "exploratory" or secondary tone, kept distinct from the blue brand color so explore/exploit contrast stays legible on charts and tags |
-| `--green` / `--green-soft` | `#1f7a34` / `#e8f5e9` | `#34c77a` / `#10301f` | Success / "promote" / "complete" states. AA-checked both modes (light ~5.4:1 on white; dark 7.9-8.4:1 on card/bg) |
-| `--amber` / `--amber-soft` | `#9a5b00` / `#fff3e0` | `#e0a530` / `#362408` | Warning / "hold" states. AA-checked both modes (light ~5.4:1; dark 7.9-8.4:1) |
-| `--red` | `#c0392b` | `#f16354` | Fail / error status. AA-checked both modes (light ~4.6:1; dark 5.4-5.8:1) |
-| `--sidebar` | `#0a1233` | `#0a1233` | Dark sidebar background (optimizer nav) - already dark, unchanged in dark mode |
-| `--grid` | `#e5e9f7` | `#232a3d` | Chart gridlines |
-| `--v-muted` / `--v-faint` | `#5b6470` / `#6b7280` | alias `--muted` (`#a1a1aa`) / `oklch(0.66 0.013 286.067)` (`#91919a`) | Secondary / tertiary caption text on the Projects surface. Measured on every surface they render on: light `--v-muted` 4.6-6.0:1, `--v-faint` 4.55-4.8:1; dark `--v-muted` 5.7-7.7:1, `--v-faint` 5.7-6.4:1. They replaced low-opacity ink (`rgba(17,17,17,.28-.6)`), which read 1.9-4.1:1 in light mode and about 1:1 in dark mode (the ink stays near-black on the near-black page). Use these for muted text under `.projects-root`, never a raw low-opacity ink |
+| `--bg` | `oklch(0.985 0.003 90)` | `oklch(0.17 0.006 270)` | Page background |
+| `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Panels, popovers, inputs |
+| `--subtle` | `oklch(0.965 0.004 90)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header, explorer |
+| `--border` | `oklch(0.91 0.005 90)` | `oklch(0.3 0.008 270)` | Hairline rules and panel borders |
+| `--border-strong` | `oklch(0.84 0.006 90)` | `oklch(0.38 0.01 270)` | Input borders, emphasized dividers |
+| `--fg` | `oklch(0.22 0.01 270)` | `oklch(0.95 0.005 90)` | Primary text |
+| `--fg-muted` | `oklch(0.46 0.01 270)` | `oklch(0.72 0.01 270)` | Secondary text (passes 4.5:1 on `--bg`) |
 
-Status colors beyond this table live as additional `--v-*` tokens inside
-`.projects-root` in `app/projects/projects.css`, since they are only used by the
-Projects screens.
-Light mode tints whole rows and banners with the tone.
-Dark mode keeps rows and banners on the neutral `--card` with page ink and puts the tone only in the small marks: the decision chip, the thin border, the probability bar, and a banner's icon and key value (`.v-tone-accent`).
-Product-owner call (2026-10-07): green- and amber-tinted panels on the near-black page looked generated rather than designed, so do not reintroduce them in dark mode.
-Every token has a `.dark .projects-root` override; light values are the original palette, re-picked only where they failed AA.
-Ratios are the lowest measured on the rendered page for the text on each fill (retire and the warn/bad banners do not occur in the seed data, so they were measured by switching a rendered card or banner to that class).
+## Accent
 
-| Token | Light | Dark | Role | Light / dark |
-| --- | --- | --- | --- | --- |
-| `--v-ok-bg` / `-ink` / `-accent` | alias `--green-soft` / `#1b5e20` / `#1b5e20` | alias `--card` / alias `--v-ink` / alias `--green` | Reliability "ok" banner: fill, body text, icon and key value. `-accent` also inks the Phase 1 pill | 7.00 / 16.98 body, 8.10 accent |
-| `--v-warn-bg` / `-border` / `-ink` / `-accent` | `#fff9f0` / `#ffd580` / `#5d4037` / `#5d4037` | alias `--card` / `#5c4710` / alias `--v-ink` / alias `--amber` | Warn reliability and offline banners, candidate warning box, the illustrative-data banner | 8.90 / 16.98 body, 8.10 accent |
-| `--v-bad-bg` / `-border` / `-ink` / `-accent` | `#fdf3f3` / `#f0b4b4` / `#8a2b2b` / `#8a2b2b` | alias `--card` / `#6e2c2c` / alias `--v-ink` / alias `--red` | Bad reliability banner | 7.84 / 16.98 body, 5.62 accent |
-| `--v-ok-wash`, `--v-hold-wash`, `--v-retire-wash` | `#f4fbf4`, `#fffef2`, `#fff9f2` | alias `--card` | Row fill behind promote, hold and retire decisions and exploit proposals (`--v-explore-bg`: `--blue-soft` in light, `--card` in dark) | 5.7 / 6.9 (`--v-muted` text) |
-| `--v-ok-border` / `--v-ok-chip-ink` | `#a5d6a7` / `#1b5e20` | `#1a5434` / `#7ee2a8` | Promote and exploit border, solid chip fill and chip text | 4.79 / 5.64 |
-| `--v-hold-border` / `--v-hold-chip-ink` | `#ffe082` / `#5d4037` | `#4a3a0c` / `#f5cf7a` | Hold border, chip fill and chip text | 7.20 / 7.41 |
-| `--v-retire-border` / `--v-retire-chip-ink` | `#ffcc80` / `#9a3600` | `#55300f` / `#ffb074` | Retire border, chip fill and chip text. The chip ink was `#e65100`, 2.56:1 on its chip | 4.89 / 6.45 |
-| `--v-explore-badge-ink` | alias `--blue-deep` | alias `--accent-text` | Explore chip text on `--blue-border` | 6.59 / 4.83 |
-| `--v-done-badge-ink` | `#ffffff` | alias `--bg` | "Ingested" chip text on `--green` | 5.40 / 9.04 |
-| `--v-chip-bg` | `#f0f0f0` | alias `--secondary` | Neutral chip fill (customer project count, idle pipeline badge), `--v-muted` text | 5.26 / 5.81 |
+An indigo-violet, used for the primary action, links, focus, and the model's proposal.
+It is never used for status.
 
-The "Accepted" chip and Phase 1 pill keep their `--green-soft` fill in dark mode (they are small marks).
-The "Required" chip uses the shared `--amber` on `--amber-soft` (4.95 / 6.79); its old `#e65100` read 3.46:1.
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--accent` | `oklch(0.48 0.16 285)` | `oklch(0.72 0.13 285)` |
+| `--accent-hover` | `oklch(0.43 0.16 285)` | `oklch(0.78 0.11 285)` |
+| `--accent-soft` | `oklch(0.95 0.024 285)` | `oklch(0.29 0.06 285)` |
+| `--accent-fg` | `oklch(1 0 0)` | `oklch(0.17 0.02 285)` |
+| `--ring` | `var(--accent)` | `var(--accent)` |
 
-All contrast ratios above were computed against both `--bg` and `--card` in
-each mode using the standard WCAG relative-luminance formula, not eyeballed.
+In dark mode the accent is a light fill on a dark page, so the label on it (`--accent-fg`) is dark ink.
+There is one focus ring everywhere: `:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }`.
 
-### 2026-07-24 consolidation: the softened-neutral baseline
+## Status
 
-`redesign/consolidation` merged in the `feat/satoshi-font` direction and
-formalized it as the documented baseline, rather than
-leaving it an uncommitted WIP diff. Five base-surface tokens moved off pure
-achromatic gray to a hair of blue tint: `--bg` (`#f6f8fc`), `--fg`
-(`#101828`), `--muted` (`#667085`), `--border` (`#d9e2f2`), and `--blue-soft`
-(`#f8faff`) - the values already recorded in the table above. Recomputed
-against the standard WCAG relative-luminance formula (not eyeballed):
+State only, never a chart series, and always paired with a word or an icon, never color alone.
+Warn and bad surfaces are for things the user must act on.
 
-| Pair | Ratio | AA minimum (normal/caption text) | Result |
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--good` / `--good-soft` | `oklch(0.5 0.12 150)` / `oklch(0.95 0.04 150)` | `oklch(0.76 0.13 150)` / `oklch(0.28 0.05 150)` |
+| `--warn` / `--warn-soft` | `oklch(0.52 0.11 70)` / `oklch(0.96 0.04 85)` | `oklch(0.8 0.12 75)` / `oklch(0.29 0.045 75)` |
+| `--bad` / `--bad-soft` | `oklch(0.52 0.17 25)` / `oklch(0.955 0.02 25)` | `oklch(0.72 0.15 25)` / `oklch(0.29 0.06 25)` |
+
+## Chart tokens
+
+| Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--fg` (`#101828`) on `--bg` (`#f6f8fc`) | 16.69:1 | 4.5:1 | Clears with wide margin |
-| `--muted` (`#667085`) on `--bg` (`#f6f8fc`) | 4.68:1 | 4.5:1 | Clears at 10-11px caption sizes |
-| `--fg` on `--card` (`#ffffff`) | 17.75:1 | 4.5:1 | Clears with wide margin |
-| `--muted` on `--card` | 4.97:1 | 4.5:1 | Clears at 10-11px caption sizes |
+| `--chart-1` | `oklch(0.53 0.13 245)` | `oklch(0.68 0.13 245)` | Category 1 (blue) |
+| `--chart-2` | `oklch(0.64 0.14 65)` | `oklch(0.78 0.14 75)` | Category 2 (orange) |
+| `--chart-3` | `oklch(0.6 0.12 165)` | `oklch(0.72 0.12 165)` | Category 3 (bluish green) |
+| `--chart-4` | `oklch(0.6 0.17 42)` | `oklch(0.7 0.15 42)` | Category 4 (vermillion) |
+| `--chart-5` | `oklch(0.6 0.11 235)` | `oklch(0.8 0.1 235)` | Category 5 (sky blue) |
+| `--chart-6` | `oklch(0.58 0.14 345)` | `oklch(0.75 0.12 345)` | Category 6 (reddish purple) |
+| `--chart-seq-1` | `oklch(0.93 0.03 285)` | `oklch(0.3 0.05 285)` | Lowest magnitude step |
+| `--chart-seq-2` | `oklch(0.82 0.07 285)` | `oklch(0.42 0.09 285)` | |
+| `--chart-seq-3` | `oklch(0.68 0.12 285)` | `oklch(0.56 0.12 285)` | |
+| `--chart-seq-4` | `oklch(0.53 0.15 285)` | `oklch(0.7 0.12 285)` | |
+| `--chart-seq-5` | `oklch(0.38 0.14 285)` | `oklch(0.86 0.07 285)` | Highest magnitude step |
+| `--chart-band` | `oklch(0.48 0.16 285 / 0.14)` | `oklch(0.72 0.13 285 / 0.2)` | Uncertainty band fill |
+| `--chart-reference` | `var(--fg-muted)` | same | Best-so-far and baseline lines, dashed |
+| `--chart-predicted` | `var(--accent)` | same | Predicted values |
+| `--chart-measured` | `var(--fg)` | same | Measured values |
+| `--chart-grid` | `var(--border)` | same | Grid lines, kept muted |
 
-`--muted` on `--bg` is the tighter pair - caption-size body copy at 4.68:1
-still clears the 4.5:1 AA floor for normal text (not just the relaxed 3:1
-large-text floor), so no caption anywhere in the app drops below AA under the
-softened background.
+### The data-color rule
 
-The brand blue/accent scale (`--blue`, `--blue-hover`, `--blue-deep`,
-`--blue-tint`, `--blue-border`, `--accent-text`), `--chart-1`...`--chart-5`,
-and `--sidebar` are unchanged by this merge, and no
-new hue is introduced: `app/globals.css`
-still carries the 2026-07-16 neutral-chrome migration (main #15, "Design
-overhaul: neutral theme, Experiments hub, Kanban, data catalog") - CHROME
-(buttons, active nav, `--accent*`) stays achromatic gray, while
-`--chart-1`...`--chart-5` and `components/dashboard/heat-scale.ts` keep the
-colored data-viz ramp. The rows above for `--blue`/`--blue-hover`/
-`--blue-deep`/`--accent-text`/`--sidebar` and their dark-mode values predate
-that migration and do not match the current chrome; reconciling that
-documentation gap (blue-hex rows vs. the achromatic code, and the dark-mode
-column throughout this table) is out of scope for this merge and is flagged
-here as follow-up rather than silently left inconsistent.
+Two families, two jobs, never swapped.
 
-`components/projects/illustrative-banner.tsx` reuses the `--v-warn-*` tokens for
-the "Sample data - illustrative, not a real analysis" disclaimer shown on every
-non-live Projects screen (Phase 1, Phase 2 setup/results, and the final report -
-anywhere `project.live` is not true). The live, engine-backed Phase 2 view
-keeps its own "Live · engine" badge instead.
+- **Sequential (`--chart-seq-1..5`)** is for ordered magnitude: heatmaps, the plate grid, any value that runs from less to more.
+  Lightness reverses in dark mode so the highest value is always the most visible step against the page.
+  `__tests__/contrast.test.ts` checks that the ramp gets more visible as values rise.
+- **Categorical (`--chart-1..6`)** is for unordered series, in Okabe-Ito order, darkened until each mark clears 3:1 on the plot surface.
+  Color alone cannot carry meaning in greyscale, so categorical series also need a direct label or a dash pattern.
+
+Single-series charts use one accent color.
+Predicted is `--chart-predicted`, measured is `--chart-measured`, and the two are never drawn as the same mark.
+
+## Type roles
+
+Geist for text and numbers.
+Numbers use `tabular-nums` (Geist has true tabular figures), not mono.
+Geist Mono, through `font-mono text-code`, is for code-like values only: ids and column keys.
+
+| Role | Size / line height | Weight | Letter spacing |
+| --- | --- | --- | --- |
+| `text-display` | 32 / 38 | 600 | -0.015em |
+| `text-title` | 22 / 28 | 600 | -0.01em |
+| `text-heading` | 16 / 24 | 600 | none |
+| `text-body` | 14 / 22 | 400 | none |
+| `text-label` | 13 / 18 | 500 | none |
+| `text-caption` | 12 / 16 | 400 | none |
+| `text-metric` | 36 / 40 | 600 | -0.02em |
+| `text-code` | 13 / 18 | regular | none |
+
+Use these roles, not arbitrary `text-[Npx]` values.
+Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
+
+## Layout
+
+- 8px grid.
+- Content max width is 1120px (`max-w-[1120px]` in `components/workbench/app-shell.tsx`), with full width allowed for tables and charts.
+  Page padding is 24px on desktop and 16px on mobile.
+- Radius: `rounded-lg` (8px) for controls and `rounded-xl` (12px) for panels.
+  Tailwind's defaults are not overridden.
+  No `rounded-2xl` boxes, and no pill badges unless they show status.
+- No shadows, except overlays (popovers, menus, dialogs, the command palette), which use `shadow-popover`.
+  The rest of the shadow scale is set to `none` in `@theme`, rather than banned with `!important`, which would also kill `ring-*` focus rings.
+- Prefer whitespace and hairline rules over cards.
+- Tables use right-aligned numerics with `tabular-nums`, 40px rows and a sticky header.
+- No horizontal page scroll at 390px.
+  Tables scroll inside their own container.
+- No colored side-stripe borders: never `border-l-*` or `border-r-*` accents on callouts, verdicts, alerts or cards.
+  Tone is a small status icon on a tinted or neutral surface with an even hairline border, or none.
+  `__tests__/design-guards.test.ts` fails the build on `border-l-[2-9]`, `border-l-[Npx]` and the `border-r` equivalents in `app/` and `components/`.
+
+## Honesty rules that are visual
+
+- One `Callout` per screen (`components/kit/callout.tsx`).
+  Merge stacked caveats into one verdict sentence and put the rest behind a `Disclosure`.
+- Warn and bad surfaces are only for things the user must act on.
+  Information is a plain sentence, not a tinted slab.
+- No opacity-dimmed text.
+  Use `--fg-muted`, which is contrast-checked.
+- No uppercase identifiers or units.
+  Column names and units such as `pH` or `osmolality_mOsm` appear exactly as in the sheet.
+- Never show raw engine strings in prose.
+  Say it in plain words and keep the raw values in a disclosure.
+- Demo or illustrative content carries a visible "Example data" badge (`ExampleBadge` in `components/ui/badge.tsx`).
+- Never rely on color alone for state: pair it with a word or an icon.
 
 ## Dark mode
 
-Dark mode is a `.dark` class on `<html>`, not a `prefers-color-scheme` media
-query - so it can be toggled independently of the OS setting and persisted.
+- Every token has a dark value in `.dark`.
+- Surfaces step up in lightness from `--bg` to `--surface` to `--subtle`, with hairline borders doing the separation that shadows do elsewhere.
+- Status colors are lightened, and soft fills darkened, so each text and fill pair still passes contrast.
+- Sequential ramps reverse lightness, as described above.
 
-- **Toggle**: `components/theme-toggle.tsx`, mounted in
-  `components/app-shell.tsx` (sidebar header on desktop, top bar on mobile).
-  Reads/writes the `dark` class via `useSyncExternalStore` (a `MutationObserver`
-  on `<html>`'s `class` attribute is the subscription), and persists the
-  choice to `localStorage` under the `theme` key.
-- **No flash of the wrong theme**: `app/layout.tsx` renders an inline
-  `<script>` in `<head>` that runs synchronously while the browser parses the
-  page, before hydration - it reads `localStorage.theme`, falls back to
-  `prefers-color-scheme` if unset, and adds the `dark` class immediately if
-  needed. `<html>` carries `suppressHydrationWarning` since this script
-  intentionally changes its class before React hydrates (the documented
-  pattern in
-  `node_modules/next/dist/docs/01-app/02-guides/preventing-flash-before-hydration.md`).
-- **Every existing token flips**: `--bg`, `--card`, `--fg`, `--muted`,
-  `--border`, the whole `--blue-*` family, `--explore-deep`/`--explore-soft`,
-  `--green`/`--amber`/`--red` (+ their `-soft` variants), and `--grid` all get
-  a `.dark` override in `app/globals.css` with a genuinely different value
-  (not just inverted lightness) - dark-mode status colors and `--blue-deep`
-  in particular were re-picked, not mechanically darkened/lightened, because
-  a color designed to read as "a dark accent on a light surface" does not
-  automatically read as anything on a dark surface. `--accent`/`--primary`
-  and the rest of the pure aliases are not re-declared in `.dark` at all -
-  since CSS custom properties resolve `var()` against the cascade at the
-  point of use, an alias defined once in `:root` (e.g. `--primary: var(--blue)`)
-  automatically follows `--blue`'s `.dark` value with no duplicate rule
-  needed.
-- **Projects blue-accent AA tuning pass** (`app/projects/projects.css`): the
-  Projects surface aliased its accent *text* onto `--v-blue-7` (`= --blue-hover`),
-  which flips to `#204af4` in dark mode and read only 2.46-2.93:1 as text on the
-  tint/card/bg surfaces - failing AA - everywhere it was used for text (phase
-  labels, chip/badge/pill labels, advisory text, the "Live · engine" pill).
-  Mirroring the main app's `--accent-text` split, `--v-blue-7` is now a FILL
-  alias only (the `.v-btn-primary:hover` background, which must hold white text)
-  and a separate `--v-blue-7-text: var(--accent-text)` carries every text usage.
-  In light mode both still resolve to `--blue-hover`, so the light theme is
-  unchanged; in dark mode the text alias is `#6f93ff` and clears 5.36-6.39:1 on
-  every surface it lands on (verified against the live rendered cascade, not
-  eyeballed).
-- **Explore badge** (`.dcb--explore`): its ink (`--v-explore-badge-ink`) is
-  `--blue-deep` in light mode (6.59:1 on its `--blue-border` badge).
-  In dark mode `--blue-deep` is now a fill-strength blue (`#2251c6`, 1.78:1 on the badge), so the `.dark` block points the ink at `--accent-text` instead (4.83:1).
-  The badge keeps the `--blue-border` fill, which stays visibly distinct from its `--blue-soft` explore row.
-- **Projects muted text and status tones** (`app/projects/projects.css`):
-  `--v-muted`/`--v-faint`, the `--v-ok-*`/`--v-warn-*`/`--v-bad-*` banner tones,
-  the promote/exploit, hold and retire decision colors, the "Ingested" and
-  explore chips and the neutral chip fill all have a `.dark .projects-root`
-  override (values and measured ratios in the Projects status table above).
-  In dark mode the rows and banners sit on the neutral card and only the small marks carry the tone (see the note above that table).
-  Before it, the light values rendered on the dark surfaces: muted captions read 3.0-3.3:1, the light decision rows put near-white text on near-white fills (1.01:1), and the green banner ink read 1.82:1.
-  The same pass found text that failed in light mode too and fixed it there:
-  - Raw low-opacity ink (`rgba(17,17,17,.28-.6)`) on eyebrows, card objectives, the project-count tag, legends, rationale and report prose, linkage-tree band and yield labels and the report chart axis now uses `--v-muted`/`--v-faint` (it read 1.9-4.1:1 in light mode and about 1:1 in dark mode).
-  - Locked iteration cards and the not-yet-runnable run bar no longer dim with `opacity`, which pulled their text to 1.6-2.4:1 in light mode; they switch their text to `--v-muted` instead.
-    Do not dim text with `opacity`: no opacity keeps `--v-faint` above 4.5:1.
-    Disabled buttons keep their `opacity: .5`, since WCAG exempts inactive controls.
-  - The modal field placeholders (Tailwind's 50%-of-ink default, 3.4:1) use `--v-faint`, and the "Required" chip uses `--amber` on `--amber-soft` (it was `#e65100`, 3.46:1).
-  - Blue text, hover text included, uses `--v-blue-7-text` (`--b7`), never the `--v-blue`/`--b5` fill, which reads 3.5-3.9:1 as text in dark mode.
-    In light mode both resolve to `--blue`, so light blue text is unchanged.
-  - Decorative, non-text marks (empty-state icons, the card chevron, linkage-tree edges and band rules) keep their faint look through an ink-relative alpha such as `text-[color:var(--v-ink)]/14`, which follows the theme.
-    In light mode that renders the same as the old `rgba(17,17,17,.14)`; text never uses it.
+## Temporary compatibility aliases
 
-## shadcn semantic tokens
+`app/globals.css` keeps a block of older token names (`--card`, `--muted`, `--blue*`, `--green*`, `--amber*`, `--red`, `--series-*` and similar), each mapped onto a current token.
+They exist only because some pages (Data, the Library tools, the campaign stage pages, Projects) have not been rebuilt on the new kit yet.
+Do not use them in new code, and delete an alias once nothing reads it.
 
-`app/globals.css` defines the full shadcn-standard token set - `--background`,
-`--foreground`, `--card-foreground`, `--popover`, `--popover-foreground`,
-`--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground`,
-`--muted-foreground`, `--destructive`, `--destructive-foreground`, `--input`,
-`--ring`, `--radius`, `--chart-1`...`--chart-5` - each wired into
-`@theme inline` as `--color-*` so the matching Tailwind utilities exist
-(`bg-primary`, `text-muted-foreground`, `bg-chart-3`, ...). Nothing in the app
-uses these yet; they exist for future shadcn-convention components to land on
-a kalos-branded theme instead of shadcn's neutral default. `--primary`,
-`--ring`, `--destructive`, `--input`, `--popover`, `--foreground`, etc. are
-aliases onto the existing kalos tokens above (blue, red, border, card, fg),
-so there is exactly one source of truth per color and dark mode only has to
-be taught once.
-
-`--chart-1`...`--chart-5` are a CVD-safe single-hue blue ramp, anchored on the
-same three colors as the dashboard heat scale
-(`components/dashboard/heat-scale.ts`: `--blue-tint` -> `--blue` ->
-`--blue-deep`) so any chart built against the shadcn convention reads as part
-of the same visual system as the existing heatmaps. The dark-mode ramp is a
-separate, independently-verified set of 5 values (not a CSS filter on the
-light set), shifted overall lighter so it still reads against dark surfaces.
-
-**One deliberate naming exception**: stock shadcn defines `--accent` as a
-neutral hover-gray and `--muted` as a neutral surface color, with
-`--muted-foreground` as the (separate) muted text color. This app already
-uses `--accent` for the brand blue and `--muted` for gray text
-(`bg-accent`/`text-accent`/`bg-muted`/`text-muted` are used across dozens of
-existing components: primary buttons, active nav state, KPI heroes, status
-chip dots). Because CSS custom properties are single-valued per scope, there
-is no way to have `--accent` mean both "blue" and "neutral gray" at once - one
-identifier, one value. Redefining `--accent`/`--muted` to stock shadcn
-semantics would silently turn every primary button and active nav item gray,
-which contradicts "keep the kalos identity." So this app keeps `--accent` =
-blue and `--muted` = gray text (unchanged), adds `--muted-foreground` as an
-alias of the existing `--muted` value (so `text-muted-foreground` behaves
-identically to today's `text-muted`), and does not introduce a second,
-differently-valued `--accent` surface color. A future shadcn-generated
-component that wants the stock neutral hover-gray should reach for
-`--secondary`/`--secondary-foreground` instead, which are wired with no
-naming collision.
-
-## Shadows
-
-The kalos UI has no shadows anywhere - flat surfaces, separated by borders
-and background contrast, not elevation. `app/globals.css` has a
-belt-and-suspenders rule enforcing this at the very bottom of the cascade:
-
-```css
-*, *::before, *::after {
-  box-shadow: none !important;
-}
-```
-
-No component uses a `shadow-*`/`drop-shadow-*` utility class. The one
-prior instance (`components/vessels/vessel-table.tsx`, a `shadow-[inset_...]`
-hack used to draw a colored left-accent bar on the selected vessel row) was
-replaced with a real `border-l-[3px]` (transparent when unselected, blue
-when selected) so there is no `box-shadow` anywhere left to `!important` over.
-
-## Gradients
-
-Decorative background gradients are not used in this app. The two
-`linear-gradient(...)`/`repeating-linear-gradient(...)` values that do exist
-are intentionally kept - they are data encodings, not chrome:
-
-- `components/dashboard/heat-scale.ts`'s `SEQ_GRADIENT_CSS` - the colorbar
-  background for the blue sequential heat ramp (run landscape, response
-  surface, correlation heatmap legends). This gradient *is* the visualization
-  of the `--blue-tint -> --blue -> --blue-deep` scale, not decoration on top
-  of it.
-- `components/plate/well-status-legend.tsx`'s repeating hatch pattern - the
-  legend swatch for the "no data" well category (a real category in the
-  plate data model, just not present in the current simulated run per its
-  own caption). It is a standard cartographic convention for "missing data,"
-  not decorative chrome.
-
-## Text alignment
-
-All text centers by default (`body { text-align: center; }` in
-`app/globals.css`), including table cells, headings, KPI values, and button
-labels. The `text-left`/`text-right` utility overrides that used to pin
-specific labels (table headers, right-aligned numeric columns, tornado-chart
-category labels, key/value stat rows) were removed so nothing fights the
-default. Flex/grid layouts that position an item on one side of its
-container via `justify-end`/`grid-cols-[...]` (e.g. the correlation heatmap's
-row labels, the driver tornado's category column) keep that positioning -
-only the `text-align` of the label itself changed, not where the container
-places it. This is a broad, deliberately-applied visual change; some data
-columns (long right-aligned number stacks, in particular) may read worse
-centered than they did right-aligned, and may get selectively reverted after
-a visual pass.
-
-## Radius and type
-
-- Card radius: `16px` (`--radius-card`, `rounded-2xl` in Tailwind).
-- Control radius (buttons, inputs, chips): `10px` (`--radius-control`,
-  `rounded-[10px]`).
-- The global `:focus-visible` rule in `app/globals.css` only sets `outline` +
-  `outline-offset`, no `border-radius`. It used to hardcode `10px`, which drew
-  a mismatched rounded-rectangle ring over pill-shaped and circular elements
-  (phase tabs, round badges). Leaving radius unset lets the ring follow each
-  element's own `border-radius` instead.
-- Projects component-level radii (pills, small chips, pipeline stage rows) are
-  set directly in `projects.css` class rules and range `6px`-`12px`
-  depending on element size; they intentionally stay slightly tighter than
-  the app-wide `16px` card radius to match the denser Projects
-  layouts.
-
-Type:
-
-- Satoshi is the single app-wide typeface, matching the original v3 prototype.
-  It is self-hosted via `next/font/local` from the variable font under
-  `app/fonts/Satoshi-Variable.woff2` (Fontshare Font License, `SATOSHI-LICENSE.txt`
-  alongside it).
-- Optimizer surface: Satoshi drives both `--font-head` (headings) and
-  `--font-sans` (body) via `--font-satoshi` in `app/layout.tsx`; JetBrains Mono
-  (`--font-jbmono`, tabular/mono data) is self-hosted the same way from
-  `app/fonts/JetBrainsMono-Variable.ttf` (SIL OFL 1.1,
-  `JETBRAINS-MONO-LICENSE.txt` alongside).
-- Projects surface: Satoshi is exported as `--font-projects` in
-  `app/projects/layout.tsx`, the variable `projects.css` reads.
-- Base sizes stay small and dense (11px-19px) across both surfaces, matching
-  the original product screens: `10px` eyebrow/uppercase labels,
-  `11px`-`13px` body and controls, `14px`-`19px` headings/titles, `26px`+
-  reserved for hero KPI numbers.
-
-## Charts
-
-`components/charts.tsx` exports a single `CHART_THEME` object (series color,
-down/secondary series color, grid, axis, tooltip border/background/text, hover
-cursor tint) built from the shared CSS variables above. Every chart
-(`ConvergenceChart`, `ParetoChart`, `DriversBar`, `PredScatter`) reads from
-this object instead of hardcoded hex, so chart styling updates automatically
-when the root tokens change.
-
-## Inline styles in Projects components
-
-Projects components (`components/projects/*`) were audited for hardcoded hex in
-`style={{...}}` props. Loose one-off colors were moved into `projects.css`
-classes (e.g. `.v-tone-ok` / `.v-tone-warn` / `.v-tone-bad` for reliability
-banners, `.dc-row--exploit` / `.dc-row--explore` for candidate rows,
-`.v-pipeline-badge--*` for pipeline status badges) or onto shared tokens.
-
-One exception: `components/projects/linkage-tree.tsx` keeps a `STYLE` node-color
-dictionary (`Record<NodeType, {...}>`) as a plain TypeScript constant rather
-than CSS classes. Each node type in the experiment lineage SVG maps to a fixed
-fill/stroke/text/badge combination that is only read in that one file and
-rendered imperatively into SVG attributes; a CSS-class version would just be
-the same mapping expressed less directly.
-The pastel node fills are the same in both themes, so each node's `text` color only has to clear AA against its own fill (4.79-6.78:1; the validation label moved from `#E65100`, 3.54:1, to `#BF360C`, 5.23:1), and it also inks the detail-panel badge.
-Validation nodes are sized so their "V-00n" labels fit inside the circle; a label that spills past its fill lands on the page background, which fails in dark mode.
-Everything in the tree that sits on the page instead (band and yield labels, edges, band rules) uses the theme tokens.
-Remaining `style={{ width: ... }}`
-props across the app are legitimate data-driven values (progress bar widths,
-bar-chart fills) and are not colors.
-
-## Fonts, one more time
-
-Do not download font files from unverified sources, and do not load fonts
-through `next/font/google`: it fetches the files from fonts.gstatic.com during
-`next build`, so one flaky fetch fails the build (it failed CI run
-37693455188 on PR #40). Every typeface is a licensed file under `app/fonts/`
-loaded via `next/font/local`, and `__tests__/self-hosted-fonts.test.ts` fails
-if a `next/font/google` import comes back.
-
-- Satoshi is self-hosted app-wide as of the 2026-07-24 consolidation: both
-  `app/layout.tsx` (optimizer surface, `--font-satoshi`) and
-  `app/projects/layout.tsx` (`--font-projects`) load the same licensed variable
-  font (`app/fonts/Satoshi-Variable.woff2`, Fontshare Font License), so there
-  is exactly one font file and one license on disk for both surfaces.
-- JetBrains Mono (`--font-jbmono`) is `app/fonts/JetBrainsMono-Variable.ttf`,
-  the official variable font from the JetBrains Mono v2.304 release, byte for
-  byte (upstream `fonts/variable/JetBrainsMono[wght].ttf`, renamed). Verify it
-  with `git hash-object`, which must print the upstream blob
-  `b60e77f5dbf5505436c1904cb7a9ac4111ee76d0`. Its license is
-  `JETBRAINS-MONO-LICENSE.txt` (upstream `OFL.txt`). Upstream ships the
-  variable font only as TTF, hence no woff2. The weight range is pinned to
-  `500 600` because those are the only two weights the app ever loaded from
-  Google Fonts: normal mono text still renders at 500 and bold at 600.
-  Vertical metrics and advance widths match the v2.211 build Google served,
-  so no table, KPI or chart label moved; the full font also covers arrows,
-  `≥` and super/subscripts, which used to fall back to a system font.
+Replaced the earlier blue and Satoshi system in October 2026.

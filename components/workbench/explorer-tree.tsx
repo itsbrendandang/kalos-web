@@ -130,8 +130,8 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
         )}
       >
         {n.icon}
-        <span className={cn("min-w-0 flex-1 truncate", n.mono && "font-mono text-code")}>{n.label}</span>
-        {n.detail != null ? <span className="shrink-0 text-caption text-fg-muted tabular-nums">{n.detail}</span> : null}
+        <span className={cn("min-w-0 truncate", n.detail != null ? "max-w-[75%] shrink-0" : "flex-1", n.mono && "font-mono text-code")}>{n.label}</span>
+        {n.detail != null ? <span className="ml-auto min-w-0 truncate text-caption text-fg-muted tabular-nums">{n.detail}</span> : null}
       </Link>
     );
   };

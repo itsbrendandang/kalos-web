@@ -88,7 +88,7 @@ function CampaignExplorer() {
       key: `stage:${s.key}`,
       href: s.href,
       label: s.label,
-      detail: s.detail ? <span className="max-md:hidden">{s.detail}</span> : undefined,
+      detail: s.detail ? <span className="max-md:hidden" title={s.detail}>{s.detail}</span> : undefined,
       icon: STEP_ICON[s.state],
       name: `${s.label}, ${STEP_WORD[s.state]}${s.detail ? `: ${s.detail}` : ""}`,
     })),

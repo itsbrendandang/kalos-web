@@ -99,7 +99,7 @@ Each rule names the file that carries it.
   Status colors pair with a word or icon, and text and UI color pairs are checked for WCAG contrast in both themes: `__tests__/contrast.test.ts`.
 - No side-stripe borders on callouts or cards: `__tests__/design-guards.test.ts`.
 - No engine vocabulary in copy.
-  This is a design rule recorded in [`docs/REDESIGN_BRIEF.md`](docs/REDESIGN_BRIEF.md), not a test, and a few older pages still show internal names.
+  This is a design rule (see `DESIGN.md`), not a test, and a few older pages still show internal names.
 
 ## Live vs demo data
 

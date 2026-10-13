@@ -19,11 +19,19 @@ import { capFindings } from "@/components/campaign/stage-logic";
 
 const TONE: Record<ValidationStatus, Tone> = { pass: "good", pass_with_warnings: "warn", fail: "bad" };
 
-function sentence({ status, counts, checks_run }: ValidationReport): string {
+// The engine sends the names of the checks it ran; the shared type says a count.
+function checkNames(r: ValidationReport): string[] {
+  const raw: unknown = r.checks_run;
+  return Array.isArray(raw) ? raw.filter((c): c is string => typeof c === "string") : [];
+}
+
+function sentence(report: ValidationReport): string {
+  const { status, counts } = report;
+  const checks = checkNames(report).length;
   const n = (k: number, one: string) => `${formatNumber(k, "count")} ${one}${k === 1 ? "" : "s"}`;
   if (status === "fail") return `Fix ${n(counts.error, "problem")} in this run sheet before you rely on it.`;
   if (status === "pass_with_warnings") return `This run sheet is usable, with ${n(counts.warning, "warning")} to review.`;
-  return `This run sheet passed all ${formatNumber(checks_run, "count")} checks.`;
+  return checks > 0 ? `This run sheet passed all ${formatNumber(checks, "count")} checks.` : "This run sheet passed every check.";
 }
 
 /** The data check as one verdict: at most three findings up front, unit conversions in plain words, raw checks one click down. */
@@ -31,6 +39,8 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
   const [all, setAll] = useState(false);
   const { shown, hidden } = capFindings(report.findings, all ? Infinity : undefined);
   const total = report.findings.length;
+  const names = checkNames(report);
+  const found = new Map(groupFindingsByCheck(report.findings).map((g) => [g.check, g.findings.length]));
 
   return (
     <div className="flex flex-col gap-5">
@@ -67,14 +77,14 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
         )}
       </div>
 
-      <Disclosure summary="Method details" meta={`${formatNumber(report.checks_run, "count")} checks`}>
+      <Disclosure summary="Method details" meta={names.length > 0 ? `${formatNumber(names.length, "count")} checks` : undefined}>
         <dl className="flex flex-col gap-3">
-          {groupFindingsByCheck(report.findings).map((g) => (
-            <div key={g.check}>
+          {(names.length > 0 ? names : [...found.keys()]).map((check) => (
+            <div key={check}>
               <dt className="text-label text-fg">
-                {getCheckLabel(g.check)} <span className="text-fg-muted">({formatNumber(g.findings.length, "count")})</span>
+                {getCheckLabel(check)} <span className="text-fg-muted">({found.get(check) ?? 0} found)</span>
               </dt>
-              <dd className="text-body text-fg-muted">{getCheckExplanation(g.check)}</dd>
+              <dd className="text-body text-fg-muted">{getCheckExplanation(check)}</dd>
             </div>
           ))}
           <p className="text-caption text-fg-muted">

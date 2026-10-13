@@ -71,17 +71,10 @@ export function RecordForm({
         eyebrow={`Round ${displayRound(round)}`}
         title="Record results"
         description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
-        action={
-          <>
-            {logged > 0 ? (
-              <Link href="/campaign/learn" className={buttonVariants({ variant: "outline" })}>
-                Learn from round {displayRound(round)}
-              </Link>
-            ) : null}
-            <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
-              {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
-            </Button>
-          </>
+      action={
+          <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
+            {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
+          </Button>
         }
       />
       {error ? <Callout tone="bad" title="Not everything was saved">{error}</Callout> : null}
@@ -96,7 +89,7 @@ export function RecordForm({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Run</TableHead>
-              <TableHead>Recipe</TableHead>
+              <TableHead className="hidden sm:table-cell">Recipe</TableHead>
               <TableHead numeric>Measured result</TableHead>
             </TableRow>
           </TableHeader>
@@ -107,7 +100,7 @@ export function RecordForm({
               return (
                 <TableRow key={r.id} id={`record-${r.id}`} className="scroll-mt-12">
                   <TableCell className="font-mono text-code">{shortId(r.id)}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {inlineRecipeKeys(r.recipe, drivers).map((k) => (
                       <span key={k} className="mr-3 text-fg-muted">
                         {k} <span className="text-fg tabular-nums">{formatNumber(r.recipe[k])}</span>
@@ -136,6 +129,11 @@ export function RecordForm({
           </TableBody>
         </Table>
       </form>
+      {logged > 0 ? (
+        <Link href="/campaign/learn" className={buttonVariants({ variant: "outline", className: "self-start" })}>
+          Learn from round {displayRound(round)}
+        </Link>
+      ) : null}
 
       <Dialog open={confirm != null} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent>

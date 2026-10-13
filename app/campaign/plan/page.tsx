@@ -224,7 +224,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
             ) : null}
             {rest.length > 0 ? (
               <div>
-                {incumbent != null ? <h3 className="text-label text-fg-muted">Not predicted to beat the current best ({rest.length})</h3> : null}
+                {beats.length > 0 ? <h3 className="text-label text-fg-muted">Not predicted to beat the current best ({rest.length})</h3> : null}
                 <ul className="mt-1 divide-y divide-border border-y border-border">{rest.map(row)}</ul>
               </div>
             ) : null}

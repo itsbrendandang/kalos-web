@@ -59,7 +59,7 @@ export function batchExceptions(
   for (const { rank, proposal: p } of items) {
     const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
     if (ctx.nonNegative && p.pred < 0) {
-      flags.push({ rank, kind: "negative", text: `Recipe ${rank} is predicted at ${formatNumber(p.pred)}, below zero, but this target has no negative measurements.` });
+      flags.push({ rank, kind: "negative", text: `Recipe ${rank} is predicted ${p.pred > -0.005 ? "just below zero" : `at ${formatNumber(p.pred)}, below zero`}, but this target has no negative measurements.` });
     } else if (p.p_feasible != null && p.p_feasible < LOW_FEASIBILITY) {
       flags.push({ rank, kind: "low-feasibility", text: `Recipe ${rank} has only a ${formatNumber(p.p_feasible, "pct")} estimated chance of being feasible.` });
     } else if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {

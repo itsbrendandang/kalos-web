@@ -99,6 +99,9 @@ export default function LearnPage() {
   const calibration = bandCalibration(runs, d.conformal_q);
   const drivers = topDrivers(d.drivers, 8);
   const enabled = canPlanNext(c);
+  // Results recorded this round join `c.best` only when the model is re-analyzed, so say so instead of letting two numbers disagree.
+  const roundBest = runs.length ? Math.max(...runs.map((r) => r.result as number)) : null;
+  const roundBestPending = roundBest != null && (c.best == null || roundBest > c.best);
 
   async function planNext() {
     setBusy(true);
@@ -117,7 +120,7 @@ export default function LearnPage() {
       {header(
         <div className="flex flex-col items-end gap-1">
           <Button onClick={planNext} disabled={!enabled || busy}>
-            {busy ? "Planning..." : `Plan round ${round + 1}`}
+            {busy ? "Planning..." : `Plan round ${learned + 1}`}
             {busy ? null : <ArrowRight aria-hidden />}
           </Button>
           {enabled ? null : <p className="text-caption text-fg-muted">Record at least one result first.</p>}
@@ -158,7 +161,10 @@ export default function LearnPage() {
           label={`Best ${name}`}
           value={c.best}
           unit={unit}
-          qualifier={`Measured, from ${formatNumber(c.n_base, "count")} runs in the dataset`}
+          qualifier={
+            `Measured, from ${formatNumber(c.n_base, "count")} runs in the dataset.` +
+            (roundBestPending ? ` The best result recorded this round, ${formatNumber(roundBest)}${unit ? ` ${unit}` : ""}, is counted once you plan round ${learned + 1}.` : "")
+          }
         />
         <BestSoFarChart campaign={c} unit={unit} />
         <ul className="text-caption text-fg-muted">
@@ -183,7 +189,7 @@ export default function LearnPage() {
 
       <Section
         title="What moves the target"
-        description={`Associations in these runs, not proof of cause. Ranked by strength of rank correlation with ${name}.`}
+        description={`Associations in these runs, not proof of cause. Ranked by strength of rank correlation with ${name}. Significant means the interval excludes zero and the input still stands after correcting for testing many inputs at once.`}
       >
         {drivers.length ? <DriversList drivers={drivers} targetName={name} /> : <p className="text-body text-fg-muted">This analysis reported no drivers.</p>}
       </Section>

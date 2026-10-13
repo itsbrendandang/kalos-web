@@ -46,7 +46,7 @@ export function RunLandscape({ embedding, targetName, unit }: { embedding: Embed
             <Scatter data={points} isAnimationActive={false}>
               {points.map((p, i) =>
                 p.target > 0 ? (
-                  <Cell key={i} fill={`var(--chart-seq-${step(p.target, min, max)})`} stroke="none" />
+                  <Cell key={i} fill={`var(--chart-seq-${step(p.target, min, max)})`} stroke="var(--border-strong)" strokeWidth={1} />
                 ) : (
                   <Cell key={i} fill="var(--surface)" stroke="var(--fg-muted)" strokeWidth={1.5} />
                 ),

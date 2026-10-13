@@ -91,7 +91,7 @@ export function LineChart({
               hide={!showXAxis}
               dataKey={index}
               interval="equidistantPreserveStart"
-              tick={{ transform: "translate(0, 6)" }}
+              tick={{ transform: "translate(0, 6)", className: AXIS_TICK_CLASS }}
               tickFormatter={indexFormatter}
               fill=""
               stroke=""
@@ -113,7 +113,7 @@ export function LineChart({
               tickLine={false}
               type="number"
               domain={getYAxisDomain(autoMinValue, minValue, maxValue)}
-              tick={{ transform: "translate(-3, 0)" }}
+              tick={{ transform: "translate(-3, 0)", className: AXIS_TICK_CLASS }}
               fill=""
               stroke=""
               className={AXIS_TICK_CLASS}

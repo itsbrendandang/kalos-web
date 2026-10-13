@@ -2,16 +2,16 @@
 
 import {
   AreaChart, Area, BarChart, Bar, ScatterChart, Scatter, Cell,
-  XAxis, YAxis, CartesianGrid, ReferenceLine,
+  XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { fmt } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 /** Compact axis tick label - keeps long raw values (e.g. 22.0363) from clipping the gutter. */
-const fmtTick = (v: number) => fmt(v, 1);
+const fmtTick = (v: number) => formatNumber(v);
 
 /**
  * Shared recharts theme, driven by the app-wide design tokens
@@ -52,11 +52,11 @@ const GRAY = CHART_THEME.seriesDown;
 const GRID = CHART_THEME.grid;
 const INK = CHART_THEME.axis;
 
-export const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-jbmono)" } as const;
+export const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-geist-mono)" } as const;
 export const tip = {
   contentStyle: {
     fontSize: 12,
-    fontFamily: "var(--font-jbmono)",
+    fontFamily: "var(--font-geist-mono)",
     borderRadius: 8,
     border: `1px solid ${CHART_THEME.tooltip.border}`,
     background: CHART_THEME.tooltip.background,
@@ -118,7 +118,7 @@ export function ProgressChart({ data }: { data: { round: number; best: number | 
               formatter={(value, name) => (
                 <div className="flex w-full items-center justify-between gap-3">
                   <span className="text-muted-foreground">{name}</span>
-                  <span className="font-mono font-medium text-foreground tabular-nums">{fmt(Number(value), 2)}</span>
+                  <span className="font-mono font-medium text-foreground tabular-nums">{formatNumber(Number(value))}</span>
                 </div>
               )}
             />
@@ -183,29 +183,6 @@ export function DriversBar({ drivers }: { drivers: { name: string; rho: number; 
           ))}
         </Bar>
       </BarChart>
-    </ChartContainer>
-  );
-}
-
-export function PredScatter({ oof }: { oof: [number, number][] }) {
-  if (oof.length === 0) {
-    return <p className="py-10 text-center text-[12px] text-muted">not enough held-out points</p>;
-  }
-  const data = oof.map(([measured, predicted]) => ({ measured, predicted }));
-  const vals = data.flatMap((d) => [d.measured, d.predicted]);
-  const lo = Math.min(...vals);
-  const hi = Math.max(...vals);
-  const config = { predicted: { label: "predicted", color: ACCENT } } satisfies ChartConfig;
-  return (
-    <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
-        <CartesianGrid stroke={GRID} />
-        <XAxis type="number" dataKey="measured" name="measured" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("measured", "x")} />
-        <YAxis type="number" dataKey="predicted" name="predicted" domain={[lo, hi]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("predicted", "y")} />
-        <ReferenceLine segment={[{ x: lo, y: lo }, { x: hi, y: hi }]} stroke={GRAY} strokeDasharray="5 5" ifOverflow="extendDomain" />
-        <ChartTooltip cursor={{ strokeDasharray: "3 3", stroke: GRID }} content={<ChartTooltipContent indicator="dot" />} />
-        <Scatter data={data} fill={ACCENT} fillOpacity={0.4} stroke={ACCENT} strokeOpacity={0.55} strokeWidth={0.5} isAnimationActive={false} />
-      </ScatterChart>
     </ChartContainer>
   );
 }

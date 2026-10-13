@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -16,5 +17,18 @@ describe("self-hosted fonts", () => {
         .filter((file) => readFileSync(path.join(root, file), "utf8").includes("next/font/google")),
     );
     expect(offenders).toEqual([]);
+  });
+
+  // The shipped files must stay byte-identical to vercel/geist-font v1.7.2
+  // (renamed only). These are git blob hashes, so `git hash-object` on the
+  // upstream files prints the same values - see DESIGN.md "Fonts".
+  it.each([
+    ["Geist-Variable.woff2", "71dab8bedba3bfef5dccd7875ed05cac44c7345d"],
+    ["GeistMono-Variable.woff2", "0e746fc18223dfcb107a85502a0abe1b1a02d51a"],
+    ["GEIST-LICENSE.txt", "8d003fec6b8a0f9f866ab1038579b6ea20926ac4"],
+  ])("app/fonts/%s matches the upstream blob", (file, blob) => {
+    const bytes = readFileSync(path.resolve(__dirname, "../app/fonts", file));
+    const hash = createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
+    expect(hash).toBe(blob);
   });
 });

@@ -1,4 +1,5 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 
 /**
@@ -497,7 +498,7 @@ export async function runFile(file: File, target?: string): Promise<AnalyzeResul
   });
 }
 
-// The most recent real (uploaded) analysis — what the Overview reflects.
+// The most recent real (uploaded) analysis - what the Overview reflects.
 export type LatestResult =
   | { has_data: false; campaign_generation?: string | null }
   | (AnalyzeResult & { has_data: true; dataset: string; updated: number; campaign_generation?: string | null });
@@ -563,6 +564,77 @@ export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "c
   if (rel) return rel.clears_floor && rel.ci_excludes_zero;
   const ci = d.cv_ci95 ?? null;
   return d.cv_spearman != null && ci != null && ci[0] > 0;
+}
+
+export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
+
+export type ReliabilityVerdict = {
+  state: ReliabilityState;
+  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough data". */
+  label: "Reliable" | "Not yet reliable" | "Not enough data";
+  /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
+  rho: number | null;
+  /** Its 95% interval, when the engine reported one. */
+  ci: [number, number] | null;
+  /** The engine's trust floor for `rho`, when reported. */
+  floor: number | null;
+  /** One plain sentence saying why. Never says "clears" while the interval reaches below the floor. */
+  reason: string;
+};
+
+/**
+ * The one reliability verdict app-wide (redesign brief, rule 1). `state` is
+ * `isReliable()` - the same predicate as before - plus the honest third case
+ * where the engine could not score rank agreement at all. Promotion gates are
+ * a separate question with their own line; nothing here reads `promotion`.
+ */
+export function reliabilityVerdict(
+  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
+): ReliabilityVerdict {
+  const rel = d.reliability;
+  const rho = rel?.spearman ?? d.cv_spearman ?? null;
+  const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
+  const floor = rel?.spearman_floor ?? null;
+  const floorText = floor != null ? ` (${floor.toFixed(2)})` : "";
+  if (rho == null) {
+    return {
+      state: "insufficient",
+      label: "Not enough data",
+      rho,
+      ci,
+      floor,
+      reason: "There are not enough held-out runs to measure how well the model ranks recipes.",
+    };
+  }
+  if (isReliable(d)) {
+    const reachesBelow = floor != null && ci != null && ci[0] < floor;
+    return {
+      state: "reliable",
+      label: "Reliable",
+      rho,
+      ci,
+      floor,
+      reason: reachesBelow
+        ? `The model ranks held-out runs above the trust floor${floorText} on average, but its 95% interval still reaches below it.`
+        : `The model ranks held-out runs above the trust floor${floorText}, and its 95% interval stays above it.`,
+    };
+  }
+  // Without a `reliability` object there is no floor to compare against: the only known cause is the interval.
+  const belowFloor = rel ? !rel.clears_floor : false;
+  return {
+    state: "not-yet",
+    label: "Not yet reliable",
+    rho,
+    ci,
+    floor,
+    reason: belowFloor
+      ? `The model's ranking of held-out runs is below the trust floor${floorText}.`
+      : rel
+        ? "The model's ranking of held-out runs is above the trust floor on average, but its 95% interval still includes zero, so it is not confirmed yet."
+        : ci
+          ? "The model's ranking of held-out runs has a 95% interval that includes zero, so it is not confirmed yet."
+          : "The engine did not report a 95% interval for the model's ranking of held-out runs, so it is not confirmed yet.",
+  };
 }
 
 /**
@@ -767,18 +839,30 @@ export type CampaignRun = {
   reason: string;
   result: number | null;
   awaiting: boolean;
+  /** The round the run was started in; optional until the engine sends it. */
+  round?: number;
 };
 
+/** The engine's own stage state (forward-compatible: optional until the engine sends it). */
+export type EngineStage = {
+  round: number | null;
+  current: "setup" | "plan" | "run" | "record" | "learn";
+  started: number;
+  steps: { key: StageKey; state: "done" | "current" | "upcoming"; detail: string }[];
+};
+export type EngineNextAction = { stage: StageKey; action: string; reason: string };
+
 export type Campaign =
-  | { has_campaign: false }
+  | { has_campaign: false; stage?: EngineStage; next_action?: EngineNextAction }
   | {
       has_campaign: true;
+      stage?: EngineStage;
+      next_action?: EngineNextAction;
       target: string;
       features: string[];
       n_base: number;
       best: number | null;
       round: number;
-      analysis_in_sync?: boolean;
       /**
        * The progress trajectory: one { round, best, n_base } point per round
        * (round 0 = the seeded base, then one per re-analyze). `best` is the
@@ -789,6 +873,14 @@ export type Campaign =
       pending: CampaignRun[];
       n_awaiting: number;
       n_measured: number;
+      /**
+       * Whether /api/latest provably describes this campaign as it is now
+       * (kalos/docs/CAMPAIGN_LOOP.md, "Analysis/campaign coherence"). Every
+       * campaign write (start, result, fold, reseed) re-mints the stamp, so
+       * this is false from the first run started after an analysis until the
+       * next re-analyze. Optional only because older engines do not send it.
+       */
+      analysis_in_sync?: boolean;
     };
 
 export type CampaignComparison = {

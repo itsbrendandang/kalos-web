@@ -1,0 +1,30 @@
+Tremor Raw components (https://github.com/tremorlabs/tremor)
+Copyright Tremor Labs, Inc. and contributors
+
+The files in this directory are adapted from Tremor, which is licensed under
+the Apache License, Version 2.0 (the "License"); you may not use these files
+except in compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+
+Source: tremorlabs/tremor at commit ca4d588f47820ff3d514d37fa4ee08a4222dec11
+(2025-10-10), files src/components/Card/Card.tsx (v1.0.0),
+src/components/LineChart/LineChart.tsx (v1.0.0),
+src/components/BarChart/BarChart.tsx and src/utils/{chartColors,cx,getYAxisDomain}.ts.
+
+Modifications by Kalos (each file's header lists its own):
+- Colours map to the Kalos design tokens (--chart-*, accent, fg-muted)
+  instead of Tremor's Tailwind palette names; grid, axis and tooltip styles
+  use the Kalos neutrals.
+- Ported from recharts 2 to recharts 3 (the version this app ships).
+- Radix Slot, @remixicon/react and tailwind-variants are not used; there is
+  no new dependency. cx() is the app's cn() (clsx + tailwind-merge).
+- Interactive selection (onValueChange), the scrolling legend slider and
+  tooltipCallback are removed; the legend is plain HTML above the plot.
+- `any` types are replaced with typed props.

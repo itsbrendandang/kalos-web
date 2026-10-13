@@ -10,12 +10,9 @@ import {
   type LatestResult,
   type AnalyzeResult,
 } from "@/lib/api";
+import { formatNumber } from "@/lib/format";
 
 type Live = Extract<LatestResult, { has_data: true }>;
-
-function fmt(n: number, d = 2) {
-  return Number.isFinite(n) ? n.toFixed(d) : "-";
-}
 
 /** One-decimal band, but never collapse a real, tiny band to a misleading "0.0". */
 function fmtBand(x: number) {
@@ -71,8 +68,8 @@ function Reliability_({ d }: { d: AnalyzeResult }) {
         <span className="text-[12px] font-medium">Model reliability</span>
         {r?.spearman != null ? (
           <span className="v-tone-accent ml-auto font-mono text-[12px] font-semibold">
-            Spearman {fmt(r.spearman, 2)}
-            {r.ci95 ? ` · 95% CI [${fmt(r.ci95[0], 2)}, ${fmt(r.ci95[1], 2)}]` : ""}
+            Spearman {formatNumber(r.spearman, "corr")}
+            {r.ci95 ? ` · 95% CI [${formatNumber(r.ci95[0], "corr")}, ${formatNumber(r.ci95[1], "corr")}]` : ""}
           </span>
         ) : null}
       </div>
@@ -95,7 +92,7 @@ function ProposalCard({ d, p, i }: { d: AnalyzeResult; p: AnalyzeResult["proposa
           <div className="dcsub">{cleanReason(p.reason)}</div>
         </div>
         <div>
-          <div className="dcp">{fmt(p.pred, 1)}</div>
+          <div className="dcp">{formatNumber(p.pred)}</div>
           <div className="dcu">
             ± {fmtBand(band)} · {bandLabel}
           </div>
@@ -106,7 +103,7 @@ function ProposalCard({ d, p, i }: { d: AnalyzeResult; p: AnalyzeResult["proposa
           {d.proposal_features.map((f, k) => (
             <div key={f} className="cond-cell">
               <div className="cond-lbl truncate">{f}</div>
-              <div className="cond-val">{fmt(p.vals[k], 3)}</div>
+              <div className="cond-val">{formatNumber(p.vals[k])}</div>
             </div>
           ))}
         </div>
@@ -172,7 +169,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
                 </div>
                 <div className="mini-bar-pct">
                   {dr.rho >= 0 ? "+" : ""}
-                  {fmt(dr.rho, 2)}
+                  {formatNumber(dr.rho, "corr")}
                   {!dr.significant ? <span className="mini-bar-ns"> ns</span> : null}
                 </div>
               </div>

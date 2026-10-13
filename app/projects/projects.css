@@ -92,10 +92,9 @@
   /* Neutral chip fill (customer project count, idle pipeline badge). */
   --v-chip-bg: #f0f0f0;
 
-  min-height: 100svh;
   background: var(--v-bg);
   color: var(--v-ink);
-  font-family: var(--font-projects), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }

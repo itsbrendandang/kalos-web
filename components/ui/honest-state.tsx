@@ -1,6 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
 import { Inbox, WifiOff } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -21,12 +20,13 @@ import { cn } from "@/lib/utils";
  *
  * Conflating ErrorState and EmptyState is the exact bug this file exists to
  * prevent: a dropped connection must never be reported as a scientific
- * finding about the lab.
+ * finding about the lab. Resolve loading before empty: render EmptyState only
+ * once a request has answered, never while it is still in flight.
  */
 
 export function ErrorState({
   title = "Could not reach the analysis service",
-  description = "The request failed before the engine could respond. This is a connection problem, not a result - your data is unaffected.",
+  description = "The request failed before the engine could respond. This is a connection problem, not a result: your data is unaffected.",
   onRetry,
   retryLabel = "Try again",
   busy = false,
@@ -40,34 +40,23 @@ export function ErrorState({
   className?: string;
 }) {
   return (
-    // variant stays "default": the "destructive" variant forces
-    // AlertDescription's text to the stock, contrast-unverified
-    // `--destructive` red via a `*:data-[slot=alert-description]:...` child
-    // selector that outranks any color class passed through className.
-    // Severity here comes from the app's own AA-checked `--red` token
-    // instead, applied directly to the icon and title.
-    <Alert
-      variant="default"
-      className={cn("items-start gap-2.5 border-red/30 bg-red/5 px-3.5 py-3", className)}
-    >
-      <WifiOff className="size-4 text-red" aria-hidden />
+    <div role="alert" className={cn("flex items-start gap-3 rounded-xl border border-border bg-surface p-4", className)}>
+      <WifiOff className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
       <div className="min-w-0 flex-1">
-        <AlertTitle className="text-[13px] text-fg">{title}</AlertTitle>
-        <AlertDescription className="mt-1 text-[12.5px] leading-5 text-muted">
-          {description}
-        </AlertDescription>
+        <p className="text-label text-fg">{title}</p>
+        <div className="mt-1 text-body text-fg-muted">{description}</div>
         {onRetry ? (
           <Button variant="outline" size="sm" onClick={onRetry} disabled={busy} className="mt-3">
-            {busy ? "Retrying…" : retryLabel}
+            {busy ? "Trying again..." : retryLabel}
           </Button>
         ) : null}
       </div>
-    </Alert>
+    </div>
   );
 }
 
 export function EmptyState({
-  title = "No results yet",
+  title = "Nothing here yet",
   description,
   icon: Icon = Inbox,
   action,
@@ -80,20 +69,13 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center",
-        className,
-      )}
-    >
-      <span className="grid size-9 place-items-center rounded-full bg-secondary text-muted">
-        <Icon className="size-4.5" aria-hidden />
+    <div className={cn("flex flex-col items-center gap-2 px-6 py-12 text-center", className)}>
+      <span className="grid size-10 place-items-center rounded-full bg-subtle text-fg-muted">
+        <Icon className="size-5" aria-hidden />
       </span>
-      <div className="text-[13px] font-semibold text-fg">{title}</div>
-      {description ? (
-        <p className="max-w-[42ch] text-[12.5px] leading-5 text-muted">{description}</p>
-      ) : null}
-      {action ? <div className="mt-1">{action}</div> : null}
+      <p className="text-heading text-fg">{title}</p>
+      {description ? <div className="max-w-[48ch] text-body text-fg-muted">{description}</div> : null}
+      {action ? <div className="mt-2">{action}</div> : null}
     </div>
   );
 }
@@ -119,7 +101,7 @@ export function LoadingSkeleton({
     return (
       <div className={cn("space-y-2.5", className)} {...common}>
         <Skeleton className="h-3.5 w-28" />
-        <Skeleton className="h-[220px] w-full rounded-xl" />
+        <Skeleton className="h-[220px] w-full rounded-lg" />
       </div>
     );
   }
@@ -127,9 +109,9 @@ export function LoadingSkeleton({
   if (variant === "table") {
     return (
       <div className={cn("space-y-1.5", className)} {...common}>
-        <Skeleton className="h-7 w-full rounded-lg" />
+        <Skeleton className="h-8 w-full rounded-md" />
         {Array.from({ length: rows }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-full rounded-lg" />
+          <Skeleton key={i} className="h-10 w-full rounded-md" />
         ))}
       </div>
     );
@@ -139,7 +121,7 @@ export function LoadingSkeleton({
     return (
       <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", className)} {...common}>
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-border p-4">
+          <div key={i} className="rounded-xl border border-border bg-surface p-5">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="mt-3 h-6 w-16" />
             <Skeleton className="mt-2 h-3 w-28" />

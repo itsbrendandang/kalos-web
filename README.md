@@ -2,149 +2,164 @@
 
 [![CI](https://github.com/itsbrendandang/kalos-web/actions/workflows/ci.yml/badge.svg)](https://github.com/itsbrendandang/kalos-web/actions/workflows/ci.yml)
 
-The production front end for [Kalos](https://github.com/itsbrendandang/kalos-engine), a Bayesian-optimization platform for bioprocess development.
-Next.js 16 + Tailwind v4, on a single unified blue design system, consuming the Kalos engine API.
+The scientist-facing front end for the [Kalos engine](https://github.com/itsbrendandang/kalos-engine) API, built with Next.js 16 and Tailwind v4.
+Status: one live campaign is wired end to end to the engine; the Data, Library and Projects surfaces are partly or fully example data and say so on screen.
 
-![Results view: real model reliability, significant process drivers, and an honest gate verdict on a 160-run synthetic bioprocess sheet](docs/images/dashboard-results.jpg)
+## What you can do
 
-The Results view above is a real run against `examples/synthetic_bioprocess/synthetic_bioprocess.csv` in the engine repo, not a mock.
-The "GATES FAILED" badge is the engine's fail-closed promotion gate (`kalos/core/gates.py`) refusing to promote a model that has not cleared its feasibility bar, exactly as it would for real data.
+The app is a workbench.
+It has an activity rail, an explorer, a route-per-tab editor, a status bar and a command palette (Cmd+K).
 
-## Contents
+- **Activity rail.** Campaign, Data, Library and Projects, with Settings pinned at the foot.
+- **Explorer.** A tree specific to each section, with keyboard navigation.
+- **Editor tabs.** Every tab is a route, so deep links, reload and Back all work.
+  The open-tab list is a per-viewer convenience kept in `sessionStorage`.
+- **Status bar.** Engine connection, round, runs in flight, best so far, and one text action for the next step.
+- **Command palette.** Jump to any page or stage, or run an action such as "Upload a run sheet".
 
-- [Getting started](#getting-started)
-  - [Run it](#run-it)
-  - [How the app reaches the engine](#how-the-app-reaches-the-engine)
-- [Pages](#pages)
-  - [Optimizer](#optimizer)
-  - [Projects](#projects)
-- [Design system](#design-system)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Stack](#stack)
+The engine runs one live campaign, and the home page is that campaign's workspace.
+It moves through five stages, each with one primary action:
 
-## Getting started
+| Stage | Route | Primary action |
+| --- | --- | --- |
+| Setup | `/campaign/setup` | Upload a run sheet, check data quality, choose the target |
+| Plan | `/campaign/plan` | Start the proposed batch (for example "Start 5 runs") |
+| Run | `/campaign/run` | Record results |
+| Record | `/campaign/record` | Save the measured results |
+| Learn | `/campaign/learn` | Plan the next round |
 
-### Run it
+The rest of the app:
 
-The engine API must be running first (in the `kalos-engine` repo):
+- **Data** (`/data`): a registry of datasets and runs.
+- **Library** (`/library`): Vessels, Plate analysis, Scale-up readout and Simulator, plus a link to Projects.
+- **Projects** (`/projects`): client-facing project workspaces on illustrative seed data.
+- **Settings** (`/settings`): theme, engine connection, and optional integrations.
+
+Earlier routes redirect permanently (`next.config.ts`), so old links and bookmarks still resolve.
+
+| Old route | Now |
+| --- | --- |
+| `/decide`, `/optimize` | `/campaign/plan` |
+| `/results` | `/campaign/learn` |
+| `/analyze`, `/validate` | `/campaign/setup` |
+| `/experiments`, `/planning` | `/` |
+| `/scale-readout` | `/library/scale-up` |
+| `/vessels` | `/library/vessels` |
+| `/plate` | `/library/plate` |
+| `/simulate` | `/library/simulator` |
+
+## Screenshots
+
+Screenshots of the redesigned workbench will follow the merge of the redesign branch.
+The only image committed today, [`docs/images/dashboard-results.jpg`](docs/images/dashboard-results.jpg), shows the previous Results view and does not match the current UI.
+
+## Quickstart
+
+Start the engine first, from the [kalos-engine](https://github.com/itsbrendandang/kalos-engine) repo, which serves the API on `http://127.0.0.1:8050`:
 
 ```bash
-python -m kalos.portal        # serves the API on http://127.0.0.1:8050
+python -m kalos.portal
 ```
 
-Then the web app:
+Then, in this repo:
 
 ```bash
 npm install
-npm run dev                    # http://localhost:3000
+cp env.example .env.local        # then edit
+npm run dev
 ```
 
-### How the app reaches the engine
+Open `http://localhost:3000`, not `http://127.0.0.1:3000`.
+Next 16 dev mode does not treat `127.0.0.1` as the same origin as `localhost`, which can break hot reload and client hydration.
 
-By default, the app never talks to the engine directly from the browser.
-It calls the same-origin proxy at `/api/engine/*` (`app/api/engine/[...path]/route.ts`), which forwards to `KALOS_ENGINE_URL` and attaches `Authorization: Bearer ${KALOS_ENGINE_TOKEN}` server-side.
-That file's header comment explains why a bearer token can never live in client-visible code.
-Set both in `.env.local` (see `env.example`); with neither set, the proxy forwards to `http://127.0.0.1:8050` with no auth header, matching the engine's own open-mode default.
+The browser never calls the engine directly.
+It calls the same-origin proxy at `/api/engine/*` (`app/api/engine/[...path]/route.ts`), which forwards to the engine and attaches the bearer token on the server.
+Configure it in `.env.local` (placeholders in [`env.example`](env.example)):
 
-Escape hatch for local dev: set `NEXT_PUBLIC_API_URL` in `.env.local` to point the browser straight at an engine, bypassing the proxy entirely.
-Only use this against an engine with no auth configured; it is not the deployed posture.
-
-## Pages
-
-### Optimizer
-
-| Page | Route | What it does |
+| Variable | Where | What it does |
 | --- | --- | --- |
-| Experiments | `/` | The hub for planning, running, and tracking every experiment |
-| Results | `/results` | Your last analyzed dataset: reliability, drivers, and the next experiments |
-| Decide | `/decide` | The decision cockpit and the closed optimization loop |
-| Analyze | `/analyze` | Upload a run sheet for a full analysis |
-| Validate | `/validate` | The data-quality verdict on a run sheet, without optimizing |
-| Data | `/data` | The data catalog of every dataset and run |
+| `KALOS_ENGINE_URL` | server only | Engine base URL, for example `http://127.0.0.1:8050`. If unset, the proxy answers 502 "engine unreachable". |
+| `KALOS_ENGINE_TOKEN` | server only | Bearer token sent to the engine. Leave unset while the engine runs open. Never prefix it with `NEXT_PUBLIC_`. |
+| `NEXT_PUBLIC_DEMO_MODE` | build time | Set to `true` to render example data where the engine has none (see below). Default off. |
+| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires a token. |
 
-- **Experiments** (`/`).
-  A Live / Board switcher sits under the header, driven by the `?view=live|board` search param (default `live`), so each view is directly linkable and the back button moves between them.
-  - **Live** (`?view=live`): summary tiles, in-flight run cards (attention-needed first), the next batch to run, and recently completed runs.
-  - **Board** (`?view=board`): a Kanban board of experiment/planning tasks moving through To Do -> Draft -> In Progress -> Review Requested -> Completed, with a Table sub-view of the same tasks grouped by column.
-    Cards drag between columns via native HTML5 drag-and-drop, and an inline input adds a card to a column without a modal.
-    Task data is a static mock in `lib/mock/planning.ts`.
-- **Results** (`/results`).
-  Model reliability (honest held-out rank correlation + 95% CI), what drives the outcome, predicted-vs-measured, a run landscape (a low-dimensional projection of every run, positioned by recipe similarity and colored by target, shown when the engine returns an `embedding`), a histogram of measured target values with non-producers called out, and Recommended actions: the optimizer's next-best experiments, ranked by the acquisition function (`#next-experiments`).
-  Reads `GET /api/latest` and shows an upload prompt until you analyze a dataset; it is not a demo.
-- **Decide** (`/decide`).
-  The recommended batch is the hero (each experiment's recipe, predicted value + uncertainty, and why), and the honest reliability verdict is a compact chip.
-  Queue proposals and Start them, log each run's measured outcome, then Re-propose, which folds the results into the dataset and returns the next batch, with a best-so-far progress chart.
-  Wired to the engine's `/api/campaign*` endpoints (`docs/CAMPAIGN_LOOP.md` in the engine repo); best-so-far and round come from the live campaign, never a prediction.
-  Below the loop, a **scale-up timeline** projects the path from 96-well plate to production vessels across max-yield / min-cost / fastest paths, with confidence bands that widen with scale, clearly labeled "projected" (physics/literature priors, not measured; `lib/scaleup-projection.ts`).
-  Diagnostics (drivers, reliability, run structure, predicted landscape) collapse behind lazy-mounted disclosures.
-  Full design and honesty tiers: `docs/DECIDE_COCKPIT.md`.
-- **Analyze** (`/analyze`).
-  Drop a CSV/TSV/Excel run sheet; the engine fits, cross-validates honestly, ranks the drivers, and recommends the next batch.
-  Reached via the "Run analysis" button on the Experiments hub and on Results.
-- **Validate** (`/validate`).
-  Renders the engine's `validation` block: a pass / pass-with-warnings / fail header, per-check findings with errors first, the affected columns and row indices (captioned "showing 20 of N" when the engine's row list is capped), and the unit conversions applied to the upload.
-  Also shows external-provider credential status from `GET /api/providers`; an unconfigured provider is an optional upgrade, not an error.
-  Severity is never conveyed by color alone.
-- **Data** (`/data`).
-  Every dataset and run under a stable, anonymized barcode, with a searchable/sortable registry table and a per-dataset drill-down (sample runs, output ranges, provenance).
-  Registry data is a mock in `lib/mock/registry.ts` (`DATASETS` and `RUNS_BY_DATASET`).
+To try the app with data, upload the synthetic example sheet from the engine repo on the Setup stage, or with `curl -F file=@examples/synthetic_bioprocess/synthetic_bioprocess.csv http://127.0.0.1:8050/api/run`.
+That sheet is generated, not measured.
 
-The old `/planning`, `/experiments`, and `/optimize` routes redirect to `/?view=board`, `/`, and `/results#next-experiments`, so existing links and bookmarks still resolve.
+## Honest by design in the UI
 
-### Projects
+Each rule names the file that carries it.
 
-A customer-facing surface under `/projects`, inside the shared sidebar but with a denser layout than the rest of the app.
-It uses the same blue tokens (aliased in `app/projects/projects.css` under `.projects-root`) and the same self-hosted Satoshi typeface.
-`components/app-shell.tsx` skips the shell's content container for these routes, since `.projects-root` brings its own.
+- One reliability verdict app-wide ("Reliable", "Not yet reliable", "Not enough data"), computed in one place: `reliabilityVerdict` in `lib/api.ts`, tested in `__tests__/reliability-verdict.test.ts`.
+- One uncertainty band per recipe, shown with its coverage: `formatBand` in `lib/format.ts`.
+- Measured and predicted values are never mixed.
+  Best so far comes from the campaign's measured results, never a prediction: `lib/workbench.ts`, `__tests__/workbench.test.ts`.
+- Demo data wears a visible "Example data" badge, and demo content renders only when `NEXT_PUBLIC_DEMO_MODE=true`: `ExampleBadge` in `components/ui/badge.tsx`, `lib/demo.ts`.
+- State is never carried by color alone.
+  Status colors pair with a word or icon, and text and UI color pairs are checked for WCAG contrast in both themes: `__tests__/contrast.test.ts`.
+- No side-stripe borders on callouts or cards: `__tests__/design-guards.test.ts`.
+- No engine vocabulary in copy.
+  This is a design rule (see `DESIGN.md`), not a test, and a few older pages still show internal names.
 
-- **`/projects`**: customers and their projects, each tagged by workflow stage, with Add/Edit customer and project modals.
-- **`/projects/[id]`**: the project workspace, in tabs.
-  - **Phase 1**: the iterative DoE/Bayesian-opt loop as iteration cards (LHS then BO Explore/Exploit), batch-ticket upload, and unlock gating.
-  - **Phase 2**: scale-up, either the setup state (config + 9-stage pipeline) or the run results with Promote/Hold candidate cards (drivers, scale-up projection, warnings).
-  - **Phase 2 (live)**: the "In-house R&D" project (`live: true`) scores the real uploaded dataset through the engine via `GET /api/latest`: recommended next experiments with a conformal band, honest model reliability (grouped-CV Spearman + CI vs the 0.20 floor), global signed drivers, and an explicit "not modeled" callout.
-    Falls back to a start-the-engine notice when the API is unreachable.
-  - **Linkage tree**: an interactive SVG experiment lineage with a clickable per-node detail panel.
-- **`/projects/[id]/report`**: the final report with stat cards, drivers and ideal ranges, the scale-up projection curve, candidate decisions, and export.
+## Live vs demo data
 
-Apart from the live project, these screens render illustrative seed data from `app/projects/data.ts` and do not call the engine.
-Phase 1, Phase 2, and the final report carry a persistent "Sample data - illustrative, not a real analysis" banner, so their numbers are never mistaken for real engine output.
+| Route | Source |
+| --- | --- |
+| `/`, `/campaign/*` | Engine (`/api/latest`, `/api/campaign*`). With demo mode on and no campaign yet, `/` and `/campaign/run` show a badged example campaign from `lib/mock/campaign.ts`. |
+| `/library/scale-up` | Engine (`POST /api/scale/readout`). Disabled in demo mode. |
+| `/library/simulator` | Engine (`/api/single`, `/api/multi`), which runs a synthetic benchmark surface. |
+| `/settings` | Engine (`/api/providers`, and the connection check). |
+| `/data` | Fixtures in `lib/mock/registry.ts`, synthetic, shown only in demo mode. |
+| `/library/vessels` | Fixtures in `lib/vessel-data.ts`, a seeded simulation, shown only in demo mode. |
+| `/library/plate` | Fixtures in `lib/plate-data.ts`, a seeded simulation, always shown with a demo badge. |
+| `/projects/*` | Illustrative seed data in `app/projects/data.ts`, saved per viewer in the browser. One project scores the live engine analysis. |
 
 ## Design system
 
-The whole app shares one unified blue design system.
-Tokens (color, radius, type) are defined once in `app/globals.css` and consumed everywhere via Tailwind v4's `@theme inline`.
-`DESIGN.md` has the full token reference, color roles, type scale, and fonts.
+- Geist and Geist Mono, self-hosted with `next/font/local` (no Google Fonts requests, enforced by `__tests__/self-hosted-fonts.test.ts`).
+- Light first, with full dark mode.
+- OKLCH tokens defined once in `app/globals.css`, exposed through Tailwind v4 `@theme inline`.
+- shadcn/ui primitives on Base UI in `components/ui/`, shared pieces in `components/kit/`.
+- Charts and KPI visuals adapted from [Tremor](https://github.com/tremorlabs/tremor) (Apache-2.0) in `components/tremor/`.
 
-Primitives come from **shadcn/ui** on `@base-ui/react`, configured in `components.json` and living in `components/ui/`.
-Every primitive is mapped onto the kalos tokens rather than shadcn's default neutral theme.
-Two rules matter when adding one:
+[`DESIGN.md`](DESIGN.md) has the token reference, type scale and layout rules.
 
-- **Two separate data-color families.**
-  `--chart-1..5` is a single-hue blue sequential ramp for ORDERED MAGNITUDE (heatmaps, the plate grid) and reverses lightness in dark mode so "more" stays "more visible".
-  `--series-1..6` is the Okabe-Ito colorblind-safe qualitative palette for UNORDERED CATEGORIES (per-vessel kinetics).
-  Never use one for the other's job, and because `--series-*` alone cannot carry meaning in greyscale, categorical traces also need a dash pattern or a direct label.
-- **Patch `bg-muted` out of anything fetched from the registry.**
-  In this codebase `--muted` is a TEXT gray with 250+ call sites, not shadcn's subtle surface, so a stock primitive using `bg-muted` renders a near-invisible fill.
-  Rewrite it to `bg-secondary` or `bg-blue-soft`.
+## Development and CI
 
-`npx shadcn add` currently hangs with no output in this environment; `DESIGN.md` documents the direct-registry workaround.
-
-## Testing
+CI (`.github/workflows/ci.yml`, Node 22.16.0) runs these on every push and pull request:
 
 ```bash
-npm run lint    # eslint
-npm run test    # vitest
-npm run build   # next build; also the typecheck gate (see ci.yml for why there is no separate tsc step)
+npm ci
+npm run lint
+npm run test
+npm run build
 ```
 
-All three run in CI (`.github/workflows/ci.yml`) on every push and pull request.
+`npm run build` is also the type-check gate; there is no separate `tsc` step (the workflow explains why).
 
-## Deployment
+## Deploy
 
-The deploy pack (container images for the engine, this app, and a SQLite backup sidecar, behind one published front door with `docker compose`) lives in the engine repo at [`kalos-engine/deploy/`](https://github.com/itsbrendandang/kalos-engine/tree/main/deploy).
-[`deploy/RUNBOOK.md`](https://github.com/itsbrendandang/kalos-engine/blob/main/deploy/RUNBOOK.md) has the verified quickstart, the security checklist, and backup/restore drills.
+This repo has its own [`Dockerfile`](Dockerfile): a multi-stage build on `node:22-alpine` that runs the Next.js standalone output as a non-root user, with a health check.
+The compose stack that runs the engine, this app and a backup sidecar together lives in the engine repo, and its [`deploy/RUNBOOK.md`](https://github.com/itsbrendandang/kalos-engine/blob/main/deploy/RUNBOOK.md) has the quickstart, the security checklist and the backup drills.
 
-## Stack
+## Contributing
 
-Next.js 16 (App Router, Turbopack), Tailwind v4, shadcn/ui on `@base-ui/react`, recharts, lucide-react.
+Run the CI commands above before opening a pull request, and make sure all three are green.
+Use conventional commit messages (`feat:`, `fix:`, `docs:`, `chore:`) and open one pull request per change.
+Next.js 16 differs from older versions, so read the relevant guide in `node_modules/next/dist/docs/` before changing framework-level code.
+
+## Third-party
+
+- Geist and Geist Mono are licensed under the SIL Open Font License 1.1: [`app/fonts/GEIST-LICENSE.txt`](app/fonts/GEIST-LICENSE.txt).
+- The files in `components/tremor/` are adapted from Tremor under Apache-2.0: [`components/tremor/NOTICE`](components/tremor/NOTICE).
+
+## License
+
+Apache-2.0.
+See [`LICENSE`](LICENSE).
+
+## About the author
+
+Brendan Dang.
+Founder-operator in biotech process optimization, now an ML engineer.
+[github.com/itsbrendandang](https://github.com/itsbrendandang)

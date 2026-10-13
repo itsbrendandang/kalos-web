@@ -1,24 +1,8 @@
-import { Badge } from "@/components/ui/badge";
+import { ModeBadge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn, num } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 type Row = { vals: number[]; mode: "explore" | "exploit"; reason: string };
-
-/** Explore/exploit label. Mode is never conveyed by color alone - the text
- *  label itself is the primary signal; the fill is a secondary reinforcement. */
-function ModeBadge({ mode }: { mode: "explore" | "exploit" }) {
-  return (
-    <Badge
-      variant={mode === "exploit" ? "default" : "secondary"}
-      className={cn(
-        "rounded-full text-[10px] font-semibold uppercase",
-        mode === "exploit" ? "bg-accent text-[color:var(--primary-foreground)]" : "bg-explore-soft text-explore-deep",
-      )}
-    >
-      {mode}
-    </Badge>
-  );
-}
 
 export function Proposals<T extends Row>({
   cols,
@@ -35,14 +19,14 @@ export function Proposals<T extends Row>({
     <Table className="tabular min-w-[620px] border-separate border-spacing-y-1 font-mono text-xs">
       <TableHeader>
         <TableRow className="border-b-0 hover:bg-transparent">
-          <TableHead className="h-auto px-2 py-1.5 text-left text-[10px] font-semibold text-muted uppercase"></TableHead>
+          <TableHead className="h-auto px-2 py-1.5 text-left text-caption text-muted"></TableHead>
           {cols.map((c) => (
-            <TableHead key={c} className="h-auto px-2 py-1.5 text-right text-[10px] font-semibold text-muted uppercase">
+            <TableHead key={c} className="h-auto px-2 py-1.5 text-right text-caption text-muted">
               {c}
             </TableHead>
           ))}
-          <TableHead className="h-auto px-2 py-1.5 text-right text-[10px] font-semibold text-muted uppercase">{predHead}</TableHead>
-          <TableHead className="h-auto px-2 py-1.5 text-left text-[10px] font-semibold text-muted uppercase">why</TableHead>
+          <TableHead className="h-auto px-2 py-1.5 text-right text-caption text-muted">{predHead}</TableHead>
+          <TableHead className="h-auto px-2 py-1.5 text-left text-caption text-muted">why</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -53,7 +37,7 @@ export function Proposals<T extends Row>({
             </TableCell>
             {r.vals.map((v, j) => (
               <TableCell key={j} className="border-y border-border/70 bg-card px-2 py-2 text-right group-hover:bg-blue-soft">
-                {num(v, 2)}
+                {formatNumber(v)}
               </TableCell>
             ))}
             <TableCell className="border-y border-border/70 bg-card px-2 py-2 text-right font-semibold text-fg group-hover:bg-blue-soft">

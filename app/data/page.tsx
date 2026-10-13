@@ -78,14 +78,13 @@ function NoLiveRegistry() {
   return (
     <div className="flex flex-col gap-7">
       <PageHeader eyebrow="Data room" title="Bioprocessing data registry"
-        desc="Every uploaded dataset and run is organized under a stable barcode, with identity stripped on the way in." />
+        desc="The datasets and runs the engine has seen." />
       <EmptyState
         icon={PlugZap}
         title="No live datasets"
         description={
           <>
-            No live data registry is connected yet. Set{" "}
-            <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview the registry with demo data.
+            No live data registry is connected yet. Example data is off, so there is nothing to show here.
           </>
         }
       />
@@ -128,14 +127,13 @@ export default function DataPage() {
       <PageHeader
         eyebrow="Data room"
         title="Bioprocessing data registry"
-        desc="Every uploaded dataset and run is organized under a stable barcode, with identity stripped on the way in."
+        desc="Example datasets and runs, shown because example data is on."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Kpi hero label="Datasets" value={DATASET_COUNT} />
         <Kpi label="Runs tracked" value={TOTAL_RUNS} />
         <Kpi label="Outputs tracked" value={outputsTracked} />
-        <Kpi label="Identity state" value="Anonymized" />
       </div>
 
       <Card>
@@ -267,8 +265,7 @@ export default function DataPage() {
           />
         ) : null}
         <p className="mt-3 text-[12px] text-muted">
-          {TOTAL_RUNS} runs across {DATASET_COUNT} dataset{DATASET_COUNT === 1 ? "" : "s"}. Each run also carries its own{" "}
-          <span className="font-mono text-fg">KAL-*</span> barcode. New uploads appear here after analysis.
+          {TOTAL_RUNS} runs across {DATASET_COUNT} dataset{DATASET_COUNT === 1 ? "" : "s"}. New uploads appear here after analysis.
         </p>
       </Card>
 
@@ -315,11 +312,6 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
         </div>
       </div>
 
-      <p className="border-t border-border pt-3 text-[12px] leading-snug text-muted">
-        Identity stripped on ingest - the campaign key above is a one-way hash of the original experiment key; raw
-        identity is never stored.
-      </p>
-
       {runs.length === 0 ? (
         <EmptyState className="border-none py-8" title="No sample runs on file for this dataset yet." />
       ) : (
@@ -333,7 +325,7 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
                   variant="outline"
                   className="rounded-full border-border bg-blue-soft px-2.5 py-1 font-mono text-[11px] text-fg"
                 >
-                  {r.name} {r.min != null ? r.min : "—"}–{r.max != null ? r.max : "—"}
+                  {r.name} {r.min != null ? r.min : "-"}–{r.max != null ? r.max : "-"}
                   {r.unit ? ` ${r.unit}` : ""}
                 </Badge>
               ))}
@@ -378,7 +370,7 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
                           key={k}
                           className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px] font-semibold text-fg"
                         >
-                          {r.outputs[k] ?? "—"}
+                          {r.outputs[k] ?? "-"}
                         </TableCell>
                       ))}
                     </TableRow>

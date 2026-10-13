@@ -4,6 +4,7 @@ import {
   CHECK_IDS,
   CHECK_INFO,
   conversionSummary,
+  findingPhrase,
   getCheckExplanation,
   getCheckLabel,
   groupFindingsByCheck,
@@ -30,6 +31,8 @@ function finding(overrides: Partial<ValidationFinding>): ValidationFinding {
   };
 }
 
+const NINE = Array.from({ length: 9 }, (_, i) => `check_${i}`);
+
 function report(overrides: Partial<ValidationReport>): ValidationReport {
   return {
     schema_version: 1,
@@ -37,7 +40,7 @@ function report(overrides: Partial<ValidationReport>): ValidationReport {
     mode: "warn",
     n_rows: 48,
     n_columns: 12,
-    checks_run: 9,
+    checks_run: NINE,
     counts: { error: 0, warning: 0, info: 0 },
     findings: [],
     conversions: [],
@@ -112,9 +115,10 @@ describe("groupFindingsByCheck", () => {
   });
 });
 
-describe("check labels and explanations (exhaustive over the nine known checks)", () => {
-  it("has exactly nine known check ids", () => {
-    expect(CHECK_IDS).toHaveLength(9);
+describe("check labels and explanations (exhaustive over the known checks)", () => {
+  it("labels the engine's informative_missingness and constant_within_group checks", () => {
+    expect(getCheckLabel("informative_missingness")).not.toBe("informative_missingness");
+    expect(getCheckLabel("constant_within_group")).not.toBe("constant_within_group");
   });
 
   it("has a non-empty label and explanation for every known check id", () => {
@@ -197,7 +201,7 @@ describe("validationHeadline", () => {
   });
 
   it("reports a clean pass with the checks_run count", () => {
-    const r = report({ status: "pass", checks_run: 9, n_rows: 48, n_columns: 12 });
+    const r = report({ status: "pass", checks_run: NINE, n_rows: 48, n_columns: 12 });
     const headline = validationHeadline(r);
     expect(headline).toContain("All 9 checks passed");
     expect(headline).toContain("48 rows");
@@ -243,5 +247,17 @@ describe("conversionSummary", () => {
       cells_converted: 40,
     };
     expect(conversionSummary(c)).toBe("Titer: mg/mL -> g/L (40 cells converted)");
+  });
+});
+
+describe("findingPhrase", () => {
+  it("uses the plain phrase for a known check, leaving the engine message untouched", () => {
+    const f: ValidationFinding = { check: "outliers", severity: "warning", message: "column 'x' has values with MAD-based |z| > 5", column: "x", rows: [1] };
+    expect(findingPhrase(f)).toBe("Unusual values");
+    expect(f.message).toContain("MAD-based");
+  });
+
+  it("falls back to the engine message for an unknown check id", () => {
+    expect(findingPhrase({ check: "future_check", message: "engine says so" })).toBe("engine says so");
   });
 });

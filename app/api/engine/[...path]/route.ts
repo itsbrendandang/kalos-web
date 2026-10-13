@@ -19,8 +19,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // explicitly so a future cache-config change can't silently make this stale.
 export const dynamic = "force-dynamic";
 
-// Every engine path prefix kalos-web's own client code (lib/api.ts,
-// lib/experiments.ts) actually calls. Anything outside this list 404s, so
+// Every engine path prefix kalos-web's own client code (lib/api.ts)
+// actually calls. Anything outside this list 404s, so
 // the proxy can't be turned into an open relay to arbitrary engine routes -
 // or, worse, arbitrary URLs (KALOS_ENGINE_URL is never taken from the
 // request). Checked as whole path segments (`joined === prefix ||
@@ -33,7 +33,6 @@ const ALLOWED_PATH_PREFIXES = [
   "api/latest",
   "api/campaign",
   "api/providers",
-  "api/experiments",
   "api/scale",
 ] as const;
 

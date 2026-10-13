@@ -333,7 +333,7 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
                   variant="outline"
                   className="rounded-full border-border bg-blue-soft px-2.5 py-1 font-mono text-[11px] text-fg"
                 >
-                  {r.name} {r.min != null ? r.min : "—"}–{r.max != null ? r.max : "—"}
+                  {r.name} {r.min != null ? r.min : "-"}–{r.max != null ? r.max : "-"}
                   {r.unit ? ` ${r.unit}` : ""}
                 </Badge>
               ))}
@@ -378,7 +378,7 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
                           key={k}
                           className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px] font-semibold text-fg"
                         >
-                          {r.outputs[k] ?? "—"}
+                          {r.outputs[k] ?? "-"}
                         </TableCell>
                       ))}
                     </TableRow>

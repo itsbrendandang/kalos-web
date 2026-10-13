@@ -147,7 +147,7 @@ export function Phase1View({ project }: { project: Project }) {
   return (
     <div>
       {!project.live ? <IllustrativeBanner /> : null}
-      <div className="sh">Iterations — upload batch ticket after each run</div>
+      <div className="sh">Iterations - upload batch ticket after each run</div>
       <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
       {project.iterations.map((it) => (
         <IterationCard

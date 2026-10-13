@@ -498,7 +498,7 @@ export async function runFile(file: File, target?: string): Promise<AnalyzeResul
   });
 }
 
-// The most recent real (uploaded) analysis — what the Overview reflects.
+// The most recent real (uploaded) analysis - what the Overview reflects.
 export type LatestResult =
   | { has_data: false; campaign_generation?: string | null }
   | (AnalyzeResult & { has_data: true; dataset: string; updated: number; campaign_generation?: string | null });

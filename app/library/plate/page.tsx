@@ -39,7 +39,7 @@ export default function PlatePage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Plate Summary — Nitrogen Source · PID-107 · E. coli · 2 plates"
+        title="Plate Summary - Nitrogen Source · PID-107 · E. coli · 2 plates"
         desc="kalos plate analysis · simulated 96-well nitrogen-source screen."
         action={<DemoBadge />}
       />

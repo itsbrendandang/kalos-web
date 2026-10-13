@@ -87,7 +87,7 @@ export default function VesselsPage() {
         </Card>
         <Card className="p-3.5">
           <KineticOverlay
-            title="Kinetic — Titer"
+            title="Kinetic - Titer"
             sub="TITER [g/L] vs time"
             channel="titer"
             vessels={VESSELS.vessels}
@@ -97,7 +97,7 @@ export default function VesselsPage() {
         </Card>
         <Card className="p-3.5">
           <KineticOverlay
-            title="Kinetic — Viability"
+            title="Kinetic - Viability"
             sub="CELL_VIABILITY [%] vs time"
             channel="via"
             vessels={VESSELS.vessels}
@@ -107,7 +107,7 @@ export default function VesselsPage() {
         </Card>
         <Card className="p-3.5">
           <KineticOverlay
-            title="Kinetic — VCD"
+            title="Kinetic - VCD"
             sub="VIABLE_CELL_DENSITY [×10⁶/mL] vs time"
             channel="vcd"
             vessels={VESSELS.vessels}
@@ -117,7 +117,7 @@ export default function VesselsPage() {
         </Card>
         <Card className="p-3.5">
           <KineticOverlay
-            title="Kinetic — pH"
+            title="Kinetic - pH"
             sub="pH vs time"
             channel="ph"
             vessels={VESSELS.vessels}

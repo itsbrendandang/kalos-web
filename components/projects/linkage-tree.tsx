@@ -48,10 +48,10 @@ const STYLE: Record<NodeType, { fill: string; stroke: string; text: string; badg
 };
 
 const P1_BANDS: Band[] = [
-  { y: 15, lineY: 20, text: "ITER 1 — LHS" },
-  { y: 105, lineY: 110, text: "ITER 2 — BO EXPLORE" },
-  { y: 215, lineY: 220, text: "ITER 3 — BO EXPLORE" },
-  { y: 340, lineY: 345, text: "ITER 4 — BO EXPLOIT" },
+  { y: 15, lineY: 20, text: "ITER 1 - LHS" },
+  { y: 105, lineY: 110, text: "ITER 2 - BO EXPLORE" },
+  { y: 215, lineY: 220, text: "ITER 3 - BO EXPLORE" },
+  { y: 340, lineY: 345, text: "ITER 4 - BO EXPLOIT" },
 ];
 
 const P1_NODES: TNode[] = [
@@ -79,8 +79,8 @@ const P1_LEGEND = [
 ];
 
 const P2_BANDS: Band[] = [
-  { y: 15, lineY: 20, text: "PHASE 1 — ITERATIONS 1–4" },
-  { y: 385, lineY: 391, text: "PHASE 2 — SCALE-UP VALIDATION", blue: true, dashed: true },
+  { y: 15, lineY: 20, text: "PHASE 1 - ITERATIONS 1–4" },
+  { y: 385, lineY: 391, text: "PHASE 2 - SCALE-UP VALIDATION", blue: true, dashed: true },
 ];
 
 const P2_NODES: TNode[] = [

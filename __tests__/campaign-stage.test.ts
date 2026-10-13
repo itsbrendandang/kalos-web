@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Campaign, CampaignRun } from "@/lib/api";
-import { bestDeltaFromPreviousRound, campaignStage, type StepState } from "@/lib/campaign-stage";
+import { bestDeltaFromPreviousRound, campaignStage, displayRound, type StepState } from "@/lib/campaign-stage";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { breadcrumbFor, navKeyFor, titleFor } from "@/lib/routes";
 import type { ActiveCampaign } from "@/lib/workbench";
@@ -139,5 +139,11 @@ describe("routes", () => {
     expect(titleFor("/library/scale-up")).toBe("Scale-up readout");
     expect(titleFor("/data")).toBe("Data");
     expect(titleFor("/projects/p-cho/report")).toBe("Report");
+  });
+});
+
+describe("displayRound", () => {
+  it("shows the engine's 0-based round as a 1-based round", () => {
+    expect([displayRound(0), displayRound(2)]).toEqual([1, 3]);
   });
 });

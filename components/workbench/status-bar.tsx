@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { ArrowRight, CircleCheck, CircleDashed, Crosshair, LoaderCircle, Trophy, Unplug } from "lucide-react";
 import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
-import { campaignStage } from "@/lib/campaign-stage";
+import { campaignStage, displayRound } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatNumber } from "@/lib/format";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
@@ -70,7 +70,7 @@ export function StatusBar() {
           <Item icon={<Crosshair className={ICON} aria-hidden />} className="max-lg:hidden">
             {c.target}
           </Item>
-          <Item>Round {c.round + 1}</Item>
+          <Item>Round {displayRound(c.round)}</Item>
           <Item icon={<CircleDashed className={ICON} aria-hidden />}>{c.n_awaiting} in flight</Item>
           <Item icon={<CircleCheck className={ICON} aria-hidden />} className="max-md:hidden">
             {c.n_measured} measured

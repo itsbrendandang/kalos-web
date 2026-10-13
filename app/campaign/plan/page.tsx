@@ -43,6 +43,7 @@ import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { ScaleUpTimeline } from "@/components/scale-up-timeline";
 import { cn, parseUnit } from "@/lib/utils";
+import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 
 /**
@@ -234,7 +235,7 @@ function DecideBody({
         {active ? (
           <Stat
             label="Round"
-            value={String(active.round)}
+            value={String(displayRound(active.round))}
             sub={`${active.n_awaiting} awaiting result${active.n_awaiting === 1 ? "" : "s"}`}
             mono
           />

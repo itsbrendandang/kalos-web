@@ -50,6 +50,9 @@ export type CampaignStage = {
   next: NextAction;
 };
 
+/** The 1-based round people see, from the engine's 0-based `round`. The only place this conversion lives. */
+export const displayRound = (engineRound: number): number => engineRound + 1;
+
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 function steps(states: Record<StageKey, [StepState, string]>): StageStep[] {
@@ -92,7 +95,7 @@ export function campaignStage(
     };
   }
 
-  const round = (active?.round ?? 0) + 1;
+  const round = displayRound(active?.round ?? 0);
   const setupDone: [StepState, string] = ["done", latest.has_data ? "Run sheet analyzed" : "Campaign seeded"];
 
   if (started === 0) {

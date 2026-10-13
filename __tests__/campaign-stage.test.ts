@@ -172,6 +172,16 @@ describe("engine stage", () => {
     expect(s.next).toEqual({ stage: "learn", action: "Engine action", reason: "Engine reason.", href: "/campaign/learn" });
   });
 
+  it("falls back to the local derivation on an unknown step key, next stage or step count", () => {
+    const local = campaignStage({ has_data: true }, campaign([]));
+    const bad = { ...engineStage, steps: engineStage.steps.map((x, i) => (i === 2 ? { ...x, key: "bogus" as never } : x)) };
+    expect(campaignStage({ has_data: true }, { ...campaign([]), stage: bad, next_action: engineNext })).toEqual(local);
+    const badNext = { ...engineNext, stage: "bogus" as never };
+    expect(campaignStage({ has_data: true }, { ...campaign([]), stage: engineStage, next_action: badNext })).toEqual(local);
+    const short = { ...engineStage, steps: engineStage.steps.slice(0, 4) };
+    expect(campaignStage({ has_data: true }, { ...campaign([]), stage: short })).toEqual(local);
+  });
+
   it("falls back when stage absent", () => {
     const s = campaignStage({ has_data: true }, campaign([]));
     expect(s.next.action).toBe("Review and start round 1");

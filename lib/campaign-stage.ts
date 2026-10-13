@@ -71,14 +71,16 @@ export function campaignStage(
 ): CampaignStage {
   const local = localStage(latest, campaign);
   const { stage, next_action: next } = campaign;
-  if (stage == null) return local;
-  const meta = (key: StageKey) => CAMPAIGN_STAGES.find((s) => s.key === key)!;
+  const meta = (key: string) => CAMPAIGN_STAGES.find((s) => s.key === key);
+  // A malformed engine payload must never throw inside the shell: fall back.
+  if (stage == null || stage.steps.length !== CAMPAIGN_STAGES.length || stage.steps.some((s) => !meta(s.key)) || (next && !meta(next.stage))) return local;
   return {
     ...local,
+    // The engine sends `round` already 1-based (display round); do not convert again.
     round: stage.round,
     started: stage.started,
-    steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key).label, href: meta(s.key).href, state: s.state, detail: s.detail })),
-    next: next ? { ...next, href: meta(next.stage).href } : local.next,
+    steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key)!.label, href: meta(s.key)!.href, state: s.state, detail: s.detail })),
+    next: next ? { ...next, href: meta(next.stage)!.href } : local.next,
   };
 }
 

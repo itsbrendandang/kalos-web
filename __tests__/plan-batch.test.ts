@@ -26,7 +26,7 @@ describe("orderBatch", () => {
 });
 
 describe("batchExceptions", () => {
-  const ctx = { incumbent: 5, band: 0.5, nonNegative: true };
+  const ctx: { incumbent: number | null; band: number | null; nonNegative: boolean } = { incumbent: 5, band: 0.5, nonNegative: true };
   const run = (proposals: Proposal[], c = ctx) => batchExceptions(orderBatch(proposals, c.incumbent), c);
 
   it("flags a negative prediction only for a non-negative target", () => {

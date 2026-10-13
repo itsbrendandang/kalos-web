@@ -2,181 +2,113 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, CheckCircle2, WifiOff, X } from "lucide-react";
-import { useEngineWrites } from "@/hooks/use-engine";
-import { isReliable, type AnalyzeResult } from "@/lib/api";
-import { Card, SectionLabel } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowRight } from "lucide-react";
+import { UploadZone } from "@/components/campaign/upload-zone";
+import { ValidationSummary } from "@/components/campaign/validation-summary";
+import { Callout } from "@/components/kit/callout";
+import { PageHeader } from "@/components/kit/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PageHeader, Loading } from "@/components/page-header";
-import { UploadDropzone } from "@/components/upload-dropzone";
-import { ValidationReportCard } from "@/components/validation/validation-report";
-import { cn } from "@/lib/utils";
+import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
+import { campaignStage } from "@/lib/campaign-stage";
+import { formatNumber } from "@/lib/format";
 
-type EngineErrorKind = "unreachable" | "rejected";
-
+/**
+ * Setup: upload a run sheet, choose the target, read the data check. The
+ * analysis shown is the shared /api/latest, so it survives navigation and the
+ * shell updates the moment an upload lands. Changing the target re-fits from
+ * the file still held here, so after a reload the picker asks for the file again.
+ */
 export default function SetupPage() {
+  const latest = useLatest();
+  const campaign = useCampaign();
   const { runFile } = useEngineWrites();
-  const [res, setRes] = useState<AnalyzeResult | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<{ kind: EngineErrorKind; message: string } | null>(null);
-  // Bumped on reset() to remount <UploadDropzone> (see below) - that clears
-  // its internal file input, so re-selecting the same-named file after
-  // "Analyze another file" fires onChange again instead of being deduped.
-  const [resetCount, setResetCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   async function analyze(f: File, target?: string) {
     setFile(f);
     setBusy(true);
-    setErr(null);
+    setError(null);
     try {
       const d = await runFile(f, target);
-      if (d.error) {
-        // The engine's own { error } message, a data/upload problem, not a
-        // transport failure - see runFile's contract in lib/api.ts.
-        setErr({ kind: "rejected", message: d.error });
-        setRes(null);
-      } else {
-        setRes(d);
-      }
+      // The engine's own { error } is a problem with the sheet, not the connection.
+      if (d.error) setError(d.error);
     } catch {
-      setErr({
-        kind: "unreachable",
-        message: "Analysis service unavailable. Try again in a moment or contact Kalos support.",
-      });
+      setError("The analysis service did not respond. Try again in a moment.");
     } finally {
       setBusy(false);
     }
   }
 
-  function reset() {
-    setRes(null);
-    setFile(null);
-    setErr(null);
-    setResetCount((c) => c + 1);
+  if (latest.status === "error" && !latest.data) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Set up the campaign" />
+        <ErrorState onRetry={() => void latest.refresh()} busy={latest.refreshing} />
+      </div>
+    );
   }
 
-  // Reuses the same isReliable() predicate as the Dashboard (lib/api.ts) so a dataset
-  // never reads "reliable" here and "needs review" there - see app/page.tsx KpiStrip.
-  const reliability = res?.cv_spearman == null ? "n/a" : isReliable(res) ? "Reliable" : "Needs review";
+  const analysis = latest.data?.has_data ? latest.data : null;
+  const report = analysis?.validation;
+  const next = campaignStage(latest.data ?? { has_data: false }, campaign.data ?? { has_campaign: false }).next;
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Run sheet upload"
-        title="Run analysis"
-        desc="Upload bioprocessing experiment data to fit the model, check reliability, and generate the next recommended recipes."
+        title="Set up the campaign"
+        description="Upload the runs you already have and choose what to maximize. Kalos checks the sheet, then fits the model."
+        action={
+          analysis && report?.status !== "fail" ? (
+            <Link href={next.href} className={buttonVariants()}>
+              {next.action}
+              <ArrowRight />
+            </Link>
+          ) : null
+        }
       />
 
-      {!res && !busy ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-          <UploadDropzone key={resetCount} onFile={(f) => analyze(f)} />
-          <Card className="bg-blue-soft">
-            <SectionLabel>Run sheet checklist</SectionLabel>
-            <div className="space-y-3 text-[12.5px] text-muted">
-              {[
-                "One experiment per row",
-                "Recipe inputs in separate columns",
-                "Measured output column included",
-                "Replicate or batch column when available",
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      ) : null}
+      <UploadZone onFile={(f) => void analyze(f)} disabled={busy} compact={!!analysis} />
 
-      {err ? (
-        <Alert variant="default" className="items-start gap-2.5 border-red/30 bg-red/5 px-3.5 py-3">
-          {err.kind === "unreachable" ? (
-            <WifiOff className="size-4 text-red" aria-hidden />
-          ) : (
-            <AlertCircle className="size-4 text-red" aria-hidden />
-          )}
-          <div className="min-w-0 flex-1">
-            <AlertTitle className="text-[13px] text-fg">
-              {err.kind === "unreachable" ? "Engine unreachable" : "Upload rejected"}
-            </AlertTitle>
-            <AlertDescription className="mt-1 text-[12.5px] leading-5 text-muted">{err.message}</AlertDescription>
-          </div>
-        </Alert>
-      ) : null}
-      {busy ? (
-        <Card>
-          <Loading />
-        </Card>
-      ) : null}
+      {error ? <Callout tone="bad" title="This run sheet could not be analyzed">{error}</Callout> : null}
+      {busy ? <LoadingSkeleton variant="rows" rows={4} label="Analyzing the run sheet" /> : null}
+      {latest.status === "loading" ? <LoadingSkeleton variant="rows" rows={3} /> : null}
 
-      {res ? (
-        <Card className="overflow-hidden p-0">
-          <div className="grid md:grid-cols-[1fr_300px]">
-            <div className="p-6">
-              <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent-text">
-                <CheckCircle2 className="size-6" />
-              </span>
-              <h2 className="font-head text-[22px] font-semibold">Analysis complete</h2>
-              <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
-                {file?.name} parsed into {res.n} runs across {res.d} inputs
-                {res.group_col ? `, grouped by ${res.group_col}` : ""}, fit against {res.target}.
-              </p>
-              <div className="mt-4">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "h-auto gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                    reliability === "Reliable"
-                      ? "border-green/30 bg-green-soft text-green"
-                      : reliability === "Needs review"
-                        ? "border-amber/30 bg-amber-soft text-amber"
-                        : "border-border bg-blue-soft text-muted",
-                  )}
-                  title="How well the model predicted runs it had never seen. Higher = more trustworthy suggestions."
-                >
-                  Model reliability: {reliability}
-                </Badge>
-              </div>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Link href="/campaign/learn" className={buttonVariants()}>
-                  View results
-                  <ArrowRight />
-                </Link>
-                <Button variant="ghost" size="sm" onClick={reset}>
-                  <X />
-                  Analyze another file
-                </Button>
-              </div>
-            </div>
-            <div className="border-t border-border bg-blue-soft p-5 md:border-t-0 md:border-l">
-              <SectionLabel>Maximize</SectionLabel>
-              <Select value={res.target} onValueChange={(value) => file && value && analyze(file, value)}>
-                <SelectTrigger size="sm" className="w-full font-mono text-[11px]">
+      {analysis && !busy ? (
+        <>
+          <div className="flex flex-col gap-2">
+            <p className="text-body text-fg-muted">
+              {analysis.dataset}: {formatNumber(analysis.n, "count")} runs, {formatNumber(analysis.d, "count")} inputs.
+            </p>
+            <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
+              Maximize
+              <Select value={analysis.target} onValueChange={(t) => file && t && void analyze(file, t)} disabled={!file}>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {res.targets.map((t) => (
+                  {analysis.targets.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-2 text-[11px] leading-snug text-muted">
-                Re-fits the model against a different target column without re-uploading.
-              </p>
-            </div>
+              <span className="text-caption font-normal text-fg-muted">
+                {file ? "Choosing another column re-fits the model without a new upload." : "Upload the sheet again to change the target."}
+              </span>
+            </label>
           </div>
-        </Card>
+          {report ? (
+            <ValidationSummary report={report} />
+          ) : (
+            <p className="text-body text-fg-muted">This analysis came without a data check, so nothing here should be read as a pass.</p>
+          )}
+        </>
       ) : null}
-
-      {/* Interim: the old /validate page's verdict, until Setup is rebuilt. Provider status lives in Settings. */}
-      {res ? <ValidationReportCard report={res.validation} /> : null}
     </div>
   );
 }

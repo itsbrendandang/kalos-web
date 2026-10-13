@@ -618,7 +618,8 @@ export function reliabilityVerdict(
         : `The model ranks held-out runs above the trust floor${floorText}, and its 95% interval stays above it.`,
     };
   }
-  const belowFloor = rel ? !rel.clears_floor : true;
+  // Without a `reliability` object there is no floor to compare against: the only known cause is the interval.
+  const belowFloor = rel ? !rel.clears_floor : false;
   return {
     state: "not-yet",
     label: "Not yet reliable",
@@ -627,7 +628,11 @@ export function reliabilityVerdict(
     floor,
     reason: belowFloor
       ? `The model's ranking of held-out runs is below the trust floor${floorText}.`
-      : "The model's ranking of held-out runs is above the trust floor on average, but its 95% interval still includes zero, so it is not confirmed yet.",
+      : rel
+        ? "The model's ranking of held-out runs is above the trust floor on average, but its 95% interval still includes zero, so it is not confirmed yet."
+        : ci
+          ? "The model's ranking of held-out runs has a 95% interval that includes zero, so it is not confirmed yet."
+          : "The engine did not report a 95% interval for the model's ranking of held-out runs, so it is not confirmed yet.",
   };
 }
 

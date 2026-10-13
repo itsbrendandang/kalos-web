@@ -33,6 +33,13 @@ describe("reliabilityVerdict", () => {
     expect(v.reason).toContain("below the trust floor (0.20)");
   });
 
+  it("says a legacy interval that includes zero includes zero, not that it is below a floor", () => {
+    const v = reliabilityVerdict({ cv_spearman: 0.4, cv_ci95: [-0.1, 0.6] });
+    expect(v.state).toBe("not-yet");
+    expect(v.reason).toContain("interval that includes zero");
+    expect(v.reason).not.toContain("below the trust floor");
+  });
+
   it("is not yet reliable above the floor when the interval includes zero", () => {
     const v = reliabilityVerdict({
       reliability: rel({ ci95: [-0.1, 0.7], ci_excludes_zero: false }),

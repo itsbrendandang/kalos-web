@@ -1,235 +1,229 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ClipboardList, Database, RefreshCw, Upload } from "lucide-react";
-import {
-  getLatest,
-  isReliable,
-  reliabilityReason,
-  type LatestResult,
-  type PopulatedResult,
-} from "@/lib/api";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
+import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
+import { CorrelationHeatmap } from "@/components/campaign/correlation-heatmap";
+import { DriversList } from "@/components/campaign/drivers-list";
+import { bandCalibration, calibrationSentence, canPlanNext, promotionLine } from "@/components/campaign/learn";
+import { PredVsMeasured } from "@/components/campaign/pred-vs-measured";
+import { RunLandscape } from "@/components/campaign/run-landscape";
+import { targetName } from "@/components/campaign/target";
+import { ChartFrame } from "@/components/kit/chart-frame";
+import { Callout } from "@/components/kit/callout";
+import { Disclosure } from "@/components/kit/disclosure";
+import { Metric } from "@/components/kit/metric";
+import { PageHeader } from "@/components/kit/page-header";
+import { Section } from "@/components/kit/section";
+import { Verdict } from "@/components/kit/verdict";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { StatTile } from "@/components/ui/stat-tile";
-import { PageHeader, Loading } from "@/components/page-header";
-import { ServiceUnavailable } from "@/components/service-unavailable";
-import { AnalysisReadout } from "@/components/analysis-readout";
+import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
+import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
+import { campaignStage } from "@/lib/campaign-stage";
+import { formatNumber, formatRange } from "@/lib/format";
+import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
-import { formatNumber } from "@/lib/format";
+import { measured, type ActiveCampaign } from "@/lib/workbench";
 
-function ago(ts?: number) {
-  if (!ts) return "";
-  const s = Date.now() / 1000 - ts;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
-export default function Results() {
-  const [data, setData] = useState<LatestResult | null>(null);
+/**
+ * Learn: what the round taught the model. The verdict comes first, then the
+ * measured best so far, whether the results landed in their predicted bands,
+ * the drivers, and model detail one click down. "Plan round N+1" re-analyzes
+ * with the measured results and opens the next batch on Plan.
+ */
+export default function LearnPage() {
+  const latest = useLatest();
+  const campaign = useCampaign();
+  const { reanalyze } = useEngineWrites();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  async function refresh() {
+  const header = (action?: React.ReactNode, title = "Learn") => (
+    <PageHeader title={title} description="What the results taught the model, and whether to trust it." action={action} />
+  );
+
+  if (latest.status === "error" || campaign.status === "error") {
+    return (
+      <div className="flex flex-col gap-6">
+        {header()}
+        <ErrorState
+          onRetry={() => {
+            void latest.refresh();
+            void campaign.refresh();
+          }}
+          busy={latest.refreshing || campaign.refreshing}
+        />
+      </div>
+    );
+  }
+  if (!latest.data || !campaign.data) {
+    return (
+      <div className="flex flex-col gap-6" role="status" aria-label="Loading">
+        {header()}
+        <LoadingSkeleton variant="card" rows={2} />
+        <LoadingSkeleton variant="chart" />
+      </div>
+    );
+  }
+  if (!latest.data.has_data || !campaign.data.has_campaign) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header()}
+        <EmptyState
+          title="Nothing to learn from yet"
+          description="Learning starts once a run sheet is analyzed and a batch has been run."
+          action={
+            <Link href="/campaign/setup" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Upload a run sheet
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  const d: PopulatedResult = latest.data;
+  const c: ActiveCampaign = campaign.data;
+  const round = campaignStage(d, c).round ?? 1;
+  const runs = measured(c);
+  // The round just learned from; once results are folded in it is the one before the current round.
+  const learned = runs.length > 0 ? round : round - 1;
+  const unit = parseUnit(d.target);
+  const name = targetName(d.target);
+  const verdict = reliabilityVerdict(d);
+  const promotion = promotionLine(d.promotion);
+  const calibration = bandCalibration(runs, d.conformal_q);
+  const drivers = topDrivers(d.drivers, 8);
+  const enabled = canPlanNext(c);
+  // Results recorded this round join `c.best` only when the model is re-analyzed, so say so instead of letting two numbers disagree.
+  const roundBest = runs.length ? Math.max(...runs.map((r) => r.result as number)) : null;
+  const roundBestPending = roundBest != null && (c.best == null || roundBest > c.best);
+
+  async function planNext() {
     setBusy(true);
-    setErr(false);
+    setFailed(false);
     try {
-      setData(await getLatest());
+      await reanalyze();
+      router.push("/campaign/plan");
     } catch {
-      setErr(true);
-    } finally {
+      setFailed(true);
       setBusy(false);
     }
   }
-  useEffect(() => {
-    let cancelled = false;
-    getLatest()
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {
-        if (!cancelled) setErr(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Analysis"
-        title="Results"
-        desc="Upload a run sheet, review model reliability, identify process drivers, and choose the next batch of experiments."
-        action={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={refresh} disabled={busy}>
-              <RefreshCw />
-              {busy ? "..." : "Refresh"}
-            </Button>
-            <Link href="/campaign/setup" className={buttonVariants()}>
-              <Upload />
-              Run analysis
-            </Link>
-          </div>
-        }
-      />
-
-      {err && data ? (
-        <Alert variant="default" className="items-start gap-2.5 border-amber/30 bg-amber-soft px-3.5 py-3">
-          <AlertDescription className="text-[13px] text-amber">
-            Refresh failed. The dashboard is showing the last loaded analysis.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {err && data == null ? (
-        <ServiceUnavailable onRetry={refresh} busy={busy} />
-      ) : data == null ? (
-        <Loading />
-      ) : !data.has_data ? (
-        <StartAnalysisCard />
-      ) : (
-        <OverviewBody d={data} />
+    <div className="flex flex-col gap-8">
+      {header(
+        <div className="flex flex-col items-end gap-1">
+          <Button onClick={planNext} disabled={!enabled || busy}>
+            {busy ? "Planning..." : `Plan round ${learned + 1}`}
+            {busy ? null : <ArrowRight aria-hidden />}
+          </Button>
+          {enabled ? null : <p className="text-caption text-fg-muted">Record at least one result first.</p>}
+        </div>,
+        learned > 0 ? `Learn from round ${learned}` : "Learn",
       )}
-    </div>
-  );
-}
 
-function StartAnalysisCard() {
-  const steps = [
-    "Upload CSV, TSV, or Excel run sheet",
-    "Select the output you want to maximize",
-    "Review reliability before acting on suggestions",
-  ];
-  return (
-    <Card className="overflow-hidden p-0">
-      <div className="grid md:grid-cols-[1fr_360px]">
-        <div className="p-6">
-          <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent-text">
-            <ClipboardList className="size-6" />
-          </span>
-          <h2 className="font-head text-[22px] font-semibold">Run your first analysis</h2>
-          <p className="mt-2 max-w-[58ch] text-[13.5px] leading-5 text-muted">
-            Start with an experiment table: one run per row, recipe inputs in columns, and at least one measured output.
-          </p>
-          <Link href="/campaign/setup" className={buttonVariants({ className: "mt-5" })}>
-            <Upload />
-            Upload run sheet
-          </Link>
-        </div>
-        <div className="border-t border-border bg-blue-soft p-5 md:border-t-0 md:border-l">
-          <div className="mb-3 text-[12px] font-semibold text-fg">Analysis flow</div>
-          <div className="space-y-2.5">
-            {steps.map((step, i) => (
-              <div key={step} className="flex items-start gap-2.5 text-[12.5px] text-muted">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-card font-mono text-[10px] font-semibold text-accent-text">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function DatasetStrip({ d }: { d: PopulatedResult }) {
-  const ready = isReliable(d);
-  const kept = d.provenance?.filter((p) => p.status === "kept_feature").length ?? 0;
-  const dropped = d.provenance?.filter((p) => p.status.startsWith("dropped")).length ?? 0;
-  const nonProducers = d.oof.filter(([measured]) => measured === 0).length;
-
-  return (
-    <Card className="flex flex-col gap-2 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted">
-          <Database className="size-3.5 shrink-0 text-accent-text" />
-          <span className="max-w-[320px] truncate font-semibold text-fg" title={d.dataset}>
-            {d.dataset}
-          </span>
-          <span>
-            {d.n} runs / {d.d} inputs / target {d.target}
-            {d.updated ? ` / ${ago(d.updated)}` : ""}
-          </span>
-        </div>
-        <Badge variant="outline" className="gap-1.5 border-border bg-blue-soft text-accent-text">
-          <CheckCircle2 className="size-3.5" />
-          {ready ? "Ready to review" : "Reliability needs review"}
-        </Badge>
-      </div>
-      {d.provenance ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 font-mono text-[10.5px] text-muted">
-          <span>{kept} kept feature{kept === 1 ? "" : "s"}</span>
-          <span>{dropped} dropped column{dropped === 1 ? "" : "s"}</span>
-          <span>
-            {nonProducers} zero-{d.target} run{nonProducers === 1 ? "" : "s"}
-          </span>
-          {d.engine_version ? <span>engine {d.engine_version}</span> : null}
-        </div>
+      {failed ? (
+        <Callout tone="bad" title="Could not plan the next round">
+          The engine did not accept the re-analysis. Your recorded results are safe; try again.
+        </Callout>
       ) : null}
-    </Card>
-  );
-}
 
-function KpiStrip({ d }: { d: PopulatedResult }) {
-  const rho = d.cv_spearman;
-  const reliable = isReliable(d);
-  const unit = parseUnit(d.target);
-  // Four tiles, read left to right as a sentence: where you are (best) -> can you
-  // trust it (reliability) -> how much data (runs/inputs) -> what's next
-  // (proposals). The old "Top driver" tile was dropped: it made an odd 5th cell
-  // (the orphan wrap) AND headlined a driver the tornado below already reports
-  // honestly - a single lead correlation doesn't belong in the KPI row.
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <StatTile
-        label={`Best ${d.target.replace(/\s*\([^)]*\)\s*$/, "")}`}
-        value={
-          <>
-            {formatNumber(d.best)}
-            {unit ? <span className="ml-1 text-[13px] font-normal text-muted">{unit}</span> : null}
-          </>
-        }
-        hint="Best observed run"
-      />
-      <StatTile
-        label="Model reliability"
-        value={rho != null ? rho.toFixed(2) : "n/a"}
-        tooltip="Held-out rank agreement (Spearman) between predicted and measured order. Reliable only when it clears the trust floor AND its 95% CI excludes zero - see isReliable() in lib/api.ts."
-        hint={
-          rho != null ? (
-            <span className={reliable ? "text-green" : "text-amber"}>
-              {reliabilityReason(d)}
-            </span>
-          ) : (
-            "not scored (too few groups)"
-          )
-        }
-      />
-      <StatTile
-        label="Runs / inputs"
-        value={`${d.n} / ${d.d}`}
-        hint={d.cv_n_groups != null ? `${d.cv_n_groups} recipe groups` : "grouped, leakage-controlled"}
-      />
-      <StatTile label="Proposals ready" value={d.proposals.length} hint="Next batch to run" />
+      <div className="flex flex-col gap-2">
+        <Verdict
+          tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}
+          detailLabel="Numbers behind this"
+          detail={
+            verdict.rho != null ? (
+              <p>
+                Rank agreement between predicted and measured order on held-out runs: {formatNumber(verdict.rho, "corr")}
+                {verdict.ci ? `, 95% CI ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}` : ""}
+                {verdict.floor != null ? `. The trust floor is ${formatNumber(verdict.floor, "corr")}.` : "."}
+              </p>
+            ) : (
+              <p>The model could not be scored on held-out runs.</p>
+            )
+          }
+        >
+          <span className="font-semibold">{verdict.label}.</span> {verdict.reason}
+        </Verdict>
+        {promotion ? <p className="ml-7 text-body text-fg-muted">{promotion}</p> : null}
+      </div>
+
+      <Section title="Best so far" description="The highest measured value, never a prediction.">
+        <Metric
+          size="lg"
+          label={`Best ${name}`}
+          value={c.best}
+          unit={unit}
+          qualifier={
+            `Measured, from ${formatNumber(c.n_base, "count")} runs in the dataset.` +
+            (roundBestPending ? ` The best result recorded this round, ${formatNumber(roundBest)}${unit ? ` ${unit}` : ""}, is counted once you plan round ${learned + 1}.` : "")
+          }
+        />
+        <BestSoFarChart campaign={c} unit={unit} />
+        <ul className="text-caption text-fg-muted">
+          {c.history.map((h) => (
+            <li key={h.round} id={`round-${h.round}`} className="scroll-mt-4 py-0.5 tabular-nums">
+              {h.round === 0 ? "Uploaded data" : `After round ${h.round}`}: best {formatNumber(h.best)}
+              {unit ? ` ${unit}` : ""}, {formatNumber(h.n_base, "count")} runs
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Did the results land where predicted?">
+        <p className="text-body text-fg">
+          {calibration == null
+            ? "The engine did not report a prediction band, so this cannot be checked."
+            : calibration.total === 0
+              ? "No measured results to compare with their predictions yet."
+              : calibrationSentence(calibration, d.conformal_coverage)}
+        </p>
+      </Section>
+
+      <Section
+        title="What moves the target"
+        description={`Associations in these runs, not proof of cause. Ranked by strength of rank correlation with ${name}. Significant means the interval excludes zero and the input still stands after correcting for testing many inputs at once.`}
+      >
+        {drivers.length ? <DriversList drivers={drivers} targetName={name} /> : <p className="text-body text-fg-muted">This analysis reported no drivers.</p>}
+      </Section>
+
+      <Section title="Predicted against measured">
+        <ChartFrame
+          title="Held-out predictions"
+          unit={unit || undefined}
+          n={d.oof.length}
+          method="Each dot is a run the model did not see when it predicted it. Dots on the dashed line were predicted exactly."
+          state={d.oof.length ? "ready" : "empty"}
+          emptyText="Not enough held-out runs to compare yet."
+        >
+          <PredVsMeasured oof={d.oof} targetName={name} unit={unit} />
+        </ChartFrame>
+      </Section>
+
+      <div>
+        {d.embedding && d.embedding.points.length ? (
+          <Disclosure summary="Run landscape" meta="where the runs sit">
+            <RunLandscape embedding={d.embedding} targetName={name} unit={unit} />
+          </Disclosure>
+        ) : null}
+        {d.correlation && d.correlation.labels.length > 1 ? (
+          <Disclosure summary="Input correlations" meta="how the inputs relate">
+            <CorrelationHeatmap labels={d.correlation.labels} matrix={d.correlation.matrix} />
+          </Disclosure>
+        ) : null}
+      </div>
+
+      <Link href="/library/scale-up" className="inline-flex w-fit items-center gap-1.5 text-label text-accent hover:underline">
+        Predict at a larger scale
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
     </div>
-  );
-}
-
-function OverviewBody({ d }: { d: PopulatedResult }) {
-  return (
-    <>
-      <DatasetStrip d={d} />
-      <KpiStrip d={d} />
-      <AnalysisReadout d={d} />
-    </>
   );
 }

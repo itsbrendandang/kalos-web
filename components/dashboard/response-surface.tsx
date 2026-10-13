@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import type { PopulatedResult } from "@/lib/api";
 import { seqColor, SEQ_GRADIENT_CSS } from "@/components/dashboard/heat-scale";
-import { fmt } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 /**
  * GP-predicted response surface (`d.response_surface`): the surrogate's posterior
@@ -41,7 +41,7 @@ export function ResponseSurface({ d }: { d: PopulatedResult }) {
       <div className="mt-3 flex flex-1 flex-col rounded-[10px] border border-border bg-bg p-3">
         <div className="flex flex-1 gap-1.5">
           <div className="flex flex-col items-center justify-between py-0.5 font-mono text-[10px] text-muted">
-            <span>{fmt(ymax, 2)}</span>
+            <span>{formatNumber(ymax)}</span>
             <span
               className="truncate font-sans [writing-mode:vertical-rl] rotate-180"
               title={y_feature}
@@ -49,7 +49,7 @@ export function ResponseSurface({ d }: { d: PopulatedResult }) {
             >
               {y_feature}
             </span>
-            <span>{fmt(ymin, 2)}</span>
+            <span>{formatNumber(ymin)}</span>
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col">
@@ -81,27 +81,27 @@ export function ResponseSurface({ d }: { d: PopulatedResult }) {
                         background: isNon ? "var(--bg)" : seqColor(rt, tmin, tmax),
                         border: isNon ? "1.5px solid var(--explore-deep)" : "1px solid rgba(255,255,255,0.75)",
                       }}
-                      title={`${x_feature} ${fmt(rx, 2)}, ${y_feature} ${fmt(ry, 2)} -> ${d.target} ${fmt(rt, 2)}`}
+                      title={`${x_feature} ${formatNumber(rx)}, ${y_feature} ${formatNumber(ry)} -> ${d.target} ${formatNumber(rt)}`}
                     />
                   );
                 })}
               </div>
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 font-mono text-[10px] text-muted">
-              <span>{fmt(xmin, 2)}</span>
+              <span>{formatNumber(xmin)}</span>
               <span className="truncate px-2 font-sans" title={x_feature}>
                 {x_feature}
               </span>
-              <span>{fmt(xmax, 2)}</span>
+              <span>{formatNumber(xmax)}</span>
             </div>
           </div>
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-2 text-[10px] text-muted">
           <span>predicted {d.target}</span>
-          <span className="font-mono">{fmt(zmin, 2)}</span>
+          <span className="font-mono">{formatNumber(zmin)}</span>
           <span className="h-2 w-20 rounded-full" style={{ background: SEQ_GRADIENT_CSS }} />
-          <span className="font-mono">{fmt(zmax, 2)}</span>
+          <span className="font-mono">{formatNumber(zmax)}</span>
           <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
             <span className="inline-block size-2.5 rounded-full border-[1.5px] border-explore-deep bg-bg" />
             observed run

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn, num } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 import {
   SCALE_STAGES,
   SCALEUP_PRIORS,
@@ -178,17 +179,17 @@ export function ScaleUpTimeline({
                     type="button"
                     aria-expanded={isOpen}
                     aria-controls={panelId}
-                    aria-label={`${meta.label}: projected ${targetName} ${num(point.yield.value, 1)}${unit ? ` ${unit}` : ""}, plus or minus ${num(point.yield.band, 1)}. Activate for purity, cost, and time detail.`}
+                    aria-label={`${meta.label}: projected ${targetName} ${formatNumber(point.yield.value)}${unit ? ` ${unit}` : ""}, plus or minus ${formatNumber(point.yield.band)}. Activate for purity, cost, and time detail.`}
                     onClick={() => setOpenStage(isOpen ? null : meta.stage)}
                     className="flex w-full flex-col items-center gap-0.5 rounded-[10px] bg-blue-soft px-2 py-2.5 text-center transition-colors hover:bg-blue-soft/70 focus-visible:outline-none"
                   >
                     <span className="text-[9.5px] font-semibold tracking-wide text-muted uppercase">{meta.label}</span>
                     <span className="text-[9.5px] text-muted">{meta.volumeLabel}</span>
                     <span className="tabular mt-1 font-mono text-[16px] font-semibold text-fg">
-                      {num(point.yield.value, 1)}
+                      {formatNumber(point.yield.value)}
                       {unit ? <span className="ml-0.5 text-[9.5px] font-normal text-muted">{unit}</span> : null}
                     </span>
-                    <span className="tabular text-[9.5px] text-muted">± {num(point.yield.band, 1)}</span>
+                    <span className="tabular text-[9.5px] text-muted">± {formatNumber(point.yield.band)}</span>
                     <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-bg">
                       <span
                         className="block h-full rounded-full bg-accent opacity-60"
@@ -204,9 +205,9 @@ export function ScaleUpTimeline({
                       aria-label={`${meta.label} detail`}
                       className="absolute top-full z-10 mt-2 w-56 rounded-[10px] border border-border bg-card p-3 text-left shadow-lg"
                     >
-                      <PopoverRow label="Purity" value={`${num(point.purity.value, 0)}%`} title={purityNote(meta.stage, prior, meta.label, point.purity.value)} />
-                      <PopoverRow label="Cost/L" value={`$${num(point.costPerL.value, 0)}`} title={costNote(meta.stage, prior, meta.label)} />
-                      <PopoverRow label="Time to stage" value={`${num(point.timeDays.value, 0)} d`} title={timeNote(meta.stage, prior, meta.label)} />
+                      <PopoverRow label="Purity" value={`${formatNumber(point.purity.value, "count")}%`} title={purityNote(meta.stage, prior, meta.label, point.purity.value)} />
+                      <PopoverRow label="Cost/L" value={`$${formatNumber(point.costPerL.value, "count")}`} title={costNote(meta.stage, prior, meta.label)} />
+                      <PopoverRow label="Time to stage" value={`${formatNumber(point.timeDays.value, "count")} d`} title={timeNote(meta.stage, prior, meta.label)} />
                       <p className="mt-1.5 border-t border-border pt-1.5 text-[10.5px] leading-snug text-muted">{yieldNote(meta.stage, prior, meta.label)}</p>
                     </div>
                   ) : null}
@@ -237,7 +238,7 @@ function yieldNote(stage: ScaleStage, prior: ScaleStagePrior, label: string): st
 
 function purityNote(stage: ScaleStage, prior: ScaleStagePrior, label: string, value: number): string {
   return stage === "plate_96w"
-    ? `Projected from a literature default (${num(value, 0)}%) - purity wasn't part of this measurement.`
+    ? `Projected from a literature default (${formatNumber(value, "count")}%) - purity wasn't part of this measurement.`
     : `${Math.round(prior.purityRetention * 100)}% purity-retention prior applied entering ${label}.`;
 }
 

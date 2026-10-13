@@ -3,7 +3,8 @@ import { PredScatter } from "@/components/charts";
 import { calibrationNote, coveragePct, repeatSpreadNote, type PopulatedResult } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn, num, parseUnit } from "@/lib/utils";
+import { cn, parseUnit } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 /** Known engine "not modeled" labels, mapped to an honest one-line description. */
 const UNMODELED_NOTES: Record<string, string> = {
@@ -89,13 +90,13 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
             }
           />
           <div className="tabular mt-1 font-mono text-[22px] font-semibold text-fg">
-            {d.conformal_q != null ? `± ${num(d.conformal_q, 2)}` : "n/a"}
+            {d.conformal_q != null ? `± ${formatNumber(d.conformal_q)}` : "n/a"}
           </div>
           <div className="mt-0.5 text-[12px] text-muted">distribution-free residual band</div>
           {d.conformal_q != null
             ? (() => {
                 const targetName = d.target.replace(/\s*\([^)]*\)\s*$/, "");
-                const gloss = `A single prediction can be off by ±${num(d.conformal_q, 2)}${
+                const gloss = `A single prediction can be off by ±${formatNumber(d.conformal_q)}${
                   unit ? ` ${unit}` : ""
                 }${coverage ? ` (${coverage})` : ""}. Compare to your ${targetName} range to judge if that's usable.`;
                 return <div className="mt-1 text-[11px] leading-snug text-muted">{gloss}</div>;
@@ -110,9 +111,9 @@ export function ReliabilityPanel({ d }: { d: PopulatedResult }) {
           <p className="mt-1">
             {rel.producer_spearman === undefined ? "Producer rank agreement not reported." : rel.producer_spearman == null
               ? "Producer rank agreement not measured; the engine gave no reason."
-              : `Spearman ${num(rel.producer_spearman, 2)} · ${rel.producer_clears_floor === undefined ? "floor verdict not reported" : rel.producer_clears_floor ? "clears floor" : "does not clear floor"}`}
+              : `Spearman ${formatNumber(rel.producer_spearman)} · ${rel.producer_clears_floor === undefined ? "floor verdict not reported" : rel.producer_clears_floor ? "clears floor" : "does not clear floor"}`}
           </p>
-          <p>{rel.n_producers ?? "n/a"} producers · threshold {rel.producer_threshold == null ? "not reported" : num(rel.producer_threshold, 2)}</p>
+          <p>{rel.n_producers ?? "n/a"} producers · threshold {rel.producer_threshold == null ? "not reported" : formatNumber(rel.producer_threshold)}</p>
           <p className="mt-1">Supplementary diagnostic; the reliability verdict uses the full held-out evaluation.</p>
         </div>
       ) : null}

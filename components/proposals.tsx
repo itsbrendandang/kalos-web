@@ -1,6 +1,6 @@
 import { ModeBadge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { num } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 type Row = { vals: number[]; mode: "explore" | "exploit"; reason: string };
 
@@ -37,7 +37,7 @@ export function Proposals<T extends Row>({
             </TableCell>
             {r.vals.map((v, j) => (
               <TableCell key={j} className="border-y border-border/70 bg-card px-2 py-2 text-right group-hover:bg-blue-soft">
-                {num(v, 2)}
+                {formatNumber(v)}
               </TableCell>
             ))}
             <TableCell className="border-y border-border/70 bg-card px-2 py-2 text-right font-semibold text-fg group-hover:bg-blue-soft">

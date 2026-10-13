@@ -4,7 +4,7 @@ import { ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Resp
 import { Card } from "@/components/ui/card";
 import { CHART_THEME, tip } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
-import { fmt } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 import { seqColor, SEQ_GRADIENT_CSS } from "@/components/dashboard/heat-scale";
 
 type Point = { x: number; y: number; target: number };
@@ -73,9 +73,9 @@ export function RunLandscape({ d }: { d: PopulatedResult }) {
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-2">
           {producers.length > 0 ? (
             <div className="flex items-center gap-2 text-[10px] text-muted">
-              <span className="font-mono">{fmt(min, 2)}</span>
+              <span className="font-mono">{formatNumber(min)}</span>
               <span className="h-2 w-20 rounded-full" style={{ background: SEQ_GRADIENT_CSS }} />
-              <span className="font-mono">{fmt(max, 2)}</span>
+              <span className="font-mono">{formatNumber(max)}</span>
               <span className="max-w-[16ch] truncate" title={d.target}>
                 {d.target}
               </span>

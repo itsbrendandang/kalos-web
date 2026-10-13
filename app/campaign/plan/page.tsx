@@ -42,7 +42,8 @@ import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
 import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { ScaleUpTimeline } from "@/components/scale-up-timeline";
-import { cn, num, parseUnit } from "@/lib/utils";
+import { cn, parseUnit } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 /**
  * Decision-first landing (prototype). The scientist's job is "what do I run
@@ -229,7 +230,7 @@ function DecideBody({
       {/* Campaign strip: target, best-so-far, evidence, and the trust chip */}
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
         <Stat label="Optimizing" value={targetName} sub={`maximize${unit ? ` (${unit})` : ""}`} />
-        <Stat label="Best so far" value={num(active?.best ?? d.best, 2)} sub={`across ${d.n} runs`} mono />
+        <Stat label="Best so far" value={formatNumber(active?.best ?? d.best)} sub={`across ${d.n} runs`} mono />
         {active ? (
           <Stat
             label="Round"
@@ -254,7 +255,7 @@ function DecideBody({
           <span className="text-[12px] text-muted">
             predicted {targetName}
             {d.conformal_q != null
-              ? ` · ± ${num(d.conformal_q, 2)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
+              ? ` · ± ${formatNumber(d.conformal_q)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
               : ""}
           </span>
         </div>
@@ -491,7 +492,7 @@ function HonestVerdict({
   const reliable = isReliable(d);
   const rho = rel?.spearman ?? d.cv_spearman;
   const good = reliable && beats > 0;
-  const bestStr = `${incumbentLabel(d)} of ${num(best, 2)}${unit ? ` ${unit}` : ""}`;
+  const bestStr = `${incumbentLabel(d)} of ${formatNumber(best)}${unit ? ` ${unit}` : ""}`;
   return (
     <div
       className={cn(
@@ -576,7 +577,7 @@ function ProposalCard({
         {features.map((f, i) => (
           <div key={f}>
             <div className="text-[10px] tracking-wider text-muted uppercase">{f}</div>
-            <div className="tabular font-mono text-[17px] font-semibold text-fg">{num(p.vals[i], 2)}</div>
+            <div className="tabular font-mono text-[17px] font-semibold text-fg">{formatNumber(p.vals[i])}</div>
           </div>
         ))}
       </div>
@@ -586,7 +587,7 @@ function ProposalCard({
           {others.map(([k, v], i) => (
             <span key={k} className="whitespace-nowrap">
               {i ? " · " : ""}
-              {k} <span className="tabular font-mono text-fg">{num(v, 2)}</span>
+              {k} <span className="tabular font-mono text-fg">{formatNumber(v)}</span>
             </span>
           ))}
         </div>
@@ -602,13 +603,13 @@ function ProposalCard({
               delta != null && delta > 0 ? "text-green" : "text-muted",
             )}
           >
-            {delta == null ? "n/a" : `${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)}`}
+            {delta == null ? "n/a" : `${delta >= 0 ? "+" : "−"}${formatNumber(Math.abs(delta))}`}
             {delta != null && unit ? <span className="ml-1 text-[10px] font-normal text-muted">{unit}</span> : null}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="tabular font-mono text-[11px] text-muted">
-            predicts {num(p.pred, 2)} ± {num(bandV, 2)}
+            predicts {formatNumber(p.pred)} ± {formatNumber(bandV)}
           </span>
           <Badge variant="outline" className={cn("h-auto rounded-md border-transparent px-1.5 py-0.5 text-[10.5px] font-semibold whitespace-nowrap", toneClass)}>
             {v.label}
@@ -616,7 +617,7 @@ function ProposalCard({
         </div>
         {p.p_feasible != null ? (
           <div className="text-[11px] text-muted">
-            P(feasible) <span className="tabular font-mono font-semibold text-fg">{num(p.p_feasible, 2)}</span>
+            P(feasible) <span className="tabular font-mono font-semibold text-fg">{formatNumber(p.p_feasible)}</span>
           </div>
         ) : null}
         <p className="mt-0.5 text-[12px] leading-snug text-muted">{p.reason}</p>
@@ -687,7 +688,7 @@ function PendingRunRow({
         {[...features, ...Object.keys(run.recipe).filter((k) => !features.includes(k))].map((f) => (
           <div key={f} className="text-[12px] whitespace-nowrap">
             <span className="text-muted">{f}</span>{" "}
-            <span className="tabular font-mono font-semibold text-fg">{num(run.recipe[f], 2)}</span>
+            <span className="tabular font-mono font-semibold text-fg">{formatNumber(run.recipe[f])}</span>
           </div>
         ))}
       </div>
@@ -695,7 +696,7 @@ function PendingRunRow({
       <div className="text-[12px] whitespace-nowrap text-muted">
         predicted{" "}
         <span className="tabular font-mono font-semibold text-fg">
-          {num(run.pred, 2)} <span className="font-normal text-muted">± {num(run.std, 2)}</span>
+          {formatNumber(run.pred)} <span className="font-normal text-muted">± {formatNumber(run.std)}</span>
         </span>
         {unit ? ` ${unit}` : ""}
       </div>
@@ -719,7 +720,7 @@ function PendingRunRow({
           </>
         ) : (
           <Badge variant="outline" className="h-auto rounded-lg border-green-soft bg-green-soft px-2 py-1 text-[12px] font-medium text-green">
-            logged {run.result != null ? num(run.result, 2) : "—"}
+            logged {run.result != null ? formatNumber(run.result) : "—"}
           </Badge>
         )}
         {failed ? <span className="text-[11px] text-amber">failed - retry</span> : null}

@@ -15,7 +15,7 @@ import { RunLandscape } from "@/components/dashboard/run-landscape";
 import { TargetDistribution } from "@/components/dashboard/target-distribution";
 import { ResponseSurface } from "@/components/dashboard/response-surface";
 import { CorrelationHeatmap } from "@/components/dashboard/correlation-heatmap";
-import { num } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 import { AnalysisDiagnostics } from "@/components/dashboard/analysis-diagnostics";
 
 /**
@@ -113,7 +113,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
           title="Recommended from your last analysis"
           sub={`The next batch to run, ranked by the acquisition function${
             d.conformal_q != null
-              ? ` · ± ${num(d.conformal_q, 2)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
+              ? ` · ± ${formatNumber(d.conformal_q)} conformal band${coveragePct(d.conformal_coverage) ? ` (${coveragePct(d.conformal_coverage)})` : ""}`
               : ""
           }.`}
         />
@@ -124,7 +124,7 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
         <p className="mb-3 text-[12px] text-muted">
           {incumbent == null
             ? "Comparison unavailable: the engine reported no reproducible incumbent for this replicate-aware fit."
-            : `Compared with the ${incumbentLabel(d)}: ${num(incumbent, 2)}.`}
+            : `Compared with the ${incumbentLabel(d)}: ${formatNumber(incumbent)}.`}
         </p>
         <Card>
           {d.proposals.length ? (
@@ -134,11 +134,11 @@ export function AnalysisReadout({ d }: { d: PopulatedResult }) {
               predHead={`pred. ${d.target} · vs best`}
               predFn={(p) => {
                 const band = d.conformal_q ?? p.std;
-                const feas = p.p_feasible != null ? `  P(feasible) ${num(p.p_feasible, 2)}` : "";
-                if (incumbent == null) return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (comparison unavailable)${feas}`;
+                const feas = p.p_feasible != null ? `  P(feasible) ${formatNumber(p.p_feasible)}` : "";
+                if (incumbent == null) return `${formatNumber(p.pred)} ± ${formatNumber(p.std)}  (comparison unavailable)${feas}`;
                 const delta = p.pred - incumbent;
                 const v = p.pred - band >= incumbent ? "beats" : p.pred + band <= incumbent ? "below" : "~best";
-                return `${num(p.pred, 2)} ± ${num(p.std, 2)}  (${delta >= 0 ? "+" : "−"}${num(Math.abs(delta), 2)} ${v})${feas}`;
+                return `${formatNumber(p.pred)} ± ${formatNumber(p.std)}  (${delta >= 0 ? "+" : "−"}${formatNumber(Math.abs(delta))} ${v})${feas}`;
               }}
             />
           ) : (

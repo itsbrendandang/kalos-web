@@ -6,13 +6,15 @@
  * renders match.
  */
 
-export type Quantity = "value" | "corr" | "pct" | "count";
+export type Quantity = "value" | "corr" | "icc" | "pct" | "count";
 
 const MISSING = "n/a";
 
 const formatters: Record<Quantity, Intl.NumberFormat> = {
   value: new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
   corr: new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  // ICC sits near 1: 2 decimals would print 0.997 as "1.00".
+  icc: new Intl.NumberFormat("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
   pct: new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }),
   count: new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }),
 };

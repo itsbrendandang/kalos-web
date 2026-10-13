@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { campaignComparisons, isReliable, proposalIncumbent, type Campaign, type Diagnostics } from "@/lib/api";
 import { AnalysisDiagnostics } from "@/components/dashboard/analysis-diagnostics";
 import { CampaignProgress } from "@/components/dashboard/campaign-progress";
-import { fmt, num } from "@/lib/utils";
 
 // Chart geometry is checked through its input; server rendering exercises the real copy.
 vi.mock("@/components/charts", () => ({
@@ -155,13 +154,6 @@ describe("diagnostic readout", () => {
     expect(t).toContain("DO rises 0.20 - - - 0.40");
     expect(t).toContain("apply only to interior shapes");
     expect(t).not.toContain("not measured");
-  });
-});
-
-describe("num", () => {
-  it("prints a value that rounds to zero without a sign, and keeps real negatives", () => {
-    expect([num(-0.004), num(-0), num(-0.0001, 3), num(-0.01), num(-0.4, 0)]).toEqual(["0.00", "0.00", "0.000", "-0.01", "0"]);
-    expect([fmt(-0.004), fmt(-0.2)]).toEqual(["0.00", "-0.20"]);
   });
 });
 

@@ -10,7 +10,7 @@ import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { PageHeader } from "@/components/page-header";
 import { ConvergenceChart, ParetoChart } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
-import { num } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 type Mode = "single" | "multi";
 
@@ -178,11 +178,11 @@ function SingleView({
       ) : null}
 
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
-        <Stat label="Best value found" value={num(data.best_value, 2)} sub={`after ${last.n} experiments`} />
+        <Stat label="Best value found" value={formatNumber(data.best_value)} sub={`after ${last.n} experiments`} />
         <Stat label="Rounds" value={String(data.trajectory.length - 1)} />
         <Stat
           label="Distance to known optimum"
-          value={num(dist, 3)}
+          value={formatNumber(dist)}
           sub="0 = found the true optimum, in recipe-space units"
         />
         <Stat label="Next batch" value={String(data.proposals.length)} sub="proposed experiments" />
@@ -217,7 +217,7 @@ function SingleView({
                   </td>
                   {data.best_recipe.map((v, i) => (
                     <td key={i} className="border-y border-border/70 bg-card px-2 py-2 text-right text-fg">
-                      {num(v, 3)}
+                      {formatNumber(v)}
                     </td>
                   ))}
                 </tr>
@@ -227,7 +227,7 @@ function SingleView({
                   </td>
                   {data.optimum.map((v, i) => (
                     <td key={i} className="rounded-r-xl border-y border-r border-border/70 bg-card px-2 py-2 text-right text-muted">
-                      {num(v, 3)}
+                      {formatNumber(v)}
                     </td>
                   ))}
                 </tr>
@@ -245,7 +245,7 @@ function SingleView({
               cols={cols}
               rows={data.proposals}
               predHead="predicted"
-              predFn={(r) => `${num(r.pred, 2)} ± ${num(r.std, 2)}`}
+              predFn={(r) => `${formatNumber(r.pred)} ± ${formatNumber(r.std)}`}
             />
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
@@ -293,8 +293,8 @@ function MultiView({
 
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
         <Stat label="Pareto front size" value={String(last?.pareto ?? data.pareto.length)} sub="non-dominated recipes" />
-        <Stat label="Best titer seen" value={num(last?.best_titer ?? 0, 1)} sub="mg/L, synthetic" />
-        <Stat label="Best purity seen" value={num(last?.best_purity ?? 0, 0)} sub="%, synthetic" />
+        <Stat label="Best titer seen" value={formatNumber(last?.best_titer ?? 0)} sub="mg/L, synthetic" />
+        <Stat label="Best purity seen" value={formatNumber(last?.best_purity ?? 0, "count")} sub="%, synthetic" />
         <Stat label="Next batch" value={String(data.proposals.length)} sub="proposed experiments" />
       </Card>
 
@@ -313,7 +313,7 @@ function MultiView({
               cols={cols}
               rows={data.proposals}
               predHead="predicted titer / purity"
-              predFn={(r) => `${num(r.pred_titer, 1)} / ${num(r.pred_purity, 0)}%`}
+              predFn={(r) => `${formatNumber(r.pred_titer)} / ${formatNumber(r.pred_purity, "count")}%`}
             />
           ) : (
             <p className="py-10 text-center text-[12px] text-muted">no proposals</p>

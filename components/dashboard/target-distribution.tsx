@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/honest-state";
 import { CHART_THEME, tick, tip } from "@/components/charts";
 import type { PopulatedResult } from "@/lib/api";
-import { fmt } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 type Bin = { label: string; count: number; isZero: boolean };
 
@@ -15,7 +15,7 @@ function buildProducerBins(values: number[]): Bin[] {
   if (values.length === 0) return [];
   const min = Math.min(...values);
   const max = Math.max(...values);
-  if (min === max) return [{ label: fmt(min, 1), count: values.length, isZero: false }];
+  if (min === max) return [{ label: formatNumber(min), count: values.length, isZero: false }];
 
   const binCount = Math.min(6, Math.max(2, Math.ceil(Math.sqrt(values.length))));
   const width = (max - min) / binCount;
@@ -24,7 +24,7 @@ function buildProducerBins(values: number[]): Bin[] {
     const idx = Math.min(binCount - 1, Math.floor((v - min) / width));
     counts[idx] += 1;
   }
-  return counts.map((count, i) => ({ label: fmt(min + width * (i + 0.5), 1), count, isZero: false }));
+  return counts.map((count, i) => ({ label: formatNumber(min + width * (i + 0.5)), count, isZero: false }));
 }
 
 /**

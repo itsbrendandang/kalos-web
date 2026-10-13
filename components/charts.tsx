@@ -8,10 +8,10 @@ import {
   ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { fmt } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 /** Compact axis tick label - keeps long raw values (e.g. 22.0363) from clipping the gutter. */
-const fmtTick = (v: number) => fmt(v, 1);
+const fmtTick = (v: number) => formatNumber(v);
 
 /**
  * Shared recharts theme, driven by the app-wide design tokens
@@ -118,7 +118,7 @@ export function ProgressChart({ data }: { data: { round: number; best: number | 
               formatter={(value, name) => (
                 <div className="flex w-full items-center justify-between gap-3">
                   <span className="text-muted-foreground">{name}</span>
-                  <span className="font-mono font-medium text-foreground tabular-nums">{fmt(Number(value), 2)}</span>
+                  <span className="font-mono font-medium text-foreground tabular-nums">{formatNumber(Number(value))}</span>
                 </div>
               )}
             />

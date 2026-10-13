@@ -64,3 +64,9 @@ describe("cn", () => {
     expect(cn("text-fg", "text-fg-muted")).toBe("text-fg-muted");
   });
 });
+
+describe("icc", () => {
+  it("keeps a near-one ICC from rounding to 1.00", () => {
+    expect(formatNumber(0.997, "icc")).toBe("0.997");
+  });
+});

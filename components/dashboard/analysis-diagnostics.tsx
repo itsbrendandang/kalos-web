@@ -1,7 +1,8 @@
 import { Fragment, type ReactNode } from "react";
 import { calibrationNote, type Diagnostics } from "@/lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn, num } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatNumber, type Quantity } from "@/lib/format";
 
 type Props = { d: Partial<Diagnostics> };
 
@@ -43,7 +44,7 @@ function NoiseBox({ noise }: { noise: Diagnostics["noise"] }) {
     >
       <Facts
         rows={[
-          ["ICC", value(noise.icc, 3)],
+          ["ICC", value(noise.icc, "icc")],
           ["Noise SD", value(noise.noise_sd)],
           ["Signal SD", value(noise.signal_sd)],
           ["Best single run", value(noise.best_single)],
@@ -58,9 +59,9 @@ function NoiseBox({ noise }: { noise: Diagnostics["noise"] }) {
           <>
             <Facts
               rows={[
-                ["Variance vs mean ρ", value(s.variance_mean_rho)],
+                ["Variance vs mean ρ", value(s.variance_mean_rho, "corr")],
                 ["Homoscedastic", s.homoscedastic == null ? notMeasured : s.homoscedastic ? "yes" : "no"],
-                ["ICC raw → log", s.icc_raw == null || s.icc_log == null ? notMeasured : `${num(s.icc_raw, 3)} → ${num(s.icc_log, 3)}`],
+                ["ICC raw → log", s.icc_raw == null || s.icc_log == null ? notMeasured : `${formatNumber(s.icc_raw, "icc")} → ${formatNumber(s.icc_log, "icc")}`],
                 ["Log scale suggested", s.suggests_transform ? "yes" : "no"],
               ]}
             />
@@ -97,11 +98,11 @@ function AltScaleBox({ alt, sameReasonAsScale }: { alt: Diagnostics["alternative
     >
       <Facts
         rows={[
-          ["Held-out Spearman", value(alt.cv_spearman)],
-          ["95% CI", alt.cv_ci95 ? `${num(alt.cv_ci95[0], 2)} to ${num(alt.cv_ci95[1], 2)}` : notMeasured],
-          ["ICC", value(alt.icc, 3)],
+          ["Held-out Spearman", value(alt.cv_spearman, "corr")],
+          ["95% CI", alt.cv_ci95 ? `${formatNumber(alt.cv_ci95[0], "corr")} to ${formatNumber(alt.cv_ci95[1], "corr")}` : notMeasured],
+          ["ICC", value(alt.icc, "icc")],
           ...(alt.calibration?.available
-            ? alt.calibration.levels.map((l): [string, ReactNode] => [`${num(l.nominal * 100, 0)}% band covers`, `${num(l.empirical * 100, 0)}%`])
+            ? alt.calibration.levels.map((l): [string, ReactNode] => [`${formatNumber(l.nominal * 100, "count")}% band covers`, `${formatNumber(l.empirical * 100, "count")}%`])
             : []),
         ]}
       />
@@ -153,7 +154,7 @@ function ShapesBox({ shapes }: { shapes: Diagnostics["gp_shapes"] }) {
                 </TableCell>
                 {[f.relevance, f.optimum_at, f.peak_gain, f.peak_separation_sd, f.spearman_rho].map((v, i) => (
                   <TableCell key={i} className="px-2 py-1.5 text-right font-mono text-fg">
-                    {v == null ? <span className="text-muted">-</span> : num(v, 2)}
+                    {v == null ? <span className="text-muted">-</span> : formatNumber(v)}
                   </TableCell>
                 ))}
               </TableRow>
@@ -171,7 +172,7 @@ function ShapesBox({ shapes }: { shapes: Diagnostics["gp_shapes"] }) {
 }
 
 const notMeasured = <span className="font-sans text-muted">not measured</span>;
-const value = (n: number | null, digits = 2) => (n == null ? notMeasured : num(n, digits));
+const value = (n: number | null, quantity: Quantity = "value") => (n == null ? notMeasured : formatNumber(n, quantity));
 
 function Box({ title, sub, className, children }: { title: string; sub?: string; className?: string; children: ReactNode }) {
   return (

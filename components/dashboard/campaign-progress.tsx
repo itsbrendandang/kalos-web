@@ -3,7 +3,8 @@
 import { campaignComparisons, type Campaign } from "@/lib/api";
 import { ProgressChart } from "@/components/charts";
 import { Card } from "@/components/ui/card";
-import { num, parseUnit } from "@/lib/utils";
+import { parseUnit } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 export function CampaignProgress({ campaign }: { campaign: Extract<Campaign, { has_campaign: true }> }) {
   const comparisons = campaignComparisons(campaign);
@@ -18,7 +19,7 @@ export function CampaignProgress({ campaign }: { campaign: Extract<Campaign, { h
           <p className="text-[11px] text-muted">Measured, over {campaign.history.length} recorded {campaign.history.length === 1 ? "round" : "rounds"}. Missing measurements remain gaps.</p>
         </div>
         <span className="tabular font-mono text-[20px] font-semibold text-fg">
-          {current?.best == null ? "n/a" : num(current.best, 2)}
+          {current?.best == null ? "n/a" : formatNumber(current.best)}
           {current?.best != null && unit ? <span className="ml-1 text-[12px] font-normal text-muted">{unit}</span> : null}
         </span>
       </div>
@@ -31,11 +32,11 @@ export function CampaignProgress({ campaign }: { campaign: Extract<Campaign, { h
           {comparisons.map((c) => (
             <div key={c.comparison_type} className="rounded-[10px] border border-border p-3 text-[12px] text-muted">
               <h3 className="font-semibold text-fg">{c.comparison_type === "initial" ? "Initial to current" : "Previous to current"} · round {c.baseline_round} → {c.current_round}</h3>
-              <p className="mt-1">{c.baseline_best == null ? "n/a" : num(c.baseline_best, 2)} → {c.current_best == null ? "n/a" : num(c.current_best, 2)}{unit ? ` ${unit}` : ""} · {c.n_runs_added} runs added</p>
+              <p className="mt-1">{c.baseline_best == null ? "n/a" : formatNumber(c.baseline_best)} → {c.current_best == null ? "n/a" : formatNumber(c.current_best)}{unit ? ` ${unit}` : ""} · {c.n_runs_added} runs added</p>
               <p className="mt-1">
                 {c.improvement == null
                   ? "Change unavailable: a compared round has no measured best."
-                  : `Measured change: ${c.improvement >= 0 ? "+" : "−"}${num(Math.abs(c.improvement), 2)}${c.baseline_best! > 0 ? "%" : unit ? ` ${unit}` : " (absolute)"}${c.improvement === 0 ? " · plateau" : ""}`}
+                  : `Measured change: ${c.improvement >= 0 ? "+" : "−"}${formatNumber(Math.abs(c.improvement))}${c.baseline_best! > 0 ? "%" : unit ? ` ${unit}` : " (absolute)"}${c.improvement === 0 ? " · plateau" : ""}`}
               </p>
               {c.baseline_best != null && c.baseline_best <= 0 ? <p>Absolute change shown because the baseline is zero or negative.</p> : null}
             </div>

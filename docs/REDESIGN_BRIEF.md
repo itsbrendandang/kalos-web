@@ -65,7 +65,7 @@ The engine runs ONE live campaign. The home page is that campaign's workspace, n
 | `/library/vessels`, `/library/plate`, `/library/scale-up`, `/library/simulator` | The existing tools, restyled. |
 | `/projects/*` | Client-facing projects surface (illustrative seed data), rebuilt on the shared components, reachable from Library and ⌘K. |
 
-Redirects (permanent, in `next.config.ts`; keep the existing `/voyager` ones): `/decide`→`/campaign/plan`, `/results`→`/campaign/learn`, `/analyze`→`/campaign/setup`, `/validate`→`/campaign/setup`, `/optimize`→`/campaign/plan`, `/experiments`→`/`, `/planning`→`/`, `/scale-readout`→`/library/scale-up`, `/vessels`→`/library/vessels`, `/plate`→`/library/plate`, `/simulate`→`/library/simulator`.
+Redirects (permanent, in `next.config.ts`; keep the existing legacy Projects ones): `/decide`→`/campaign/plan`, `/results`→`/campaign/learn`, `/analyze`→`/campaign/setup`, `/validate`→`/campaign/setup`, `/optimize`→`/campaign/plan`, `/experiments`→`/`, `/planning`→`/`, `/scale-readout`→`/library/scale-up`, `/vessels`→`/library/vessels`, `/plate`→`/library/plate`, `/simulate`→`/library/simulator`.
 
 Removed (mock-only, not backed by the engine): the Kanban planning Board, its Table sub-view and Gantt stub (`components/planning/*`, `lib/planning-board.ts`, `lib/mock/planning.ts` and their tests only if nothing else uses them). Delete dead code your change orphans; mention anything else you find dead.
 

@@ -1,7 +1,8 @@
 # /decide - the AI decision cockpit (design spec)
 
-Status: draft for Sonnet review, then implementation.
-Surface: `app/decide/page.tsx` in kalos-web, grown from the current decision-first loop into the full cockpit.
+Status: historical design spec.
+The cockpit has since been folded into the campaign stages: the batch lives on `/campaign/plan` and the diagnostics on `/campaign/learn`.
+The honesty tiers and the scale-up projection rules below still apply.
 
 ## Principle (non-negotiable)
 
@@ -12,12 +13,12 @@ Honesty is load-bearing: real engine data is shown as real, simulation is labele
 ## The honesty tiers (what each section is made of)
 
 - **REAL** - comes straight from the engine (`/api/latest`, `/api/campaign`, `/api/multi`). Never fabricated.
-- **PROJECTED** - a physics/literature-prior projection (e.g. scale-up), labeled "projected, not yet validated on your data" (ScaleBridge staging).
+- **PROJECTED** - a physics/literature-prior projection (e.g. scale-up), labeled "projected, not yet validated on your data".
 - **PLACEHOLDER** - a labeled empty state ("awaiting live process data / integration") so the full IA is visible without theater.
 
 ## Layout (top to bottom) - RECONCILED post-review, BUILD THIS
 
-Two Sonnet reviews (design + eng) reshaped the order and cut the honesty risks. The reconciled layout:
+Design and engineering reviews reshaped the order and cut the honesty risks. The reconciled layout:
 
 1. **KPI strip (REAL only)** - best-so-far (measured), model confidence (reliability ρ + floor verdict), active runs (campaign pending), optimization round. NO "est." placeholder tiles at the top - fabricated-feeling content must not be the first thing seen (that was the rejected "everything logged" smell).
 2. **AI Recommendations (HERO, REAL)** - the recommended batch, the focal point, keeps the strongest accent treatment: recipe, predicted ± conformal band, confidence chip, reason. Unchanged.

@@ -52,11 +52,16 @@ function subscribe(onChange: () => void) {
     if (read() === "system") apply("system");
   };
   media.addEventListener("change", onMedia);
-  window.addEventListener("storage", onChange);
+  // Another tab changed the theme: apply it here too, then notify subscribers.
+  const onStorage = () => {
+    apply(read());
+    onChange();
+  };
+  window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(onChange);
     media.removeEventListener("change", onMedia);
-    window.removeEventListener("storage", onChange);
+    window.removeEventListener("storage", onStorage);
   };
 }
 

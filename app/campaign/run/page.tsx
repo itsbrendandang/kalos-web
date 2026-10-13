@@ -1,64 +1,65 @@
 "use client";
 
+import Link from "next/link";
+import { RunsTable } from "@/components/campaign/runs-table";
 import { PageHeader } from "@/components/kit/page-header";
-import { Badge, ExampleBadge, ModeBadge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { ExampleBadge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useCampaign } from "@/hooks/use-engine";
+import { useCampaign, useLatest } from "@/hooks/use-engine";
+import { displayRound } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatNumber } from "@/lib/format";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
-import { campaignView, shortId } from "@/lib/workbench";
+import { campaignView } from "@/lib/workbench";
 
-// Interim Run stage: a plain read-only list of this round's runs, until the
-// page is rebuilt to the Runs table spec. Rows carry id="run-<id>" for the
-// explorer's links.
+/** Run: this round's runs and what is still out. Read-only; results are entered on Record. */
 export default function RunPage() {
   const campaign = useCampaign();
+  const latest = useLatest();
   const view = campaignView(campaign.data, campaign.error, DEMO_MODE, DEMO_CAMPAIGN);
+  const active = view.state === "data" ? view.campaign : null;
+  const demo = view.state === "data" && view.demo;
+  const analysis = !demo && latest.data?.has_data ? latest.data : null;
+  const awaiting = active?.pending.filter((r) => r.awaiting).length ?? 0;
+  // The band is the analysis' conformal half-width; without one the table shows the prediction alone.
+  const band = analysis?.conformal_q != null ? { halfWidth: analysis.conformal_q, coverage: analysis.conformal_coverage } : null;
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Runs in flight" description="This round's runs, their recipes and predictions." meta={view.state === "data" && view.demo ? <ExampleBadge /> : null} />
+      <PageHeader
+        eyebrow={active ? `Round ${displayRound(active.round)}` : undefined}
+        title="Runs in flight"
+        meta={demo ? <ExampleBadge /> : null}
+        description={
+          active && active.pending.length > 0
+            ? `${formatNumber(awaiting, "count")} of ${formatNumber(active.pending.length, "count")} runs are awaiting a measured result.`
+            : "This round's runs, their recipes and predictions."
+        }
+        action={
+          awaiting > 0 ? (
+            <Link href="/campaign/record" className={buttonVariants()}>
+              Record results
+            </Link>
+          ) : null
+        }
+      />
       {view.state === "error" ? (
         <ErrorState onRetry={() => void campaign.refresh()} busy={campaign.refreshing} />
       ) : view.state === "loading" ? (
         <LoadingSkeleton variant="table" rows={4} />
-      ) : view.state === "none" || view.campaign.pending.length === 0 ? (
-        <EmptyState title="No runs started this round" description="Start runs from the Plan stage." />
+      ) : !active || active.pending.length === 0 ? (
+        <EmptyState
+          title="No runs started this round"
+          description="Start runs from the Plan stage."
+          action={
+            <Link href="/campaign/plan" className={buttonVariants({ variant: "outline" })}>
+              Go to Plan
+            </Link>
+          }
+        />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Run</TableHead>
-              <TableHead>Recipe</TableHead>
-              <TableHead numeric>Predicted</TableHead>
-              <TableHead numeric>Measured</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {view.campaign.pending.map((r) => (
-              <TableRow key={r.id} id={`run-${r.id}`} className="scroll-mt-12">
-                <TableCell className="font-mono text-code">{shortId(r.id)}</TableCell>
-                <TableCell className="whitespace-normal text-fg-muted">
-                  {Object.entries(r.recipe).map(([k, v]) => (
-                    <span key={k} className="mr-3 inline-block">
-                      {k} <span className="text-fg tabular-nums">{formatNumber(v)}</span>
-                    </span>
-                  ))}
-                </TableCell>
-                <TableCell numeric>{formatNumber(r.pred)}</TableCell>
-                <TableCell numeric>{formatNumber(r.result)}</TableCell>
-                <TableCell>
-                  <span className="flex items-center gap-2">
-                    <Badge tone={r.awaiting ? "warn" : "good"}>{r.awaiting ? "Awaiting" : "Measured"}</Badge>
-                    <ModeBadge mode={r.mode} />
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RunsTable runs={active.pending} drivers={analysis?.drivers.map((d) => d.name) ?? []} band={band} />
       )}
     </div>
   );

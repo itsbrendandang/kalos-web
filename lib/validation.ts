@@ -82,52 +82,63 @@ export type ValidationReport = {
 /** Scientist-facing label + one-line plain-English explanation for each check -
  *  written for a process scientist, not a programmer: what failed, and why it
  *  matters for trusting the run sheet or the model fit on top of it. */
-export const CHECK_INFO: Record<CheckId, { label: string; explanation: string }> = {
+export const CHECK_INFO: Record<CheckId, { label: string; finding: string; explanation: string }> = {
   units_consistency: {
+    finding: "Mixed units",
     label: "Unit consistency",
     explanation:
       "A column mixes units within itself (e.g. some Temp readings in F, others in C), so the same number could mean two different things.",
   },
   physical_bounds: {
+    finding: "Values outside physical limits",
     label: "Physical bounds",
     explanation:
       "A value falls outside what's physically possible for that measurement (e.g. a negative titer, a pH above 14) - usually a unit mix-up or a typo.",
   },
   duplicate_rows: {
+    finding: "Duplicate rows",
     label: "Duplicate rows",
     explanation: "Two or more rows are exact repeats of each other, which can double-count a run and bias the fit.",
   },
   missingness: {
+    finding: "Missing values",
     label: "Missing data",
     explanation: "A column or a set of rows is missing a large share of its values, which limits what the model can learn from it.",
   },
   outliers: {
+    finding: "Unusual values",
     label: "Outliers",
     explanation:
       "A value sits far outside the rest of that column's distribution - could be a genuinely extreme run, or a data-entry mistake worth checking.",
   },
   provenance_metadata: {
+    finding: "Missing run metadata",
     label: "Provenance metadata",
     explanation: "Run metadata (operator, date, batch, or similar) is missing, which makes a result harder to trace back to how it was produced.",
   },
   replicate_adequacy: {
+    finding: "Too few replicates",
     label: "Replicate adequacy",
     explanation: "A condition was run too few times to separate a real effect from ordinary run-to-run noise.",
   },
   controls_present: {
+    finding: "No control condition",
     label: "Controls present",
     explanation: "The run sheet has no control condition, which makes it hard to tell a meaningful result apart from batch variation.",
   },
   constant_columns: {
+    finding: "Input never varies",
     label: "Constant columns",
     explanation: "An input never varies across runs, so it can't explain any of the observed variation - the model gets no signal from it.",
   },
   informative_missingness: {
+    finding: "Blanks that track the outcome",
     label: "Blanks that track the outcome",
     explanation:
       "Blank cells line up with the result (e.g. poor performers were never measured), so a blank is itself a clue and filling it in would quietly teach the model the answer.",
   },
   constant_within_group: {
+    finding: "Input constant within each group",
     label: "Constant within each group",
     explanation:
       "An input varies across the sheet but has a single value inside every group, so it is really a stand-in for which group a row is in, not a real driver.",
@@ -143,6 +154,12 @@ export function getCheckLabel(check: string): string {
 /** One-line plain-English explanation for a check id, or "" when unknown. */
 export function getCheckExplanation(check: string): string {
   return isCheckId(check) ? CHECK_INFO[check].explanation : "";
+}
+
+/** Plain one-line phrase for a finding row; the engine's own sentence is kept for Method details.
+ *  Unknown check ids fall back to the engine message. */
+export function findingPhrase(f: Pick<ValidationFinding, "check" | "message">): string {
+  return isCheckId(f.check) ? CHECK_INFO[f.check].finding : f.message;
 }
 
 // --- sorting / grouping -------------------------------------------------------

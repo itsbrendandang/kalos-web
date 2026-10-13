@@ -8,6 +8,7 @@ import type { Tone } from "@/components/kit/tone";
 import { formatNumber } from "@/lib/format";
 import {
   conversionSummary,
+  findingPhrase,
   getCheckExplanation,
   getCheckLabel,
   groupFindingsByCheck,
@@ -34,7 +35,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
   const { shown, hidden } = capFindings(report.findings, all ? Infinity : undefined);
   const total = report.findings.length;
   const names = report.checks_run;
-  const found = new Map(groupFindingsByCheck(report.findings).map((g) => [g.check, g.findings.length]));
+  const groups = new Map(groupFindingsByCheck(report.findings).map((g) => [g.check, g.findings]));
 
   return (
     <div className="flex flex-col gap-5">
@@ -44,7 +45,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
         <ul className="flex flex-col border-t border-border">
           {shown.map((f, i) => (
             <li key={i} className="flex flex-col gap-0.5 border-b border-border py-3">
-              <span className="text-body text-fg">{f.message}</span>
+              <span className="text-body text-fg">{findingPhrase(f)}</span>
               <span className="text-caption text-fg-muted">
                 {[f.column, rowListCaption(f)].filter(Boolean).join(" - ")}
               </span>
@@ -73,12 +74,17 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
 
       <Disclosure summary="Method details" meta={names.length > 0 ? `${formatNumber(names.length, "count")} checks` : undefined}>
         <dl className="flex flex-col gap-3">
-          {(names.length > 0 ? names : [...found.keys()]).map((check) => (
+          {(names.length > 0 ? names : [...groups.keys()]).map((check) => (
             <div key={check}>
               <dt className="text-label text-fg">
-                {getCheckLabel(check)} <span className="text-fg-muted">({found.get(check) ?? 0} found)</span>
+                {getCheckLabel(check)} <span className="text-fg-muted">({groups.get(check)?.length ?? 0} found)</span>
               </dt>
               <dd className="text-body text-fg-muted">{getCheckExplanation(check)}</dd>
+              {groups.get(check)?.map((f, i) => (
+                <dd key={i} className="text-caption text-fg-muted">
+                  Engine message{f.column ? ` (${f.column})` : ""}: {f.message}
+                </dd>
+              ))}
             </div>
           ))}
           <p className="text-caption text-fg-muted">

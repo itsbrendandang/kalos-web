@@ -4,6 +4,7 @@ import {
   CHECK_IDS,
   CHECK_INFO,
   conversionSummary,
+  findingPhrase,
   getCheckExplanation,
   getCheckLabel,
   groupFindingsByCheck,
@@ -246,5 +247,17 @@ describe("conversionSummary", () => {
       cells_converted: 40,
     };
     expect(conversionSummary(c)).toBe("Titer: mg/mL -> g/L (40 cells converted)");
+  });
+});
+
+describe("findingPhrase", () => {
+  it("uses the plain phrase for a known check, leaving the engine message untouched", () => {
+    const f: ValidationFinding = { check: "outliers", severity: "warning", message: "column 'x' has values with MAD-based |z| > 5", column: "x", rows: [1] };
+    expect(findingPhrase(f)).toBe("Unusual values");
+    expect(f.message).toContain("MAD-based");
+  });
+
+  it("falls back to the engine message for an unknown check id", () => {
+    expect(findingPhrase({ check: "future_check", message: "engine says so" })).toBe("engine says so");
   });
 });

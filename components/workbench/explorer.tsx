@@ -121,7 +121,7 @@ function CampaignExplorer() {
       leaves: [...active.history].reverse().map((h) => ({
         kind: "leaf",
         key: `round:${h.round}`,
-        href: `/campaign/learn#round-${h.round}`,
+        href: "/campaign/learn",
         label: h.round === 0 ? "Uploaded data" : `After round ${h.round}`,
         detail: formatNumber(h.best),
         icon: <History className={`${ICON} text-fg-muted`} aria-hidden />,
@@ -143,7 +143,7 @@ function DataExplorer() {
       leaves: DATASETS.map((d) => ({
         kind: "leaf",
         key: d.barcode,
-        href: `/data#dataset-${d.barcode}`,
+        href: "/data",
         label: d.name,
         mono: true,
         detail: formatNumber(d.runs, "count"),

@@ -25,6 +25,16 @@ describe("route tabs", () => {
     expect(s.open).not.toContain("/p0");
   });
 
+  it("over cap with a short recent list evicts the LRU non-pinned tab and keeps the pinned one in recent", () => {
+    const stored: RouteTabs = { open: ["/", "/a", "/b", "/c", "/d", "/e", "/f", "/g"], recent: ["/"] };
+    const s = visitRoute(stored, "/h");
+    expect(s.open).toHaveLength(MAX_TABS);
+    expect(s.open).toContain("/");
+    expect(s.open).toContain("/h");
+    expect(s.open).not.toContain("/a");
+    expect(s.recent).toContain("/");
+  });
+
   it("closing the active tab moves to its right neighbor, else its left one", () => {
     const s = visitAll(["/a", "/b", "/c"]);
     expect(closeRoute(s, "/b", "/b")).toEqual({ tabs: { open: ["/", "/a", "/c"], recent: ["/c", "/a", "/"] }, navigateTo: "/c" });

@@ -23,9 +23,10 @@ export function visitRoute(s: RouteTabs, href: string): RouteTabs {
   }
   const recent = [href, ...s.recent.filter((r) => r !== href && open.includes(r))];
   while (open.length > MAX_TABS) {
-    const drop = [...recent].reverse().find((r) => r !== PINNED_TAB && r !== href) ?? open.find((r) => r !== PINNED_TAB && r !== href);
+    // Tabs missing from `recent` (parseRouteTabs allows it) count as the oldest.
+    const age = (r: string) => (recent.includes(r) ? recent.indexOf(r) : Infinity);
+    const drop = open.filter((r) => r !== PINNED_TAB && r !== href).reduce((a, b) => (age(b) > age(a) ? b : a));
     open = open.filter((r) => r !== drop);
-    recent.splice(recent.indexOf(drop!), 1);
   }
   return { open, recent: recent.filter((r) => open.includes(r)) };
 }

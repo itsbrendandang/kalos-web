@@ -1,7 +1,7 @@
 "use client";
 
 import { ChartFrame } from "@/components/kit/chart-frame";
-import { KpiCard } from "@/components/kit/kpi-card";
+import { Metric } from "@/components/kit/metric";
 import { NextCard } from "@/components/kit/next-card";
 import { PageHeader } from "@/components/kit/page-header";
 import { BarChart } from "@/components/tremor/bar-chart";
@@ -21,7 +21,7 @@ import { campaignView, type ActiveCampaign } from "@/lib/workbench";
 
 /**
  * Campaign Overview, the pinned first tab: where the round is, the one next
- * step, four headline numbers, the best-so-far trend and the top drivers.
+ * step, three headline numbers, the best-so-far trend and the top drivers.
  * Everything comes from /api/latest and /api/campaign; demo data appears only
  * when the engine confirms there is no campaign and demo mode is on, labelled.
  */
@@ -77,7 +77,7 @@ export default function OverviewPage() {
         }
       />
       <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
-      <Kpis active={active} analysis={analysis} target={target} unit={unit} round={stage.round} />
+      <Kpis active={active} analysis={analysis} target={target} unit={unit} />
       <div className="grid gap-4 lg:grid-cols-2">
         <BestSoFarChart active={active} target={target} unit={unit} />
         <DriversChart analysis={analysis} target={target} />
@@ -86,32 +86,26 @@ export default function OverviewPage() {
   );
 }
 
-function Kpis({
-  active,
-  analysis,
-  target,
-  unit,
-  round,
-}: {
-  active: ActiveCampaign | null;
-  analysis: PopulatedResult | null;
-  target: string;
-  unit: string;
-  round: number | null;
-}) {
+function Kpis({ active, analysis, target, unit }: { active: ActiveCampaign | null; analysis: PopulatedResult | null; target: string; unit: string }) {
   const delta = active ? bestDeltaFromPreviousRound(active) : null;
   const verdict = analysis ? reliabilityVerdict(analysis) : null;
   const verdictTone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
+  // Hairline-divided, not boxed: the round is already in the eyebrow and the explorer.
+  const cell = "py-4 sm:py-0 sm:px-6 sm:first:pl-0 sm:last:pr-0";
   return (
-    <section aria-label="Key numbers" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <KpiCard
+    <section aria-label="Key numbers" className="grid divide-y divide-border border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:py-5">
+      <Metric
+        className={cell}
+        size="lg"
         label={`Best ${target}`}
         value={active?.best ?? analysis?.best ?? null}
         unit={unit}
         delta={delta ? { value: delta.delta, context: delta.previousRound === 0 ? "vs uploaded data" : `vs round ${delta.previousRound}`, better: "up" } : null}
         qualifier="Measured, not predicted"
       />
-      <KpiCard
+      <Metric
+        className={cell}
+        size="lg"
         label="Model reliability"
         value={verdict?.rho ?? null}
         quantity="corr"
@@ -124,17 +118,13 @@ function Kpis({
               : "Rank agreement on held-out runs; no interval reported"
         }
       />
-      <KpiCard
+      <Metric
+        className={cell}
+        size="lg"
         label="Runs in flight"
         value={active?.n_awaiting ?? 0}
         quantity="count"
         qualifier={`${formatNumber(active?.n_measured ?? 0, "count")} measured this round`}
-      />
-      <KpiCard
-        label="Round"
-        value={round}
-        quantity="count"
-        qualifier={`${formatNumber(active?.n_base ?? analysis?.n, "count")} runs in the dataset`}
       />
     </section>
   );
@@ -232,7 +222,15 @@ function OverviewSkeleton() {
         <Skeleton className="h-4 w-96 max-w-full" />
       </div>
       <Skeleton className="h-24 w-full rounded-xl" />
-      <LoadingSkeleton variant="card" rows={4} className="lg:grid-cols-4" />
+      <div className="grid gap-6 border-y border-border py-5 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i}>
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="mt-3 h-8 w-20" />
+            <Skeleton className="mt-2 h-3 w-36" />
+          </div>
+        ))}
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <LoadingSkeleton variant="chart" />
         <LoadingSkeleton variant="chart" />

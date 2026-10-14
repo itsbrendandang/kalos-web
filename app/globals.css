@@ -224,7 +224,7 @@
 }
 
 /* Type scale: role tokens, one per job. `text-metric` numbers also take
- * `tabular-nums` (Metric and KpiCard apply it). Geist Mono via `font-mono
+ * `tabular-nums` (Metric applies it). Geist Mono via `font-mono
  * text-code` is for code-like values only (ids, column keys), never numbers. */
 @theme {
   --text-display: 2rem;

@@ -49,6 +49,9 @@ const ENGINE_TIMEOUT_MS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 120_000;
 })();
 
+const MISSING_TOKEN_MESSAGE =
+  "Kalos engine requires authentication. Set KALOS_ENGINE_TOKEN in your .env.local to match the engine's configured tokens.";
+
 function isAllowedPath(segments: string[]): boolean {
   const joined = segments.join("/");
   return ALLOWED_PATH_PREFIXES.some((prefix) => joined === prefix || joined.startsWith(`${prefix}/`));
@@ -79,7 +82,7 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
   const headers = new Headers();
   const contentType = req.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);
-  const token = process.env.KALOS_ENGINE_TOKEN;
+  const token = process.env.KALOS_ENGINE_TOKEN?.trim();
   if (token) headers.set("authorization", `Bearer ${token}`);
 
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
@@ -100,6 +103,16 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
       duplex: hasBody ? "half" : undefined,
       signal: controller.signal,
     } as RequestInit);
+
+    // The engine enforces auth but this server has no token to send: that is
+    // a deployment misconfiguration, not a caller error, so say so (500) with
+    // the fix instead of surfacing an opaque 401 the browser cannot act on.
+    // Only the 401-with-no-token case is rewritten; nothing from the engine's
+    // response is echoed.
+    if (engineRes.status === 401 && !token) {
+      void engineRes.body?.cancel();
+      return NextResponse.json({ error: MISSING_TOKEN_MESSAGE }, { status: 500 });
+    }
 
     // Status code and body are passed through untouched - the proxy adds
     // auth, it never rewrites what the engine said. Headers are an explicit

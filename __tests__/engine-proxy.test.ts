@@ -203,6 +203,39 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect((init.headers as Headers).has("authorization")).toBe(false);
   });
 
+  it("returns a 500 with setup guidance when the engine 401s and KALOS_ENGINE_TOKEN is unset", async () => {
+    vi.stubEnv("KALOS_ENGINE_TOKEN", "");
+    fetchMock.mockResolvedValueOnce(engineResponse(401, { detail: "authentication required" }));
+
+    const res = await GET(req("http://localhost:3000/api/engine/api/latest"), ctx(["api", "latest"]));
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error:
+        "Kalos engine requires authentication. Set KALOS_ENGINE_TOKEN in your .env.local to match the engine's configured tokens.",
+    });
+  });
+
+  it("treats a whitespace-only KALOS_ENGINE_TOKEN as unset", async () => {
+    vi.stubEnv("KALOS_ENGINE_TOKEN", "   ");
+    fetchMock.mockResolvedValueOnce(engineResponse(401, { detail: "authentication required" }));
+
+    const res = await GET(req("http://localhost:3000/api/engine/api/latest"), ctx(["api", "latest"]));
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).has("authorization")).toBe(false);
+    expect(res.status).toBe(500);
+  });
+
+  it("passes a 401 through untouched when a token IS configured (wrong token)", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(401, { detail: "invalid token" }));
+
+    const res = await GET(req("http://localhost:3000/api/engine/api/latest"), ctx(["api", "latest"]));
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ detail: "invalid token" });
+  });
+
   it("returns a 502 (and never calls fetch) when KALOS_ENGINE_URL is not configured", async () => {
     vi.stubEnv("KALOS_ENGINE_URL", "");
 

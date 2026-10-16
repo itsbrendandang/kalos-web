@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { ColumnConfirm } from "@/components/campaign/column-confirm";
+import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
 import { UploadZone } from "@/components/campaign/upload-zone";
 import { ValidationSummary } from "@/components/campaign/validation-summary";
 import { Callout } from "@/components/kit/callout";
@@ -11,8 +13,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
+import type { ColumnRolesInput } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
+import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 
 /**
  * Setup: upload a run sheet, choose the target, read the data check. The
@@ -27,13 +31,19 @@ export default function SetupPage() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scan, setScan] = useState<SheetScan | null>(null);
+  // The user has looked at the detected columns for THIS fit; any re-fit or new upload clears it.
+  const [confirmed, setConfirmed] = useState(false);
+  const elapsed = useElapsedSeconds(busy);
 
-  async function analyze(f: File, target?: string) {
+  async function analyze(f: File, target?: string, roles?: ColumnRolesInput) {
+    if (f !== file) void scanSheet(f).then(setScan);
     setFile(f);
+    setConfirmed(false);
     setBusy(true);
     setError(null);
     try {
-      const d = await runFile(f, target);
+      const d = await runFile(f, target, roles);
       // The engine's own { error } is a problem with the sheet, not the connection.
       if (d.error) setError(d.error);
     } catch {
@@ -62,7 +72,7 @@ export default function SetupPage() {
         title="Set up the campaign"
         description="Upload the runs you already have and choose what to maximize. Kalos checks the sheet, then fits the model."
         action={
-          analysis && report?.status !== "fail" ? (
+          analysis && report?.status !== "fail" && (!file || confirmed) ? (
             <Link href={next.href} className={buttonVariants()}>
               {next.action}
               <ArrowRight />
@@ -74,7 +84,7 @@ export default function SetupPage() {
       <UploadZone onFile={(f) => void analyze(f)} disabled={busy} compact={!!analysis} />
 
       {error ? <Callout tone="bad" title="This run sheet could not be analyzed">{error}</Callout> : null}
-      {busy ? <LoadingSkeleton variant="rows" rows={4} label="Analyzing the run sheet" /> : null}
+      {busy ? <FitProgress elapsed={elapsed} /> : null}
       {latest.status === "loading" ? <LoadingSkeleton variant="rows" rows={3} /> : null}
 
       {analysis && !busy ? (
@@ -102,6 +112,23 @@ export default function SetupPage() {
               </span>
             </label>
           </div>
+          {file && !confirmed && scan && scan.columns.length > 0 ? (
+            <ColumnConfirm
+              key={`${analysis.updated}-${analysis.target}`}
+              columns={scan.columns}
+              inputs={analysis.features}
+              target={analysis.target}
+              targets={analysis.targets}
+              busy={busy}
+              onConfirm={() => setConfirmed(true)}
+              onRefit={(roles) => void analyze(file, roles.target, roles)}
+            />
+          ) : (
+            <p className="text-caption text-fg-muted">
+              Inputs used: {analysis.features.join(", ")}.{file ? " Confirmed." : " Upload the sheet again to change them."}
+            </p>
+          )}
+          {scan?.dataType ? <DataTypeNote counts={scan.dataType} /> : null}
           {report ? (
             <ValidationSummary report={report} />
           ) : (
@@ -110,5 +137,20 @@ export default function SetupPage() {
         </>
       ) : null}
     </div>
+  );
+}
+
+/** Surfaces a data_type column so measured and synthetic rows are never silently pooled. */
+function DataTypeNote({ counts }: { counts: DataTypeCounts }) {
+  const list = counts.counts.map((c) => `${c.value} ${formatNumber(c.n, "count")}`).join(", ");
+  const mixed = counts.counts.some((c) => !/^(real|measured)$/i.test(c.value));
+  return mixed ? (
+    <Callout tone="warn" title={`This sheet mixes row types (${counts.column}: ${list})`}>
+      The model is fitted on every row. Rows that are not real measurements can make results look better than the lab would see.
+    </Callout>
+  ) : (
+    <p className="text-caption text-fg-muted">
+      {counts.column}: {list}.
+    </p>
   );
 }

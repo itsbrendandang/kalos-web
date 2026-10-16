@@ -117,7 +117,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
   const band = d.conformal_q ?? null;
   const verdict = reliabilityVerdict(d);
   const items = orderBatch(d.proposals, incumbent);
-  const { shown, total } = batchExceptions(items, { incumbent, band, nonNegative: targetIsNonNegative(d.best, d.oof) });
+  const { shown, total } = batchExceptions(items, { incumbent, band, nonNegative: targetIsNonNegative(d.best, d.oof), ranges: d.feature_ranges, features: d.proposal_features });
   const flagged = new Set(shown.map((e) => e.rank));
   const chosen = items.filter((i) => !skipped.has(i.index));
   const beats = items.filter((i) => i.beatsBest);

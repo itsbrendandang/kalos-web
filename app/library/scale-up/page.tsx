@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertCircle, AlertTriangle, Info, RefreshCw, ShieldAlert, SquareArrowOutUpRight, X } from "lucide-react";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
+import { HEADER_PEEK_BYTES } from "@/lib/upload-preflight";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { Card, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,8 @@ export default function ScaleReadoutPage() {
       return;
     }
     try {
-      const text = await f.text();
+      // Only the header row is needed here; never load a whole (up to 25 MB) file into memory.
+      const text = await f.slice(0, HEADER_PEEK_BYTES).text();
       setMode({ kind: "csv", header: parseCsvHeader(text) });
     } catch {
       // Couldn't read the file as text - degrade to manual entry rather

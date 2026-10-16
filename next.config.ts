@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   // The Dockerfile copies .next/standalone at build time and fails loudly
   // without this - see its header comment.
   output: "standalone",
+  // Carbon's Sass (pilot route only) trips Sass deprecation warnings that are
+  // theirs to fix; quietDeps hides dependency warnings and nothing else.
+  sassOptions: { quietDeps: true },
   async redirects() {
     return [
       // The 2026-10 redesign moved every page into Campaign / Data / Library.

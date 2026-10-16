@@ -1,0 +1,40 @@
+// Carbon, scoped. Every Carbon rule is nested under `.carbon-pilot`, so it
+// can only match inside the pilot layout's wrapper element: nothing outside it
+// is restyled, even if this stylesheet stays loaded after client navigation.
+// Carbon's `:root`/`html`/`body` rules become inert (`.carbon-pilot :root`);
+// its theme tokens come from the `.cds--white` class `<Theme>` renders.
+@use 'sass:meta';
+
+.carbon-pilot {
+  // css--font-face off: the default @font-face loads IBM Plex from a CDN.
+  @include meta.load-css('@carbon/react', $with: ('css--font-face': false));
+  @include meta.load-css('../../../node_modules/@carbon/charts-react/dist/styles');
+}
+
+// Carbon tokens -> the DESIGN.md palette (variables from app/globals.css,
+// not modified). Only tokens the pilot's components use are mapped.
+.carbon-pilot .kalos-carbon.cds--white {
+  --cds-background: var(--bg);
+  --cds-layer-01: var(--surface);
+  --cds-layer-accent-01: var(--subtle);
+  --cds-layer-hover-01: var(--subtle);
+  --cds-field-01: var(--surface);
+  --cds-border-subtle-01: var(--border);
+  --cds-border-strong-01: var(--border-strong);
+  --cds-text-primary: var(--fg);
+  --cds-text-secondary: var(--fg-muted);
+  --cds-text-helper: var(--fg-muted);
+  --cds-icon-primary: var(--fg);
+  --cds-interactive: var(--accent);
+  --cds-link-primary: var(--accent);
+  --cds-focus: var(--accent);
+  --cds-button-primary: var(--accent);
+  --cds-button-primary-hover: var(--accent-hover);
+  --cds-text-on-color: var(--accent-fg);
+  --cds-support-error: var(--bad);
+  --cds-support-success: var(--good);
+  --cds-support-warning: var(--warn);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist), system-ui, sans-serif;
+}

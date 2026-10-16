@@ -106,10 +106,13 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://engine.internal:8050/api/run");
-    // The exact same boundary, and the request body streamed (not buffered
-    // and re-parsed) straight to the engine.
+    // The exact same boundary, and the body streamed to the engine (through the
+    // byte-counting pipe), not buffered into a string and re-parsed.
     expect((init.headers as Headers).get("content-type")).toBe(sentContentType);
-    expect(init.body).toBe(request.body);
+    expect(init.body).toBeInstanceOf(ReadableStream);
+    const forwarded = await new Response(init.body as ReadableStream).text();
+    expect(forwarded).toContain("Feed test");
+    expect(forwarded).toContain("a,b\n1,2");
     expect((init as unknown as { duplex: string }).duplex).toBe("half");
     expect(res.status).toBe(200);
   });
@@ -234,6 +237,66 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
 
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toEqual({ detail: "invalid token" });
+  });
+
+  it("rejects a declared Content-Length over the cap with 413 and never calls fetch", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/run", {
+        method: "POST",
+        headers: { "content-length": String(2 * 1024 * 1024) },
+        body: "x",
+      }),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("cuts off a chunked body (no Content-Length) that streams past the cap", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    // Drain the forwarded body the way undici would; the counting stream errors past the cap.
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+      for (;;) if ((await reader.read()).done) break;
+      return engineResponse(200, { ok: true });
+    });
+    const chunk = new Uint8Array(512 * 1024);
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        for (let i = 0; i < 4; i++) c.enqueue(chunk); // 2 MiB total
+        c.close();
+      },
+    });
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/engine/api/run", {
+        method: "POST",
+        body: stream,
+        duplex: "half",
+      } as ConstructorParameters<typeof NextRequest>[1]),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(413);
+  });
+
+  it("forwards a body under the cap", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+      let n = 0;
+      for (;;) {
+        const r = await reader.read();
+        if (r.done) break;
+        n += r.value.byteLength;
+      }
+      return engineResponse(200, { received: n });
+    });
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/run", { method: "POST", body: "a".repeat(1000) }),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ received: 1000 });
   });
 
   it("returns a 502 (and never calls fetch) when KALOS_ENGINE_URL is not configured", async () => {

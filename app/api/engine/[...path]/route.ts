@@ -52,6 +52,18 @@ const ENGINE_TIMEOUT_MS = (() => {
 const MISSING_TOKEN_MESSAGE =
   "Kalos engine requires authentication. Set KALOS_ENGINE_TOKEN in your .env.local to match the engine's configured tokens.";
 
+// Same default as the engine's KALOS_MAX_UPLOAD_MB (kalos/portal/uploads.py).
+// Enforced here too so an oversized (or endless chunked) body is cut off at the
+// proxy instead of being streamed through to the engine.
+function maxBodyBytes(): number {
+  const raw = process.env.KALOS_MAX_UPLOAD_MB?.trim();
+  const mb = raw ? Number(raw) : NaN;
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 25) * 1024 * 1024);
+}
+
+const bodyTooLarge = (cap: number) =>
+  NextResponse.json({ error: `request body exceeds the ${Math.floor(cap / 1024 / 1024)} MB upload limit` }, { status: 413 });
+
 function isAllowedPath(segments: string[]): boolean {
   const joined = segments.join("/");
   return ALLOWED_PATH_PREFIXES.some((prefix) => joined === prefix || joined.startsWith(`${prefix}/`));
@@ -87,6 +99,30 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
 
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
+  // Declared length first (cheap), then a counted stream: Content-Length can be
+  // absent (chunked) or lie, so the bytes actually forwarded are what's capped.
+  const cap = maxBodyBytes();
+  const declared = Number(req.headers.get("content-length"));
+  if (hasBody && Number.isFinite(declared) && declared > cap) return bodyTooLarge(cap);
+  let overCap = false;
+  let forwarded = 0;
+  const body =
+    hasBody && req.body
+      ? req.body.pipeThrough(
+          new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, ctl) {
+              forwarded += chunk.byteLength;
+              if (forwarded > cap) {
+                overCap = true;
+                ctl.error(new Error("body too large"));
+                return;
+              }
+              ctl.enqueue(chunk);
+            },
+          }),
+        )
+      : undefined;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ENGINE_TIMEOUT_MS);
 
@@ -97,7 +133,7 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
       // Streamed straight through (not buffered/re-parsed) so a multipart
       // file upload (POST /api/run, POST /api/experiments) survives the
       // proxy without loading the whole file into memory.
-      body: hasBody ? req.body : undefined,
+      body,
       // Node's fetch (undici) requires this whenever a streamed body is
       // sent; TypeScript's RequestInit doesn't know about it yet.
       duplex: hasBody ? "half" : undefined,
@@ -132,6 +168,7 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
 
     return new Response(engineRes.body, { status: engineRes.status, headers: outHeaders });
   } catch (err) {
+    if (overCap) return bodyTooLarge(cap);
     const timedOut = err instanceof Error && err.name === "AbortError";
     return NextResponse.json(
       { error: timedOut ? "engine request timed out" : "engine unreachable" },

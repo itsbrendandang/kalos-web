@@ -41,6 +41,7 @@ export function mfaGateDecision(
   nowMs?: number,
 ): "allow" | "mfa_required" | "step_up_required";
 
+export function assertCanListInvitations(ctx: unknown, sessionData: BetterAuthSessionLike): Promise<void>;
 export function gateSessionLookup<T>(lookup: () => Promise<T>, headers: Headers | undefined): Promise<T | null>;
 export function userMfaLocked(row: { lockedUntil?: Date | string | null } | null | undefined, nowMs?: number): boolean;
 export function reserveUserAttempt(

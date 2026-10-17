@@ -151,6 +151,9 @@ flattened into `SessionContext.permissions`:
 Archiving campaigns is admin/owner only (`campaigns:archive`, enforced in W2).
 Users cannot create or delete organizations (`allowUserToCreateOrganization:
 false`, `disableOrganizationDeletion: true`). `requireEmailVerificationOnInvitation: true`.
+`/organization/list-invitations` (emails, roles, inviters of pending invitations)
+is **org:admin only** (`assertCanListInvitations`): members and viewers get 403
+`INVITATIONS_ADMIN_ONLY`. Regression: `tests/auth-integration/hardening.int.ts`.
 
 ## Invite-only onboarding
 

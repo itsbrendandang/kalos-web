@@ -337,6 +337,8 @@ export type ProvenanceEntry = {
   status: string;
   coerced_cells: number;
   non_null: number;
+  /** "inferred" from column names, or "declared" when the caller sent explicit roles. Absent on older engines. */
+  source?: string;
 };
 
 export type AnalyzeResult = Partial<Diagnostics> & {
@@ -388,6 +390,8 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   /** How the engine selected which `drivers` to report. Absent on older engine builds. */
   driver_selection?: DriverSelection;
   proposal_features: string[];
+  /** Search range [low, high] of each continuous input; used to flag proposals at the edge. Absent on older engine builds. */
+  feature_ranges?: Record<string, [number, number]>;
   proposals: Proposal[];
   oof: [number, number][];
   /**
@@ -482,10 +486,14 @@ export const runMulti = (): Promise<MultiRun> =>
     return r.json();
   });
 
-export async function runFile(file: File, target?: string): Promise<AnalyzeResult> {
+/** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
+export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
+
+export async function runFile(file: File, target?: string, roles?: ColumnRolesInput): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
+  if (roles) fd.append("roles", JSON.stringify(roles));
   return fetch(`${API}/api/run`, { method: "POST", body: fd }).then(async (r) => {
     const d = (await r.json()) as AnalyzeResult;
     // A 400 with the documented { error } body is an expected "bad upload"

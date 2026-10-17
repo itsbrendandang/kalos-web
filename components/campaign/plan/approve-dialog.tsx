@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { PredictedMark } from "@/components/campaign/plan/marks";
 import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
-import { formatSetpoint } from "@/components/campaign/plan-view";
+import { exactSetpoint } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,6 +36,8 @@ export function ApproveDialog({
   const [approved, setApproved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // A ref, not state: a second click in the same frame must not send the batch twice.
+  const inFlight = useRef(false);
   const flagged = rows.filter((r) => r.flags.length > 0);
   // Focus lands on the title, not the approval box, so approving is a deliberate second step.
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -50,9 +52,12 @@ export function ApproveDialog({
   }
 
   async function start() {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setFailed(false);
     const ok = await onStart();
+    inFlight.current = false;
     setBusy(false);
     if (ok) {
       setApproved(false);
@@ -68,7 +73,7 @@ export function ApproveDialog({
             Approve {plural(rows.length, "run")} for round {round}
           </DialogTitle>
           <DialogDescription>
-            These are model-generated proposals, not tested recipes. Starting records them as runs in flight; you then run them in the lab and record each result.
+            These are model-generated proposals, not tested recipes. Starting adds them to the campaign as runs in flight; it does not run anything. You run them in the lab, then record each result.
           </DialogDescription>
         </DialogHeader>
 
@@ -82,23 +87,23 @@ export function ApproveDialog({
                 </span>
               </div>
               <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-fg-muted">
-                {ctx.features
-                  .filter((f) => f in r.recipe)
-                  .map((f) => (
-                    <span key={f} className="whitespace-nowrap">
-                      {f} <span className="text-fg tabular-nums">{formatSetpoint(r.recipe[f], ctx.ranges[f]?.decimals)}</span>
+                {[...ctx.features, ...ctx.others]
+                  .filter((k) => k in r.recipe)
+                  .map((k) => (
+                    <span key={k} className="min-w-0 break-all">
+                      {k} <span className="text-fg tabular-nums">{exactSetpoint(r.recipe[k])}</span>
                     </span>
                   ))}
-                {ctx.others.some((k) => k in r.recipe) ? <span>+ {ctx.others.filter((k) => k in r.recipe).length} more inputs</span> : null}
               </p>
             </li>
           ))}
         </ul>
+        <p className="text-caption text-fg-muted">Values are exactly what will be sent, unrounded. The table on the page rounds them to the sheet&apos;s precision.</p>
 
         {flagged.length ? (
           <p className="flex items-start gap-2 text-body text-fg">
             <TriangleAlert className="mt-1 size-4 shrink-0 text-warn" aria-hidden />
-            {flagged.map((r) => r.id).join(", ")} {flagged.length === 1 ? "has" : "have"} checks to review. Open Details on the page to see them.
+            {flagged.map((r) => r.id).join(", ")} {flagged.length === 1 ? "has" : "have"} checks. Each is explained under Details on the page.
           </p>
         ) : null}
 

@@ -4,6 +4,8 @@ import type { betterAuth } from "better-auth";
 export const SESSION_TTL_SECONDS: number;
 export const UNVERIFIED_SESSION_TTL_SECONDS: number;
 export const MFA_MAX_FAILURES_PER_SESSION: number;
+export const MFA_MAX_FAILURES_PER_USER: number;
+export const MFA_USER_LOCK_SECONDS: number;
 export const RECENT_AUTH_MAX_AGE_SECONDS: number;
 export const GOOGLE_SCOPES: readonly string[];
 export const MFA_VERIFY_PATHS: ReadonlySet<string>;
@@ -38,6 +40,13 @@ export function mfaGateDecision(
   sessionData: BetterAuthSessionLike | null | undefined,
   nowMs?: number,
 ): "allow" | "mfa_required" | "step_up_required";
+
+export function gateSessionLookup<T>(lookup: () => Promise<T>, headers: Headers | undefined): Promise<T | null>;
+export function userMfaLocked(row: { lockedUntil?: Date | string | null } | null | undefined, nowMs?: number): boolean;
+export function nextUserFailureState(
+  row: { failedVerificationCount?: number | null; lockedUntil?: Date | string | null } | null | undefined,
+  nowMs?: number,
+): { failedVerificationCount: number; lockedUntil: Date | null };
 
 export interface MakeAuthOptions {
   database: unknown;

@@ -6,8 +6,13 @@ import {
   DISABLED_PATHS,
   GOOGLE_SCOPES,
   hasPendingInvitation,
+  gateSessionLookup,
+  MFA_MAX_FAILURES_PER_USER,
+  MFA_USER_LOCK_SECONDS,
   mfaGateDecision,
   mfaSatisfied,
+  nextUserFailureState,
+  userMfaLocked,
   MFA_VERIFY_PATHS,
   parseRoles,
   permissionsForRole,
@@ -93,6 +98,9 @@ describe("validateUserInfo (onboarding)", () => {
   it("fails closed without an adapter", async () => {
     expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user") }, undefined)).toMatchObject({ error: "not_invited" });
   });
+  it("M2: refuses to link another Google account into an existing user", async () => {
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("link-account") }, ctx([]))).toMatchObject({ error: "account_not_linked" });
+  });
   it("rejects non-Google and non-OAuth methods", async () => {
     expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user", "github") }, ctx([]))).toMatchObject({ error: "method_not_allowed" });
     expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: { method: "email-password", action: "create-user" } }, ctx([]))).toMatchObject({ error: "method_not_allowed" });
@@ -116,12 +124,54 @@ describe("scope guard on /sign-in/social", () => {
   });
 });
 
+describe("per-user TOTP lock (M1)", () => {
+  const now = Date.UTC(2026, 9, 17);
+  it("counts failures and locks after the limit", () => {
+    let row: { failedVerificationCount: number; lockedUntil: Date | null } = { failedVerificationCount: 0, lockedUntil: null };
+    for (let i = 1; i < MFA_MAX_FAILURES_PER_USER; i++) {
+      row = nextUserFailureState(row, now);
+      expect(row).toEqual({ failedVerificationCount: i, lockedUntil: null });
+    }
+    row = nextUserFailureState(row, now);
+    expect(row.lockedUntil?.getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    expect(userMfaLocked(row, now + 1000)).toBe(true);
+    expect(userMfaLocked(row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
+  });
+  it("an expired lock starts a fresh count", () => {
+    expect(nextUserFailureState({ failedVerificationCount: 7, lockedUntil: new Date(now - 1) }, now)).toEqual({ failedVerificationCount: 1, lockedUntil: null });
+    expect(userMfaLocked(null)).toBe(false);
+    expect(userMfaLocked({ lockedUntil: "garbage" })).toBe(false);
+  });
+});
+
+describe("gate session lookup fails closed (m3)", () => {
+  const boom = () => Promise.reject(new Error("db down"));
+  it("throws when a session cookie is present and the lookup fails", async () => {
+    await expect(gateSessionLookup(boom, new Headers({ cookie: "better-auth.session_token=abc" }))).rejects.toMatchObject({ statusCode: 503 });
+    await expect(gateSessionLookup(boom, new Headers({ cookie: "__Secure-better-auth.session_token=abc" }))).rejects.toMatchObject({ statusCode: 503 });
+  });
+  it("treats a cookie-less failed lookup as no session, and passes results through", async () => {
+    expect(await gateSessionLookup(boom, new Headers())).toBeNull();
+    expect(await gateSessionLookup(boom, undefined)).toBeNull();
+    expect(await gateSessionLookup(async () => ({ ok: 1 }), new Headers())).toEqual({ ok: 1 });
+  });
+});
+
 describe("MFA gate", () => {
   it("mfaSatisfied needs a valid mfaVerifiedAt", () => {
     expect(mfaSatisfied(null)).toBe(false);
     expect(mfaSatisfied(sess(null))).toBe(false);
     expect(mfaSatisfied(sess(new Date()))).toBe(true);
     expect(mfaSatisfied({ session: { mfaVerifiedAt: "not a date" } } as never)).toBe(false);
+  });
+  it("B2: mfaVerifiedAt without a confirmed enrolment (twoFactorEnabled) is NOT satisfied", () => {
+    expect(mfaSatisfied(sess(new Date(), false))).toBe(false);
+    expect(mfaSatisfied({ session: { id: "s", userId: "u", mfaVerifiedAt: new Date() }, user: { id: "u" } })).toBe(false);
+  });
+  it("B2: backup codes are refused until the TOTP enrolment is confirmed", () => {
+    expect(mfaGateDecision("/two-factor/verify-backup-code", sess(null, false))).toBe("mfa_required");
+    expect(mfaGateDecision("/two-factor/verify-backup-code", sess(null, true))).toBe("allow");
+    expect(mfaGateDecision("/two-factor/verify-totp", sess(null, false))).toBe("allow"); // confirms the enrolment
   });
   it("a half session may only enrol (first time), verify, read itself and sign out", () => {
     for (const p of ALLOWED_WITHOUT_MFA) expect(mfaGateDecision(p, sess(null))).toBe("allow");

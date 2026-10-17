@@ -453,6 +453,7 @@ function Batch({
             Model-generated proposals for {name}, sorted by predicted value. Untick any you will not run. Use Compare on {COMPARE_MIN} to {COMPARE_MAX} to see them side by side.
           </p>
           <MarkLegend className="mt-1" />
+          {band != null ? <p className="text-caption text-fg-muted">{bandLabel(d.conformal_coverage)}: {BAND_CAVEAT.charAt(0).toLowerCase() + BAND_CAVEAT.slice(1)}</p> : null}
         </div>
 
         {rows.length === 0 ? (

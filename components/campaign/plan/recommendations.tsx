@@ -135,7 +135,7 @@ function GainCell({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
     <div className="flex min-w-[120px] flex-col gap-0.5">
       {ctx.domain ? <BandStrip pred={p.pred} band={ctx.band} best={ctx.incumbent} domain={ctx.domain} /> : null}
       <span className="text-caption text-fg-muted tabular-nums">
-        {row.gain == null ? "no best to compare" : `${formatGain(row.gain)} predicted vs ${ctx.incumbentLabel}`}
+        {row.gain == null ? "no best to compare" : `${formatGain(row.gain)} predicted`}
       </span>
     </div>
   );

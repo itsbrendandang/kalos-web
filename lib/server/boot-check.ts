@@ -84,7 +84,11 @@ export function checkEnv(env: Env): BootCheckResult {
       errors.push('AUTH_TRUSTED_PROXIES=none is refused: without a reverse proxy the client IP cannot be trusted, so rate limits become one shared bucket per path. Put a proxy in front, or set AUTH_ACCEPT_NO_PROXY=1 to accept this (docs/AUTH.md "Reverse proxy")');
     } else warnings.push("AUTH_TRUSTED_PROXIES=none (AUTH_ACCEPT_NO_PROXY=1): forwarded headers are ignored; rate limits share one bucket per path");
   } else {
-    for (const p of proxies) if (!IP_OR_CIDR.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry is not an IP or CIDR: ${JSON.stringify(p)}`);
+    for (const p of proxies) {
+      if (!IP_OR_CIDR.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry is not an IP or CIDR: ${JSON.stringify(p)}`);
+      // A /0 "proxy" would make every client a trusted hop (no client IP at all).
+      else if (/\/0+$/.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry ${JSON.stringify(p)} trusts every address: list your proxy's IP or CIDR`);
+    }
   }
   if (!env.KALOS_TENANT_MAP_FILE?.trim()) warnings.push("KALOS_TENANT_MAP_FILE is not set: every organization resolves to no tenant (403)");
   return { errors, warnings };

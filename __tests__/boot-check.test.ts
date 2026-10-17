@@ -50,6 +50,11 @@ describe("boot check", () => {
     expect(none.warnings.join()).toMatch(/AUTH_TRUSTED_PROXIES=none/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none,10.0.0.1" }).errors.join()).toMatch(/cannot be combined/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "10.0.0.0/8, 192.0.2.10" }).errors).toEqual([]);
+    // every address is not a proxy list
+    for (const bad of ["0.0.0.0/0", "::/0", "10.0.0.5, 0.0.0.0/0"]) {
+      expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: bad }).errors.join(), bad).toMatch(/trusts every address/);
+    }
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "10.0.0.0/8" }).errors).toEqual([]);
   });
   it("loads the engine key and validates the tenant map", async () => {
     expect((await checkProductionBoot({ ...good, KALOS_ENGINE_JWT_PRIVATE_KEY_FILE: path.join(dir, "missing.pem") })).errors.join()).toMatch(/not readable/);

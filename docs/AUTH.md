@@ -246,7 +246,7 @@ All documented with placeholders in `env.example`.
 | `AUTH_DB_PATH` | no | Default `./data/auth.db`; `/data/auth.db` in the image. |
 | `AUTH_MIGRATE` | no | `1` migrate+serve, `only` migrate+exit, `sql` print SQL+exit. |
 | `AUTH_TRUSTED_PROXIES` | yes | Proxy IP/CIDR list. `none` (no reverse proxy) is **refused** in production unless `AUTH_ACCEPT_NO_PROXY=1` is also set. See "Reverse proxy". |
-| `AUTH_ACCEPT_NO_PROXY` | no | `1` or `true`: second, explicit acceptance of `AUTH_TRUSTED_PROXIES=none`. |
+| `AUTH_ACCEPT_NO_PROXY` | no | `1` or `true`: second, explicit acceptance of `AUTH_TRUSTED_PROXIES=none` (accepts the attacker-driven lockout described under "Reverse proxy"). |
 | `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
 
 Boot check (`lib/server/boot-check.ts`, run for **every `NODE_ENV` except
@@ -276,6 +276,16 @@ IPv6 client by its /64.
 `AUTH_TRUSTED_PROXIES=none` says "clients connect directly". The boot check
 **refuses it in production** unless `AUTH_ACCEPT_NO_PROXY=1` is also set
 (then it logs a warning). Use it only for a deployment with no proxy at all.
+
+**No-proxy mode is an attacker-driven lockout risk.** Without a proxy the rate
+limit has one shared bucket per path, not one per client. An unauthenticated
+attacker who sends requests to `/sign-in/social` (10 per 60 s) or `/two-factor/*`
+(3 per 10 s) exhausts that bucket, and every other user then gets 429 on
+sign-in and on the second factor until the window passes. This is a denial of
+service against all users, not a bypass: no account is opened and no code is
+accepted. Accept it only for a single-tenant deployment where that is
+acceptable, and prefer a proxy. Regression: `__tests__/boot-check.test.ts`,
+`tests/auth-integration/proxy.int.ts`.
 Trusting `0.0.0.0/0` or `::/0` is not a proxy list and is refused as well.
 Rate-limit state is stored in the database (`rateLimit` table).
 

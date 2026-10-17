@@ -81,8 +81,8 @@ export function checkEnv(env: Env): BootCheckResult {
   } else if (proxies.some((p) => p.toLowerCase() === "none")) {
     if (proxies.length > 1) errors.push('AUTH_TRUSTED_PROXIES: "none" cannot be combined with addresses');
     else if (!NO_PROXY_ACCEPTED(env)) {
-      errors.push('AUTH_TRUSTED_PROXIES=none is refused: without a reverse proxy the client IP cannot be trusted, so rate limits become one shared bucket per path. Put a proxy in front, or set AUTH_ACCEPT_NO_PROXY=1 to accept this (docs/AUTH.md "Reverse proxy")');
-    } else warnings.push("AUTH_TRUSTED_PROXIES=none (AUTH_ACCEPT_NO_PROXY=1): forwarded headers are ignored; rate limits share one bucket per path");
+      errors.push('AUTH_TRUSTED_PROXIES=none is refused: without a reverse proxy the client IP cannot be trusted, so ALL clients share one rate-limit bucket per path. An unauthenticated attacker can then exhaust /sign-in/social and /two-factor/* for everyone (attacker-driven lockout of sign-in and 2FA). Put a proxy in front, or set AUTH_ACCEPT_NO_PROXY=1 to accept this risk (docs/AUTH.md "Reverse proxy")');
+    } else warnings.push("AUTH_TRUSTED_PROXIES=none (AUTH_ACCEPT_NO_PROXY=1) ACCEPTED: forwarded headers are ignored and ALL clients share one rate-limit bucket per path, so an unauthenticated attacker can lock out sign-in (/sign-in/social) and 2FA (/two-factor/*) for everyone (attacker-driven lockout)");
   } else {
     for (const p of proxies) {
       if (!IP_OR_CIDR.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry is not an IP or CIDR: ${JSON.stringify(p)}`);

@@ -49,6 +49,9 @@ describe("boot check", () => {
     expect(none.errors).toEqual([]);
     expect(none.warnings.join()).toMatch(/AUTH_TRUSTED_PROXIES=none/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none,10.0.0.1" }).errors.join()).toMatch(/cannot be combined/);
+    // no-proxy mode: one shared bucket is an attacker-driven lockout, and both messages say so
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none" }).errors.join()).toMatch(/attacker-driven lockout/);
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none", AUTH_ACCEPT_NO_PROXY: "1" }).warnings.join()).toMatch(/attacker-driven lockout/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "10.0.0.0/8, 192.0.2.10" }).errors).toEqual([]);
     // every address is not a proxy list
     for (const bad of ["0.0.0.0/0", "::/0", "10.0.0.5, 0.0.0.0/0"]) {

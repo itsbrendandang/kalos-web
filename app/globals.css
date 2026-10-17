@@ -23,6 +23,8 @@
   --subtle: oklch(0.965 0.004 90);
   --border: oklch(0.91 0.005 90);
   --border-strong: oklch(0.84 0.006 90);
+  /* Control boundaries (input, select, checkbox): 3:1 on --surface (WCAG 1.4.11). */
+  --border-input: oklch(0.6 0.008 90);
   --fg: oklch(0.22 0.01 270);
   --fg-muted: oklch(0.46 0.01 270);
 
@@ -72,6 +74,7 @@
   --subtle: oklch(0.235 0.007 270);
   --border: oklch(0.3 0.008 270);
   --border-strong: oklch(0.38 0.01 270);
+  --border-input: oklch(0.56 0.01 270);
   --fg: oklch(0.95 0.005 90);
   --fg-muted: oklch(0.72 0.01 270);
 
@@ -148,6 +151,7 @@
   --color-subtle: var(--subtle);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-border-input: var(--border-input);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);

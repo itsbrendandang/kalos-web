@@ -13,6 +13,7 @@
 // the token to the browser. That boundary - server env var vs. NEXT_PUBLIC_*
 // - is the entire point of this file.
 import { NextResponse, type NextRequest } from "next/server";
+import { MULTIPART_HEADROOM_BYTES, proxyBodyCapBytes } from "@/lib/upload-limits";
 
 // Route Handlers are dynamic (request-scoped) by default when they read
 // request data or hit the network, which this always does - stated
@@ -52,17 +53,15 @@ const ENGINE_TIMEOUT_MS = (() => {
 const MISSING_TOKEN_MESSAGE =
   "Kalos engine requires authentication. Set KALOS_ENGINE_TOKEN in your .env.local to match the engine's configured tokens.";
 
-// Same default as the engine's KALOS_MAX_UPLOAD_MB (kalos/portal/uploads.py).
-// Enforced here too so an oversized (or endless chunked) body is cut off at the
-// proxy instead of being streamed through to the engine.
+// The request-body cap is the upload limit (lib/upload-limits.ts, same setting the browser
+// preflight uses) plus multipart headroom, enforced here too so an oversized (or endless
+// chunked) body is cut off at the proxy instead of being streamed through to the engine.
 function maxBodyBytes(): number {
-  const raw = process.env.KALOS_MAX_UPLOAD_MB?.trim();
-  const mb = raw ? Number(raw) : NaN;
-  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 25) * 1024 * 1024);
+  return proxyBodyCapBytes(process.env.KALOS_MAX_UPLOAD_MB);
 }
 
 const bodyTooLarge = (cap: number) =>
-  NextResponse.json({ error: `request body exceeds the ${Math.floor(cap / 1024 / 1024)} MB upload limit` }, { status: 413 });
+  NextResponse.json({ error: `request body exceeds the ${Math.floor((cap - MULTIPART_HEADROOM_BYTES) / 1024 / 1024)} MB upload limit` }, { status: 413 });
 
 function isAllowedPath(segments: string[]): boolean {
   const joined = segments.join("/");

@@ -244,7 +244,7 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     const res = await POST(
       req("http://localhost:3000/api/engine/api/run", {
         method: "POST",
-        headers: { "content-length": String(2 * 1024 * 1024) },
+        headers: { "content-length": String(3 * 1024 * 1024) },
         body: "x",
       }),
       ctx(["api", "run"]),
@@ -264,7 +264,7 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     const chunk = new Uint8Array(512 * 1024);
     const stream = new ReadableStream<Uint8Array>({
       start(c) {
-        for (let i = 0; i < 4; i++) c.enqueue(chunk); // 2 MiB total
+        for (let i = 0; i < 6; i++) c.enqueue(chunk); // 3 MiB total, past 1 MiB limit + 1 MiB headroom
         c.close();
       },
     });
@@ -277,6 +277,21 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
       ctx(["api", "run"]),
     );
     expect(res.status).toBe(413);
+  });
+
+  it("allows multipart overhead: a body slightly over the file limit still goes through", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+      while (!(await reader.read()).done);
+      return engineResponse(200, { ok: true });
+    });
+    // A file of exactly the limit (1 MiB) plus ~100 KB of multipart framing and fields.
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/run", { method: "POST", body: "a".repeat(1024 * 1024 + 100_000) }),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(200);
   });
 
   it("forwards a body under the cap", async () => {

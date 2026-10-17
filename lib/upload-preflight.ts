@@ -1,8 +1,11 @@
+import { uploadLimitBytes } from "@/lib/upload-limits";
+
 // Client-side preflight for run-sheet uploads: extension + size, checked before
 // a file is read or sent. The engine (and the proxy, see
 // app/api/engine/[...path]/route.ts) enforce the real limit; this just gives the
 // user a visible, immediate rejection instead of a failed request.
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // the engine's KALOS_MAX_UPLOAD_MB default
+// Same setting as the proxy (KALOS_MAX_UPLOAD_MB, inlined as NEXT_PUBLIC_MAX_UPLOAD_MB by next.config.ts).
+export const MAX_UPLOAD_BYTES = uploadLimitBytes(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB);
 export const ALLOWED_EXTENSIONS = [".csv", ".tsv", ".xlsx", ".xls"] as const;
 /** Enough of a text sheet to read its header row without loading the whole file. */
 export const HEADER_PEEK_BYTES = 64 * 1024;

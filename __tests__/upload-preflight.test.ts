@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { MAX_UPLOAD_BYTES, preflightFile } from "@/lib/upload-preflight";
+import { MULTIPART_HEADROOM_BYTES, proxyBodyCapBytes, uploadLimitBytes } from "@/lib/upload-limits";
 
 describe("upload preflight", () => {
   it("accepts supported sheets under the cap, case-insensitively", () => {
@@ -27,6 +28,26 @@ describe("upload preflight", () => {
     const page = readFileSync(path.join(root, "app/library/scale-up/page.tsx"), "utf8");
     expect(page).not.toMatch(/await f\.text\(\)/);
     expect(page).toContain("f.slice(0, HEADER_PEEK_BYTES)");
+  });
+});
+
+describe("one upload limit for browser and proxy", () => {
+  it("parses the setting with a 25 MB default and rejects junk", () => {
+    expect(uploadLimitBytes(undefined)).toBe(25 * 1024 * 1024);
+    expect(uploadLimitBytes("")).toBe(25 * 1024 * 1024);
+    expect(uploadLimitBytes("abc")).toBe(25 * 1024 * 1024);
+    expect(uploadLimitBytes("-3")).toBe(25 * 1024 * 1024);
+    expect(uploadLimitBytes("10")).toBe(10 * 1024 * 1024);
+  });
+  it("the proxy cap always exceeds the file limit the browser allows, by the multipart headroom", () => {
+    for (const raw of [undefined, "1", "25", "100"]) {
+      expect(proxyBodyCapBytes(raw)).toBe(uploadLimitBytes(raw) + MULTIPART_HEADROOM_BYTES);
+      expect(proxyBodyCapBytes(raw)).toBeGreaterThan(uploadLimitBytes(raw));
+    }
+  });
+  it("next.config inlines KALOS_MAX_UPLOAD_MB for the browser", () => {
+    const cfg = readFileSync(path.resolve(__dirname, "../next.config.ts"), "utf8");
+    expect(cfg).toMatch(/NEXT_PUBLIC_MAX_UPLOAD_MB:\s*process\.env\.KALOS_MAX_UPLOAD_MB/);
   });
 });
 

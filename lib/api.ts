@@ -1,21 +1,33 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
+import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 
 /**
- * Default: the same-origin server proxy (app/api/engine/[...path]/route.ts).
- * Every fetch below runs in the BROWSER, so it can never carry the engine's
- * bearer token directly - a token in any client-visible code is public the
- * moment it ships. The proxy runs server-side and attaches
- * `Authorization: Bearer ${KALOS_ENGINE_TOKEN}` there instead; see that
- * file's header comment for the full reasoning.
+ * Default: the same-origin, authenticated server proxy
+ * (app/api/engine/[...path]/route.ts, docs/ENGINE_PROXY.md). Every fetch
+ * below runs in the BROWSER and carries only the HttpOnly session cookie; the
+ * proxy checks the session, MFA, organization membership and role, and mints
+ * a short-lived engine token server-side. The browser never sees that token,
+ * the engine URL or the tenant id.
  *
- * Escape hatch: setting NEXT_PUBLIC_API_URL still points every call straight
- * at an engine (e.g. a local dev engine run with no auth configured, or
- * DEMO_MODE flows that never call the engine at all). That's opt-in dev
- * convenience, not the deployed posture - the proxy is the default.
+ * Dev-only escape hatch: outside production builds, NEXT_PUBLIC_API_URL still
+ * points every call straight at a local engine running in open mode. In a
+ * production build it is ignored (NODE_ENV is inlined at build time), so a
+ * deployment can never route browsers around the proxy.
  */
-const API = process.env.NEXT_PUBLIC_API_URL || "/api/engine";
+const DIRECT_ENGINE_URL = process.env.NODE_ENV !== "production" ? process.env.NEXT_PUBLIC_API_URL : undefined;
+const API = DIRECT_ENGINE_URL || "/api/engine";
+
+/**
+ * Headers for a state-changing call. Through the proxy that includes the
+ * CSRF marker it requires on POST/PATCH/DELETE (lib/engine-csrf.ts); the
+ * dev-only direct-engine path gets none (a custom header would force a CORS
+ * preflight the engine does not answer).
+ */
+export function mutationHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return API === "/api/engine" ? { ...extra, [ENGINE_CSRF_HEADER]: ENGINE_CSRF_VALUE } : { ...extra };
+}
 
 export type Proposal = {
   vals: number[];
@@ -486,7 +498,7 @@ export async function runFile(file: File, target?: string): Promise<AnalyzeResul
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
-  return fetch(`${API}/api/run`, { method: "POST", body: fd }).then(async (r) => {
+  return fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() }).then(async (r) => {
     const d = (await r.json()) as AnalyzeResult;
     // A 400 with the documented { error } body is an expected "bad upload"
     // response the caller renders inline (see analyze/page.tsx) - not a
@@ -933,7 +945,7 @@ export type StartRecipe = {
 export async function startRuns(recipes: StartRecipe[]): Promise<void> {
   const r = await fetch(`${API}/api/campaign/start`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ recipes }),
   });
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
@@ -942,7 +954,7 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
 export async function logResult(id: string, value: number): Promise<void> {
   const r = await fetch(`${API}/api/campaign/result`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ id, value }),
   });
   if (!r.ok) {
@@ -962,7 +974,7 @@ export async function logResult(id: string, value: number): Promise<void> {
 }
 
 export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
-  const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST" });
+  const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST", headers: mutationHeaders() });
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
   return r.json();
 }

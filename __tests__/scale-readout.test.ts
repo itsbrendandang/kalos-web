@@ -191,6 +191,14 @@ describe("runScaleReadout", () => {
     expect(result).toEqual({ kind: "html", html: "<html>Prediction issued</html>" });
   });
 
+  it("sends the proxy's CSRF marker with the upload", async () => {
+    const fetchMock = stubFetch(new Response("<html></html>", { status: 200, headers: { "content-type": "text/html" } }));
+    await runScaleReadout(file, target);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe("POST");
+    expect(init.headers).toMatchObject({ "x-kalos-csrf": "1" });
+  });
+
   it("maps 422 to kind: gate with failedCheck and detail", async () => {
     stubFetch(
       new Response(JSON.stringify({ failed_check: "target_scale_too_large", detail: "target exceeds 20x" }), {

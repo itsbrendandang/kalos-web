@@ -16,20 +16,25 @@ export type FailedAttempt = {
   error: string;
   /** True when the rejected request was a re-fit of the held file rather than a different upload. */
   refit: boolean;
+  /** Worksheets of the rejected workbook when the engine listed them (more than one), else empty. */
+  sheets: string[];
 };
 
 export type SetupState = {
   file: File | null;
   failed: FailedAttempt | null;
   confirmed: boolean;
+  /** Worksheets of the held workbook when the engine listed more than one, and the one it read. */
+  sheets: string[];
+  sheetUsed: string | null;
 };
 
-export const initialSetupState: SetupState = { file: null, failed: null, confirmed: false };
+export const initialSetupState: SetupState = { file: null, failed: null, confirmed: false, sheets: [], sheetUsed: null };
 
 export type SetupAction =
   | { type: "start" }
-  | { type: "success"; file: File }
-  | { type: "failure"; file: File; error: string }
+  | { type: "success"; file: File; sheets?: string[]; sheetUsed?: string | null }
+  | { type: "failure"; file: File; error: string; sheets?: string[] }
   | { type: "confirm" }
   | { type: "keepPrevious" };
 
@@ -39,10 +44,10 @@ export function setupReducer(s: SetupState, a: SetupAction): SetupState {
       // A new attempt invalidates any earlier confirmation or failure note straight away.
       return { ...s, failed: null, confirmed: false };
     case "success":
-      return { file: a.file, failed: null, confirmed: false };
+      return { file: a.file, failed: null, confirmed: false, sheets: a.sheets ?? [], sheetUsed: a.sheetUsed ?? null };
     case "failure":
       // The held file stays the previous successful one; it is only identified as such, never as the new file.
-      return { ...s, failed: { file: a.file, name: a.file.name, error: a.error, refit: a.file === s.file }, confirmed: false };
+      return { ...s, failed: { file: a.file, name: a.file.name, error: a.error, refit: a.file === s.file, sheets: a.sheets ?? [] }, confirmed: false };
     case "confirm":
       return s.failed ? s : { ...s, confirmed: true };
     case "keepPrevious":

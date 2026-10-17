@@ -472,6 +472,12 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   timestamp?: number;
   engine_version?: string;
   error?: string;
+  /** Worksheet names when the uploaded workbook has several (may accompany an `error`). Absent on older engines. */
+  sheets?: string[];
+  /** The worksheet the engine actually read. Absent on older engines and CSV; may be null on an error. */
+  sheet_used?: string | null;
+  /** Machine code on a 400 (e.g. "sheet_not_found", "target_constant"); the human text is `error`. Absent on older engines. */
+  code?: string;
 };
 
 export const runSingle = (): Promise<SingleRun> =>
@@ -489,11 +495,13 @@ export const runMulti = (): Promise<MultiRun> =>
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
 export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
 
-export async function runFile(file: File, target?: string, roles?: ColumnRolesInput): Promise<AnalyzeResult> {
+/** `sheet` picks a worksheet of a multi-sheet workbook (engine form field `sheet`); omitted, the engine chooses. */
+export async function runFile(file: File, target?: string, roles?: ColumnRolesInput, sheet?: string): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
   if (roles) fd.append("roles", JSON.stringify(roles));
+  if (sheet) fd.append("sheet", sheet);
   return fetch(`${API}/api/run`, { method: "POST", body: fd }).then(async (r) => {
     const d = (await r.json()) as AnalyzeResult;
     // A 400 with the documented { error } body is an expected "bad upload"

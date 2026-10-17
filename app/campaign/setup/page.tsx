@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
+import { SheetPicker } from "@/components/campaign/sheet-picker";
 import { UploadZone } from "@/components/campaign/upload-zone";
 import { ValidationSummary } from "@/components/campaign/validation-summary";
 import { Callout } from "@/components/kit/callout";
@@ -18,6 +19,7 @@ import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
+import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
 import { canActOnAnalysis, initialSetupState, isStale, nextAction, setupReducer, staleNotice } from "@/lib/setup-attempt";
 
 /**
@@ -48,27 +50,30 @@ export default function SetupPage() {
   const [formerTargets, setFormerTargets] = useState<string[]>([]);
   const elapsed = useElapsedSeconds(busy);
 
-  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput) {
-    const isNewFile = f !== file;
-    // Per-file state is only replaced once the engine accepted the file: a rejected upload must not wipe
-    // the roles/targets that still belong to the analysis on screen.
-    const scanning = isNewFile ? scanSheet(f) : null;
+  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string) {
+    // A different file, or a different worksheet of the same file, is new data: roles, targets and scan restart.
+    // A re-fit of the held file keeps reading the worksheet the engine used.
+    const fresh = f !== file || sheet !== undefined;
+    const sheetArg = sheet ?? (fresh ? undefined : (state.sheetUsed ?? undefined));
     dispatch({ type: "start" });
     setBusy(true);
     try {
-      const d = await runFile(f, target, nextRoles);
+      const d = await runFile(f, target, nextRoles, sheetArg);
       if (d.error) {
         // The engine's own { error } is a problem with the sheet, not the connection.
-        dispatch({ type: "failure", file: f, error: d.error });
+        dispatch({ type: "failure", file: f, error: d.error, sheets: sheetsFrom(d) });
         return;
       }
+      // Per-file state is only replaced once the engine accepted the file: a rejected upload must not wipe
+      // the roles/targets that still belong to the analysis on screen.
       const before = latest.data?.has_data ? latest.data.target : undefined;
-      if (isNewFile) setFormerTargets([]);
+      if (fresh) setFormerTargets([]);
       else if (before && d.target && d.target !== before) setFormerTargets((p) => (p.includes(before) ? p : [...p, before]));
       setRoles(nextRoles);
-      setCandidates((prev) => mergeTargets(isNewFile ? [] : prev, d.targets ?? [], nextRoles !== undefined));
-      dispatch({ type: "success", file: f });
-      if (scanning) void scanning.then((r) => setScanned({ file: f, scan: r }));
+      setCandidates((prev) => mergeTargets(fresh ? [] : prev, d.targets ?? [], nextRoles !== undefined));
+      dispatch({ type: "success", file: f, sheets: sheetsFrom(d), sheetUsed: d.sheet_used ?? null });
+      // Scan the worksheet the engine actually read, so the row-type check describes the fitted data.
+      if (fresh) void scanSheet(f, d.sheet_used ?? sheetArg).then((r) => setScanned({ file: f, scan: r }));
     } catch {
       dispatch({ type: "failure", file: f, error: "The analysis service did not respond. Try again in a moment." });
     } finally {
@@ -93,6 +98,7 @@ export default function SetupPage() {
   const stale = isStale(state);
   const notice = staleNotice(state, analysis?.dataset);
   const canAct = canActOnAnalysis(state);
+  const picker = sheetSelector({ heldFile: file, heldSheets: state.sheets, sheetUsed: state.sheetUsed, failed });
   // Confirmation is advisory (see lib/setup-attempt.ts nextAction): the fit is already saved on the engine and
   // the sidebar/status bar link straight on, so this action is never a hard gate; it is just quieter until confirmed.
   const action = nextAction(state, { hasAnalysis: !!analysis, validationFailed: report?.status === "fail" });
@@ -122,6 +128,7 @@ export default function SetupPage() {
           {failed.error}
         </Callout>
       ) : null}
+      {picker && failed && !busy ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
       {stale && notice && !busy ? (
         <Callout
           tone="warn"
@@ -169,6 +176,7 @@ export default function SetupPage() {
               </span>
             </label>
           </div>
+          {picker && !failed ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
           {canAct && file && !confirmed && columns.length > 0 ? (
             <ColumnConfirm
               key={`${analysis.updated}-${analysis.target}`}

@@ -17,4 +17,12 @@ describe("Dockerfile", () => {
   it("declares a HEALTHCHECK", () => {
     expect(dockerfile).toContain("HEALTHCHECK");
   });
+
+  it("has no NEXT_PUBLIC_API_URL build arg or env (would bypass the token-attaching proxy)", () => {
+    const instructions = dockerfile
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("#"))
+      .join("\n");
+    expect(instructions).not.toContain("NEXT_PUBLIC_API_URL");
+  });
 });

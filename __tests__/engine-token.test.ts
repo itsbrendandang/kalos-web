@@ -69,6 +69,11 @@ describe("engine token claims (lib/server/engine-token.ts)", () => {
     }
   });
 
+  it("refuses the engine-reserved 'default' tenant (open-mode only on the engine)", () => {
+    expect(() => buildEngineClaims({ ...input, tenant: "default" })).toThrow(/reserved/);
+    expect(buildEngineClaims({ ...input, tenant: "Default" }).tenant).toBe("Default"); // case-sensitive, like the engine
+  });
+
   it("refuses to mint with no scopes, and drops unknown scope strings", () => {
     expect(() => buildEngineClaims({ ...input, scopes: [] })).toThrow(/scope/);
     // @ts-expect-error - runtime guard against a bad caller

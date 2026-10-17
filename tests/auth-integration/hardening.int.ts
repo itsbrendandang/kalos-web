@@ -67,3 +67,61 @@ describe("update-user is bounded", () => {
     expect((await c.req("/get-session")).json.user.name).toBe("Profile Person");
   });
 });
+
+let fullMember: any;
+describe("get-full-organization hides pending invitations from non-admins", () => {
+  it("owner and admin see invitations; member and viewer get the org without them; outsiders are refused", async () => {
+    createOrg({ name: "Full", slug: "full", ownerEmail: "full-owner@example.com", tenant: "full", db: env.file, tenantMap: `${env.dir}/tenants.json`, publicUrl: "http://localhost:3000" }, () => {});
+    const orgId = env.db.prepare("SELECT id FROM organization WHERE slug='full'").get().id;
+    const owner = await signInEnrol("full-owner@example.com");
+    const ownInv = env.db.prepare("SELECT id FROM invitation WHERE email='full-owner@example.com'").get().id;
+    expect((await owner.req("/organization/accept-invitation", { method: "POST", body: { invitationId: ownInv } })).status).toBe(200);
+    for (const [email, role] of [["full-admin@example.com", "admin"], ["full-member@example.com", "member"], ["full-viewer@example.com", "viewer"], ["full-pending@example.com", "member"]] as const) {
+      expect((await owner.req("/organization/invite-member", { method: "POST", body: { email, role, organizationId: orgId } })).status, email).toBe(200);
+    }
+    const full = `/organization/get-full-organization?organizationId=${orgId}`;
+    const ownerView = await owner.req(full);
+    expect(ownerView.status).toBe(200);
+    expect(ownerView.json.invitations.map((i: any) => i.email)).toEqual(expect.arrayContaining(["full-admin@example.com", "full-member@example.com", "full-pending@example.com"]));
+
+    for (const email of ["full-admin@example.com", "full-member@example.com", "full-viewer@example.com"]) {
+      const c = await signInEnrol(email);
+      if (email === "full-member@example.com") fullMember = c;
+      const invId = env.db.prepare("SELECT id FROM invitation WHERE email=? AND status='pending'").get(email).id;
+      expect((await c.req("/organization/accept-invitation", { method: "POST", body: { invitationId: invId } })).status, email).toBe(200);
+      const r = await c.req(full);
+      if (email === "full-admin@example.com") {
+        expect(r.status, email).toBe(200);
+        expect(r.json.invitations.map((i: any) => i.email), email).toContain("full-pending@example.com");
+      } else {
+        expect(r.status, email).toBe(200);
+        expect("invitations" in r.json, email).toBe(false);
+        expect(r.text, email).not.toContain("full-pending@example.com");
+        expect(r.json.id).toBe(orgId);
+        expect(r.json.members.length, email).toBeGreaterThan(0); // roster is still visible to members
+      }
+    }
+
+    // a stranger with a verified invite to ANOTHER org is refused outright
+    createOrg({ name: "Other", slug: "other", ownerEmail: "other-owner@example.com", tenant: "other", db: env.file, tenantMap: `${env.dir}/tenants.json`, publicUrl: "http://localhost:3000" }, () => {});
+    const stranger = await signInEnrol("other-owner@example.com");
+    const r = await stranger.req(full);
+    expect(r.status).toBe(403);
+    expect(r.text).not.toContain("full-pending@example.com");
+  });
+
+  it("the other stock invitation endpoints do not reveal other people's invitations to a member", async () => {
+    const member = fullMember;
+    const pending = env.db.prepare("SELECT id FROM invitation WHERE email='full-pending@example.com'").get().id;
+    // get-invitation: only the invited address may read an invitation
+    const gi = await member.req(`/organization/get-invitation?id=${pending}`);
+    expect(gi.status).toBe(403);
+    expect(gi.text).not.toContain("full-pending@example.com");
+    // list-user-invitations: the email query parameter is server-side only
+    const lu = await member.req("/organization/list-user-invitations?email=full-pending@example.com");
+    expect(lu.status).toBe(400);
+    expect(lu.text).not.toContain("full-pending@example.com");
+    // list-invitations stays org:admin only
+    expect((await member.req(`/organization/list-invitations?organizationId=${env.db.prepare("SELECT id FROM organization WHERE slug='full'").get().id}`)).status).toBe(403);
+  });
+});

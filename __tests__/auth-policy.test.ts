@@ -22,6 +22,7 @@ import {
   RECENT_AUTH_MAX_AGE_SECONDS,
   SESSION_TTL_SECONDS,
   UNVERIFIED_SESSION_TTL_SECONDS,
+  redactFullOrganization,
   validateUserInfo,
 } from "@/lib/server/auth-config.mjs";
 import { RECENT_AUTH_MAX_AGE_SECONDS as NEUTRAL_RECENT } from "@/lib/server/session-context";
@@ -232,5 +233,21 @@ describe("profile updates are bounded (update-user)", () => {
     expect(rejects({ image: "javascript:alert(1)" })).toBe("PROFILE_INVALID");
     expect(rejects({ image: "https://example.com/" + "a".repeat(2048) })).toBe("PROFILE_INVALID");
     expect(rejects({ image: ["https://x"] })).toBe("PROFILE_INVALID");
+  });
+});
+
+describe("get-full-organization redaction (pure)", () => {
+  const org = { id: "o1", name: "Org", members: [{ role: "member" }], invitations: [{ email: "x@example.com" }] };
+  it("keeps invitations for org:admin, drops them for everyone else (members stay)", () => {
+    expect(redactFullOrganization(org, { isAdmin: true })).toBe(org);
+    const out = redactFullOrganization(org, { isAdmin: false });
+    expect("invitations" in out).toBe(false);
+    expect(out.members).toEqual(org.members);
+    expect("invitations" in org).toBe(true); // input not mutated
+  });
+  it("leaves bodies without an invitations key untouched", () => {
+    const plain = { id: "o1" };
+    expect(redactFullOrganization(plain, { isAdmin: false })).toBe(plain);
+    expect(redactFullOrganization(null, { isAdmin: false })).toBeNull();
   });
 });

@@ -154,6 +154,15 @@ false`, `disableOrganizationDeletion: true`). `requireEmailVerificationOnInvitat
 `/organization/list-invitations` (emails, roles, inviters of pending invitations)
 is **org:admin only** (`assertCanListInvitations`): members and viewers get 403
 `INVITATIONS_ADMIN_ONLY`. Regression: `tests/auth-integration/hardening.int.ts`.
+`/organization/get-full-organization` embeds the same pending invitations (stock
+returns them to ANY member). The after hook `redactFullOrganizationResponse`
+removes `invitations` unless the caller has `org:admin`; a caller with no
+membership gets no invitations either. `members` (name, email, role) stays
+visible to every member, as on the Members page; only pending invitations are
+admin data. Other stock invitation endpoints were checked: `get-invitation`
+answers only the invited address, `list-user-invitations` takes an `email`
+query only server-side (HTTP gets 400), and the rest are admin-only by
+permission. Regression: `hardening.int.ts` and `auth-policy.test.ts`.
 `/update-user` (stock: any name length, any image value) accepts a 1-100 character
 `name` and an `image` that is `null` or an https URL of at most 2048 characters
 (`PROFILE_INVALID` otherwise).

@@ -23,20 +23,18 @@ dir=$(cd "$(dirname "$BACKUP")" && pwd); file=$(basename "$BACKUP")
 docker volume create "$RESTORE_VOLUME" >/dev/null
 docker run --rm --user 0 -v "$RESTORE_VOLUME:/data" "$BACKUP_IMAGE" sh -c 'chown 10001:10001 /data && chmod 700 /data'
 
-if [[ "$file" == *.age ]]; then
-  key=(-v "${AGE_KEY_FILE:?}:/run/key:ro"); dec="age -d -i /run/key -o /data/auth.db /in/$file"
-else
-  key=(-v "${OPENSSL_PASS_FILE:?}:/run/pass:ro")
-  dec="(cd /in && sha256sum -c $file.sha256) || exit 1; openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in /in/$file -out /data/auth.db -pass file:/run/pass"
-fi
-docker run --rm --user 10001:10001 --network none -v "$RESTORE_VOLUME:/data" -v "$dir:/in:ro" "${key[@]}" "$BACKUP_IMAGE" sh -euc "
+[[ "$file" == *.age ]] || { echo "BACKUP must be an age file (*.db.age)" >&2; exit 2; }
+AGE_KEY_FILE=${AGE_KEY_FILE:?age identity file}
+docker run --rm --user 10001:10001 --network none -v "$RESTORE_VOLUME:/data" -v "$dir:/in:ro" \
+  -v "$AGE_KEY_FILE:/run/key:ro" -e FILE="$file" -e MIN_USERS="${MIN_USERS:-1}" "$BACKUP_IMAGE" sh -euc '
   umask 077; test ! -e /data/auth.db
-  $dec || exit 1
+  age -d -i /run/key -o /data/auth.db "/in/$FILE"   # authenticated: fails on any tampering
   test -s /data/auth.db   # sqlite3 would silently CREATE an empty db otherwise
-  test \"\$(sqlite3 /data/auth.db 'PRAGMA integrity_check')\" = ok
-  n=\$(sqlite3 /data/auth.db 'select count(*) from user'); echo \"restored users=\$n\"; test \"\$n\" -ge \"${MIN_USERS:-1}\"
-  sqlite3 /data/auth.db 'PRAGMA journal_mode=WAL' >/dev/null
-  ls -ln /data"
+  test "$(sqlite3 /data/auth.db "PRAGMA integrity_check")" = ok
+  n=$(sqlite3 /data/auth.db "select count(*) from user"); echo "restored users=$n"; test "$n" -ge "$MIN_USERS"
+  sqlite3 /data/auth.db "PRAGMA journal_mode=WAL" >/dev/null
+  ls -ln /data'
+
 
 docker rm -f kalos-web-restore-app >/dev/null 2>&1 || true
 # shellcheck disable=SC2086

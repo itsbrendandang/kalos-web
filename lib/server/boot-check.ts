@@ -30,6 +30,15 @@ export interface BootCheckResult {
   warnings: string[];
 }
 
+/**
+ * B-4: the boot check runs for EVERY NODE_ENV except the two that may use the
+ * insecure dev fallback secret (lib/server/auth.ts). Unset, "staging", typos:
+ * all checked and refused, so nothing unvetted boots with a public secret.
+ */
+export function bootCheckRequired(nodeEnv: string | undefined): boolean {
+  return nodeEnv !== "development" && nodeEnv !== "test";
+}
+
 /** Synchronous checks on the environment. Pure (no I/O). */
 export function checkEnv(env: Env): BootCheckResult {
   const errors: string[] = [];

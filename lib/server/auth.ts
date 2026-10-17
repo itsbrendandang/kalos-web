@@ -25,13 +25,18 @@ export function resolveAuthSecret(env: Readonly<Record<string, string | undefine
 
 function build(): Auth {
   const opts = authOptionsFromEnv(process.env);
+  const secret = resolveAuthSecret(process.env);
+  if (!secret) {
+    // Never let Better Auth fall back to its public default secret (B-4).
+    throw new Error("BETTER_AUTH_SECRET is not set (no fallback outside NODE_ENV development/test)");
+  }
   return makeAuth({
     ...opts,
     database: authDb(),
     // Must stay last: applies Set-Cookie from auth.api.* calls made inside
     // server actions (sign-out, revoke) to the action's response.
     extraPlugins: [nextCookies()],
-    secret: resolveAuthSecret(process.env),
+    secret,
   });
 }
 

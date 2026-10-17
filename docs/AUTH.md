@@ -222,7 +222,7 @@ All documented with placeholders in `env.example`.
 
 | Variable | Required in prod | Notes |
 | --- | --- | --- |
-| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`). Encrypts TOTP secrets and OAuth tokens and signs cookies/state: rotating it signs everyone out **and** invalidates every enrolled authenticator (users would need an operator reset). |
+| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`). **No fallback** outside `NODE_ENV` `development`/`test`: the process refuses to start (boot check and `getAuth()`). Better Auth's public default secret is never used (B-4). Encrypts TOTP secrets and OAuth tokens and signs cookies/state: rotating it signs everyone out **and** invalidates every enrolled authenticator (users would need an operator reset). |
 | `BETTER_AUTH_URL` | yes | Origin, https (http only for localhost). Also the only trusted origin. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | See above. |
 | `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE`, `KALOS_ENGINE_JWT_KID` | yes | Ed25519 key file is loaded at boot. |
@@ -234,7 +234,8 @@ All documented with placeholders in `env.example`.
 | `AUTH_ACCEPT_NO_PROXY` | no | `1` or `true`: second, explicit acceptance of `AUTH_TRUSTED_PROXIES=none`. |
 | `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
 
-Boot check (production only, `lib/server/boot-check.ts`): missing or
+Boot check (`lib/server/boot-check.ts`, run for **every `NODE_ENV` except
+`development` and `test`**, so unset, `staging` and typos are checked too; B-4): missing or
 placeholder values of the required variables, a short secret, a non-https URL,
 an unreadable/non-Ed25519 engine key or an invalid tenant map → the names (never
 the values) are logged and the process **exits 1**. There is no switch to skip

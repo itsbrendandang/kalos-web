@@ -11,6 +11,9 @@ updates:
       # `npm ci` (#33 and #34 did, separately). Move all four together.
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      # One weekly PR per ecosystem for minor + patch bumps; majors still arrive separately.
+      minor-and-patch:
+        update-types: ["minor", "patch"]
 
   # Keeps the actions pinned in .github/workflows/ci.yml (checkout,
   # setup-node) current without a human remembering to check.
@@ -18,3 +21,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # One weekly PR per ecosystem for minor + patch bumps; majors still arrive separately.
+      minor-and-patch:
+        update-types: ["minor", "patch"]

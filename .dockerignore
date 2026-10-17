@@ -16,6 +16,10 @@ coverage
 *.log
 .DS_Store
 __tests__
+tests
+data
+*.db
+*.db-*
 docs
 *.md
 Dockerfile

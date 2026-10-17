@@ -6,7 +6,10 @@ import type { BatchItem } from "@/components/campaign/plan-batch";
 import { MeasuredValue, PredictedValue } from "@/components/campaign/plan/marks";
 import { BandStrip, RangeBar } from "@/components/campaign/plan/strips";
 import {
+  BAND_CAVEAT,
   bandLabel,
+  exactSetpoint,
+  formatGain,
   constraintPrediction,
   formatInterval,
   formatSetpoint,
@@ -132,7 +135,7 @@ function GainCell({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
     <div className="flex min-w-[120px] flex-col gap-0.5">
       {ctx.domain ? <BandStrip pred={p.pred} band={ctx.band} best={ctx.incumbent} domain={ctx.domain} /> : null}
       <span className="text-caption text-fg-muted tabular-nums">
-        {row.gain == null ? "no best to compare" : `${formatNumber(row.gain, "value", { sign: true })} predicted vs best`}
+        {row.gain == null ? "no best to compare" : `${formatGain(row.gain)} predicted vs ${ctx.incumbentLabel}`}
       </span>
     </div>
   );
@@ -167,10 +170,12 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
             ) : null}
             <th scope="col" className="h-10 px-2 text-right font-medium whitespace-nowrap">
               Predicted{ctx.unit ? ` (${ctx.unit})` : ""}
-              <span className="block text-caption font-normal">{ctx.band != null ? bandLabel(ctx.coverage) : "\u00a0"}</span>
+              <span className="block text-caption font-normal" title={ctx.band != null ? BAND_CAVEAT : undefined}>
+                {ctx.band != null ? bandLabel(ctx.coverage) : "\u00a0"}
+              </span>
             </th>
             <th scope="col" className="h-10 px-2 text-left font-medium whitespace-nowrap">
-              vs {ctx.incumbent != null ? <MeasuredValue value={formatNumber(ctx.incumbent)} label="best measured" className="text-label" /> : "best measured"}
+              vs {ctx.incumbent != null ? <MeasuredValue value={formatNumber(ctx.incumbent)} label={ctx.incumbentLabel} className="text-label" /> : ctx.incumbentLabel}
             </th>
             <th scope="col" className="h-10 px-2 text-left font-medium">
               Checks
@@ -283,14 +288,14 @@ export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <PredictedValue value={formatNumber(p.pred)} unit={ctx.unit || undefined} className="text-heading" />
                   <span className="text-caption text-fg-muted tabular-nums">
-                    {interval ? `${bandLabel(ctx.coverage)} ${interval}` : "no prediction band reported"}
+                    {interval ? `${bandLabel(ctx.coverage)} ${interval}` : "no band reported"}
                   </span>
                 </div>
                 {ctx.domain ? <BandStrip pred={p.pred} band={ctx.band} best={ctx.incumbent} domain={ctx.domain} /> : null}
                 {row.gain != null && ctx.incumbent != null ? (
                   <p className="flex flex-wrap items-center gap-x-1.5 text-caption text-fg-muted tabular-nums">
-                    {formatNumber(row.gain, "value", { sign: true })} predicted vs
-                    <MeasuredValue value={formatNumber(ctx.incumbent)} label="best measured" />
+                    {formatGain(row.gain)} predicted vs
+                    <MeasuredValue value={formatNumber(ctx.incumbent)} label={ctx.incumbentLabel} />
                   </p>
                 ) : null}
               </div>
@@ -347,7 +352,7 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 truncate text-body text-fg-muted">{k}</span>
                   <span className="text-body text-fg tabular-nums">
-                    {typeof v === "number" ? String(v) : v}
+                    {exactSetpoint(v)}
                     <span className="sr-only"> proposed</span>
                   </span>
                 </div>
@@ -374,7 +379,7 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
           })}
         </ul>
         <p className="mt-2 text-caption text-fg-muted">
-          Values are exactly as the engine proposed them. Ranges are the lowest and highest values in the measured runs the engine returned
+          Values are exactly as the engine proposed them and exactly what Start sends; the table rounds them to the sheet&apos;s precision. Ranges are the lowest and highest values in the measured runs the engine returned
           {missing.length ? `; it returns none for ${missing.join(", ")}, so their edges are not checked` : ""}.
         </p>
       </section>
@@ -392,7 +397,9 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
               {interval ? (
                 <>
                   {interval}
-                  <span className="block text-caption text-fg-muted">± {formatNumber(ctx.band)}, one width the engine reports for the whole batch</span>
+                  <span className="block text-caption text-fg-muted">
+                    ± {formatNumber(ctx.band)}, one width the engine reports for the whole batch. {BAND_CAVEAT}
+                  </span>
                 </>
               ) : (
                 <span className="text-fg-muted">Not reported by the engine</span>
@@ -407,14 +414,14 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
               <>
                 <dt className="text-fg-muted">vs best</dt>
                 <dd className="tabular-nums">
-                  {formatNumber(row.gain, "value", { sign: true })} vs <MeasuredValue value={formatNumber(ctx.incumbent)} label={ctx.incumbentLabel} />
+                  {formatGain(row.gain)} vs <MeasuredValue value={formatNumber(ctx.incumbent)} label={ctx.incumbentLabel} />
                 </dd>
               </>
             ) : null}
             {p.p_feasible != null ? (
               <>
-                <dt className="text-fg-muted">Chance it produces</dt>
-                <dd className="tabular-nums">{formatNumber(p.p_feasible, "pct")} (engine estimate)</dd>
+                <dt className="text-fg-muted">Engine-estimated feasibility</dt>
+                <dd className="tabular-nums">{formatNumber(p.p_feasible, "pct")}</dd>
               </>
             ) : null}
             {c && ctx.constraint?.column ? (

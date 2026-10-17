@@ -4,7 +4,7 @@ import type { ReactNode, Ref } from "react";
 import { X } from "lucide-react";
 import { MeasuredMark, PredictedMark } from "@/components/campaign/plan/marks";
 import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
-import { bandLabel, compareRecipes, formatInterval, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
+import { BAND_CAVEAT, bandLabel, compareRecipes, formatGain, formatInterval, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { ModeBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
@@ -41,9 +41,20 @@ export function Comparison({
   const nDiff = diff.filter((d) => d.differs).length;
   const outcome: Line[] = [
     { key: "pred", label: <><PredictedMark /> Predicted {ctx.target}</>, values: rows.map((r) => formatNumber(r.item.proposal.pred)), note: "model estimate, not a measurement" },
-    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => formatInterval(r.item.proposal.pred, ctx.band) ?? "not reported"), note: ctx.band != null ? "same width for every proposal" : undefined },
+    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => formatInterval(r.item.proposal.pred, ctx.band) ?? "not reported"), note: ctx.band != null ? `Same width for every proposal. ${BAND_CAVEAT}` : undefined },
     ...(ctx.incumbent != null
-      ? [{ key: "gain", label: <>vs <MeasuredMark /> best {formatNumber(ctx.incumbent)}</>, values: rows.map((r) => formatNumber(r.gain, "value", { sign: true })), note: "predicted minus measured" }]
+      ? [
+          {
+            key: "gain",
+            label: (
+              <>
+                vs <MeasuredMark /> {ctx.incumbentLabel} {formatNumber(ctx.incumbent)}
+              </>
+            ),
+            values: rows.map((r) => formatGain(r.gain)),
+            note: `predicted minus the ${ctx.incumbentLabel}`,
+          },
+        ]
       : []),
     { key: "checks", label: "Checks", values: rows.map((r) => (r.flags.length ? `${r.flags.length} to review` : "none")), tone: (i: number) => (rows[i].flags.length ? "text-warn" : undefined) },
   ];

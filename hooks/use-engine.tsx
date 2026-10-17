@@ -2,8 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import * as api from "@/lib/api";
-import { getCampaign, getLatest, type AnalyzeResult, type Campaign, type LatestResult } from "@/lib/api";
-import type { UploadRejection } from "@/components/campaign/plan-view";
+import { getCampaign, getLatest, type Campaign, type LatestResult } from "@/lib/api";
+import { toRejection, type UploadRejection } from "@/components/campaign/plan-view";
 
 /**
  * One engine read with honest states. `data` is the last good response and is
@@ -80,18 +80,6 @@ type LastRejection = { rejection: UploadRejection | null; setRejection: (r: Uplo
 
 type EngineData = { latest: EngineResource<LatestResult>; campaign: EngineResource<Campaign> } & LastRejection;
 
-/** The structured fields of a rejected-upload body (`{ error, code, target, target_summary, available_targets }`). */
-function toRejection(file: File, d: AnalyzeResult): UploadRejection {
-  const extra = d as AnalyzeResult & { target_summary?: UploadRejection["targetSummary"]; available_targets?: unknown };
-  return {
-    name: file.name,
-    code: typeof d.code === "string" ? d.code : null,
-    error: d.error ?? "",
-    target: typeof d.target === "string" ? d.target : undefined,
-    targetSummary: extra.target_summary && typeof extra.target_summary === "object" ? extra.target_summary : undefined,
-    availableTargets: Array.isArray(extra.available_targets) ? extra.available_targets.filter((t): t is string => typeof t === "string") : undefined,
-  };
-}
 
 const EngineContext = createContext<EngineData | null>(null);
 
@@ -151,11 +139,14 @@ export function useEngineWrites() {
   const runFile = useCallback(
     async (file: File, target?: string, roles?: api.ColumnRolesInput, sheet?: string) => {
       const d = await api.runFile(file, target, roles, sheet);
-      setRejection(d.error ? toRejection(file, d) : null);
+      // Only a coded validation rejection is remembered, tagged with the dataset still on screen,
+      // so Plan can ignore it once /api/latest shows anything else.
+      const shown = latest.data?.has_data ? latest.data.dataset : null;
+      setRejection(d.error ? toRejection(file.name, d, shown) : null);
       if (!d.error) await Promise.all([refreshLatest(), refreshCampaign()]);
       return d;
     },
-    [refreshLatest, refreshCampaign, setRejection],
+    [refreshLatest, refreshCampaign, setRejection, latest.data],
   );
   const startRuns = useCallback(
     async (recipes: api.StartRecipe[]) => {

@@ -84,20 +84,30 @@ verified in the scratch project and re-checked by
    `mfaVerifiedAt` set; the field is `input: false` (clients cannot set it).
 2. A `hooks.before` middleware answers **403 `MFA_REQUIRED`** for every
    `/api/auth/*` call from a half session except `/two-factor/verify-totp`,
-   `/two-factor/verify-backup-code`, `/get-session`, `/sign-out`, and
-   `/two-factor/enable` **only while the user has never enrolled**.
+   `/get-session`, `/sign-out`, `/two-factor/enable` **only while the user
+   has no confirmed enrolment**, and `/two-factor/verify-backup-code` **only
+   once the enrolment is confirmed** (otherwise "enable" + one of the backup
+   codes it returns would complete MFA without ever proving the authenticator).
 3. `/settings/security` shows enrolment (first time: setup key + one code,
    then 10 backup codes shown once) or verification.
 4. Success: first enrolment creates a new session (stamped, 7 days); a later
    verification stamps the existing session and extends it to 7 days from
    that moment. `mfaSatisfied(session)` is the authoritative check, used by
-   the resolver.
+   the resolver: it needs `mfaVerifiedAt` **and** `user.twoFactorEnabled`.
 5. Brute force: the stock plugin has no lockout on this (session) path, so we
-   count failures per session (`session.mfaFailures`) and **delete the session
-   after 5 wrong codes**; Better Auth's rate limit on `/two-factor/*` (3 per
-   10 s per IP) applies too.
-6. Replay: a TOTP code accepted once for a user is refused for 120 s
-   (in-memory, which is correct only because there is one replica).
+   count failures twice: per session (`session.mfaFailures`, the session is
+   **deleted after 5 wrong codes**) and per user across all sessions
+   (`twoFactor.failedVerificationCount`; after **10** wrong codes verification
+   is locked for 15 minutes via `twoFactor.lockedUntil`, 429
+   `TWO_FACTOR_LOCKED`; reset on success). Better Auth's rate limit on
+   `/two-factor/*` (3 per 10 s per IP) applies too.
+6. Replay: a TOTP code accepted once for a user is refused for 120 s. The
+   code is claimed atomically before verification (released if it fails), so
+   two parallel requests cannot both use it. In-memory: correct only because
+   there is one replica.
+7. Fail closed: if a session cookie is present but the gate's session lookup
+   fails (database error), the request gets 503 instead of being treated as
+   anonymous.
 
 Recent authentication (step-up): `SessionContext.authenticatedAt` is the time
 of the last second-factor proof (`mfaVerifiedAt`). `isRecentlyAuthenticated()`
@@ -145,9 +155,11 @@ signs an OAuth user in. It rejects:
 - `email_verified !== true` (`email_not_verified`) - on every sign-in;
 - a **new** user without a pending, unexpired invitation for that email (`not_invited`).
 
-No user row is written when it rejects. Account linking is on but
-`trustedProviders: []`, `allowDifferentEmails: false`,
-`requireLocalEmailVerified: true`.
+No user row is written when it rejects. **Account linking is disabled**
+(`accountLinking.enabled: false`, and `validateUserInfo` rejects any
+`link-account`): a Google identity is bound to its user by Google's `sub`. A
+different Google account that presents the same email gets
+`account_not_linked`; it is never merged into the existing user.
 
 ### Onboarding an organization (operator)
 
@@ -212,7 +224,8 @@ All documented with placeholders in `env.example`.
 | `KALOS_PUBLIC_URL` | no | Origin in printed invite links; defaults to `BETTER_AUTH_URL`. |
 | `AUTH_DB_PATH` | no | Default `./data/auth.db`; `/data/auth.db` in the image. |
 | `AUTH_MIGRATE` | no | `1` migrate+serve, `only` migrate+exit, `sql` print SQL+exit. |
-| `AUTH_TRUSTED_PROXIES`, `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
+| `AUTH_TRUSTED_PROXIES` | yes | Proxy IP/CIDR list, or `none` (explicit: no reverse proxy). See "Reverse proxy". |
+| `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
 
 Boot check (production only, `lib/server/boot-check.ts`): missing or
 placeholder values of the required variables, a short secret, a non-https URL,
@@ -223,12 +236,14 @@ it, and no auth bypass flag exists: tests replace the auth module with
 
 ### Reverse proxy
 
-Rate limiting keys on the client IP. Set `AUTH_TRUSTED_PROXIES` to the exact
-IP/CIDR of your proxy (not a broad private range) and make the proxy
-**overwrite** `X-Forwarded-For` (or set `AUTH_IP_ADDRESS_HEADERS=x-real-ip`).
-Without trusted proxies Better Auth trusts only a single-value header - which a
-client can spoof if the proxy appends instead of overwriting - and multi-hop
-values resolve to no IP (one shared bucket). Rate-limit state is stored in the
+Rate limiting keys on the client IP. `AUTH_TRUSTED_PROXIES` is **required in
+production** (the boot check exits 1 without it). Set it to the exact IP/CIDR
+of your proxy (not a broad private range) and make the proxy **overwrite**
+`X-Forwarded-For` (or set `AUTH_IP_ADDRESS_HEADERS=x-real-ip`). The documented
+override `AUTH_TRUSTED_PROXIES=none` states that clients connect directly:
+Better Auth then trusts only a single-value header - which a client can spoof
+unless something in front overwrites it - and multi-hop values resolve to no
+IP (one shared bucket); the boot check logs a warning. Rate-limit state is stored in the
 database (`rateLimit` table).
 
 ## Running it locally
@@ -268,8 +283,9 @@ BACKUP=/srv/backups/auth-<ts>.db.age AGE_KEY_FILE=/secure/age.key ENV_FILE=/srv/
 ```
 
 - Online snapshot with SQLite's backup API while the app runs, integrity-checked, encrypted with
-  [age](https://age-encryption.org) (preferred) or `openssl` (fallback; CBC + sha256, detects
-  corruption, not tampering).
+  [age](https://age-encryption.org) only (authenticated encryption: a tampered file fails to
+  decrypt). The recipient is validated and passed to the sidecar as an environment variable; the
+  output directory is handed to uid 10001 with mode 0700.
 - The restore drill decrypts into a **new** volume, checks integrity and user count, boots the
   app on it without migrating, and probes `/api/health`. Run it after every schema change and on a schedule.
 - A backup is only usable with the same `BETTER_AUTH_SECRET`. Store the secret, the age identity

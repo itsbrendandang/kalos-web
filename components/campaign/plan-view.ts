@@ -63,13 +63,14 @@ export function decimalsOf(v: number): number {
 }
 
 /**
- * The range each input was actually tried over, from data the engine returned:
- * the measured runs in `response_surface.runs` (only its two plotted inputs),
- * then the engine's `feature_ranges` for any other input when it sends them.
- * An input with neither has no entry, so nothing can be said about its edges.
+ * The range each input is checked against, from data the engine returned.
+ * The engine's own `feature_ranges` win when present (it owns the search box);
+ * otherwise the min/max of the measured runs in `response_surface.runs` (only
+ * its two plotted inputs). Decimals always come from observed values when any
+ * exist. An input with neither has no entry, so nothing is said about its edges.
  */
 export function observedRanges(d: Pick<PopulatedResult, "response_surface" | "feature_ranges">): Record<string, ObservedRange> {
-  const out: Record<string, ObservedRange> = {};
+  const observed: Record<string, ObservedRange> = {};
   const rs = d.response_surface;
   if (rs && Array.isArray(rs.runs) && rs.runs.length > 0) {
     const cols: [string, number][] = [
@@ -78,8 +79,8 @@ export function observedRanges(d: Pick<PopulatedResult, "response_surface" | "fe
     ];
     for (const [name, i] of cols) {
       const vals = rs.runs.map((r) => r[i]).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-      if (!name || vals.length === 0 || name in out) continue;
-      out[name] = {
+      if (!name || vals.length === 0 || name in observed) continue;
+      observed[name] = {
         min: Math.min(...vals),
         max: Math.max(...vals),
         n: vals.length,
@@ -88,9 +89,10 @@ export function observedRanges(d: Pick<PopulatedResult, "response_surface" | "fe
       };
     }
   }
+  const out: Record<string, ObservedRange> = { ...observed };
   for (const [name, r] of Object.entries(d.feature_ranges ?? {})) {
-    if (name in out || !Array.isArray(r) || !Number.isFinite(r[0]) || !Number.isFinite(r[1])) continue;
-    out[name] = { min: Math.min(r[0], r[1]), max: Math.max(r[0], r[1]), n: 0, source: "engine", decimals: null };
+    if (!Array.isArray(r) || !Number.isFinite(r[0]) || !Number.isFinite(r[1])) continue;
+    out[name] = { min: Math.min(r[0], r[1]), max: Math.max(r[0], r[1]), n: 0, source: "engine", decimals: observed[name]?.decimals ?? null };
   }
   return out;
 }
@@ -185,7 +187,7 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
     flags.push({ kind: "negative", label: "Predicted below zero", detail: `Predicted at ${formatNumber(p.pred)}, below zero, but no measured value of this target is negative.` });
   }
   if (p.p_feasible != null && Number.isFinite(p.p_feasible) && p.p_feasible < LOW_FEASIBILITY) {
-    flags.push({ kind: "low-feasibility", label: "Low feasibility", detail: `The engine estimates only a ${formatNumber(p.p_feasible, "pct")} chance this recipe produces at all.` });
+    flags.push({ kind: "low-feasibility", label: "Low engine-estimated feasibility", detail: `Engine-estimated feasibility is ${formatNumber(p.p_feasible, "pct")}, below ${formatNumber(LOW_FEASIBILITY, "pct")}.` });
   }
   const c = constraintPrediction(p, ctx.constraint);
   if (c && ctx.constraint?.floor != null && c.mean < ctx.constraint.floor) {
@@ -202,7 +204,7 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatNumber(gain)}, less than the prediction band of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
+    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, less than the prediction band of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
@@ -213,7 +215,7 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
   for (const { rank, flags } of rows) for (const f of flags) by.set(f.kind, [...(by.get(f.kind) ?? []), rank]);
   const label: Record<FlagKind, string> = {
     negative: "predicted below zero for a target that is never negative",
-    "low-feasibility": `estimated chance of producing below ${formatNumber(LOW_FEASIBILITY, "pct")}`,
+    "low-feasibility": `engine-estimated feasibility below ${formatNumber(LOW_FEASIBILITY, "pct")}`,
     constraint: "predicted below the requested constraint floor",
     "outside-range": "an input outside the range tried so far",
     "at-edge": "an input at the edge of the range tried so far",
@@ -234,10 +236,17 @@ export function predictionInterval(pred: number, band: number | null | undefined
   return [pred - band, pred + band];
 }
 
-/** "90% band" from the engine's coverage, or "prediction band" when it did not say (never a guessed percentage). */
+/**
+ * "90% held-out band" from the engine's coverage, or "held-out band" when it
+ * did not say (never a guessed percentage). "Held-out" because the coverage
+ * was measured on held-out measured runs; see BAND_CAVEAT.
+ */
 export function bandLabel(coverage: number | null | undefined): string {
-  return coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} band` : "prediction band";
+  return coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} held-out band` : "held-out band";
 }
+
+/** Shown wherever the band is: its coverage is not a promise about new recipes. */
+export const BAND_CAVEAT = "Coverage measured on held-out measured runs; not guaranteed for proposals.";
 
 /** "47.38 to 55.04", or null when no band was supplied. */
 export function formatInterval(pred: number, band: number | null | undefined): string | null {
@@ -269,6 +278,27 @@ export function stripDomain(preds: number[], band: number | null | undefined, be
 }
 
 // --- Formatting ------------------------------------------------------------------
+
+/**
+ * A signed predicted gain. Below 0.005 in size the 2-decimal format would read
+ * "+0.00" or "0.00", which hides the sign and size, so up to 4 significant
+ * figures are shown instead.
+ */
+export function formatGain(g: number | null | undefined): string {
+  if (g == null || !Number.isFinite(g)) return "n/a";
+  if (g === 0) return "0";
+  if (Math.abs(g) < 0.005) {
+    const s = Number(Math.abs(g).toPrecision(2)).toString();
+    return `${g < 0 ? "-" : "+"}${s}`;
+  }
+  return formatNumber(g, "value", { sign: true });
+}
+
+/** The exact value sent to the engine for a setpoint, unrounded. */
+export function exactSetpoint(v: SetpointValue | null | undefined): string {
+  if (v == null) return "n/a";
+  return typeof v === "number" ? (Number.isFinite(v) ? String(v) : "n/a") : v;
+}
 
 /**
  * A setpoint at the sheet's precision when known (the observed values' decimal
@@ -375,24 +405,24 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
   const short = notice != null || (requested != null && returned != null && returned < requested);
   const notes: string[] = [];
   let headline: string;
-  if (short && requested != null && returned != null) {
-    headline = `Only ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} requested proposals are distinct.`;
-  } else if (short) {
-    headline = "The engine returned a shorter batch than requested.";
-  } else if (requested != null && returned != null) {
-    headline = `${formatNumber(returned, "count")} of ${formatNumber(requested, "count")} requested proposals, all distinct.`;
+  if (requested != null && returned != null) {
+    headline = short
+      ? `The engine returned ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} proposals requested.`
+      : `The engine returned all ${formatNumber(requested, "count")} proposals requested.`;
   } else {
-    headline = "The engine reported on how distinct this batch is.";
+    headline = short ? "The engine returned fewer proposals than requested." : "The engine reported how far apart this batch's proposals are.";
   }
   if (sep != null && Number.isFinite(sep)) {
-    notes.push(`Every pair differs by at least ${formatNumber(sep, "pct")} of an input's search range, or by a categorical level.`);
+    notes.push(`Minimum separation it enforces: ${formatNumber(sep, "pct")}${div?.metric ? `, measured as "${div.metric}"` : ""}.`);
+  } else if (div?.metric) {
+    notes.push(`Separation measured as "${div.metric}".`);
   }
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
-    notes.push(`${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal was" : "proposals were"} replaced so the batch does not repeat a recipe.`);
+    notes.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") {
-    notes.push("No further recipe differs enough from those already proposed or in flight, so the batch is shorter rather than repeating one.");
+    notes.push("It found no further candidate at least that far from the others (code fewer_distinct_candidates).");
   } else if (notice) {
     notes.push(`Engine notice code: ${notice.code}.`);
   }
@@ -404,6 +434,8 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
 /** The last upload the engine rejected in this browser session (see hooks/use-engine). */
 export type UploadRejection = {
   name: string;
+  /** The dataset /api/latest showed when the upload was rejected (null when there was none). */
+  forDataset: string | null;
   code: string | null;
   error: string;
   target?: string;
@@ -411,6 +443,37 @@ export type UploadRejection = {
   targetSummary?: { n_numeric?: number; n_distinct?: number; min?: number; max?: number };
   availableTargets?: string[];
 };
+
+/**
+ * A rejected-upload record from a `POST /api/run` body, or null when the body
+ * is not a validation rejection: only an `{ error, code }` body counts, since
+ * an error without a machine code may be a server fault, not a verdict on the sheet.
+ */
+export function toRejection(fileName: string, body: unknown, forDataset: string | null): UploadRejection | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as Record<string, unknown>;
+  if (typeof b.error !== "string" || typeof b.code !== "string" || b.code === "") return null;
+  const ts = b.target_summary;
+  return {
+    name: fileName,
+    forDataset,
+    code: b.code,
+    error: b.error,
+    target: typeof b.target === "string" ? b.target : undefined,
+    targetSummary: ts && typeof ts === "object" ? (ts as UploadRejection["targetSummary"]) : undefined,
+    availableTargets: Array.isArray(b.available_targets) ? b.available_targets.filter((t): t is string => typeof t === "string") : undefined,
+  };
+}
+
+/**
+ * The rejection that still describes what is on screen: only when /api/latest
+ * still shows the dataset it was recorded against. A different dataset (a new
+ * upload, a re-analysis) means the memory is stale and is ignored.
+ */
+export function activeRejection(r: UploadRejection | null, currentDataset: string | null): UploadRejection | null {
+  if (!r) return null;
+  return r.forDataset === currentDataset ? r : null;
+}
 
 /** Title and plain sentences for a rejected upload, from the engine's structured fields where it sent them. */
 export function rejectionCopy(r: UploadRejection): { title: string; body: string; suggestion: string | null } {
@@ -428,8 +491,8 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
     };
   }
   return {
-    title: "The last upload was rejected",
-    body: `The engine could not analyze ${r.name}. Its message: ${r.error}`,
+    title: "The last upload was not used",
+    body: `The engine did not accept ${r.name} (${r.code ?? "no code"}). It said: ${r.error}`,
     suggestion: null,
   };
 }

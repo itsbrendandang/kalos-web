@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ConstraintReport, PopulatedResult, Proposal } from "@/lib/api";
 import {
+  activeRejection,
+  BAND_CAVEAT,
   bandLabel,
+  exactSetpoint,
+  formatGain,
+  toRejection,
   boundaryChecks,
   compareRecipes,
   constraintPrediction,
@@ -33,9 +38,10 @@ describe("observedRanges", () => {
     expect(r.pH).toEqual({ min: 5.01, max: 6.93, n: 3, source: "observed", decimals: 2 });
     expect(r.Temp_C).toEqual({ min: 25.1, max: 35, n: 3, source: "observed", decimals: 1 });
   });
-  it("uses the engine's feature_ranges only for inputs it has no observed values for", () => {
-    const r = observedRanges({ response_surface: surface([[6, 30, 1], [7, 31, 2]]), feature_ranges: { pH: [0, 14], Methanol: [0.5, 3] } });
-    expect(r.pH.source).toBe("observed");
+  it("prefers the engine's feature_ranges when present, keeping the observed decimals", () => {
+    const r = observedRanges({ response_surface: surface([[6.25, 30, 1], [7, 31, 2]]), feature_ranges: { pH: [5, 8], Methanol: [0.5, 3] } });
+    expect(r.pH).toEqual({ min: 5, max: 8, n: 0, source: "engine", decimals: 2 });
+    expect(r.Temp_C.source).toBe("observed");
     expect(r.Methanol).toEqual({ min: 0.5, max: 3, n: 0, source: "engine", decimals: null });
   });
   it("returns nothing when the engine sent neither (no ranges are guessed)", () => {
@@ -143,9 +149,10 @@ describe("uncertainty display", () => {
     expect(formatInterval(51.205, null)).toBeNull();
   });
   it("names the coverage only when the engine reported it", () => {
-    expect(bandLabel(0.9)).toBe("90% band");
-    expect(bandLabel(undefined)).toBe("prediction band");
-    expect(bandLabel(null)).toBe("prediction band");
+    expect(bandLabel(0.9)).toBe("90% held-out band");
+    expect(bandLabel(undefined)).toBe("held-out band");
+    expect(bandLabel(null)).toBe("held-out band");
+    expect(BAND_CAVEAT).toMatch(/not guaranteed for proposals/);
   });
   it("builds one padded axis for the batch strips that holds every interval and the best", () => {
     const [lo, hi] = stripDomain([50, 45], 2, 49)!;
@@ -168,6 +175,19 @@ describe("formatSetpoint", () => {
     expect(formatSetpoint("glycerol", 2)).toBe("glycerol");
     expect(formatSetpoint(null)).toBe("n/a");
     expect(formatSetpoint(Number.NaN)).toBe("n/a");
+  });
+  it("never shows a tiny gain as +0.00", () => {
+    expect(formatGain(1.4523)).toBe("+1.45");
+    expect(formatGain(-4.3)).toBe("-4.30");
+    expect(formatGain(0.0031)).toBe("+0.0031");
+    expect(formatGain(-0.00042)).toBe("-0.00042");
+    expect(formatGain(0)).toBe("0");
+    expect(formatGain(null)).toBe("n/a");
+  });
+  it("shows the exact value that is sent", () => {
+    expect(exactSetpoint(29.968)).toBe("29.968");
+    expect(exactSetpoint("glucose")).toBe("glucose");
+    expect(exactSetpoint(Number.NaN)).toBe("n/a");
   });
   it("orders inputs: proposal_features first, then the rest A-Z", () => {
     expect(recipeKeys(["pH", "Temp_C"], { Temp_C: 1, zeta: 2, pH: 3, alpha: 4 })).toEqual({ main: ["pH", "Temp_C"], other: ["alpha", "zeta"] });
@@ -217,14 +237,15 @@ describe("diversitySummary", () => {
     expect(diversitySummary(undefined, undefined)).toBeNull();
     expect(diversitySummary(null, null)).toBeNull();
   });
-  it("describes a full batch from the engine's numbers", () => {
-    const s = diversitySummary({ requested: 5, returned: 5, near_duplicates_replaced: 1, min_separation: 0.05 }, null)!;
+  it("describes a full batch from the engine's numbers, quoting its metric, without claims it did not make", () => {
+    const s = diversitySummary({ requested: 5, returned: 5, near_duplicates_replaced: 1, min_separation: 0.05, metric: "max over continuous factors of |difference| / factor range" }, null)!;
     expect(s.short).toBe(false);
-    expect(s.headline).toBe("5 of 5 requested proposals, all distinct.");
+    expect(s.headline).toBe("The engine returned all 5 proposals requested.");
     expect(s.notes).toEqual([
-      "Every pair differs by at least 5% of an input's search range, or by a categorical level.",
-      "1 near-duplicate proposal was replaced so the batch does not repeat a recipe.",
+      'Minimum separation it enforces: 5%, measured as "max over continuous factors of |difference| / factor range".',
+      "It replaced 1 near-duplicate proposal.",
     ]);
+    expect(JSON.stringify(s)).not.toMatch(/distinct|in flight/);
   });
   it("says when the batch came back short", () => {
     const s = diversitySummary(
@@ -232,8 +253,43 @@ describe("diversitySummary", () => {
       { code: "fewer_distinct_candidates", requested: 5, returned: 3, min_separation: 0.05, message: "..." },
     )!;
     expect(s.short).toBe(true);
-    expect(s.headline).toBe("Only 3 of the 5 requested proposals are distinct.");
-    expect(s.notes.at(-1)).toMatch(/shorter rather than repeating/);
+    expect(s.headline).toBe("The engine returned 3 of the 5 proposals requested.");
+    expect(s.notes.at(-1)).toMatch(/no further candidate.*fewer_distinct_candidates/);
+  });
+});
+
+describe("toRejection / activeRejection", () => {
+  const body = {
+    error: "The target column 'lipase_titer' has the same value (5) in every row...",
+    code: "target_constant",
+    target: "lipase_titer",
+    target_summary: { status: "constant", n_nonblank: 40, n_numeric: 40, n_distinct: 1, min: 5, max: 5 },
+    available_targets: ["biomass_gL", 3],
+  };
+  it("maps the engine's structured 400 body", () => {
+    expect(toRejection("constant_target.csv", body, "good.csv")).toEqual({
+      name: "constant_target.csv",
+      forDataset: "good.csv",
+      code: "target_constant",
+      error: body.error,
+      target: "lipase_titer",
+      targetSummary: body.target_summary,
+      availableTargets: ["biomass_gL"],
+    });
+  });
+  it("ignores errors without a machine code (could be a server fault) and non-objects", () => {
+    expect(toRejection("a.csv", { error: "could not analyze" }, null)).toBeNull();
+    expect(toRejection("a.csv", { error: "x", code: "" }, null)).toBeNull();
+    expect(toRejection("a.csv", null, null)).toBeNull();
+    expect(toRejection("a.csv", "boom", null)).toBeNull();
+  });
+  it("only applies while the same dataset is on screen", () => {
+    const r = toRejection("constant_target.csv", body, "good.csv")!;
+    expect(activeRejection(r, "good.csv")).toBe(r);
+    expect(activeRejection(r, "campaign round 1")).toBeNull();
+    expect(activeRejection(r, null)).toBeNull();
+    expect(activeRejection({ ...r, forDataset: null }, null)).not.toBeNull();
+    expect(activeRejection(null, "good.csv")).toBeNull();
   });
 });
 
@@ -241,6 +297,7 @@ describe("rejectionCopy", () => {
   it("explains a constant target from the engine's structured fields", () => {
     const c = rejectionCopy({
       name: "constant_target.csv",
+      forDataset: null,
       code: "target_constant",
       error: "raw",
       target: "lipase_titer",
@@ -252,8 +309,8 @@ describe("rejectionCopy", () => {
     expect(c.suggestion).toBe("Columns that do vary and could be the target: biomass_gL.");
   });
   it("falls back to the engine's message for other rejections", () => {
-    const c = rejectionCopy({ name: "tiny.csv", code: "too_few_rows", error: "need at least 6 rows" });
-    expect(c.body).toBe("The engine could not analyze tiny.csv. Its message: need at least 6 rows");
+    const c = rejectionCopy({ name: "tiny.csv", forDataset: null, code: "too_few_rows", error: "need at least 6 rows" });
+    expect(c.body).toBe("The engine did not accept tiny.csv (too_few_rows). It said: need at least 6 rows");
     expect(c.suggestion).toBeNull();
   });
 });

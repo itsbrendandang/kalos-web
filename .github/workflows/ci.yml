@@ -17,6 +17,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run test
+      # Better Auth against a temp SQLite DB with a fake Google (no network,
+      # no ports). Separate script because it is slower; must stay green on
+      # every better-auth upgrade (docs/AUTH.md).
+      - run: npm run test:auth-integration
       # `next build` IS the type-check gate here, and it has to be - there is no
       # separate `npx tsc --noEmit` step on purpose.
       #

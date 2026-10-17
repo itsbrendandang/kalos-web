@@ -1,9 +1,10 @@
 # Auth provider interface (SessionContext)
 
-Status: contract only. **No auth provider is wired in yet.** Nothing in this
-branch signs anyone in, protects a route, or mints a token on a live request.
-Better Auth (self-hosted, SQLite) is the preferred provider; WorkOS AuthKit is
-a documented alternative. Both must meet the same contract below.
+Status: **Better Auth implements this contract** (`lib/server/session.ts`,
+see [AUTH.md](AUTH.md)). Sign-in, MFA and organizations are live; the engine
+proxy does not consume the `SessionContext` yet (step W2), so no engine token
+is minted on a live request so far. WorkOS AuthKit remains a documented
+alternative only (not installed); any provider must meet the same contract.
 
 ## The contract
 
@@ -60,11 +61,28 @@ Rules for every provider:
 scope-mapping cases for the engine's verifier tests. Its key pairs are
 **test-only**, generated for that file and valid nowhere.
 
-## Mapping notes (not implemented)
+## Provider mappings
 
-- Better Auth: organization plugin gives the active org id and member role;
-  `authenticatedAt` / `mfaVerified` must come from the session record (two-factor
-  plugin), not from the client.
-- WorkOS AuthKit: `withAuth()` gives `organizationId`, `role`/`roles`,
-  `permissions`, `sessionId`; `authenticatedAt` from the access token's
-  `auth_time` claim.
+### Better Auth (implemented)
+
+`resolveSession()` / `getSessionContext()` / `requireApiSession()` in
+`lib/server/session.ts`:
+
+| Field | Source |
+| --- | --- |
+| `userId`, `sessionId` | `user.id`, `session.id` from Better Auth's DB session lookup (cookie cache off). |
+| `orgId` | `member.organizationId` for (user, `session.activeOrganizationId`) **re-read from the member table on every call**; the session field is only a hint. A user with exactly one membership needs no selection. No valid membership → `null`. |
+| `role` / `roles` | `member.role` (comma-separated in Better Auth), known roles only: `owner`, `admin`, `member`, `viewer`. |
+| `permissions` | Flattened from the role's `createAccessControl` statements: viewer `campaigns:read`; member + `campaigns:write`; admin/owner + `campaigns:archive`, `org:admin`. |
+| `authenticatedAt` | `session.mfaVerifiedAt` (last second-factor proof; re-stamped by step-up). |
+| `mfaVerified` | `mfaVerifiedAt` set - only the two-factor verify endpoints can set it. Sessions without it never produce a `SessionContext` (state `mfa_required`). |
+
+`role: "owner"` is never used by the role fallback in `scopesForClaims`
+because Better Auth always supplies `permissions`.
+
+### WorkOS AuthKit (documented alternative, not installed)
+
+`withAuth()` gives `organizationId`, `role`/`roles`, `permissions`,
+`sessionId`; `authenticatedAt` from the access token's `auth_time` claim;
+`mfaVerified` from the authentication method. Switching providers means
+re-keying the tenant map, not moving data.

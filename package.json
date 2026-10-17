@@ -8,10 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:auth-integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
+    "better-auth": "1.7.10",
+    "better-sqlite3": "13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jose": "^5.10.0",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "^20",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

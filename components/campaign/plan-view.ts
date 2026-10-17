@@ -419,7 +419,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
     const s = r.targetSummary;
     const same =
       s?.min != null && s.max != null && s.min === s.max
-        ? `has the same value (${formatNumber(s.min)}) in every ${s.n_numeric != null ? `one of its ${formatNumber(s.n_numeric, "count")} rows` : "row"}`
+        ? `has the same value (${formatSetpoint(s.min, decimalsOf(s.min))}) in every ${s.n_numeric != null ? `one of its ${formatNumber(s.n_numeric, "count")} rows` : "row"}`
         : "does not vary across runs";
     return {
       title: "No proposals: the target never changes",

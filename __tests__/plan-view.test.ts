@@ -248,7 +248,7 @@ describe("rejectionCopy", () => {
       availableTargets: ["biomass_gL"],
     });
     expect(c.title).toBe("No proposals: the target never changes");
-    expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5.00) in every one of its 40 rows, so there is nothing for the model to learn from and the engine proposed no experiments.");
+    expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5) in every one of its 40 rows, so there is nothing for the model to learn from and the engine proposed no experiments.");
     expect(c.suggestion).toBe("Columns that do vary and could be the target: biomass_gL.");
   });
   it("falls back to the engine's message for other rejections", () => {

@@ -202,7 +202,7 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatNumber(gain)}, less than the prediction band of ±${formatNumber(ctx.band)}, so the gain is not distinguishable from noise.` });
+    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatNumber(gain)}, less than the prediction band of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }

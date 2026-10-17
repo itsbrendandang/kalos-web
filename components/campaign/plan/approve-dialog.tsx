@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { PredictedMark } from "@/components/campaign/plan/marks";
 import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
@@ -37,6 +37,8 @@ export function ApproveDialog({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const flagged = rows.filter((r) => r.flags.length > 0);
+  // Focus lands on the title, not the approval box, so approving is a deliberate second step.
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   function change(next: boolean) {
     if (busy) return;
@@ -60,9 +62,11 @@ export function ApproveDialog({
 
   return (
     <Dialog open={open} onOpenChange={change}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent initialFocus={titleRef} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Approve {plural(rows.length, "run")} for round {round}</DialogTitle>
+          <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+            Approve {plural(rows.length, "run")} for round {round}
+          </DialogTitle>
           <DialogDescription>
             These are model-generated proposals, not tested recipes. Starting records them as runs in flight; you then run them in the lab and record each result.
           </DialogDescription>

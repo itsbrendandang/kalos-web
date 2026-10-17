@@ -1,27 +1,78 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { bootCheckRequired } from "@/lib/server/boot-check";
+import { bootCheckRequired, checkEnv } from "@/lib/server/boot-check";
+import { devFallbackAllowed, isLoopbackUrl, DEV_ONLY_INSECURE_SECRET } from "@/lib/server/secret-policy.mjs";
 import { makeAuth } from "@/lib/server/auth-config.mjs";
 import { resolveAuthSecret } from "@/lib/server/auth";
+
+const LOOPBACK_URLS = ["http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000", "http://LOCALHOST:3010"];
+const REMOTE_URLS = ["https://kalos.example.com", "http://10.0.0.5:3000", "http://localhost.evil.example", "http://127.0.0.2:3000", "https://127.0.0.1.nip.io", "not a url"];
 
 describe("resolveAuthSecret (m5)", () => {
   it("uses BETTER_AUTH_SECRET when set", () => expect(resolveAuthSecret({ BETTER_AUTH_SECRET: " s3cret-value " , NODE_ENV: "production" })).toBe("s3cret-value"));
   it("falls back to the insecure dev secret ONLY in development or test", () => {
-    expect(resolveAuthSecret({ NODE_ENV: "development" })).toMatch(/dev-only-insecure/);
+    expect(resolveAuthSecret({ NODE_ENV: "development", BETTER_AUTH_URL: "http://localhost:3000" })).toMatch(/dev-only-insecure/);
     expect(resolveAuthSecret({ NODE_ENV: "test" })).toMatch(/dev-only-insecure/);
-    for (const NODE_ENV of ["production", undefined, "staging", "prod", ""]) expect(resolveAuthSecret({ NODE_ENV }), String(NODE_ENV)).toBeUndefined();
+    for (const NODE_ENV of ["production", undefined, "staging", "prod", ""]) expect(resolveAuthSecret({ NODE_ENV, BETTER_AUTH_URL: "http://localhost:3000" }), String(NODE_ENV)).toBeUndefined();
     expect(resolveAuthSecret({ NODE_ENV: "production", NEXT_PHASE: "phase-production-build" })).toBeUndefined();
   });
 });
 
-// B-4: the boot check runs for everything except development/test, and no
-// code path hands Better Auth an empty secret (it would use its public default).
+// C-3: NODE_ENV=development/test on a deployed container must not get the public secret.
+describe("dev fallback secret only for loopback (C-3)", () => {
+  it("development and test with a loopback BETTER_AUTH_URL get the dev secret", () => {
+    for (const NODE_ENV of ["development", "test"]) {
+      for (const BETTER_AUTH_URL of LOOPBACK_URLS) {
+        expect(resolveAuthSecret({ NODE_ENV, BETTER_AUTH_URL }), `${NODE_ENV} ${BETTER_AUTH_URL}`).toBe(DEV_ONLY_INSECURE_SECRET);
+      }
+    }
+  });
+  it("development or test with a real origin gets NO fallback, even with NODE_ENV=development", () => {
+    for (const NODE_ENV of ["development", "test"]) {
+      for (const BETTER_AUTH_URL of REMOTE_URLS) {
+        expect(resolveAuthSecret({ NODE_ENV, BETTER_AUTH_URL }), `${NODE_ENV} ${BETTER_AUTH_URL}`).toBeUndefined();
+      }
+    }
+  });
+  it("unset BETTER_AUTH_URL: fallback only in test; development needs an explicit loopback URL", () => {
+    expect(resolveAuthSecret({ NODE_ENV: "test" })).toBe(DEV_ONLY_INSECURE_SECRET);
+    expect(resolveAuthSecret({ NODE_ENV: "development" })).toBeUndefined();
+    expect(resolveAuthSecret({ NODE_ENV: "development", BETTER_AUTH_URL: "   " })).toBeUndefined();
+  });
+  it("isLoopbackUrl accepts exactly localhost, 127.0.0.1 and [::1]", () => {
+    for (const u of LOOPBACK_URLS) expect(isLoopbackUrl(u), u).toBe(true);
+    for (const u of REMOTE_URLS) expect(isLoopbackUrl(u), u).toBe(false);
+    expect(isLoopbackUrl(undefined)).toBe(false);
+  });
+  it("a deployed container with NODE_ENV=development and no secret fails the boot check", () => {
+    const env = { NODE_ENV: "development", BETTER_AUTH_URL: "https://kalos.example.com" };
+    expect(bootCheckRequired(env)).toBe(true);
+    expect(resolveAuthSecret(env)).toBeUndefined();
+    expect(checkEnv(env).errors.join()).toMatch(/BETTER_AUTH_SECRET is not set/);
+  });
+  it("makeAuth refuses the dev secret for a non-loopback origin, accepts it for loopback", () => {
+    const base = { database: null, googleClientId: "x", googleClientSecret: "y" };
+    expect(() => makeAuth({ ...base, baseURL: "https://kalos.example.com", secret: DEV_ONLY_INSECURE_SECRET } as never)).toThrow(/development secret is refused/);
+    expect(() => makeAuth({ ...base, baseURL: "http://localhost:3000", secret: DEV_ONLY_INSECURE_SECRET, rateLimit: false } as never)).not.toThrow();
+  });
+});
+
+// B-4: the boot check runs unless the dev fallback is allowed, and no code path
+// hands Better Auth an empty secret (it would use its public default).
 describe("boot check and secret fail closed (B-4)", () => {
-  it("boot check is skipped ONLY for development and test", () => {
-    expect(bootCheckRequired("development")).toBe(false);
-    expect(bootCheckRequired("test")).toBe(false);
-    for (const NODE_ENV of ["production", undefined, "staging", "prod", "Production", ""]) expect(bootCheckRequired(NODE_ENV), String(NODE_ENV)).toBe(true);
+  it("boot check is skipped ONLY for development/test on loopback (or test with no URL)", () => {
+    expect(bootCheckRequired({ NODE_ENV: "development", BETTER_AUTH_URL: "http://localhost:3000" })).toBe(false);
+    expect(bootCheckRequired({ NODE_ENV: "test" })).toBe(false);
+    expect(devFallbackAllowed({ NODE_ENV: "test", BETTER_AUTH_URL: "http://127.0.0.1:3000" })).toBe(true);
+    for (const NODE_ENV of ["production", undefined, "staging", "prod", "Production", ""]) {
+      expect(bootCheckRequired({ NODE_ENV, BETTER_AUTH_URL: "http://localhost:3000" }), String(NODE_ENV)).toBe(true);
+    }
+    for (const BETTER_AUTH_URL of REMOTE_URLS) {
+      expect(bootCheckRequired({ NODE_ENV: "development", BETTER_AUTH_URL }), BETTER_AUTH_URL).toBe(true);
+      expect(bootCheckRequired({ NODE_ENV: "test", BETTER_AUTH_URL }), BETTER_AUTH_URL).toBe(true);
+    }
+    expect(bootCheckRequired({ NODE_ENV: "development" })).toBe(true);
   });
   it("unset / staging / production: no dev fallback secret, makeAuth refuses to start", () => {
     for (const NODE_ENV of ["production", undefined, "staging", "prod", ""]) {
@@ -32,7 +83,7 @@ describe("boot check and secret fail closed (B-4)", () => {
   });
   it("the instrumentation hook uses the fail-closed predicate (no production-only gate)", () => {
     const src = fs.readFileSync(path.join(__dirname, "..", "lib/server/instrumentation-node.ts"), "utf8");
-    expect(src).toMatch(/bootCheckRequired\(process\.env\.NODE_ENV\)/);
+    expect(src).toMatch(/bootCheckRequired\(process\.env\)/);
     expect(src).not.toMatch(/NODE_ENV === "production"/);
   });
   it("build() refuses to run without a secret (auth.ts)", () => {

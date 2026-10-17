@@ -12,11 +12,12 @@
 export async function registerNode(): Promise<void> {
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
-  // Everything except development/test is checked and fails closed (B-4).
+  // Checked unless the dev fallback is allowed (development/test on a loopback
+  // URL): fails closed (B-4, C-3).
   // The import is inside the try: a module-load error must exit 1 too.
   try {
     const { bootCheckRequired, checkProductionBoot } = await import("./boot-check");
-    if (bootCheckRequired(process.env.NODE_ENV)) {
+    if (bootCheckRequired(process.env)) {
       const { errors, warnings } = await checkProductionBoot(process.env);
       for (const w of warnings) console.warn(`[kalos-boot] warning: ${w}`);
       if (errors.length) {

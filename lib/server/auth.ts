@@ -5,22 +5,21 @@ import "server-only";
 import { nextCookies } from "better-auth/next-js";
 import { authOptionsFromEnv, makeAuth } from "@/lib/server/auth-config.mjs";
 import { authDb } from "@/lib/server/auth-db";
+import { DEV_ONLY_INSECURE_SECRET, devFallbackAllowed } from "@/lib/server/secret-policy.mjs";
 
 type Auth = ReturnType<typeof makeAuth>;
 const g = globalThis as unknown as { __kalosAuth?: Auth };
 
-const DEV_ONLY_SECRET = "dev-only-insecure-secret-change-me-0123456789";
-
 /**
- * BETTER_AUTH_SECRET, or a fixed insecure placeholder ONLY when NODE_ENV is
- * "development" or "test". Anything else (production, unset, typos) gets no
- * fallback: Better Auth then refuses to start, and the production boot check
- * has already exited 1.
+ * BETTER_AUTH_SECRET, or the fixed insecure development secret ONLY when
+ * devFallbackAllowed(env): NODE_ENV development/test AND BETTER_AUTH_URL
+ * loopback (or unset in test). Anything else gets no fallback: Better Auth then
+ * refuses to start, and the boot check has already exited 1.
  */
 export function resolveAuthSecret(env: Readonly<Record<string, string | undefined>>): string | undefined {
   const s = env.BETTER_AUTH_SECRET?.trim();
   if (s) return s;
-  return env.NODE_ENV === "development" || env.NODE_ENV === "test" ? DEV_ONLY_SECRET : undefined;
+  return devFallbackAllowed(env) ? DEV_ONLY_INSECURE_SECRET : undefined;
 }
 
 function build(): Auth {

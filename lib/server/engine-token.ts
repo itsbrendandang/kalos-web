@@ -12,7 +12,7 @@ import "server-only";
 //   header:  { alg: "EdDSA", typ: "JWT", kid: KALOS_ENGINE_JWT_KID }
 //   claims:  iss "kalos-web", aud "kalos-engine", sub <SessionContext.userId>,
 //            tenant <internal tenant id>, scopes [..], sid <SessionContext.sessionId>,
-//            jti <uuid v4>, iat, nbf (= iat), exp (= iat + ttl, ttl <= 120 s)
+//            jti <uuid v4>, iat, nbf (= iat), exp (= iat + ttl, ttl <= min(120, KALOS_ENGINE_JWT_MAX_TTL_S))
 //
 // The private key (Ed25519, PKCS#8 PEM) is read from the file named by
 // KALOS_ENGINE_JWT_PRIVATE_KEY_FILE - never from an env var value, never
@@ -72,21 +72,47 @@ export class EngineTokenConfigError extends Error {}
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Clamp a requested TTL into [1, 120] seconds; non-finite input gets the default. */
-export function clampTtl(ttlSeconds: number | undefined): number {
-  if (ttlSeconds === undefined || !Number.isFinite(ttlSeconds)) return ENGINE_TOKEN_DEFAULT_TTL_SECONDS;
-  return Math.min(ENGINE_TOKEN_MAX_TTL_SECONDS, Math.max(1, Math.floor(ttlSeconds)));
+/**
+ * Effective max TTL: KALOS_ENGINE_JWT_MAX_TTL_S (positive integer) lowers the
+ * hard ceiling of 120 s; unset/invalid/larger values fall back to 120.
+ */
+export function maxTtlSeconds(env: Readonly<Record<string, string | undefined>> = process.env): number {
+  const raw = env.KALOS_ENGINE_JWT_MAX_TTL_S?.trim();
+  if (!raw || !/^[0-9]{1,6}$/.test(raw)) return ENGINE_TOKEN_MAX_TTL_SECONDS;
+  const n = Number(raw);
+  return n >= 1 ? Math.min(n, ENGINE_TOKEN_MAX_TTL_SECONDS) : ENGINE_TOKEN_MAX_TTL_SECONDS;
 }
+
+/** Clamp a requested TTL into [1, maxTtlSeconds()]; non-finite input gets the default (60, itself clamped). */
+export function clampTtl(
+  ttlSeconds: number | undefined,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): number {
+  const max = maxTtlSeconds(env);
+  if (ttlSeconds === undefined || !Number.isFinite(ttlSeconds)) return Math.min(ENGINE_TOKEN_DEFAULT_TTL_SECONDS, max);
+  return Math.min(max, Math.max(1, Math.floor(ttlSeconds)));
+}
+
+/** sub/sid charset shared with the engine verifier: 1-256 printable ASCII, no space, no comma. */
+const ID_PATTERN = /^[\x21-\x2b\x2d-\x7e]{1,256}$/;
 
 /** Build (and validate) the claim set. Pure; exported for tests and vectors. */
 export function buildEngineClaims(input: EngineTokenInput): EngineTokenClaims {
-  if (typeof input.userId !== "string" || input.userId.length === 0 || input.userId.length > 256) {
-    throw new EngineTokenConfigError("engine token needs a user id");
+  if (typeof input.userId !== "string" || !ID_PATTERN.test(input.userId)) {
+    throw new EngineTokenConfigError("engine token needs a valid user id");
   }
-  if (typeof input.sessionId !== "string" || input.sessionId.length === 0 || input.sessionId.length > 256) {
-    throw new EngineTokenConfigError("engine token needs a session id");
+  if (typeof input.sessionId !== "string" || !ID_PATTERN.test(input.sessionId)) {
+    throw new EngineTokenConfigError("engine token needs a valid session id");
   }
-  if (!TENANT_ID_PATTERN.test(input.tenant)) throw new EngineTokenConfigError("engine token tenant id is invalid");
+  if (typeof input.tenant !== "string" || !TENANT_ID_PATTERN.test(input.tenant)) {
+    throw new EngineTokenConfigError("engine token tenant id is invalid");
+  }
+  if (
+    !Array.isArray(input.scopes) ||
+    !input.scopes.every((s) => typeof s === "string" && (ENGINE_SCOPES as readonly string[]).includes(s))
+  ) {
+    throw new EngineTokenConfigError("engine token scopes must be an array of known scopes");
+  }
   const scopes = ENGINE_SCOPES.filter((s) => input.scopes.includes(s));
   if (scopes.length === 0) throw new EngineTokenConfigError("engine token needs at least one scope");
   const jti = input.jti ?? randomUUID();

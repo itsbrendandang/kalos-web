@@ -55,3 +55,15 @@ describe("list-invitations is org:admin only", () => {
     }
   });
 });
+
+describe("update-user is bounded", () => {
+  it("a MFA'd user can set a normal name; over-long names and non-https images are refused", async () => {
+    createOrg({ name: "Profile", slug: "profile", ownerEmail: "profile@example.com", tenant: "profile", db: env.file, tenantMap: `${env.dir}/tenants.json`, publicUrl: "http://localhost:3000" }, () => {});
+    const c = await signInEnrol("profile@example.com");
+    expect((await c.req("/update-user", { method: "POST", body: { name: "A".repeat(101) } })).json?.code).toBe("PROFILE_INVALID");
+    expect((await c.req("/update-user", { method: "POST", body: { image: "http://evil.example/x.png" } })).json?.code).toBe("PROFILE_INVALID");
+    const ok = await c.req("/update-user", { method: "POST", body: { name: "Profile Person" } });
+    expect(ok.status).toBe(200);
+    expect((await c.req("/get-session")).json.user.name).toBe("Profile Person");
+  });
+});

@@ -154,6 +154,9 @@ false`, `disableOrganizationDeletion: true`). `requireEmailVerificationOnInvitat
 `/organization/list-invitations` (emails, roles, inviters of pending invitations)
 is **org:admin only** (`assertCanListInvitations`): members and viewers get 403
 `INVITATIONS_ADMIN_ONLY`. Regression: `tests/auth-integration/hardening.int.ts`.
+`/update-user` (stock: any name length, any image value) accepts a 1-100 character
+`name` and an `image` that is `null` or an https URL of at most 2048 characters
+(`PROFILE_INVALID` otherwise).
 
 ## Invite-only onboarding
 

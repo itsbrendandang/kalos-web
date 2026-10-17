@@ -11,7 +11,9 @@ import {
   MFA_USER_LOCK_SECONDS,
   mfaGateDecision,
   mfaSatisfied,
+  assertProfileUpdateAllowed,
   lockIfExhausted,
+  MAX_PROFILE_NAME_LENGTH,
   reserveUserAttempt,
   userMfaLocked,
   MFA_VERIFY_PATHS,
@@ -203,5 +205,32 @@ describe("MFA gate", () => {
     const now = Date.now();
     expect(mfaGateDecision("/two-factor/generate-backup-codes", sess(new Date(now - 60e3)), now)).toBe("allow");
     expect(mfaGateDecision("/two-factor/generate-backup-codes", sess(new Date(now - (RECENT_AUTH_MAX_AGE_SECONDS + 1) * 1000)), now)).toBe("step_up_required");
+  });
+});
+
+describe("profile updates are bounded (update-user)", () => {
+  const rejects = (body: unknown) => {
+    try {
+      assertProfileUpdateAllowed(body);
+    } catch (e) {
+      return (e as { body?: { code?: string } }).body?.code ?? (e as Error).message;
+    }
+    return null;
+  };
+  it("accepts a normal name, an https image, a null image, and no fields", () => {
+    expect(rejects({ name: "Brendan" })).toBeNull();
+    expect(rejects({ name: "A".repeat(MAX_PROFILE_NAME_LENGTH) })).toBeNull();
+    expect(rejects({ image: "https://lh3.googleusercontent.com/a/x=s96" })).toBeNull();
+    expect(rejects({ image: null })).toBeNull();
+    expect(rejects({})).toBeNull();
+  });
+  it("rejects over-long or empty names, non-https and non-string images", () => {
+    expect(rejects({ name: "A".repeat(MAX_PROFILE_NAME_LENGTH + 1) })).toBe("PROFILE_INVALID");
+    expect(rejects({ name: "   " })).toBe("PROFILE_INVALID");
+    expect(rejects({ name: 42 })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "http://example.com/a.png" })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "javascript:alert(1)" })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "https://example.com/" + "a".repeat(2048) })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: ["https://x"] })).toBe("PROFILE_INVALID");
   });
 });

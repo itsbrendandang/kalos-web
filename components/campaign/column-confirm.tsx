@@ -84,7 +84,7 @@ export function ColumnConfirm({
                   <input type="checkbox" checked={picked.has(c.name)} onChange={() => toggle(c.name)} />
                   <span className="truncate">{c.name}</span>
                   {c.note ? <span className="shrink-0 text-caption text-fg-muted">({c.note})</span> : null}
-                  {c.warning ? <span className="shrink-0 text-caption text-warn">Check: {c.warning}</span> : null}
+                  {c.warning ? <span className="shrink-0 text-caption text-warn">Note: {c.warning}</span> : null}
                 </label>
               </li>
             ))}

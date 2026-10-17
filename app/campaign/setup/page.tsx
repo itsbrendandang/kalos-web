@@ -14,7 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
-import type { ColumnRolesInput } from "@/lib/api";
+import type { ColumnRolesInput, ProvenanceEntry } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
@@ -48,6 +48,8 @@ export default function SetupPage() {
   const [candidates, setCandidates] = useState<string[]>([]);
   // Targets the user moved away from for this file: their old target is not an input, and should not read as a data problem.
   const [formerTargets, setFormerTargets] = useState<string[]>([]);
+  // Provenance of the last fit the engine inferred roles for (see sheet-roles RolesContext.baseline).
+  const [baseline, setBaseline] = useState<ProvenanceEntry[]>([]);
   const elapsed = useElapsedSeconds(busy);
 
   async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string) {
@@ -70,6 +72,7 @@ export default function SetupPage() {
       if (fresh) setFormerTargets([]);
       else if (before && d.target && d.target !== before) setFormerTargets((p) => (p.includes(before) ? p : [...p, before]));
       setRoles(nextRoles);
+      if (nextRoles === undefined) setBaseline(d.provenance ?? []);
       setCandidates((prev) => mergeTargets(fresh ? [] : prev, d.targets ?? [], nextRoles !== undefined));
       dispatch({ type: "success", file: f, sheets: sheetsFrom(d), sheetUsed: d.sheet_used ?? null });
       // Scan the worksheet the engine actually read, so the row-type check describes the fitted data.
@@ -91,7 +94,7 @@ export default function SetupPage() {
   }
 
   const analysis = latest.data?.has_data ? latest.data : null;
-  const columns = columnsFromProvenance(analysis?.provenance, { sentRoles: roles, formerTargets });
+  const columns = columnsFromProvenance(analysis?.provenance, { sentRoles: roles, formerTargets, baseline });
   const targetChoices = candidates.length ? candidates : (analysis?.targets ?? []);
   const report = analysis?.validation;
   const next = campaignStage(latest.data ?? { has_data: false }, campaign.data ?? { has_campaign: false }).next;

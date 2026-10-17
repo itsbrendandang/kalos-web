@@ -52,6 +52,25 @@ describe("column exclusion notes keep four facts apart", () => {
     expect(cols.find((c) => c.name === "lipase_titer")).toMatchObject({ kind: "user_excluded", note: "Was the target, so it is not an input", warning: null });
   });
 
+  it("a column the engine itself left out of the inferred fit is not credited to the user after a roles re-fit", () => {
+    // Roles fits use the generic profile, so `biomass_gL` (an output by name) comes back as an unremarkable "not chosen".
+    const baseline = [prov("pH", "kept_feature", 12), prov("Temp_C", "kept_feature", 12), prov("biomass_gL", "dropped_output", 12), prov("run_id", "dropped_id", 12), prov("yield", "target", 12)];
+    const refit = [prov("pH", "kept_feature", 12), prov("Temp_C", "dropped_sparse", 12), prov("biomass_gL", "dropped_sparse", 12), prov("run_id", "dropped_id", 12), prov("yield", "target", 12)];
+    const cols = columnsFromProvenance(refit, { sentRoles: { target: "yield", features: ["pH"] }, baseline });
+    const by = Object.fromEntries(cols.map((c) => [c.name, [c.kind, c.note]]));
+    expect(by.Temp_C).toEqual(["user_excluded", "You excluded this column"]); // the engine had kept it; the user unticked it
+    expect(by.biomass_gL).toEqual(["engine_excluded", "looks like a measured output"]);
+    expect(by.run_id).toEqual(["engine_excluded", "treated as an ID"]);
+  });
+
+  it("a column the engine left out as sparse in the inferred fit stays the engine's call", () => {
+    const [c] = columnsFromProvenance([prov("misc", "dropped_sparse", 12)], {
+      sentRoles: { target: "y", features: ["pH"] },
+      baseline: [prov("misc", "dropped_sparse", 12)],
+    });
+    expect(c).toMatchObject({ kind: "engine_excluded", note: "Left out by Kalos" });
+  });
+
   it("without explicit roles (engine inferred), dropped_sparse is the engine's call and says nothing specific", () => {
     const [c] = columnsFromProvenance([prov("misc", "dropped_sparse", 12, 0)]);
     expect(c).toMatchObject({ kind: "engine_excluded", note: "Left out by Kalos", warning: null });

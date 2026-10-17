@@ -50,6 +50,12 @@ export type RolesContext = {
   sentRoles?: ColumnRolesInput;
   /** Targets the user moved away from during this session (their old target is not an input either). */
   formerTargets?: readonly string[];
+  /**
+   * Provenance of the last fit whose roles the ENGINE inferred (before any explicit roles were sent). Explicit-roles
+   * fits use the engine's generic profile, which forgets name-based decisions (an `_gL` output column comes back as
+   * a plain "not chosen"), so this is how an ID/output the engine excluded itself is not credited to the user.
+   */
+  baseline?: readonly ProvenanceEntry[];
 };
 
 /** A column with fewer filled cells than this fraction of the fullest column is "mostly empty". */
@@ -74,6 +80,7 @@ export function columnsFromProvenance(provenance: readonly ProvenanceEntry[] | u
   const rowsAtLeast = list.reduce((m, p) => Math.max(m, p.non_null), 0);
   const sentFeatures = ctx.sentRoles && ctx.sentRoles.features.length > 0 ? new Set(ctx.sentRoles.features) : null;
   const former = new Set(ctx.formerTargets ?? []);
+  const baseline = new Map((ctx.baseline ?? []).map((b) => [b.name, b.status]));
 
   return list.map((p): SheetColumn => {
     const base = { name: p.name, status: p.status, usedAsInput: p.status === "kept_feature", isTarget: p.status === "target" };
@@ -81,13 +88,16 @@ export function columnsFromProvenance(provenance: readonly ProvenanceEntry[] | u
     if (p.status === "target") return { ...base, kind: "target", note: null, warning: null };
 
     // Everything else is excluded. Warning first: only numbers, or an engine status that is itself a data fact.
-    const auto = AUTO_REASON[p.status] ?? null;
+    // The engine's own name-based reason, from this fit or, after a roles fit, from the inferred fit it replaced.
+    const auto = AUTO_REASON[p.status] ?? AUTO_REASON[baseline.get(p.name) ?? ""] ?? null;
     // IDs and outputs are expected to be text/sparse; that is not a finding about them.
     const warning = auto ? null : (qualityWarning(p, rowsAtLeast) ?? DATA_FACT[p.status] ?? null);
     const declaredByUser = p.source === "declared" && p.status === "dropped_id";
     // With explicit roles every column that is not ticked was left out by the user, unless the engine
     // independently dropped it by name (then the engine's own reason is the honest one).
-    const userUnticked = sentFeatures !== null && !sentFeatures.has(p.name) && auto === null;
+    // A column the engine had itself left out of the inferred fit stays the engine's, whatever the roles fit says.
+    const engineChose = baseline.get(p.name) === "kept_feature";
+    const userUnticked = sentFeatures !== null && !sentFeatures.has(p.name) && auto === null && (baseline.size === 0 || engineChose);
 
     if (former.has(p.name)) return { ...base, kind: "user_excluded", note: FORMER_TARGET_NOTE, warning };
     if (declaredByUser || userUnticked) return { ...base, kind: "user_excluded", note: USER_EXCLUDED_NOTE, warning };

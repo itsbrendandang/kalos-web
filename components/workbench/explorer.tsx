@@ -77,7 +77,6 @@ function CampaignExplorer() {
     href: "/",
     label: "Overview",
     icon: <LayoutDashboard className={`${ICON} text-fg-muted`} aria-hidden />,
-    name: "Overview",
   };
   const stages: TreeNode = {
     kind: "group",
@@ -90,7 +89,7 @@ function CampaignExplorer() {
       label: s.label,
       detail: s.detail ? <span className="max-md:hidden" title={s.detail}>{s.detail}</span> : undefined,
       icon: STEP_ICON[s.state],
-      name: `${s.label}, ${STEP_WORD[s.state]}${s.detail ? `: ${s.detail}` : ""}`,
+      status: STEP_WORD[s.state],
     })),
   };
   if (!active) return <ExplorerTree label="Campaign" nodes={[overview, stages]} activeHref={pathname} />;
@@ -103,9 +102,7 @@ function CampaignExplorer() {
     mono: true,
     detail: awaiting ? formatNumber(r.pred) : formatNumber(r.result),
     icon: awaiting ? <CircleDashed className={`${ICON} text-warn`} aria-hidden /> : <CircleCheck className={`${ICON} text-good`} aria-hidden />,
-    name: awaiting
-      ? `Run ${shortId(r.id)}, awaiting a result, predicted ${formatNumber(r.pred)}`
-      : `Run ${shortId(r.id)}, measured ${formatNumber(r.result)}`,
+    status: awaiting ? "awaiting a result, value is the prediction" : "measured",
   });
 
   const nodes: TreeNode[] = [
@@ -125,7 +122,7 @@ function CampaignExplorer() {
         label: h.round === 0 ? "Uploaded data" : `After round ${h.round}`,
         detail: formatNumber(h.best),
         icon: <History className={`${ICON} text-fg-muted`} aria-hidden />,
-        name: `${h.round === 0 ? "Uploaded data" : `After round ${h.round}`}, best ${h.best == null ? "not measured" : formatNumber(h.best)}, ${h.n_base} runs`,
+        status: `best of ${h.n_base} runs`,
       })),
     },
   ];
@@ -148,7 +145,7 @@ function DataExplorer() {
         mono: true,
         detail: formatNumber(d.runs, "count"),
         icon: <FileSpreadsheet className={`${ICON} text-fg-muted`} aria-hidden />,
-        name: `${d.name}, ${d.runs} runs`,
+        status: "runs",
       })),
     },
   ];
@@ -163,7 +160,6 @@ function LibraryExplorer() {
     href: i.href,
     label: i.label,
     icon: <Wrench className={`${ICON} text-fg-muted`} aria-hidden />,
-    name: i.label,
   }));
   return <ExplorerTree label="Library" nodes={nodes} activeHref={pathname} />;
 }
@@ -182,7 +178,7 @@ function ProjectsExplorer() {
       href: `/projects/${p.id}`,
       label: p.name,
       icon: <FolderOpen className={`${ICON} text-fg-muted`} aria-hidden />,
-      name: `${p.name}, ${c.name}`,
+      status: c.name,
     })),
   }));
   return <ExplorerTree label="Projects" nodes={nodes} activeHref={pathname} />;

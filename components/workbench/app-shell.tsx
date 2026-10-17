@@ -1,5 +1,6 @@
 "use client";
 
+import { DocumentTitle } from "@/components/workbench/document-title";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -89,6 +90,7 @@ function Frame({ children }: { children: ReactNode }) {
         Skip to content
       </a>
 
+      <DocumentTitle />
       <MobileTopBar onOpenSheet={() => setSheetOpen(true)} onSearch={() => setPaletteOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
@@ -219,7 +221,7 @@ function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; on
       <button
         type="button"
         onClick={onSearch}
-        aria-label={`Search pages and actions (${shortcut})`}
+        aria-label={`${shortcut} Search pages and actions`}
         className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-caption text-fg-muted hover:bg-surface hover:text-fg"
       >
         <Search className="size-3.5" aria-hidden />

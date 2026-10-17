@@ -101,6 +101,12 @@ verified in the scratch project and re-checked by
    is locked for 15 minutes via `twoFactor.lockedUntil`, 429
    `TWO_FACTOR_LOCKED`; reset on success). Better Auth's rate limit on
    `/two-factor/*` (3 per 10 s per IP) applies too.
+   The counters are **reserve-then-verify** (B-3): each verify/backup-code
+   attempt is counted BEFORE the code is checked, inside one serialised section
+   (`exclusiveMfaAccounting`, in-process; the app is one replica). At most 10
+   (user) / 5 (session) attempts reach the verifier however many requests are
+   in flight. The earlier read-modify-write let 30 parallel wrong codes all be
+   verified. Regression: `tests/auth-integration/mfa-race.int.ts`.
 6. Replay: a TOTP code accepted once for a user is refused for 120 s. The
    code is claimed atomically before verification (released if it fails), so
    two parallel requests cannot both use it. In-memory: correct only because

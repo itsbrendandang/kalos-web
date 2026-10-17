@@ -43,10 +43,15 @@ export function mfaGateDecision(
 
 export function gateSessionLookup<T>(lookup: () => Promise<T>, headers: Headers | undefined): Promise<T | null>;
 export function userMfaLocked(row: { lockedUntil?: Date | string | null } | null | undefined, nowMs?: number): boolean;
-export function nextUserFailureState(
+export function reserveUserAttempt(
   row: { failedVerificationCount?: number | null; lockedUntil?: Date | string | null } | null | undefined,
   nowMs?: number,
-): { failedVerificationCount: number; lockedUntil: Date | null };
+): { allowed: boolean; update: { failedVerificationCount: number; lockedUntil: Date | null } | null };
+export function lockIfExhausted(
+  row: { failedVerificationCount?: number | null; lockedUntil?: Date | string | null } | null | undefined,
+  nowMs?: number,
+): { failedVerificationCount: number; lockedUntil: Date } | null;
+export function exclusiveMfaAccounting<T>(fn: () => T | Promise<T>): Promise<T>;
 
 export interface MakeAuthOptions {
   database: unknown;

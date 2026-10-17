@@ -11,7 +11,8 @@ import {
   MFA_USER_LOCK_SECONDS,
   mfaGateDecision,
   mfaSatisfied,
-  nextUserFailureState,
+  lockIfExhausted,
+  reserveUserAttempt,
   userMfaLocked,
   MFA_VERIFY_PATHS,
   parseRoles,
@@ -124,21 +125,32 @@ describe("scope guard on /sign-in/social", () => {
   });
 });
 
-describe("per-user TOTP lock (M1)", () => {
+describe("per-user TOTP lock (M1, B-3 atomic reserve)", () => {
   const now = Date.UTC(2026, 9, 17);
-  it("counts failures and locks after the limit", () => {
+  const apply = (row: { failedVerificationCount: number; lockedUntil: Date | null }, u: { failedVerificationCount: number; lockedUntil: Date | null } | null) => (u ? u : row);
+  it("reserves attempts up to the limit, then locks", () => {
     let row: { failedVerificationCount: number; lockedUntil: Date | null } = { failedVerificationCount: 0, lockedUntil: null };
-    for (let i = 1; i < MFA_MAX_FAILURES_PER_USER; i++) {
-      row = nextUserFailureState(row, now);
+    for (let i = 1; i <= MFA_MAX_FAILURES_PER_USER; i++) {
+      const r = reserveUserAttempt(row, now);
+      expect(r.allowed).toBe(true);
+      row = apply(row, r.update);
       expect(row).toEqual({ failedVerificationCount: i, lockedUntil: null });
     }
-    row = nextUserFailureState(row, now);
+    // the next attempt is refused and starts the lock
+    const refused = reserveUserAttempt(row, now);
+    expect(refused.allowed).toBe(false);
+    row = apply(row, refused.update);
     expect(row.lockedUntil?.getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    expect(reserveUserAttempt(row, now + 1000).allowed).toBe(false);
     expect(userMfaLocked(row, now + 1000)).toBe(true);
     expect(userMfaLocked(row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
   });
+  it("a failure that exhausts the reserved attempts locks immediately", () => {
+    expect(lockIfExhausted({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER - 1, lockedUntil: null }, now)).toBeNull();
+    expect(lockIfExhausted({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: null }, now)?.lockedUntil.getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+  });
   it("an expired lock starts a fresh count", () => {
-    expect(nextUserFailureState({ failedVerificationCount: 7, lockedUntil: new Date(now - 1) }, now)).toEqual({ failedVerificationCount: 1, lockedUntil: null });
+    expect(reserveUserAttempt({ failedVerificationCount: 7, lockedUntil: new Date(now - 1) }, now)).toEqual({ allowed: true, update: { failedVerificationCount: 1, lockedUntil: null } });
     expect(userMfaLocked(null)).toBe(false);
     expect(userMfaLocked({ lockedUntil: "garbage" })).toBe(false);
   });

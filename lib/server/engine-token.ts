@@ -87,6 +87,8 @@ export function buildEngineClaims(input: EngineTokenInput): EngineTokenClaims {
     throw new EngineTokenConfigError("engine token needs a session id");
   }
   if (!TENANT_ID_PATTERN.test(input.tenant)) throw new EngineTokenConfigError("engine token tenant id is invalid");
+  // The engine reserves "default" for anonymous open mode and refuses it in tokens.
+  if (input.tenant === "default") throw new EngineTokenConfigError("engine token tenant 'default' is reserved");
   const scopes = ENGINE_SCOPES.filter((s) => input.scopes.includes(s));
   if (scopes.length === 0) throw new EngineTokenConfigError("engine token needs at least one scope");
   const jti = input.jti ?? randomUUID();

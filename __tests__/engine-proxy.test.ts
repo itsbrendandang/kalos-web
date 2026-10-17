@@ -230,6 +230,15 @@ describe("authentication (session resolved server-side on every request)", () =>
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("a stamped session whose user has no confirmed TOTP enrolment -> 403 MFA_REQUIRED", async () => {
+    addSession("tok_unenrolled", "u_member");
+    (db.sessions.get("tok_unenrolled") as FakeSession).user.twoFactorEnabled = false;
+    const res = await call("GET", "api/latest", { token: "tok_unenrolled" });
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({ code: "MFA_REQUIRED" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("user without membership in any organization -> 403", async () => {
     const res = await call("GET", "api/latest", { token: "tok_nomember" });
     expect(res.status).toBe(403);

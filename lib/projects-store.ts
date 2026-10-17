@@ -1,11 +1,11 @@
 /*
- * Client-side persistence store for the Projects surface.
+ * In-memory store for the Projects surface (never persisted).
  *
  * The Projects surface has no backend for customers/projects (see app/projects/data.ts) - the
  * product decision is to wire creates/edits to real client-side state instead,
  * so the modals and workspace controls stop being active-but-inert. This module
  * holds the pure, framework-free reducer + helpers; the React context that
- * wraps it (with useReducer + localStorage) lives in
+ * wraps it (useReducer, in memory only - nothing is written to browser storage) lives in
  * components/projects/store-context.tsx. Keeping the logic here means it can be
  * unit tested directly, with no DOM involved.
  */
@@ -28,23 +28,19 @@ export function initialProjectsState(): ProjectsState {
   return { customers: CUSTOMERS };
 }
 
-export const STORAGE_KEY = "projects-store-v1";
+/** Legacy localStorage key. Earlier versions persisted customer names,
+ *  addresses and project objectives here; that data is customer-sensitive and
+ *  must not live in browser storage, so the store is now in-memory only and
+ *  this key is only ever removed. */
+export const LEGACY_STORAGE_KEY = "projects-store-v1";
 
-/** The persisted state, or null when nothing usable is stored (absent,
- *  corrupt, or the wrong shape) - the caller then keeps the seed state. */
-export function readPersistedState(storage: Pick<Storage, "getItem">): ProjectsState | null {
-  const raw = storage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  let parsed: unknown;
+/** Removes any legacy persisted projects state. Safe on inaccessible storage. */
+export function clearLegacyPersistedState(storage: Pick<Storage, "removeItem">): void {
   try {
-    parsed = JSON.parse(raw);
+    storage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    return null;
+    // Inaccessible storage - nothing to clear.
   }
-  if (parsed && typeof parsed === "object" && Array.isArray((parsed as ProjectsState).customers)) {
-    return parsed as ProjectsState;
-  }
-  return null;
 }
 
 export interface NewCustomerInput {

@@ -81,7 +81,7 @@ Configure it in `.env.local` (placeholders in [`env.example`](env.example)):
 | `KALOS_ENGINE_URL` | server only | Engine base URL, for example `http://127.0.0.1:8050`. If unset, the proxy answers 502 "engine unreachable". |
 | `KALOS_ENGINE_TOKEN` | server only | Bearer token sent to the engine. Leave unset while the engine runs open. Never prefix it with `NEXT_PUBLIC_`. |
 | `NEXT_PUBLIC_DEMO_MODE` | build time | Set to `true` to render example data where the engine has none (see below). Default off. |
-| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires a token. |
+| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch (not available in the Docker image, which has no build arg for it) that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires a token. |
 
 To try the app with data, upload the synthetic example sheet from the engine repo on the Setup stage, or with `curl -F file=@examples/synthetic_bioprocess/synthetic_bioprocess.csv http://127.0.0.1:8050/api/run`.
 That sheet is generated, not measured.

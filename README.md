@@ -70,6 +70,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000`, not `http://127.0.0.1:3000`.
+
+`npm run dev` listens on the loopback interface only. The proxy attaches the engine token to every request it receives and the app has no login, so do not expose the dev server (or a production deployment) to a network you do not fully trust; put an authenticating reverse proxy in front of any shared deployment.
 Next 16 dev mode does not treat `127.0.0.1` as the same origin as `localhost`, which can break hot reload and client hydration.
 
 The browser never calls the engine directly.

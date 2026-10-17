@@ -5,7 +5,7 @@ describe("runFile sends explicit column roles", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("appends target and a JSON roles field when given, and omits roles otherwise", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ n: 1 }), { status: 200 }));
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ n: 1 }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const file = new File(["a,b\n1,2"], "s.csv");
 

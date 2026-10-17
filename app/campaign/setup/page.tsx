@@ -160,7 +160,7 @@ export default function SetupPage() {
           )}
           {scan?.dataType ? <DataTypeNote counts={scan.dataType} /> : null}
           {file && scan && !scan.scanned ? (
-            <p className="text-caption text-fg-muted">Row types (a data_type column) could not be checked for this file type or size.</p>
+            <p className="text-caption text-fg-muted">Row types (a data_type column) could not be checked for this file (legacy .xls and files over 5 MB are not read in the browser). Check the sheet yourself for mixed measured and synthetic rows.</p>
           ) : null}
           {report ? (
             <ValidationSummary report={report} />

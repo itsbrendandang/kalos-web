@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   // The Dockerfile copies .next/standalone at build time and fails loudly
   // without this - see its header comment.
   output: "standalone",
+  // One upload-limit setting for server and browser: KALOS_MAX_UPLOAD_MB is inlined for the
+  // browser preflight (lib/upload-limits.ts). Changing it needs a rebuild of the web image.
+  env: { NEXT_PUBLIC_MAX_UPLOAD_MB: process.env.KALOS_MAX_UPLOAD_MB ?? "" },
   async redirects() {
     return [
       // The 2026-10 redesign moved every page into Campaign / Data / Library.

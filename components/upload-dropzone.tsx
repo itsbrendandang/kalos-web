@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { preflightFile } from "@/lib/upload-preflight";
 
 /**
  * Shared drag-and-drop run-sheet picker: click-to-browse or drag-and-drop,
@@ -22,6 +23,12 @@ export function UploadDropzone({
 }) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [rejection, setRejection] = useState<string | null>(null);
+  const accept = (f: File) => {
+    const problem = preflightFile(f);
+    setRejection(problem);
+    if (!problem) onFile(f);
+  };
 
   return (
     <>
@@ -32,7 +39,7 @@ export function UploadDropzone({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) onFile(f);
+          if (f) accept(f);
         }}
       />
       <div
@@ -59,7 +66,7 @@ export function UploadDropzone({
           setDrag(false);
           if (disabled) return;
           const f = e.dataTransfer.files?.[0];
-          if (f) onFile(f);
+          if (f) accept(f);
         }}
         className={cn(
           "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors",
@@ -74,6 +81,11 @@ export function UploadDropzone({
         </div>
         <div className="font-mono text-[11px] text-muted">CSV / TSV / XLSX / parsed for this analysis</div>
       </div>
+      {rejection ? (
+        <p role="alert" className="mt-2 text-sm text-red-600">
+          {rejection}
+        </p>
+      ) : null}
     </>
   );
 }

@@ -106,10 +106,13 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://engine.internal:8050/api/run");
-    // The exact same boundary, and the request body streamed (not buffered
-    // and re-parsed) straight to the engine.
+    // The exact same boundary, and the body streamed to the engine (through the
+    // byte-counting pipe), not buffered into a string and re-parsed.
     expect((init.headers as Headers).get("content-type")).toBe(sentContentType);
-    expect(init.body).toBe(request.body);
+    expect(init.body).toBeInstanceOf(ReadableStream);
+    const forwarded = await new Response(init.body as ReadableStream).text();
+    expect(forwarded).toContain("Feed test");
+    expect(forwarded).toContain("a,b\n1,2");
     expect((init as unknown as { duplex: string }).duplex).toBe("half");
     expect(res.status).toBe(200);
   });
@@ -135,6 +138,32 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(res.status).toBe(404);
+  });
+
+  it.each([
+    ["dot-dot", ["api", "run", "..", "..", "admin"]],
+    ["single dot", ["api", "run", ".", "x"]],
+    ["empty segment", ["api", "run", "", "x"]],
+    ["encoded slash", ["api", "run", "..%2f..%2fadmin"]],
+    ["decoded slash", ["api", "run", "a/b"]],
+    ["backslash", ["api", "run", "a\\b"]],
+    ["query injection", ["api", "run", "x?a=b"]],
+    ["fragment injection", ["api", "run", "x#y"]],
+    ["percent escape", ["api", "run", "%2e%2e"]],
+    ["control character", ["api", "run", "a\nb"]],
+  ])("rejects traversal / injection segments (%s) without calling the engine", async (_name, path) => {
+    const res = await GET(req("http://localhost:3000/api/engine/api/run/x"), ctx(path));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(404);
+  });
+
+  it("still forwards ordinary nested allowlisted paths unchanged", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(200, { ok: true }));
+
+    await GET(req("http://localhost:3000/api/engine/api/run/abc-123_x.y"), ctx(["api", "run", "abc-123_x.y"]));
+
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe("http://engine.internal:8050/api/run/abc-123_x.y");
   });
 
   it("forwards POST /api/scale/readout (the Scale-Up Readout upload)", async () => {
@@ -201,6 +230,114 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((init.headers as Headers).has("authorization")).toBe(false);
+  });
+
+  it("returns a 500 with setup guidance when the engine 401s and KALOS_ENGINE_TOKEN is unset", async () => {
+    vi.stubEnv("KALOS_ENGINE_TOKEN", "");
+    fetchMock.mockResolvedValueOnce(engineResponse(401, { detail: "authentication required" }));
+
+    const res = await GET(req("http://localhost:3000/api/engine/api/latest"), ctx(["api", "latest"]));
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error:
+        "Kalos engine requires authentication. Set KALOS_ENGINE_TOKEN in your .env.local to match the engine's configured tokens.",
+    });
+  });
+
+  it("treats a whitespace-only KALOS_ENGINE_TOKEN as unset", async () => {
+    vi.stubEnv("KALOS_ENGINE_TOKEN", "   ");
+    fetchMock.mockResolvedValueOnce(engineResponse(401, { detail: "authentication required" }));
+
+    const res = await GET(req("http://localhost:3000/api/engine/api/latest"), ctx(["api", "latest"]));
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).has("authorization")).toBe(false);
+    expect(res.status).toBe(500);
+  });
+
+  it("passes a 401 through untouched when a token IS configured (wrong token)", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(401, { detail: "invalid token" }));
+
+    const res = await GET(req("http://localhost:3000/api/engine/api/latest"), ctx(["api", "latest"]));
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ detail: "invalid token" });
+  });
+
+  it("rejects a declared Content-Length over the cap with 413 and never calls fetch", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/run", {
+        method: "POST",
+        headers: { "content-length": String(3 * 1024 * 1024) },
+        body: "x",
+      }),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("cuts off a chunked body (no Content-Length) that streams past the cap", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    // Drain the forwarded body the way undici would; the counting stream errors past the cap.
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+      for (;;) if ((await reader.read()).done) break;
+      return engineResponse(200, { ok: true });
+    });
+    const chunk = new Uint8Array(512 * 1024);
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        for (let i = 0; i < 6; i++) c.enqueue(chunk); // 3 MiB total, past 1 MiB limit + 1 MiB headroom
+        c.close();
+      },
+    });
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/engine/api/run", {
+        method: "POST",
+        body: stream,
+        duplex: "half",
+      } as ConstructorParameters<typeof NextRequest>[1]),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(413);
+  });
+
+  it("allows multipart overhead: a body slightly over the file limit still goes through", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+      while (!(await reader.read()).done);
+      return engineResponse(200, { ok: true });
+    });
+    // A file of exactly the limit (1 MiB) plus ~100 KB of multipart framing and fields.
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/run", { method: "POST", body: "a".repeat(1024 * 1024 + 100_000) }),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("forwards a body under the cap", async () => {
+    vi.stubEnv("KALOS_MAX_UPLOAD_MB", "1");
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+      let n = 0;
+      for (;;) {
+        const r = await reader.read();
+        if (r.done) break;
+        n += r.value.byteLength;
+      }
+      return engineResponse(200, { received: n });
+    });
+    const res = await POST(
+      req("http://localhost:3000/api/engine/api/run", { method: "POST", body: "a".repeat(1000) }),
+      ctx(["api", "run"]),
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ received: 1000 });
   });
 
   it("returns a 502 (and never calls fetch) when KALOS_ENGINE_URL is not configured", async () => {

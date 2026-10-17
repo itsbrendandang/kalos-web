@@ -66,22 +66,25 @@ export function validateTenantMapFile(path: string): string | null {
 
 /**
  * Default resolver: the JSON file named by KALOS_TENANT_MAP_FILE, re-read
- * when its mtime changes (so the operator can add an org without a restart).
+ * when its mtime/size/inode/ctime change (so the operator can add an org without a restart).
  */
 export function fileTenantResolver(getPath: () => string | undefined = () => process.env.KALOS_TENANT_MAP_FILE): TenantResolver {
-  let cache: { path: string; mtimeMs: number; map: Map<string, string> | null } | null = null;
+  let cache: { path: string; key: string; map: Map<string, string> | null } | null = null;
 
   function load(): Map<string, string> | null {
     const path = getPath()?.trim();
     if (!path) return null;
-    let mtimeMs: number;
+    let key: string;
     try {
-      mtimeMs = statSync(path).mtimeMs;
+      // mtime alone is spoofable/coarse (in-place rewrite, same mtime); a stale
+      // org->tenant map is a cross-tenant risk, so key on more of the inode state.
+      const st = statSync(path);
+      key = `${st.mtimeMs}:${st.size}:${st.ino}:${st.ctimeMs}`;
     } catch {
       cache = null;
       return null;
     }
-    if (cache && cache.path === path && cache.mtimeMs === mtimeMs) return cache.map;
+    if (cache && cache.path === path && cache.key === key) return cache.map;
     let map: Map<string, string> | null;
     try {
       map = parseTenantMap(readFileSync(path, "utf8"));
@@ -90,7 +93,7 @@ export function fileTenantResolver(getPath: () => string | undefined = () => pro
       console.error(`[kalos-auth] tenant map rejected: ${err instanceof Error ? err.message : "unreadable"}`);
       map = null;
     }
-    cache = { path, mtimeMs, map };
+    cache = { path, key, map };
     return map;
   }
 

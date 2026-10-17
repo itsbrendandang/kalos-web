@@ -69,11 +69,38 @@ describe("engine token claims (lib/server/engine-token.ts)", () => {
     }
   });
 
-  it("refuses to mint with no scopes, and drops unknown scope strings", () => {
+  it("refuses to mint with no scopes, and rejects unknown or non-array scopes", () => {
     expect(() => buildEngineClaims({ ...input, scopes: [] })).toThrow(/scope/);
     // @ts-expect-error - runtime guard against a bad caller
-    const c = buildEngineClaims({ ...input, scopes: ["superuser", "campaigns:read"] });
-    expect(c.scopes).toEqual(["campaigns:read"]);
+    expect(() => buildEngineClaims({ ...input, scopes: ["superuser", "campaigns:read"] })).toThrow(/scope/);
+    for (const scopes of ["campaigns:read", null, undefined, { length: 1, 0: "campaigns:read" }]) {
+      // @ts-expect-error - runtime guard against a bad caller
+      expect(() => buildEngineClaims({ ...input, scopes })).toThrow(/scope/);
+    }
+  });
+
+  it("requires tenant to be a string (no RegExp coercion)", () => {
+    for (const tenant of [["acme-bio"], null, undefined, 5]) {
+      // @ts-expect-error - runtime guard against a bad caller
+      expect(() => buildEngineClaims({ ...input, tenant })).toThrow(/tenant/);
+    }
+  });
+
+  it("restricts user/session ids to 1-256 printable ASCII without comma or space", () => {
+    for (const bad of ["", "a".repeat(257), "a,b", "a b", "naïve", "a\nb", "a\x7f"]) {
+      expect(() => buildEngineClaims({ ...input, userId: bad })).toThrow(/user id/);
+      expect(() => buildEngineClaims({ ...input, sessionId: bad })).toThrow(/session id/);
+    }
+    expect(buildEngineClaims({ ...input, userId: "a".repeat(256), sessionId: "user|1:x~!" }).sub).toHaveLength(256);
+  });
+
+  it("honours KALOS_ENGINE_JWT_MAX_TTL_S (can only lower the 120 s ceiling)", () => {
+    expect(clampTtl(100, { KALOS_ENGINE_JWT_MAX_TTL_S: "30" })).toBe(30);
+    expect(clampTtl(10, { KALOS_ENGINE_JWT_MAX_TTL_S: "30" })).toBe(10);
+    expect(clampTtl(undefined, { KALOS_ENGINE_JWT_MAX_TTL_S: "30" })).toBe(30);
+    expect(clampTtl(undefined, { KALOS_ENGINE_JWT_MAX_TTL_S: "500" })).toBe(60);
+    expect(clampTtl(500, { KALOS_ENGINE_JWT_MAX_TTL_S: "500" })).toBe(120);
+    for (const bad of ["abc", "0", "-5", "", "1e2"]) expect(clampTtl(500, { KALOS_ENGINE_JWT_MAX_TTL_S: bad })).toBe(120);
   });
 });
 

@@ -473,7 +473,7 @@ function Batch({
         <span>
           Model-generated proposals. Predicted values{band != null ? " and bands" : ""} are the model&apos;s estimates from {plural(d.n, "measured run")}, not results, and this optimizer has not been
           validated against lab outcomes. How well the model ranked held-out runs is on{" "}
-          <Link href="/campaign/learn" className="text-accent underline-offset-4 hover:underline">
+          <Link href="/campaign/learn" className="text-accent underline underline-offset-4">
             Learn
           </Link>
           .

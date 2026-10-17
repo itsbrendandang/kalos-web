@@ -433,7 +433,7 @@ function Batch({
               tone="neutral"
               detail={uncheckedInputs.length ? `The engine returns no range for ${uncheckedInputs.join(", ")}, so ${uncheckedInputs.length === 1 ? "it is" : "they are"} not checked.` : undefined}
             >
-              Edge-of-range checks use the values tried for {checkedInputs.join(" and ")} in the measured runs.
+              {edgeSources(checkedInputs, ranges)}
             </Note>
           ) : uncheckedInputs.length ? (
             <Note tone="neutral">The engine returned no ranges for {uncheckedInputs.join(", ")}, so no edge-of-range checks were run.</Note>
@@ -564,4 +564,15 @@ function useDebounced<T>(value: T, ms: number): T {
     return () => clearTimeout(t);
   }, [value, ms]);
   return v;
+}
+
+/** Which range each checked input is compared with: the engine's `feature_ranges`, or the values tried in the measured runs. */
+function edgeSources(inputs: string[], ranges: ReturnType<typeof observedRanges>): string {
+  const engine = inputs.filter((k) => ranges[k]?.source === "engine");
+  const observed = inputs.filter((k) => ranges[k]?.source === "observed");
+  const parts = [
+    engine.length ? `the engine's range for ${engine.join(" and ")}` : null,
+    observed.length ? `the values tried in the measured runs for ${observed.join(" and ")}` : null,
+  ].filter(Boolean);
+  return `Edge-of-range checks use ${parts.join(", and ")}.`;
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/kit/callout";
 import type { ColumnRolesInput } from "@/lib/api";
+import type { SheetColumn } from "@/lib/sheet-roles";
 
 /**
  * "Did Kalos read your columns right?" Lists every column of the sheet with the
@@ -13,24 +14,23 @@ import type { ColumnRolesInput } from "@/lib/api";
  */
 export function ColumnConfirm({
   columns,
-  inputs,
   target,
   targets,
   busy,
   onConfirm,
   onRefit,
 }: {
-  columns: string[];
-  inputs: string[];
+  columns: SheetColumn[];
   target: string;
   targets: string[];
   busy: boolean;
   onConfirm: () => void;
   onRefit: (roles: ColumnRolesInput) => void;
 }) {
+  const inputs = columns.filter((c) => c.usedAsInput).map((c) => c.name);
   const [picked, setPicked] = useState<Set<string>>(new Set(inputs));
   const [tgt, setTgt] = useState(target);
-  const candidates = columns.filter((c) => c !== tgt);
+  const candidates = columns.filter((c) => c.name !== tgt);
   const changed = tgt !== target || picked.size !== inputs.length || inputs.some((i) => !picked.has(i));
 
   function toggle(c: string) {
@@ -48,7 +48,7 @@ export function ColumnConfirm({
       title="Confirm the columns before you trust this fit"
       action={
         changed ? (
-          <Button size="sm" disabled={busy || picked.size === 0} onClick={() => onRefit({ target: tgt, features: candidates.filter((c) => picked.has(c)) })}>
+          <Button size="sm" disabled={busy || picked.size === 0} onClick={() => onRefit({ target: tgt, features: candidates.map((c) => c.name).filter((c) => picked.has(c)) })}>
             Re-fit with these columns
           </Button>
         ) : (
@@ -78,15 +78,22 @@ export function ColumnConfirm({
           <legend className="text-label text-fg">Inputs Kalos may vary ({picked.size} of {candidates.length} columns)</legend>
           <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
             {candidates.map((c) => (
-              <li key={c}>
+              <li key={c.name}>
                 <label className="flex items-center gap-2 text-body text-fg">
-                  <input type="checkbox" checked={picked.has(c)} onChange={() => toggle(c)} />
-                  <span className="truncate">{c}</span>
+                  <input type="checkbox" checked={picked.has(c.name)} onChange={() => toggle(c.name)} />
+                  <span className="truncate">{c.name}</span>
+                  {c.note ? <span className="shrink-0 text-caption text-fg-muted">({c.note})</span> : null}
                 </label>
               </li>
             ))}
           </ul>
           <p className="text-caption text-fg-muted">Untick IDs, dates, and anything measured after the run (outputs), since those are not settings you can choose.</p>
+          <p className="text-caption text-fg-muted">
+            Column names are the ones the engine read from your sheet. Re-fitting with your own choices uses the engine&apos;s generic column profile, which may skip bioprocess-specific name-based checks and unit conversions.
+          </p>
+          <p className="text-caption text-fg-muted">
+            Advisory only: Kalos has already saved this fit. Confirming here just unlocks this page&apos;s next step, and reloading the page skips it.
+          </p>
         </fieldset>
       </div>
     </Callout>

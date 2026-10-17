@@ -337,6 +337,8 @@ export type ProvenanceEntry = {
   status: string;
   coerced_cells: number;
   non_null: number;
+  /** "inferred" from column names, or "declared" when the caller sent explicit roles. Absent on older engines. */
+  source?: string;
 };
 
 export type AnalyzeResult = Partial<Diagnostics> & {

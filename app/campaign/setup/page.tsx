@@ -39,6 +39,8 @@ export default function SetupPage() {
   // target candidates: after a roles fit the engine lists only the chosen target.
   const [roles, setRoles] = useState<ColumnRolesInput | undefined>(undefined);
   const [candidates, setCandidates] = useState<string[]>([]);
+  // Targets the user moved away from for this file: their old target is not an input, and should not read as a data problem.
+  const [formerTargets, setFormerTargets] = useState<string[]>([]);
   // The user has looked at the detected columns for THIS fit; any re-fit or new upload clears it.
   const [confirmed, setConfirmed] = useState(false);
   const elapsed = useElapsedSeconds(busy);
@@ -49,6 +51,7 @@ export default function SetupPage() {
       setScan(null);
       setRoles(undefined);
       setCandidates([]);
+      setFormerTargets([]);
       void scanSheet(f).then((r) => {
         if (seq === scanSeq.current) setScan(r);
       });
@@ -60,6 +63,8 @@ export default function SetupPage() {
     try {
       const d = await runFile(f, target, nextRoles);
       if (!d.error) {
+        const before = latest.data?.has_data ? latest.data.target : undefined;
+        if (f === file && before && d.target && d.target !== before) setFormerTargets((p) => (p.includes(before) ? p : [...p, before]));
         setRoles(nextRoles);
         setCandidates((prev) => mergeTargets(prev, d.targets ?? [], nextRoles !== undefined));
       }
@@ -82,7 +87,7 @@ export default function SetupPage() {
   }
 
   const analysis = latest.data?.has_data ? latest.data : null;
-  const columns = columnsFromProvenance(analysis?.provenance);
+  const columns = columnsFromProvenance(analysis?.provenance, { sentRoles: roles, formerTargets });
   const targetChoices = candidates.length ? candidates : (analysis?.targets ?? []);
   const report = analysis?.validation;
   const next = campaignStage(latest.data ?? { has_data: false }, campaign.data ?? { has_campaign: false }).next;

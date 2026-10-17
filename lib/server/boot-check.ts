@@ -60,8 +60,17 @@ export function checkEnv(env: Env): BootCheckResult {
       errors.push("KALOS_PUBLIC_URL is not a valid URL");
     }
   }
-  for (const p of (env.AUTH_TRUSTED_PROXIES ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
-    if (!IP_OR_CIDR.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry is not an IP or CIDR: ${JSON.stringify(p)}`);
+  // Rate limiting keys on the client IP: the operator must state how it is
+  // derived. "none" is the explicit, documented override for a deployment
+  // where clients connect directly (no reverse proxy).
+  const proxies = (env.AUTH_TRUSTED_PROXIES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (proxies.length === 0) {
+    errors.push('AUTH_TRUSTED_PROXIES is not set: give the IP/CIDR of your reverse proxy, or "none" if clients connect directly (docs/AUTH.md "Reverse proxy")');
+  } else if (proxies.some((p) => p.toLowerCase() === "none")) {
+    if (proxies.length > 1) errors.push('AUTH_TRUSTED_PROXIES: "none" cannot be combined with addresses');
+    else warnings.push("AUTH_TRUSTED_PROXIES=none: client IPs come from a single-value forwarded header only; make sure nothing in front of the app lets clients set it");
+  } else {
+    for (const p of proxies) if (!IP_OR_CIDR.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry is not an IP or CIDR: ${JSON.stringify(p)}`);
   }
   if (!env.KALOS_TENANT_MAP_FILE?.trim()) warnings.push("KALOS_TENANT_MAP_FILE is not set: every organization resolves to no tenant (403)");
   return { errors, warnings };

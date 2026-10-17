@@ -19,6 +19,7 @@ const good = {
   KALOS_ENGINE_JWT_PRIVATE_KEY_FILE: keyFile,
   KALOS_ENGINE_JWT_KID: "web-prod-1",
   KALOS_TENANT_MAP_FILE: mapFile,
+  AUTH_TRUSTED_PROXIES: "10.0.0.5",
 };
 
 describe("boot check", () => {
@@ -38,6 +39,15 @@ describe("boot check", () => {
     expect(checkEnv({ ...good, BETTER_AUTH_URL: "https://kalos.example.com/app" }).errors.join()).toMatch(/origin/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "10.0.0.0/8, nope" }).errors.join()).toMatch(/AUTH_TRUSTED_PROXIES/);
     expect(JSON.stringify(checkEnv({ ...good, BETTER_AUTH_SECRET: "tooshort" }))).not.toContain("tooshort");
+  });
+  it("requires AUTH_TRUSTED_PROXIES in production; 'none' is the explicit direct-exposure override", () => {
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: undefined }).errors.join()).toMatch(/AUTH_TRUSTED_PROXIES is not set/);
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "" }).errors.join()).toMatch(/AUTH_TRUSTED_PROXIES is not set/);
+    const none = checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none" });
+    expect(none.errors).toEqual([]);
+    expect(none.warnings.join()).toMatch(/AUTH_TRUSTED_PROXIES=none/);
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none,10.0.0.1" }).errors.join()).toMatch(/cannot be combined/);
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "10.0.0.0/8, 192.0.2.10" }).errors).toEqual([]);
   });
   it("loads the engine key and validates the tenant map", async () => {
     expect((await checkProductionBoot({ ...good, KALOS_ENGINE_JWT_PRIVATE_KEY_FILE: path.join(dir, "missing.pem") })).errors.join()).toMatch(/not readable/);

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { CUSTOMERS, getProject as getSeedProject } from "@/app/projects/data";
 import {
@@ -6,8 +7,8 @@ import {
   getProjectWithFallback,
   initialProjectsState,
   projectsReducer,
-  readPersistedState,
-  STORAGE_KEY,
+  clearLegacyPersistedState,
+  LEGACY_STORAGE_KEY,
 } from "@/lib/projects-store";
 
 describe("projectsReducer addCustomer", () => {
@@ -198,17 +199,31 @@ describe("buildProjectReportCsv", () => {
   });
 });
 
-describe("readPersistedState", () => {
-  const storage = (items: Record<string, string>) => ({ getItem: (key: string) => items[key] ?? null });
-  const saved = { customers: [{ id: "c-x", name: "Saved Co", address: "", projects: [] }] };
-
-  it("reads the current key", () => {
-    expect(readPersistedState(storage({ [STORAGE_KEY]: JSON.stringify(saved) }))).toEqual(saved);
+describe("no customer data in localStorage", () => {
+  it("removes the legacy projects-store-v1 key", () => {
+    const items: Record<string, string> = {
+      [LEGACY_STORAGE_KEY]: JSON.stringify({ customers: [{ name: "Real Co" }] }),
+      theme: "dark",
+    };
+    clearLegacyPersistedState({ removeItem: (k: string) => void delete items[k] });
+    expect(items[LEGACY_STORAGE_KEY]).toBeUndefined();
+    expect(items.theme).toBe("dark");
+    expect(LEGACY_STORAGE_KEY).toBe("projects-store-v1");
   });
 
-  it("returns null when nothing usable is stored", () => {
-    expect(readPersistedState(storage({}))).toBeNull();
-    expect(readPersistedState(storage({ [STORAGE_KEY]: "{not json" }))).toBeNull();
-    expect(readPersistedState(storage({ [STORAGE_KEY]: JSON.stringify({ customers: "nope" }) }))).toBeNull();
+  it("tolerates inaccessible storage", () => {
+    expect(() =>
+      clearLegacyPersistedState({
+        removeItem: () => {
+          throw new Error("denied");
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it("store modules never write to storage", () => {
+    for (const f of ["../lib/projects-store.ts", "../components/projects/store-context.tsx"]) {
+      expect(readFileSync(new URL(f, import.meta.url), "utf8")).not.toMatch(/setItem|getItem/);
+    }
   });
 });

@@ -106,7 +106,12 @@ verified in the scratch project and re-checked by
    (`exclusiveMfaAccounting`, in-process; the app is one replica). At most 10
    (user) / 5 (session) attempts reach the verifier however many requests are
    in flight. The earlier read-modify-write let 30 parallel wrong codes all be
-   verified. Regression: `tests/auth-integration/mfa-race.int.ts`.
+   verified. The queue is keyed by user id (other users never wait), every
+   section has a 10 s deadline (`MFA_ACCOUNTING_TIMEOUT_MS`; on expiry the
+   request fails closed with 503 `MFA_ACCOUNTING_TIMEOUT` and the lock is
+   released), and a same-user call from inside its own section runs directly
+   instead of deadlocking. Regression: `tests/auth-integration/mfa-race.int.ts`,
+   `__tests__/mfa-accounting.test.ts` (hung section).
 6. Replay: a TOTP code accepted once for a user is refused for 120 s. The
    code is claimed atomically before verification (released if it fails), so
    two parallel requests cannot both use it. In-memory: correct only because

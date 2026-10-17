@@ -56,7 +56,8 @@ export function lockIfExhausted(
   row: { failedVerificationCount?: number | null; lockedUntil?: Date | string | null } | null | undefined,
   nowMs?: number,
 ): { failedVerificationCount: number; lockedUntil: Date } | null;
-export function exclusiveMfaAccounting<T>(fn: () => T | Promise<T>): Promise<T>;
+export const MFA_ACCOUNTING_TIMEOUT_MS: number;
+export function exclusiveMfaAccounting<T>(key: string, fn: () => T | Promise<T>, opts?: { timeoutMs?: number }): Promise<T>;
 
 export interface MakeAuthOptions {
   database: unknown;

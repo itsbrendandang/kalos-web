@@ -140,6 +140,32 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect(res.status).toBe(404);
   });
 
+  it.each([
+    ["dot-dot", ["api", "run", "..", "..", "admin"]],
+    ["single dot", ["api", "run", ".", "x"]],
+    ["empty segment", ["api", "run", "", "x"]],
+    ["encoded slash", ["api", "run", "..%2f..%2fadmin"]],
+    ["decoded slash", ["api", "run", "a/b"]],
+    ["backslash", ["api", "run", "a\\b"]],
+    ["query injection", ["api", "run", "x?a=b"]],
+    ["fragment injection", ["api", "run", "x#y"]],
+    ["percent escape", ["api", "run", "%2e%2e"]],
+    ["control character", ["api", "run", "a\nb"]],
+  ])("rejects traversal / injection segments (%s) without calling the engine", async (_name, path) => {
+    const res = await GET(req("http://localhost:3000/api/engine/api/run/x"), ctx(path));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(404);
+  });
+
+  it("still forwards ordinary nested allowlisted paths unchanged", async () => {
+    fetchMock.mockResolvedValueOnce(engineResponse(200, { ok: true }));
+
+    await GET(req("http://localhost:3000/api/engine/api/run/abc-123_x.y"), ctx(["api", "run", "abc-123_x.y"]));
+
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe("http://engine.internal:8050/api/run/abc-123_x.y");
+  });
+
   it("forwards POST /api/scale/readout (the Scale-Up Readout upload)", async () => {
     fetchMock.mockResolvedValueOnce(engineResponse(200, "<html></html>", "text/html"));
     const fd = new FormData();

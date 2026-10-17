@@ -63,7 +63,16 @@ function maxBodyBytes(): number {
 const bodyTooLarge = (cap: number) =>
   NextResponse.json({ error: `request body exceeds the ${Math.floor((cap - MULTIPART_HEADROOM_BYTES) / 1024 / 1024)} MB upload limit` }, { status: 413 });
 
+// A segment that could change the path the engine sees once the URL is parsed:
+// empty, "." / "..", or a separator / query / fragment / escape / control character.
+// Next decodes each catch-all segment, so "%2e%2e" and "%2f" arrive here decoded and
+// would otherwise slip past the prefix check below and be normalised by the engine URL.
+function isSafeSegment(seg: string): boolean {
+  return seg !== "" && seg !== "." && seg !== ".." && !/[\\/?#%\u0000-\u001f\u007f]/.test(seg);
+}
+
 function isAllowedPath(segments: string[]): boolean {
+  if (!segments.every(isSafeSegment)) return false;
   const joined = segments.join("/");
   return ALLOWED_PATH_PREFIXES.some((prefix) => joined === prefix || joined.startsWith(`${prefix}/`));
 }
@@ -85,7 +94,7 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
     return NextResponse.json({ error: "engine unreachable: KALOS_ENGINE_URL is not configured" }, { status: 502 });
   }
 
-  const url = `${base}/${segments.join("/")}${req.nextUrl.search}`;
+  const url = `${base}/${segments.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
 
   // Forward only what the engine needs to interpret the body correctly
   // (content-type, including a multipart boundary) plus the server-only

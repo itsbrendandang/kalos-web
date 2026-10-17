@@ -4,9 +4,10 @@
 // at most MFA_MAX_FAILURES_PER_USER (per user) / MFA_MAX_FAILURES_PER_SESSION
 // (per session) reach the verifier.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { client, enrolTotp, freshAuth, googleSignIn, interceptGoogle, makeSigner } from "./helpers.mjs";
+import { client, enrolTotp, freshAuth, googleSignIn, interceptGoogle, makeSigner, totpNow } from "./helpers.mjs";
 import { createOrg } from "../../scripts/create-org.mjs";
 import { MFA_MAX_FAILURES_PER_SESSION, MFA_MAX_FAILURES_PER_USER } from "@/lib/server/auth-config.mjs";
+import { serializeSignedCookie } from "better-call";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let claims: Record<string, unknown> = {};
@@ -77,5 +78,45 @@ describe("B-3: parallel wrong codes cannot exceed the caps", () => {
     expect(reached).toBeGreaterThanOrEqual(1);
     const row = env.db.prepare("SELECT s.id FROM session s JOIN user u ON u.id = s.userId WHERE u.email = ?").all(email);
     expect(row.length).toBe(1); // only the owner's (already elevated) session survives
+  });
+});
+
+describe("I5: session-less verification (two_factor challenge cookie) is counted too", () => {
+  // A challenge cookie + verification row stand in for a sign-in that did not
+  // create a session (Better Auth's two-factor challenge). Kalos disables the
+  // password sign-in that normally creates one, so this is defence in depth.
+  async function challengeCookie(userId: string) {
+    const ctx = await env.auth.$context;
+    const identifier = `2fa-${Math.random().toString(36).slice(2)}${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 600_000);
+    await ctx.internalAdapter.createVerificationValue({ value: userId, identifier, expiresAt });
+    await ctx.internalAdapter.createVerificationValue({ value: "0", identifier: `2fa-attempts-${identifier}`, expiresAt });
+    const name = ctx.createAuthCookie("two_factor").name;
+    const header = (await serializeSignedCookie(name, identifier, ctx.secret)).split(";")[0];
+    return { name, value: header.slice(header.indexOf("=") + 1) };
+  }
+  async function sessionless(userId: string, code: string) {
+    const c = client(env.auth);
+    const ch = await challengeCookie(userId);
+    c.jar.set(ch.name, ch.value);
+    return c.req("/two-factor/verify-totp", { method: "POST", body: { code } });
+  }
+
+  it(`${PARALLEL} parallel wrong codes without a session -> at most ${MFA_MAX_FAILURES_PER_USER} reach the verifier, then the user is locked`, async () => {
+    const email = "race-challenge@example.com";
+    invite(email);
+    const owner = await halfSession(email);
+    const enrolled = await enrolTotp(owner);
+    const userId = env.db.prepare("SELECT id FROM user WHERE email = ?").get(email).id;
+
+    const res = await Promise.all(Array.from({ length: PARALLEL }, (_, i) => sessionless(userId, String(300000 + i * 11).padStart(6, "0"))));
+    const reached = res.filter(reachedVerifier).length;
+    expect(reached, JSON.stringify(res.map((r) => [r.status, r.json?.code]))).toBeLessThanOrEqual(MFA_MAX_FAILURES_PER_USER);
+    expect(reached + res.filter((r) => r.status === 429).length).toBe(PARALLEL);
+
+    // the lock holds for the CORRECT code too
+    const after = await sessionless(userId, await totpNow(enrolled.totpURI));
+    expect(after.status).toBe(429);
+    expect(after.json?.code).toBe("TWO_FACTOR_LOCKED");
   });
 });

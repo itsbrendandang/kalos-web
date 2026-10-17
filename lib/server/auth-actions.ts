@@ -90,3 +90,59 @@ export async function revokeOtherSessionsAction(): Promise<void> {
   await getAuth().api.revokeOtherSessions({ headers: await reqHeaders() });
   redirect("/settings/security?revoked=others");
 }
+
+// --- Organization admin (owner/admin only; org from the member table) -------
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function requireOrgAdmin() {
+  const st = await resolveSession();
+  if (st.status !== "ok") redirect("/sign-in");
+  if (!st.context.permissions?.includes("org:admin")) redirect("/settings/organization?error=forbidden");
+  return st;
+}
+
+export async function inviteMemberAction(formData: FormData): Promise<void> {
+  const st = await requireOrgAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const role = String(formData.get("role") ?? "");
+  const allowed = st.context.roles?.includes("owner") ? ["viewer", "member", "admin", "owner"] : ["viewer", "member", "admin"];
+  if (!EMAIL.test(email) || email.length > 254 || !allowed.includes(role)) redirect("/settings/organization?error=invalid");
+  let id: string | null = null;
+  try {
+    const inv = (await getAuth().api.createInvitation({
+      headers: await reqHeaders(),
+      body: { email, role: role as "viewer" | "member" | "admin" | "owner", organizationId: st.context.orgId },
+    })) as { id?: string };
+    id = inv?.id ?? null;
+  } catch {
+    id = null;
+  }
+  redirect(id ? `/settings/organization?invited=${encodeURIComponent(id)}` : "/settings/organization?error=invite_failed");
+}
+
+export async function cancelInvitationAction(formData: FormData): Promise<void> {
+  await requireOrgAdmin();
+  const id = String(formData.get("invitationId") ?? "");
+  if (ID.test(id)) {
+    try {
+      await getAuth().api.cancelInvitation({ headers: await reqHeaders(), body: { invitationId: id } });
+    } catch {
+      // Better Auth checks the invitation belongs to an org the caller administers
+    }
+  }
+  redirect("/settings/organization");
+}
+
+export async function removeMemberAction(formData: FormData): Promise<void> {
+  const st = await requireOrgAdmin();
+  const memberId = String(formData.get("memberId") ?? "");
+  if (ID.test(memberId)) {
+    try {
+      await getAuth().api.removeMember({ headers: await reqHeaders(), body: { memberIdOrEmail: memberId, organizationId: st.context.orgId } });
+    } catch {
+      redirect("/settings/organization?error=remove_failed");
+    }
+  }
+  redirect("/settings/organization");
+}

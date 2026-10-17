@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Ellipsis, Keyboard, LogOut, Settings, ShieldCheck } from "lucide-react";
+import { Ellipsis, Keyboard, LogOut, Settings, ShieldCheck, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -31,7 +31,7 @@ const SHORTCUTS: [keys: string, what: string][] = [
 
 /**
  * The workspace menu: Theme, Settings, Security (two-step sign-in, sessions),
- * Keyboard shortcuts and Sign out (a POST server action, never a GET link).
+ * Members (invitations), Keyboard shortcuts and Sign out (a POST server action, never a GET link).
  */
 export function WorkspaceMenu({ side = "right", className }: { side?: "right" | "bottom"; className?: string }) {
   const router = useRouter();
@@ -64,6 +64,10 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
           <DropdownMenuItem onClick={() => router.push("/settings/security")}>
             <ShieldCheck aria-hidden />
             Security
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/settings/organization")}>
+            <Users aria-hidden />
+            Members
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setShortcuts(true)}>
             <Keyboard aria-hidden />

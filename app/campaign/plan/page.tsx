@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { CircleAlert, FileWarning, Info, TriangleAlert } from "lucide-react";
 import { orderBatch, targetIsNonNegative } from "@/components/campaign/plan-batch";
@@ -18,6 +18,8 @@ import {
   observedRanges,
   recipeFlags,
   recipeKeys,
+  activeRejection,
+  BAND_CAVEAT,
   rejectionCopy,
   stripDomain,
   toggleCompare,
@@ -74,8 +76,8 @@ export default function PlanPage() {
     return (
       <Page>
         <PlanHeader />
-        {rejection ? (
-          <RejectedUpload rejection={rejection} />
+        {activeRejection(rejection, null) ? (
+          <RejectedUpload rejection={activeRejection(rejection, null)!} />
         ) : (
           <EmptyState
             title="No proposals yet"
@@ -106,7 +108,7 @@ export default function PlanPage() {
       d={d}
       round={round}
       stageDetail={stage.steps.find((s) => s.key === "plan")?.detail ?? ""}
-      rejection={rejection}
+      rejection={activeRejection(rejection, d.dataset)}
       onKeepPrevious={() => setRejection(null)}
     />
   );
@@ -225,6 +227,9 @@ function Batch({
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [approving, setApproving] = useState(false);
   const compareRef = useRef<HTMLHeadingElement>(null);
+  // Set once the engine confirmed a start. If the campaign refresh after it failed, the page would still show
+  // this batch; keeping Start disabled here prevents starting the same runs twice.
+  const [startedHere, setStartedHere] = useState(false);
 
   const name = targetName(d.target);
   const unit = parseUnit(d.target);
@@ -272,8 +277,17 @@ function Batch({
   const compared = compare.map((rank) => rows.find((r) => r.item.rank === rank)).filter((r): r is PlanRow => r != null);
   const grouped = groupFlags(rows.map((r) => ({ rank: r.item.rank, flags: r.flags })));
   const blocked = rejection != null;
-  const canStart = chosen.length > 0 && !blocked;
-  const startHint = blocked ? "Resolve the upload note first" : chosen.length === 0 ? "Select at least one proposal to run" : null;
+  const canStart = chosen.length > 0 && !blocked && !startedHere;
+  const startHint = startedHere
+    ? "Runs started; check Run before starting more"
+    : blocked
+      ? "Choose an option in the upload note first"
+      : chosen.length === 0
+        ? "Select at least one proposal to run"
+        : null;
+  // Announce selection changes once the user pauses, not on every tick.
+  const selectionText = `${formatNumber(chosen.length, "count")} of ${formatNumber(rows.length, "count")} selected to run${compare.length ? `, ${formatNumber(compare.length, "count")} in comparison` : ""}`;
+  const announced = useDebounced(selectionText, 600);
 
   const toggleSet = (set: (f: (prev: Set<number>) => Set<number>) => void, key: number) =>
     set((prev) => {
@@ -298,6 +312,7 @@ function Batch({
       await startRuns(
         chosen.map(({ item: { proposal: p } }) => ({ recipe: proposalRecipe(p, d.proposal_features), pred: p.pred, std: p.std, mode: p.mode, reason: p.reason })),
       );
+      setStartedHere(true);
       return true;
     } catch {
       return false;
@@ -349,7 +364,7 @@ function Batch({
       {rejection ? (
         <Callout
           tone="warn"
-          title={`These proposals are from ${d.dataset}, not ${rejection.name}`}
+          title={`Your last upload, ${rejection.name}, was not used`}
           action={
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={onKeepPrevious}>
@@ -361,8 +376,18 @@ function Batch({
             </div>
           }
         >
-          {rejectionCopy(rejection).body} Starting is paused until you choose.
+          {rejectionCopy(rejection).body} The proposals below are still from {d.dataset}. Choose whether to keep planning from it.
         </Callout>
+      ) : null}
+
+      {startedHere ? (
+        <Verdict tone="good">
+          Runs started. If this page has not switched to the runs in flight, check{" "}
+          <Link href="/campaign/run" className="text-accent underline underline-offset-4">
+            Run
+          </Link>{" "}
+          before starting anything again.
+        </Verdict>
       ) : null}
 
       <section aria-label="Batch summary">
@@ -373,7 +398,7 @@ function Batch({
           <SummaryCell label={`Best ${name}`} caption={incumbent != null ? ctx.incumbentLabel : "no reproducible best for this fit"}>
             {incumbent != null ? <MeasuredValue value={formatNumber(incumbent)} unit={unit || undefined} className="text-title" /> : <span className="text-heading text-fg-muted">n/a</span>}
           </SummaryCell>
-          <SummaryCell label="Prediction band" caption={band != null ? `${bandLabel(d.conformal_coverage)}, same width for every proposal` : "the engine did not report one"}>
+          <SummaryCell label="Prediction band" caption={band != null ? `${bandLabel(d.conformal_coverage)}, same width for every proposal. ${BAND_CAVEAT}` : "the engine did not report one"}>
             <span className={cn("tabular-nums", band != null ? "text-title" : "text-heading text-fg-muted")}>{band != null ? `± ${formatNumber(band)}` : "Not reported"}</span>
           </SummaryCell>
           <SummaryCell
@@ -438,14 +463,24 @@ function Batch({
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-y border-border py-2">
-              <p className="text-label text-fg" aria-live="polite">
+              <p className="text-label text-fg">
                 {formatNumber(chosen.length, "count")} of {formatNumber(rows.length, "count")} selected to run
                 {compare.length ? <span className="text-fg-muted">, {formatNumber(compare.length, "count")} in comparison</span> : null}
               </p>
+              <span className="sr-only" aria-live="polite">
+                {announced}
+              </span>
               <div className="flex flex-wrap items-center gap-2">
                 {compare.length === 1 ? <span className="text-caption text-fg-muted">Select one more to compare</span> : null}
                 {compared.length >= COMPARE_MIN ? (
-                  <Button variant="outline" size="sm" onClick={() => compareRef.current?.focus()}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      compareRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+                      compareRef.current?.focus({ preventScroll: true });
+                    }}
+                  >
                     Go to comparison
                   </Button>
                 ) : null}
@@ -518,4 +553,14 @@ function Note({ tone, children, detail }: { tone: Tone; children: ReactNode; det
       </span>
     </li>
   );
+}
+
+/** `value`, but only after it has stopped changing for `ms`. */
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
 }

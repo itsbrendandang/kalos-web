@@ -395,7 +395,7 @@ function Batch({
               <span className="font-medium">{g.ranks.map((r) => `P${r}`).join(", ")}</span>: {g.label}.
             </Note>
           ))}
-          {grouped.length === 0 && rows.length > 0 ? <Note tone="good">No proposal triggered a check.</Note> : null}
+          {grouped.length === 0 && rows.length > 0 ? <Note tone="good">No proposal was flagged by the checks that could run.</Note> : null}
           {diversity ? (
             <Note tone={diversity.short ? "warn" : "neutral"} detail={diversity.notes.join(" ")}>
               {diversity.headline}
@@ -403,16 +403,17 @@ function Batch({
           ) : (
             <Note tone="neutral">The engine did not report how distinct this batch is.</Note>
           )}
-          {checkedInputs.length || uncheckedInputs.length ? (
+          {checkedInputs.length ? (
             <Note
               tone="neutral"
               detail={uncheckedInputs.length ? `The engine returns no range for ${uncheckedInputs.join(", ")}, so ${uncheckedInputs.length === 1 ? "it is" : "they are"} not checked.` : undefined}
             >
-              {checkedInputs.length
-                ? `Edge-of-range checks use the values tried for ${checkedInputs.join(" and ")} in the measured runs.`
-                : "No input has a known range, so no edge-of-range checks were run."}
+              Edge-of-range checks use the values tried for {checkedInputs.join(" and ")} in the measured runs.
             </Note>
+          ) : uncheckedInputs.length ? (
+            <Note tone="neutral">The engine returned no ranges for {uncheckedInputs.join(", ")}, so no edge-of-range checks were run.</Note>
           ) : null}
+          {band == null && rows.length > 0 ? <Note tone="neutral">The engine reported no prediction band, so predicted gains are shown without an interval and not checked against one.</Note> : null}
           {constraint ? <Note tone="neutral">{constraint}</Note> : null}
           {boxNote ? <Note tone="neutral">{boxNote}</Note> : null}
         </ul>
@@ -470,7 +471,7 @@ function Batch({
       <p className="flex items-start gap-2 text-caption text-fg-muted">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         <span>
-          Model-generated proposals. Predicted values and bands are the model&apos;s estimates from {plural(d.n, "measured run")}, not results, and this optimizer has not been
+          Model-generated proposals. Predicted values{band != null ? " and bands" : ""} are the model&apos;s estimates from {plural(d.n, "measured run")}, not results, and this optimizer has not been
           validated against lab outcomes. How well the model ranked held-out runs is on{" "}
           <Link href="/campaign/learn" className="text-accent underline-offset-4 hover:underline">
             Learn

@@ -21,6 +21,9 @@ export const REQUIRED_IN_PRODUCTION = [
 const PLACEHOLDER = /change[-_ ]?me|replace[-_ ]?me|placeholder|^<.*>$|^x+$|your[-_]/i;
 const IP_OR_CIDR = /^(?:\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?|[0-9a-f:]+(?:\/\d{1,3})?)$/i;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+/** Second, explicit override for AUTH_TRUSTED_PROXIES=none (production). */
+export const NO_PROXY_OVERRIDE = "AUTH_ACCEPT_NO_PROXY";
+const NO_PROXY_ACCEPTED = (env: Env) => ["1", "true"].includes((env[NO_PROXY_OVERRIDE] ?? "").trim().toLowerCase());
 
 export interface BootCheckResult {
   errors: string[];
@@ -68,7 +71,9 @@ export function checkEnv(env: Env): BootCheckResult {
     errors.push('AUTH_TRUSTED_PROXIES is not set: give the IP/CIDR of your reverse proxy, or "none" if clients connect directly (docs/AUTH.md "Reverse proxy")');
   } else if (proxies.some((p) => p.toLowerCase() === "none")) {
     if (proxies.length > 1) errors.push('AUTH_TRUSTED_PROXIES: "none" cannot be combined with addresses');
-    else warnings.push("AUTH_TRUSTED_PROXIES=none: client IPs come from a single-value forwarded header only; make sure nothing in front of the app lets clients set it");
+    else if (!NO_PROXY_ACCEPTED(env)) {
+      errors.push('AUTH_TRUSTED_PROXIES=none is refused: without a reverse proxy the client IP cannot be trusted, so rate limits become one shared bucket per path. Put a proxy in front, or set AUTH_ACCEPT_NO_PROXY=1 to accept this (docs/AUTH.md "Reverse proxy")');
+    } else warnings.push("AUTH_TRUSTED_PROXIES=none (AUTH_ACCEPT_NO_PROXY=1): forwarded headers are ignored; rate limits share one bucket per path");
   } else {
     for (const p of proxies) if (!IP_OR_CIDR.test(p)) errors.push(`AUTH_TRUSTED_PROXIES entry is not an IP or CIDR: ${JSON.stringify(p)}`);
   }

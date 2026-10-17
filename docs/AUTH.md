@@ -224,7 +224,8 @@ All documented with placeholders in `env.example`.
 | `KALOS_PUBLIC_URL` | no | Origin in printed invite links; defaults to `BETTER_AUTH_URL`. |
 | `AUTH_DB_PATH` | no | Default `./data/auth.db`; `/data/auth.db` in the image. |
 | `AUTH_MIGRATE` | no | `1` migrate+serve, `only` migrate+exit, `sql` print SQL+exit. |
-| `AUTH_TRUSTED_PROXIES` | yes | Proxy IP/CIDR list, or `none` (explicit: no reverse proxy). See "Reverse proxy". |
+| `AUTH_TRUSTED_PROXIES` | yes | Proxy IP/CIDR list. `none` (no reverse proxy) is **refused** in production unless `AUTH_ACCEPT_NO_PROXY=1` is also set. See "Reverse proxy". |
+| `AUTH_ACCEPT_NO_PROXY` | no | `1` or `true`: second, explicit acceptance of `AUTH_TRUSTED_PROXIES=none`. |
 | `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
 
 Boot check (production only, `lib/server/boot-check.ts`): missing or
@@ -239,12 +240,22 @@ it, and no auth bypass flag exists: tests replace the auth module with
 Rate limiting keys on the client IP. `AUTH_TRUSTED_PROXIES` is **required in
 production** (the boot check exits 1 without it). Set it to the exact IP/CIDR
 of your proxy (not a broad private range) and make the proxy **overwrite**
-`X-Forwarded-For` (or set `AUTH_IP_ADDRESS_HEADERS=x-real-ip`). The documented
-override `AUTH_TRUSTED_PROXIES=none` states that clients connect directly:
-Better Auth then trusts only a single-value header - which a client can spoof
-unless something in front overwrites it - and multi-hop values resolve to no
-IP (one shared bucket); the boot check logs a warning. Rate-limit state is stored in the
-database (`rateLimit` table).
+`X-Forwarded-For` (or set `AUTH_IP_ADDRESS_HEADERS=x-real-ip`).
+
+Without a trusted proxy, forwarded headers are **ignored**
+(`advanced.ipAddress.ipAddressHeaders = []`): Better Auth would otherwise
+trust any single `X-Forwarded-For`, and a client could rotate it to get a fresh
+rate-limit bucket on every request (B-2). Ignored headers mean every request
+shares ONE bucket per path (Better Auth's `no-trusted-ip` key): the limit cannot
+be evaded, but it is shared by all clients. `disableIpTracking` is deliberately
+not used, because it switches rate limiting off. `ipv6Subnet: 64` buckets an
+IPv6 client by its /64.
+
+`AUTH_TRUSTED_PROXIES=none` says "clients connect directly". The boot check
+**refuses it in production** unless `AUTH_ACCEPT_NO_PROXY=1` is also set
+(then it logs a warning). Use it only for a deployment with no proxy at all.
+Trusting `0.0.0.0/0` or `::/0` is not a proxy list and is refused as well.
+Rate-limit state is stored in the database (`rateLimit` table).
 
 ## Running it locally
 

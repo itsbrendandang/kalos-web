@@ -64,4 +64,9 @@ export interface MakeAuthOptions {
 export type KalosAuth = ReturnType<typeof betterAuth>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function makeAuth(o: MakeAuthOptions): any;
+export function ipAddressOptions(o?: { trustedProxies?: string[]; ipAddressHeaders?: string[] }): {
+  ipAddressHeaders: string[];
+  trustedProxies?: string[];
+  ipv6Subnet: number;
+};
 export function authOptionsFromEnv(env?: Record<string, string | undefined>): Omit<MakeAuthOptions, "database">;

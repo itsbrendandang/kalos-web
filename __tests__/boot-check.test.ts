@@ -43,7 +43,9 @@ describe("boot check", () => {
   it("requires AUTH_TRUSTED_PROXIES in production; 'none' is the explicit direct-exposure override", () => {
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: undefined }).errors.join()).toMatch(/AUTH_TRUSTED_PROXIES is not set/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "" }).errors.join()).toMatch(/AUTH_TRUSTED_PROXIES is not set/);
-    const none = checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none" });
+    // B-2: "none" is refused unless the second, explicit override is set
+    expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none" }).errors.join()).toMatch(/AUTH_TRUSTED_PROXIES=none is refused/);
+    const none = checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none", AUTH_ACCEPT_NO_PROXY: "1" });
     expect(none.errors).toEqual([]);
     expect(none.warnings.join()).toMatch(/AUTH_TRUSTED_PROXIES=none/);
     expect(checkEnv({ ...good, AUTH_TRUSTED_PROXIES: "none,10.0.0.1" }).errors.join()).toMatch(/cannot be combined/);

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Callout } from "@/components/kit/callout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { safeNextPath } from "@/lib/auth-routes";
 
 async function post(path: string, body: unknown): Promise<{ ok: boolean; status: number; data: Record<string, unknown> | null }> {
   const res = await fetch(`/api/auth${path}`, {
@@ -23,9 +24,13 @@ function errorText(status: number, data: Record<string, unknown> | null): string
   return "That code is not right. Check your authenticator app and try again.";
 }
 
-/** Full reload so the root layout re-resolves the (now MFA-verified) session. */
+/**
+ * Full reload so the root layout re-resolves the (now MFA-verified) session.
+ * `next` was already sanitised server-side (safeNextPath); re-checked here so
+ * this sink can never navigate off-site.
+ */
 function go(next: string) {
-  window.location.assign(next);
+  window.location.assign(safeNextPath(next));
 }
 
 function CodeForm({ label, onSubmit, busy, backup }: { label: string; onSubmit: (code: string) => void; busy: boolean; backup?: boolean }) {

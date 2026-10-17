@@ -1,6 +1,7 @@
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { classifyRoute, isSessionFlowPage, proxyDecision, safeNextPath } from "@/lib/auth-routes";
+import { classifyRoute, isSafeRelativePath, isSessionFlowPage, proxyDecision, PUBLIC_FILES, safeNextPath } from "@/lib/auth-routes";
 import { proxy, config } from "@/proxy";
 
 describe("classifyRoute", () => {
@@ -15,7 +16,32 @@ describe("classifyRoute", () => {
     ["/file.svg", "public"],
     ["/favicon.ico", "public"],
     ["/_next/static/chunks/a.js", "public"],
+    ["/_next/image", "public"],
+    ["/api/health/", "public"],
   ])("%s -> %s", (p, kind) => expect(classifyRoute(p)).toBe(kind));
+
+  // Review probes (probe3): no prefix/pattern may widen the public set.
+  it.each([
+    ["/_next/imagex", "page"],
+    ["/_next/image/../../settings", "page"],
+    ["/_next/static/../settings", "page"],
+    ["/api.svg", "page"],
+    ["/x.svg", "page"],
+    ["/robots.txt", "page"],
+    ["/api/auth/../engine", "api"],
+    ["/api/auth/./x", "api"],
+    ["/api/auth%2f..%2fengine/x", "api"],
+    ["/api//auth/x", "api"],
+    ["/accept-invite/%2e%2e", "page"],
+    ["/sign-in/x", "page"],
+    ["/API/engine", "page"],
+    ["/api/health.json", "api"],
+  ])("tightened: %s -> %s", (p, kind) => expect(classifyRoute(p)).toBe(kind));
+
+  it("PUBLIC_FILES is exactly public/ plus the favicon", () => {
+    const files = readdirSync(new URL("../public", import.meta.url)).map((f) => `/${f}`);
+    expect([...PUBLIC_FILES].sort()).toEqual([...files, "/favicon.ico"].sort());
+  });
 
   it.each([
     ["/api/engine/campaigns", "api"],
@@ -52,6 +78,32 @@ describe("safeNextPath", () => {
     "rejects %s",
     (raw) => expect(safeNextPath(raw)).toBe("/"),
   );
+  // B1 (open redirect): URL normalisation used to turn these into "//evil.com".
+  it.each([
+    "/.//evil.com",
+    "/..//evil.com",
+    "/..//evil.com/x",
+    "/a/..//evil.com",
+    "/%2e%2e//evil.com",
+    "/..%2f/evil.com",
+    "/../\\evil",
+    "/./\\evil",
+    "/%2F%2Fevil.com",
+    "/%5Cevil",
+    "/\tevil",
+    "/ /evil.com",
+  ])("B1: rejects %s", (raw) => {
+    const out = safeNextPath(raw);
+    expect(out).toBe("/");
+    expect(isSafeRelativePath(out)).toBe(true);
+  });
+  it("never returns a protocol-relative or backslash path for any input", () => {
+    const parts = ["/", "//", ".", "..", "%2e", "%2f", "\\", "evil.com", "a", "?", "#"];
+    for (const a of parts) for (const b of parts) for (const c of parts) {
+      const out = safeNextPath(`/${a}${b}${c}`);
+      expect(out.startsWith("/") && !out.startsWith("//") && !out.includes("\\"), JSON.stringify([a, b, c, out])).toBe(true);
+    }
+  });
 });
 
 describe("proxyDecision", () => {

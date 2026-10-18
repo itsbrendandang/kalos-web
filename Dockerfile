@@ -30,24 +30,17 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # NEXT_PUBLIC_* variables are inlined into the client JS bundle AT BUILD
-# TIME by the Next.js compiler - they are not read from the environment when
-# the container starts. lib/api.ts reads `process.env.NEXT_PUBLIC_API_URL`
-# from "use client" code (every page under app/ that calls the engine is a
-# client component - confirmed 2026-08-25), i.e. the BROWSER calls the engine
-# directly, not this Next.js server. That has two consequences worth being
-# explicit about:
-#   1. The engine's externally-reachable URL (host + port the *browser* can
-#      reach, not a Docker-internal service name) has to be known and stable
-#      BEFORE this image is built.
-#   2. Changing that URL later means rebuilding this image
-#      (`docker compose build web`), not just restarting the container with a
-#      new environment variable - a runtime env change has no effect on an
-#      already-built NEXT_PUBLIC_* value. See kalos-engine's deploy/RUNBOOK.md,
-#      "Changing the engine URL".
-ARG NEXT_PUBLIC_API_URL
+# TIME, not read when the container starts. The production image deliberately
+# accepts NO build arg for the engine URL: the browser always calls the
+# same-origin /api/engine proxy (app/api/engine/[...path]/route.ts), which
+# runs server-side, attaches KALOS_ENGINE_TOKEN and forwards to the engine at
+# KALOS_ENGINE_URL. That URL and token are RUNTIME environment variables on
+# the `web` container, so changing the engine address needs a container
+# restart, not an image rebuild. Baking NEXT_PUBLIC_API_URL into the image
+# would route browsers around the proxy and its token. (Local dev can still
+# set it outside Docker; see env.example.)
 ARG NEXT_PUBLIC_DEMO_MODE=""
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
-    NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE} \
+ENV NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE} \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

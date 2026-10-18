@@ -494,12 +494,57 @@ export const runMulti = (): Promise<MultiRun> =>
     return r.json();
   });
 
-export async function runFile(file: File, target?: string): Promise<AnalyzeResult> {
+/**
+ * The engine refused an upload because the campaign still has awaiting or
+ * measured runs (HTTP 409, code `campaign_has_runs`). Nothing was replaced.
+ * The caller asks the user, then resends the same file with `replace: true`.
+ * Counts are null when the body did not carry them.
+ */
+export class CampaignHasRunsError extends Error {
+  readonly code = "campaign_has_runs";
+  constructor(
+    readonly awaiting: number | null,
+    readonly measured: number | null,
+  ) {
+    super("campaign_has_runs");
+    this.name = "CampaignHasRunsError";
+  }
+}
+
+const countField = (body: Record<string, unknown>, ...keys: string[]): number | null => {
+  for (const k of keys) {
+    const v = body[k];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
+  }
+  return null;
+};
+
+/**
+ * Typed refusal for a 409 `campaign_has_runs` body, or null for any other
+ * response. Accepts the code under `code` or `error`, and the counts as
+ * `awaiting`/`measured` or `n_awaiting`/`n_measured`.
+ */
+export function campaignHasRunsRefusal(status: number, body: unknown): CampaignHasRunsError | null {
+  if (status !== 409 || typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+  if (b.code !== "campaign_has_runs" && b.error !== "campaign_has_runs") return null;
+  return new CampaignHasRunsError(countField(b, "awaiting", "n_awaiting"), countField(b, "measured", "n_measured"));
+}
+
+/**
+ * POST /api/run. `replace: true` sends the form field `replace=true`, which
+ * the engine requires to overwrite a campaign that has awaiting or measured
+ * runs; without it that case throws CampaignHasRunsError.
+ */
+export async function runFile(file: File, target?: string, opts: { replace?: boolean } = {}): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
+  if (opts.replace) fd.append("replace", "true");
   return fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() }).then(async (r) => {
     const d = (await r.json()) as AnalyzeResult;
+    const refusal = campaignHasRunsRefusal(r.status, d);
+    if (refusal) throw refusal;
     // A 400 with the documented { error } body is an expected "bad upload"
     // response the caller renders inline (see analyze/page.tsx) - not a
     // failure to throw on. Any other non-ok response (5xx, or a 4xx without

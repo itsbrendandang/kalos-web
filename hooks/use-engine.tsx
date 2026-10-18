@@ -105,7 +105,7 @@ export function useCampaign(): EngineResource<Campaign> {
  *
  *   const { runFile, startRuns, logResult, reanalyze } = useEngineWrites();
  *
- *   runFile(file, target?)  -> AnalyzeResult   (same contract as lib/api runFile; refreshes latest + campaign unless the engine rejected the upload)
+ *   runFile(file, target?, { replace? }) -> AnalyzeResult   (same contract as lib/api runFile; refreshes latest + campaign unless the engine rejected the upload; throws CampaignHasRunsError on a 409)
  *   startRuns(recipes)      -> void            (refreshes campaign)
  *   logResult(id, value)    -> void            (refreshes campaign)
  *   reanalyze()             -> { analysis, campaign }  (sets campaign from the response, refreshes latest)
@@ -119,8 +119,8 @@ export function useEngineWrites() {
   const { refresh: refreshCampaign, set: setCampaign } = campaign;
 
   const runFile = useCallback(
-    async (file: File, target?: string) => {
-      const d = await api.runFile(file, target);
+    async (file: File, target?: string, opts?: { replace?: boolean }) => {
+      const d = await api.runFile(file, target, opts);
       if (!d.error) await Promise.all([refreshLatest(), refreshCampaign()]);
       return d;
     },

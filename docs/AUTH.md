@@ -106,7 +106,13 @@ verified in the scratch project and re-checked by
    (`exclusiveMfaAccounting`, in-process; the app is one replica). At most 10
    (user) / 5 (session) attempts reach the verifier however many requests are
    in flight. The earlier read-modify-write let 30 parallel wrong codes all be
-   verified. Attempts are counted whether or not a session is present: with no
+   verified. Every counter write is a guarded atomic SQL increment or clear
+   (`UPDATE ... SET n = n + 1 WHERE n < MAX`, `reserveUserAttempt`,
+   `lockIfExhausted`, `resetUserAttempts`, the session `mfaFailures` bump), never
+   a value read earlier. A section that overran its deadline keeps running; its
+   late write can add at most one attempt within the budget, or do nothing, so it
+   cannot reset the count or lift a lock set after it timed out (M-3; regression
+   `mfa-race.int.ts`, "a late write from a timed-out section"). Attempts are counted whether or not a session is present: with no
    session, the attempt is charged to the user of the `two_factor` challenge
    cookie (per-user counter only; there is no session to count against).
    Better Auth's own `accountLockout` is **disabled** (`twoFactor({ accountLockout: { enabled: false } })`):

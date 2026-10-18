@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { client, enrolTotp, freshAuth, googleSignIn, interceptGoogle, makeSigner, totpNow } from "./helpers.mjs";
 import { createOrg } from "../../scripts/create-org.mjs";
-import { MFA_MAX_FAILURES_PER_SESSION, MFA_MAX_FAILURES_PER_USER } from "@/lib/server/auth-config.mjs";
+import { admitVerifyAttempt, exclusiveMfaAccounting, MFA_MAX_FAILURES_PER_SESSION, MFA_MAX_FAILURES_PER_USER, MFA_USER_LOCK_SECONDS } from "@/lib/server/auth-config.mjs";
 import { serializeSignedCookie } from "better-call";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -144,5 +144,44 @@ describe("I5: session-less verification (two_factor challenge cookie) is counted
     const after = await sessionless(userId, await totpNow(enrolled.totpURI));
     expect(after.status).toBe(429);
     expect(after.json?.code).toBe("TWO_FACTOR_LOCKED");
+  });
+});
+
+// (M-3) A timed-out accounting section keeps running in the background. Its
+// counter writes must be increments (or guarded), never a value read before the
+// section timed out: a late write must not clear a lock set after the timeout.
+describe("M-3: a late write from a timed-out section cannot corrupt the counter", () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // Every write of the adapter lands `ms` late (reads are immediate).
+  function delayWrites(adapter: any, ms: number) {
+    const late = (fn: any) => async (a: any) => {
+      await sleep(ms);
+      return fn(a);
+    };
+    return { ...adapter, update: late(adapter.update), incrementOne: late(adapter.incrementOne), findOne: adapter.findOne };
+  }
+
+  it("a section that overruns its deadline cannot clear a lock set after it timed out", async () => {
+    const email = "race-late@example.com";
+    invite(email);
+    const owner = await halfSession(email);
+    await enrolTotp(owner);
+    const base = await env.auth.$context;
+    const userId = env.db.prepare("SELECT id FROM user WHERE email = ?").get(email).id;
+    const subject = { userId, token: null };
+    const slowCtx = { context: { adapter: delayWrites(base.adapter, 80), internalAdapter: base.internalAdapter } };
+
+    // The section's writes land ~80 ms in; its deadline is 20 ms.
+    const err: any = await exclusiveMfaAccounting(userId, () => admitVerifyAttempt(slowCtx, subject), { timeoutMs: 20 }).catch((e) => e);
+    expect(err?.body?.code ?? err?.code).toBe("MFA_ACCOUNTING_TIMEOUT");
+
+    // Meanwhile the user is locked by another section (budget spent).
+    const lockedUntil = new Date(Date.now() + MFA_USER_LOCK_SECONDS * 1000);
+    await base.adapter.update({ model: "twoFactor", where: [{ field: "userId", value: userId }], update: { failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil } });
+
+    await sleep(300); // let the late writes land
+    const tf = await base.adapter.findOne({ model: "twoFactor", where: [{ field: "userId", value: userId }] });
+    expect(new Date(tf.lockedUntil).getTime()).toBe(lockedUntil.getTime());
+    expect(Number(tf.failedVerificationCount)).toBe(MFA_MAX_FAILURES_PER_USER);
   });
 });

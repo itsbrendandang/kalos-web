@@ -13,6 +13,7 @@ import {
   mfaSatisfied,
   assertProfileUpdateAllowed,
   lockIfExhausted,
+  resetUserAttempts,
   MAX_PROFILE_NAME_LENGTH,
   reserveUserAttempt,
   userMfaLocked,
@@ -128,34 +129,68 @@ describe("scope guard on /sign-in/social", () => {
   });
 });
 
-describe("per-user TOTP lock (M1, B-3 atomic reserve)", () => {
+describe("per-user TOTP lock (M1, B-3 atomic reserve, M-3 guarded writes)", () => {
+  // In-memory twoFactor table with the adapter's incrementOne semantics: the
+  // where clauses must all hold, then increment/set apply to that one row.
   const now = Date.UTC(2026, 9, 17);
-  const apply = (row: { failedVerificationCount: number; lockedUntil: Date | null }, u: { failedVerificationCount: number; lockedUntil: Date | null } | null) => (u ? u : row);
-  it("reserves attempts up to the limit, then locks", () => {
-    let row: { failedVerificationCount: number; lockedUntil: Date | null } = { failedVerificationCount: 0, lockedUntil: null };
+  function fakeAdapter(row: Record<string, unknown>) {
+    const holds = (w: { field: string; operator?: string; value: unknown }) => {
+      const v = row[w.field];
+      const num = (x: unknown) => (x instanceof Date ? x.getTime() : x);
+      switch (w.operator ?? "eq") {
+        case "lt": return Number(v) < Number(w.value);
+        case "gte": return Number(v) >= Number(w.value);
+        case "lte": return num(v) != null && Number(num(v)) <= Number(num(w.value));
+        default: return w.value === null ? v == null : v === w.value;
+      }
+    };
+    return {
+      row,
+      findOne: async () => ({ ...row }),
+      incrementOne: async ({ where, increment = {}, set = {} }: { where: Parameters<typeof holds>[0][]; increment?: Record<string, number>; set?: Record<string, unknown> }) => {
+        if (!where.every(holds)) return null;
+        for (const [k, d] of Object.entries(increment)) row[k] = Number(row[k] ?? 0) + Number(d);
+        Object.assign(row, set);
+        return { ...row };
+      },
+    };
+  }
+  const fresh = (extra: Record<string, unknown> = {}) => ({ userId: "u1", failedVerificationCount: 0, lockedUntil: null, ...extra });
+
+  it("admits up to the limit, refuses the next attempt and locks", async () => {
+    const a = fakeAdapter(fresh());
     for (let i = 1; i <= MFA_MAX_FAILURES_PER_USER; i++) {
-      const r = reserveUserAttempt(row, now);
-      expect(r.allowed).toBe(true);
-      row = apply(row, r.update);
-      expect(row).toEqual({ failedVerificationCount: i, lockedUntil: null });
+      expect(await reserveUserAttempt(a, "u1", now)).toBe(true);
+      expect(a.row.failedVerificationCount).toBe(i);
     }
-    // the next attempt is refused and starts the lock
-    const refused = reserveUserAttempt(row, now);
-    expect(refused.allowed).toBe(false);
-    row = apply(row, refused.update);
-    expect(row.lockedUntil?.getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
-    expect(reserveUserAttempt(row, now + 1000).allowed).toBe(false);
-    expect(userMfaLocked(row, now + 1000)).toBe(true);
-    expect(userMfaLocked(row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
+    expect(await reserveUserAttempt(a, "u1", now)).toBe(false);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    expect(await reserveUserAttempt(a, "u1", now + 1000)).toBe(false);
+    expect(userMfaLocked(a.row, now + 1000)).toBe(true);
+    expect(userMfaLocked(a.row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
   });
-  it("a failure that exhausts the reserved attempts locks immediately", () => {
-    expect(lockIfExhausted({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER - 1, lockedUntil: null }, now)).toBeNull();
-    expect(lockIfExhausted({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: null }, now)?.lockedUntil.getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+  it("lockIfExhausted locks only a spent budget and never moves an existing lock", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER - 1 }));
+    await lockIfExhausted(a, "u1", now);
+    expect(a.row.lockedUntil).toBeNull();
+    a.row.failedVerificationCount = MFA_MAX_FAILURES_PER_USER;
+    await lockIfExhausted(a, "u1", now);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    await lockIfExhausted(a, "u1", now + 5000);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
   });
-  it("an expired lock starts a fresh count", () => {
-    expect(reserveUserAttempt({ failedVerificationCount: 7, lockedUntil: new Date(now - 1) }, now)).toEqual({ allowed: true, update: { failedVerificationCount: 1, lockedUntil: null } });
+  it("an expired lock starts a fresh count", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: new Date(now - 1) }));
+    expect(await reserveUserAttempt(a, "u1", now)).toBe(true);
+    expect(a.row).toMatchObject({ failedVerificationCount: 1, lockedUntil: null });
     expect(userMfaLocked(null)).toBe(false);
     expect(userMfaLocked({ lockedUntil: "garbage" })).toBe(false);
+  });
+  it("a late success reset cannot lift a lock set after it started (M-3)", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: new Date(now + 60_000) }));
+    await resetUserAttempts(a, "u1");
+    expect(a.row.lockedUntil).toEqual(new Date(now + 60_000));
+    expect(a.row.failedVerificationCount).toBe(MFA_MAX_FAILURES_PER_USER);
   });
 });
 

@@ -33,6 +33,8 @@ export const ENGINE_TOKEN_ALG = "EdDSA";
 export const ENGINE_TOKEN_MAX_TTL_SECONDS = 120;
 export const ENGINE_TOKEN_DEFAULT_TTL_SECONDS = 60;
 export const KID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+/** sub / sid as the engine accepts them: printable ASCII 0x21-0x7e without comma (0x2c). */
+export const SUBJECT_PATTERN = /^[\x21-\x2b\x2d-\x7e]{1,256}$/;
 
 export interface EngineTokenSigner {
   kid: string;
@@ -80,10 +82,13 @@ export function clampTtl(ttlSeconds: number | undefined): number {
 
 /** Build (and validate) the claim set. Pure; exported for tests and vectors. */
 export function buildEngineClaims(input: EngineTokenInput): EngineTokenClaims {
-  if (typeof input.userId !== "string" || input.userId.length === 0 || input.userId.length > 256) {
+  // The engine refuses sub/sid that are not 1-256 printable ASCII without
+  // space or comma (kalos-engine docs/ENGINE_TOKEN.md): refuse them here too,
+  // so a token the engine would reject is never minted.
+  if (typeof input.userId !== "string" || !SUBJECT_PATTERN.test(input.userId)) {
     throw new EngineTokenConfigError("engine token needs a user id");
   }
-  if (typeof input.sessionId !== "string" || input.sessionId.length === 0 || input.sessionId.length > 256) {
+  if (typeof input.sessionId !== "string" || !SUBJECT_PATTERN.test(input.sessionId)) {
     throw new EngineTokenConfigError("engine token needs a session id");
   }
   if (!TENANT_ID_PATTERN.test(input.tenant)) throw new EngineTokenConfigError("engine token tenant id is invalid");

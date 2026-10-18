@@ -1,6 +1,6 @@
 // Authenticated, same-origin proxy from the browser to the kalos engine.
 // All of the logic (and the order of checks) is in lib/server/engine-proxy.ts;
-// the design and threat model are in docs/ENGINE_PROXY.md.
+// the design and threat model are in docs/ENGINE_AUTH.md.
 //
 // Every request is authorized HERE, not in proxy.ts (which only checks that a
 // session cookie exists): the session is looked up server-side, MFA and

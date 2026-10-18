@@ -605,7 +605,7 @@ describe("B-1: the token is short-lived and the audit line has identifiers only"
 describe("B-1: the engine's trust store (public JWKS derived from the signing key)", () => {
   const jwksScript = path.join(__dirname, "..", "..", "scripts", "engine-jwks.mjs");
   const runJwks = (extra: Record<string, string | undefined> = {}) => {
-    const childEnv: Record<string, string> = { PATH: process.env.PATH ?? "", ...(env as Record<string, string>) };
+    const childEnv = { ...process.env, ...env } as NodeJS.ProcessEnv;
     for (const [k, v] of Object.entries(extra)) {
       if (v === undefined) delete childEnv[k];
       else childEnv[k] = v;

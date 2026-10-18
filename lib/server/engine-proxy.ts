@@ -1,7 +1,7 @@
 import "server-only";
 
 // The authenticated engine proxy behind app/api/engine/[...path]/route.ts.
-// Design and threat model: docs/ENGINE_PROXY.md.
+// Design and threat model: docs/ENGINE_AUTH.md.
 //
 // For EVERY request, in this order (each step fails closed, nothing reaches
 // the engine until all of them pass):

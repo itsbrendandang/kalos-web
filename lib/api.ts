@@ -5,7 +5,7 @@ import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 
 /**
  * Default: the same-origin, authenticated server proxy
- * (app/api/engine/[...path]/route.ts, docs/ENGINE_PROXY.md). Every fetch
+ * (app/api/engine/[...path]/route.ts, docs/ENGINE_AUTH.md). Every fetch
  * below runs in the BROWSER and carries only the HttpOnly session cookie; the
  * proxy checks the session, MFA, organization membership and role, and mints
  * a short-lived engine token server-side. The browser never sees that token,

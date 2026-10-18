@@ -255,8 +255,8 @@ describe("authentication (session resolved server-side on every request)", () =>
     const spy = vi.mocked(resolveSession);
     spy.mockClear();
     await call("GET", "api/latest", { headers: { authorization: "Bearer x.y.z", "x-forwarded-for": "1.2.3.4" } });
-    const h = spy.mock.calls[0][0];
-    expect([...h.keys()]).toEqual(["cookie"]);
+    const h = spy.mock.calls[0]?.[0];
+    expect([...(h?.keys() ?? [])]).toEqual(["cookie"]);
   });
 });
 
@@ -901,7 +901,7 @@ describe("rate limits (in memory, single replica) and audit log", () => {
       body: json({ recipes: [{ recipe: { "secret-recipe": 1 } }] }),
     });
     await call("GET", "api/latest", { token: null });
-    const lines = logSpy.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[kalos-audit] "));
+    const lines = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).filter((l: string) => l.startsWith("[kalos-audit] "));
     expect(lines).toHaveLength(2);
     const rec = JSON.parse(lines[0].slice("[kalos-audit] ".length));
     expect(rec).toMatchObject({ evt: "engine_proxy", method: "POST", route: "api/campaign/start", status: 200, outcome: "ok", tenant: "tenant-a", uid: "u_member", sid: "S-member" });

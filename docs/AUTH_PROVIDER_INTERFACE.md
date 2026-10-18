@@ -49,7 +49,7 @@ Rules for every provider:
 4. **Engine token**: `mintEngineTokenForSession(session, tenant, scopes)`
    (`lib/server/engine-token.ts`): EdDSA (Ed25519), header `kid`, claims
    `iss=kalos-web`, `aud=kalos-engine`, `sub`, `tenant`, `scopes`, `sid`,
-   `jti` (UUID), `iat`, `nbf`, `exp` (TTL hard-clamped to 120 s). Key from
+   `jti` (UUID), `iat`, `nbf`, `exp` (default TTL 60 s, hard-clamped to 120 s; optional env `KALOS_ENGINE_JWT_MAX_TTL_S` can only lower that ceiling, default 120). Key from
    `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE` (PKCS#8 PEM), id from
    `KALOS_ENGINE_JWT_KID`; one key pair per environment.
 

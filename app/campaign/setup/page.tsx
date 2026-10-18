@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { ReplaceRunsDialog } from "@/components/campaign/replace-runs-dialog";
 import { UploadZone } from "@/components/campaign/upload-zone";
 import { ValidationSummary } from "@/components/campaign/validation-summary";
 import { Callout } from "@/components/kit/callout";
@@ -11,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
+import { CampaignHasRunsError } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 
@@ -27,17 +29,25 @@ export default function SetupPage() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // An upload the engine refused until the user confirms the replacement.
+  const [pending, setPending] = useState<{ file: File; target?: string; refusal: CampaignHasRunsError } | null>(null);
 
-  async function analyze(f: File, target?: string) {
-    setFile(f);
+  async function analyze(f: File, target?: string, replace = false) {
     setBusy(true);
     setError(null);
     try {
-      const d = await runFile(f, target);
+      const d = await runFile(f, target, { replace });
+      setFile(f);
       // The engine's own { error } is a problem with the sheet, not the connection.
       if (d.error) setError(d.error);
-    } catch {
-      setError("The analysis service did not respond. Try again in a moment.");
+    } catch (err) {
+      if (err instanceof CampaignHasRunsError) {
+        // Nothing was replaced: keep the current file, target and analysis, and ask first.
+        setPending({ file: f, target, refusal: err });
+      } else {
+        setFile(f);
+        setError("The analysis service did not respond. Try again in a moment.");
+      }
     } finally {
       setBusy(false);
     }
@@ -72,6 +82,16 @@ export default function SetupPage() {
       />
 
       <UploadZone onFile={(f) => void analyze(f)} disabled={busy} compact={!!analysis} />
+
+      <ReplaceRunsDialog
+        refusal={pending?.refusal ?? null}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          const p = pending;
+          setPending(null);
+          if (p) void analyze(p.file, p.target, true);
+        }}
+      />
 
       {error ? <Callout tone="bad" title="This run sheet could not be analyzed">{error}</Callout> : null}
       {busy ? <LoadingSkeleton variant="rows" rows={4} label="Analyzing the run sheet" /> : null}

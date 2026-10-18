@@ -623,6 +623,24 @@ describe("request forwarding", () => {
     expect(got).toContain("a,b\n1,2");
   });
 
+  it("multipart replace=true field reaches the engine unchanged, and the engine's 409 campaign_has_runs is relayed", async () => {
+    const fd = new FormData();
+    fd.append("file", new File(["a,b\n1,2"], "sheet.csv", { type: "text/csv" }));
+    fd.append("replace", "true");
+    fetchMock.mockImplementationOnce(async (_u: string, init: RequestInit) => {
+      const got = await new Response(init.body as ReadableStream).text();
+      // Engine refuses without replace; with replace it would accept. Relay whichever it returns.
+      return engineOk({ code: "campaign_has_runs", awaiting: 1, measured: 2, got }, 409);
+    });
+    const res = await call("POST", "api/run", { body: fd });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { code: string; awaiting: number; measured: number; got: string };
+    expect(body).toMatchObject({ code: "campaign_has_runs", awaiting: 1, measured: 2 });
+    expect(body.got).toContain('name="replace"');
+    expect(body.got).toContain("\r\n\r\ntrue\r\n");
+    expect(body.got).toContain("a,b\n1,2");
+  });
+
   it("a JSON route called without a content type forwards no body (reanalyze)", async () => {
     const res = await call("POST", "api/campaign/reanalyze");
     expect(res.status).toBe(200);

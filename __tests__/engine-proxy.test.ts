@@ -4,7 +4,7 @@
 // map (temp file), the real minter (temp Ed25519 key) and the real route
 // table / CSRF / rate limiter run. The auth layer is replaced with vi.mock -
 // there is no bypass flag in production code (asserted at the bottom).
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -138,7 +138,7 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-let logSpy: ReturnType<typeof vi.spyOn>;
+let logSpy: MockInstance<typeof console.info>;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
@@ -255,7 +255,7 @@ describe("authentication (session resolved server-side on every request)", () =>
     const spy = vi.mocked(resolveSession);
     spy.mockClear();
     await call("GET", "api/latest", { headers: { authorization: "Bearer x.y.z", "x-forwarded-for": "1.2.3.4" } });
-    const h = spy.mock.calls[0][0];
+    const h = spy.mock.calls[0]?.[0] as Headers;
     expect([...h.keys()]).toEqual(["cookie"]);
   });
 });
@@ -883,7 +883,7 @@ describe("rate limits (in memory, single replica) and audit log", () => {
       body: json({ recipes: [{ recipe: { "secret-recipe": 1 } }] }),
     });
     await call("GET", "api/latest", { token: null });
-    const lines = logSpy.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[kalos-audit] "));
+    const lines = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).filter((l: string) => l.startsWith("[kalos-audit] "));
     expect(lines).toHaveLength(2);
     const rec = JSON.parse(lines[0].slice("[kalos-audit] ".length));
     expect(rec).toMatchObject({ evt: "engine_proxy", method: "POST", route: "api/campaign/start", status: 200, outcome: "ok", tenant: "tenant-a", uid: "u_member", sid: "S-member" });

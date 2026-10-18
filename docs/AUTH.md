@@ -245,7 +245,7 @@ All documented with placeholders in `env.example`.
 
 | Variable | Required in prod | Notes |
 | --- | --- | --- |
-| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`). **Dev fallback only** when `NODE_ENV` is `development`/`test` **and** `BETTER_AUTH_URL` is loopback (`localhost`, `127.0.0.1`, `[::1]`), or unset under `test`. Anywhere else (including `NODE_ENV=development` on a deployed host) there is no fallback: the boot check runs and the process refuses to start (boot check and `getAuth()`; `makeAuth` also refuses the dev secret for a non-loopback origin). Better Auth's public default secret is never used (B-4, C-3). Better Auth's public default secret is never used (B-4). Encrypts TOTP secrets and OAuth tokens and signs cookies/state: rotating it signs everyone out **and** invalidates every enrolled authenticator (users would need an operator reset). |
+| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`). **Dev fallback only** when `NODE_ENV` is `development`/`test` **and** `BETTER_AUTH_URL` is set to a loopback origin (`localhost`, `127.0.0.1`, `[::1]`). An unset `BETTER_AUTH_URL` gets no fallback in any environment, `test` included (the public secret would decrypt TOTP secrets in the DB); tests pass an explicit secret. Anywhere else (including `NODE_ENV=development` on a deployed host) there is no fallback: the boot check runs and the process refuses to start (boot check and `getAuth()`; `makeAuth` also refuses the dev secret for a non-loopback origin). Better Auth's public default secret is never used (B-4, C-3). Better Auth's public default secret is never used (B-4). Encrypts TOTP secrets and OAuth tokens and signs cookies/state: rotating it signs everyone out **and** invalidates every enrolled authenticator (users would need an operator reset). |
 | `BETTER_AUTH_URL` | yes | Origin, https (http only for localhost). Also the only trusted origin. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | See above. |
 | `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE`, `KALOS_ENGINE_JWT_KID` | yes | Ed25519 key file is loaded at boot. |
@@ -258,7 +258,7 @@ All documented with placeholders in `env.example`.
 | `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
 
 Boot check (`lib/server/boot-check.ts`, run **unless the dev fallback is allowed**,
-i.e. `NODE_ENV` `development`/`test` on a loopback `BETTER_AUTH_URL` (or unset in `test`), see
+i.e. `NODE_ENV` `development`/`test` on a loopback `BETTER_AUTH_URL`, see
 `lib/server/secret-policy.mjs`; B-4, C-3). Unset, `staging`, typos and a deployed
 host that sets `NODE_ENV=development` are all checked: missing or
 placeholder values of the required variables, a short secret, a non-https URL,

@@ -172,13 +172,27 @@ export function apiDecision(st: SessionState): { ok: true; context: SessionConte
   }
 }
 
-/** For route handlers under /api/*. */
+/**
+ * For route handlers under /api/* (and the engine proxy). Validates the session
+ * server-side (resolve = resolveSession by default: Better Auth DB lookup) and
+ * maps the state to 401 / 403. A resolver that throws fails closed (401).
+ */
 export async function requireApiSession(
   h?: Headers,
-): Promise<{ ok: true; context: SessionContext & { orgId: string } } | { ok: false; response: Response }> {
-  const d = apiDecision(await resolveSession(h));
+  resolve: (h?: Headers) => Promise<SessionState> = resolveSession,
+): Promise<
+  | { ok: true; context: SessionContext & { orgId: string } }
+  | { ok: false; status: 401 | 403; error: string; response: Response }
+> {
+  let state: SessionState;
+  try {
+    state = await resolve(h);
+  } catch {
+    state = { status: "anonymous" };
+  }
+  const d = apiDecision(state);
   if (d.ok) return d;
-  return { ok: false, response: Response.json({ error: d.error }, { status: d.status, headers: NO_STORE }) };
+  return { ok: false, status: d.status, error: d.error, response: Response.json({ error: d.error }, { status: d.status, headers: NO_STORE }) };
 }
 
 /** Where a page request in a given state must go (null = render). Pure. */

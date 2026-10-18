@@ -107,6 +107,8 @@ export function buildEngineClaims(input: EngineTokenInput): EngineTokenClaims {
   if (typeof input.tenant !== "string" || !TENANT_ID_PATTERN.test(input.tenant)) {
     throw new EngineTokenConfigError("engine token tenant id is invalid");
   }
+  // The engine reserves "default" for anonymous open mode and refuses it in tokens.
+  if (input.tenant === "default") throw new EngineTokenConfigError("engine token tenant 'default' is reserved");
   if (
     !Array.isArray(input.scopes) ||
     !input.scopes.every((s) => typeof s === "string" && (ENGINE_SCOPES as readonly string[]).includes(s))

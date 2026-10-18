@@ -69,6 +69,20 @@ describe("engine token claims (lib/server/engine-token.ts)", () => {
     }
   });
 
+  it("refuses sub/sid the engine would reject (space, comma, control, over 256)", () => {
+    const base = { tenant: "acme", scopes: ["campaigns:read"] as const };
+    for (const bad of ["user 1", "user,1", "us\ter", "", "x".repeat(257)]) {
+      expect(() => buildEngineClaims({ ...base, userId: bad, sessionId: "s1" })).toThrow();
+      expect(() => buildEngineClaims({ ...base, userId: "u1", sessionId: bad })).toThrow();
+    }
+    expect(buildEngineClaims({ ...base, userId: "user_01J-abc.x:y@z", sessionId: "x".repeat(256) }).sub).toBe("user_01J-abc.x:y@z");
+  });
+
+  it("refuses the engine-reserved 'default' tenant (open-mode only on the engine)", () => {
+    expect(() => buildEngineClaims({ ...input, tenant: "default" })).toThrow(/reserved/);
+    expect(buildEngineClaims({ ...input, tenant: "Default" }).tenant).toBe("Default"); // case-sensitive, like the engine
+  });
+
   it("refuses to mint with no scopes, and rejects unknown or non-array scopes", () => {
     expect(() => buildEngineClaims({ ...input, scopes: [] })).toThrow(/scope/);
     // @ts-expect-error - runtime guard against a bad caller

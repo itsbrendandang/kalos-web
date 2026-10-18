@@ -42,3 +42,9 @@ next-env.d.ts
 .gstack/
 .claude/
 __tests__/vectors/.local-private-keys.json
+
+# local auth database (lib/server/auth-db.ts default ./data/auth.db)
+/data/
+*.db
+*.db-wal
+*.db-shm

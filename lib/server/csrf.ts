@@ -1,6 +1,6 @@
 // CSRF / origin defence for the engine proxy. Pure: takes the request
 // headers and the expected origin, returns a decision. See
-// docs/ENGINE_PROXY.md ("CSRF") for the design.
+// docs/ENGINE_AUTH.md ("CSRF") for the design.
 //
 // Layers, all of which a state-changing request (POST/PATCH/DELETE) must pass:
 // 1. `Origin` must be present and exactly equal to the app's public origin

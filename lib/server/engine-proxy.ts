@@ -1,7 +1,7 @@
 import "server-only";
 
 // The authenticated engine proxy behind app/api/engine/[...path]/route.ts.
-// Design and threat model: docs/ENGINE_PROXY.md.
+// Design and threat model: docs/ENGINE_AUTH.md.
 //
 // For EVERY request, in this order (each step fails closed, nothing reaches
 // the engine until all of them pass):
@@ -26,7 +26,7 @@ import "server-only";
 //
 // The browser never sees the engine token, the engine URL or the tenant id.
 import { randomUUID } from "node:crypto";
-import { apiDecision, type SessionState } from "@/lib/server/session";
+import { requireApiSession, type SessionState } from "@/lib/server/session";
 import { buildEngineClaims, signEngineClaims, type EngineTokenSigner } from "@/lib/server/engine-token";
 import { scopesForClaims, type EngineScope } from "@/lib/server/scopes";
 import { TENANT_ID_PATTERN } from "@/lib/server/tenants";
@@ -47,7 +47,7 @@ const MAX_QUERY_LENGTH = 2048;
 const RESERVED_TENANT = "default";
 
 export interface EngineProxyDeps {
-  resolveSession(headers: Headers): Promise<SessionState>;
+  resolveSession(headers?: Headers): Promise<SessionState>;
   resolveTenant(orgId: string): Promise<string | null>;
   loadSigner(): Promise<EngineTokenSigner>;
   /** Looked up per request so tests can stub the global. */
@@ -261,21 +261,16 @@ export function createEngineProxy(deps: EngineProxyDeps) {
 
     // 3. Session: only the cookie header is handed to the auth layer, so no
     //    client Authorization / X-* header can influence who the caller is.
+    //    requireApiSession() validates it server-side (never cookie presence).
     const sessionHeaders = new Headers();
     const cookie = req.headers.get("cookie");
     if (cookie) sessionHeaders.set("cookie", cookie);
-    let state: SessionState;
-    try {
-      state = await deps.resolveSession(sessionHeaders);
-    } catch {
-      state = { status: "anonymous" };
+    const auth = await requireApiSession(sessionHeaders, deps.resolveSession);
+    if (!auth.ok) {
+      if (auth.error === "mfa_required") return fail(403, "mfa_required", { code: "MFA_REQUIRED" });
+      return fail(auth.status, auth.error);
     }
-    const decision = apiDecision(state);
-    if (!decision.ok) {
-      if (decision.error === "mfa_required") return fail(403, "mfa_required", { code: "MFA_REQUIRED" });
-      return fail(decision.status, decision.error);
-    }
-    const ctx = decision.context;
+    const ctx = auth.context;
     audit.uid = ctx.userId;
     audit.sid = ctx.sessionId;
 

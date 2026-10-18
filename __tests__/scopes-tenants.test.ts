@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, writeFileSync, utimesSync } from "node:fs";
+import { mkdtempSync, writeFileSync, utimesSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ENGINE_SCOPES, requiredScopeForMethod, scopesForClaims } from "@/lib/server/scopes";
@@ -90,6 +90,22 @@ describe("tenant resolver (lib/server/tenants.ts)", () => {
     const later = new Date(Date.now() + 5_000);
     utimesSync(file, later, later);
     expect(await r.resolveTenant("org_02DEF")).toBe("beta");
+  });
+
+  it("re-reads after an in-place rewrite with the same size and preserved mtime", async () => {
+    const file = mapFile(JSON.stringify({ org_01ABC: "tenant-aaa" }));
+    const r = fileTenantResolver(() => file);
+    utimesSync(file, 1_700_000_000, 1_700_000_000); // whole seconds: exactly restorable
+    expect(await r.resolveTenant("org_01ABC")).toBe("tenant-aaa");
+    const before = statSync(file);
+    await new Promise((res) => setTimeout(res, 20)); // let ctime advance
+    writeFileSync(file, JSON.stringify({ org_01ABC: "tenant-bbb" })); // same length, same inode
+    utimesSync(file, 1_700_000_000, 1_700_000_000);
+    const after = statSync(file);
+    expect(after.size).toBe(before.size);
+    expect(after.ino).toBe(before.ino);
+    expect(after.mtimeMs).toBe(before.mtimeMs);
+    expect(await r.resolveTenant("org_01ABC")).toBe("tenant-bbb");
   });
 
   it("validateTenantMapFile reports problems without throwing", () => {

@@ -101,6 +101,32 @@ verified in the scratch project and re-checked by
    is locked for 15 minutes via `twoFactor.lockedUntil`, 429
    `TWO_FACTOR_LOCKED`; reset on success). Better Auth's rate limit on
    `/two-factor/*` (3 per 10 s per IP) applies too.
+   The counters are **reserve-then-verify** (B-3): each verify/backup-code
+   attempt is counted BEFORE the code is checked, inside one serialised section
+   (`exclusiveMfaAccounting`, in-process; the app is one replica). At most 10
+   (user) / 5 (session) attempts reach the verifier however many requests are
+   in flight. The earlier read-modify-write let 30 parallel wrong codes all be
+   verified. Every counter write is a guarded atomic SQL increment or clear
+   (`UPDATE ... SET n = n + 1 WHERE n < MAX`, `reserveUserAttempt`,
+   `lockIfExhausted`, `resetUserAttempts`, the session `mfaFailures` bump), never
+   a value read earlier. A section that overran its deadline keeps running; its
+   late write can add at most one attempt within the budget, or do nothing, so it
+   cannot reset the count or lift a lock set after it timed out (M-3; regression
+   `mfa-race.int.ts`, "a late write from a timed-out section"). Attempts are counted whether or not a session is present: with no
+   session, the attempt is charged to the user of the `two_factor` challenge
+   cookie (per-user counter only; there is no session to count against).
+   Better Auth's own `accountLockout` is **disabled** (`twoFactor({ accountLockout: { enabled: false } })`):
+   it counted each wrong code a second time, so the lock fired after 5. Exactly
+   10 wrong codes are allowed per user; the 11th is refused (regression:
+   `mfa-race.int.ts`, "exactly 10 wrong codes"). Better Auth also caps one
+   two-factor challenge cookie at 5 wrong codes (stock, per challenge).
+   The queue is keyed by user id (other users never wait), every
+   section has a 10 s deadline (`MFA_ACCOUNTING_TIMEOUT_MS`; on expiry the
+   request fails closed with 503 `MFA_ACCOUNTING_TIMEOUT` and the lock is
+   released), and a same-user call from inside its own section runs directly
+   instead of deadlocking. Regression: `tests/auth-integration/mfa-race.int.ts`
+   (incl. 30 parallel session-less wrong codes),
+   `__tests__/mfa-accounting.test.ts` (hung section).
 6. Replay: a TOTP code accepted once for a user is refused for 120 s. The
    code is claimed atomically before verification (released if it fails), so
    two parallel requests cannot both use it. In-memory: correct only because
@@ -145,6 +171,21 @@ flattened into `SessionContext.permissions`:
 Archiving campaigns is admin/owner only (`campaigns:archive`, enforced in W2).
 Users cannot create or delete organizations (`allowUserToCreateOrganization:
 false`, `disableOrganizationDeletion: true`). `requireEmailVerificationOnInvitation: true`.
+`/organization/list-invitations` (emails, roles, inviters of pending invitations)
+is **org:admin only** (`assertCanListInvitations`): members and viewers get 403
+`INVITATIONS_ADMIN_ONLY`. Regression: `tests/auth-integration/hardening.int.ts`.
+`/organization/get-full-organization` embeds the same pending invitations (stock
+returns them to ANY member). The after hook `redactFullOrganizationResponse`
+removes `invitations` unless the caller has `org:admin`; a caller with no
+membership gets no invitations either. `members` (name, email, role) stays
+visible to every member, as on the Members page; only pending invitations are
+admin data. Other stock invitation endpoints were checked: `get-invitation`
+answers only the invited address, `list-user-invitations` takes an `email`
+query only server-side (HTTP gets 400), and the rest are admin-only by
+permission. Regression: `hardening.int.ts` and `auth-policy.test.ts`.
+`/update-user` (stock: any name length, any image value) accepts a 1-100 character
+`name` and an `image` that is `null` or an https URL of at most 2048 characters
+(`PROFILE_INVALID` otherwise).
 
 ## Invite-only onboarding
 
@@ -216,7 +257,7 @@ All documented with placeholders in `env.example`.
 
 | Variable | Required in prod | Notes |
 | --- | --- | --- |
-| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`). Encrypts TOTP secrets and OAuth tokens and signs cookies/state: rotating it signs everyone out **and** invalidates every enrolled authenticator (users would need an operator reset). |
+| `BETTER_AUTH_SECRET` | yes | ≥ 32 random chars (`openssl rand -base64 32`). **Dev fallback only** when `NODE_ENV` is `development`/`test` **and** `BETTER_AUTH_URL` is set to a loopback origin (`localhost`, `127.0.0.1`, `[::1]`). An unset `BETTER_AUTH_URL` gets no fallback in any environment, `test` included (the public secret would decrypt TOTP secrets in the DB); tests pass an explicit secret. Anywhere else (including `NODE_ENV=development` on a deployed host) there is no fallback: the boot check runs and the process refuses to start (boot check and `getAuth()`; `makeAuth` also refuses the dev secret for a non-loopback origin). Better Auth's public default secret is never used (B-4, C-3). Better Auth's public default secret is never used (B-4). Encrypts TOTP secrets and OAuth tokens and signs cookies/state: rotating it signs everyone out **and** invalidates every enrolled authenticator (users would need an operator reset). |
 | `BETTER_AUTH_URL` | yes | Origin, https (http only for localhost). Also the only trusted origin. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | See above. |
 | `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE`, `KALOS_ENGINE_JWT_KID` | yes | Ed25519 key file is loaded at boot. |
@@ -224,10 +265,14 @@ All documented with placeholders in `env.example`.
 | `KALOS_PUBLIC_URL` | no | Origin in printed invite links; defaults to `BETTER_AUTH_URL`. |
 | `AUTH_DB_PATH` | no | Default `./data/auth.db`; `/data/auth.db` in the image. |
 | `AUTH_MIGRATE` | no | `1` migrate+serve, `only` migrate+exit, `sql` print SQL+exit. |
-| `AUTH_TRUSTED_PROXIES` | yes | Proxy IP/CIDR list, or `none` (explicit: no reverse proxy). See "Reverse proxy". |
+| `AUTH_TRUSTED_PROXIES` | yes | Proxy IP/CIDR list. `none` (no reverse proxy) is **refused** in production unless `AUTH_ACCEPT_NO_PROXY=1` is also set. See "Reverse proxy". |
+| `AUTH_ACCEPT_NO_PROXY` | no | `1` or `true`: second, explicit acceptance of `AUTH_TRUSTED_PROXIES=none` (accepts the attacker-driven lockout described under "Reverse proxy"). |
 | `AUTH_IP_ADDRESS_HEADERS` | no | See "Reverse proxy". |
 
-Boot check (production only, `lib/server/boot-check.ts`): missing or
+Boot check (`lib/server/boot-check.ts`, run **unless the dev fallback is allowed**,
+i.e. `NODE_ENV` `development`/`test` on a loopback `BETTER_AUTH_URL`, see
+`lib/server/secret-policy.mjs`; B-4, C-3). Unset, `staging`, typos and a deployed
+host that sets `NODE_ENV=development` are all checked: missing or
 placeholder values of the required variables, a short secret, a non-https URL,
 an unreadable/non-Ed25519 engine key or an invalid tenant map → the names (never
 the values) are logged and the process **exits 1**. There is no switch to skip
@@ -239,12 +284,32 @@ it, and no auth bypass flag exists: tests replace the auth module with
 Rate limiting keys on the client IP. `AUTH_TRUSTED_PROXIES` is **required in
 production** (the boot check exits 1 without it). Set it to the exact IP/CIDR
 of your proxy (not a broad private range) and make the proxy **overwrite**
-`X-Forwarded-For` (or set `AUTH_IP_ADDRESS_HEADERS=x-real-ip`). The documented
-override `AUTH_TRUSTED_PROXIES=none` states that clients connect directly:
-Better Auth then trusts only a single-value header - which a client can spoof
-unless something in front overwrites it - and multi-hop values resolve to no
-IP (one shared bucket); the boot check logs a warning. Rate-limit state is stored in the
-database (`rateLimit` table).
+`X-Forwarded-For` (or set `AUTH_IP_ADDRESS_HEADERS=x-real-ip`).
+
+Without a trusted proxy, forwarded headers are **ignored**
+(`advanced.ipAddress.ipAddressHeaders = []`): Better Auth would otherwise
+trust any single `X-Forwarded-For`, and a client could rotate it to get a fresh
+rate-limit bucket on every request (B-2). Ignored headers mean every request
+shares ONE bucket per path (Better Auth's `no-trusted-ip` key): the limit cannot
+be evaded, but it is shared by all clients. `disableIpTracking` is deliberately
+not used, because it switches rate limiting off. `ipv6Subnet: 64` buckets an
+IPv6 client by its /64.
+
+`AUTH_TRUSTED_PROXIES=none` says "clients connect directly". The boot check
+**refuses it in production** unless `AUTH_ACCEPT_NO_PROXY=1` is also set
+(then it logs a warning). Use it only for a deployment with no proxy at all.
+
+**No-proxy mode is an attacker-driven lockout risk.** Without a proxy the rate
+limit has one shared bucket per path, not one per client. An unauthenticated
+attacker who sends requests to `/sign-in/social` (10 per 60 s) or `/two-factor/*`
+(3 per 10 s) exhausts that bucket, and every other user then gets 429 on
+sign-in and on the second factor until the window passes. This is a denial of
+service against all users, not a bypass: no account is opened and no code is
+accepted. Accept it only for a single-tenant deployment where that is
+acceptable, and prefer a proxy. Regression: `__tests__/boot-check.test.ts`,
+`tests/auth-integration/proxy.int.ts`.
+Trusting `0.0.0.0/0` or `::/0` is not a proxy list and is refused as well.
+Rate-limit state is stored in the database (`rateLimit` table).
 
 ## Running it locally
 

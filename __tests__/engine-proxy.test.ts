@@ -4,7 +4,7 @@
 // map (temp file), the real minter (temp Ed25519 key) and the real route
 // table / CSRF / rate limiter run. The auth layer is replaced with vi.mock -
 // there is no bypass flag in production code (asserted at the bottom).
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -138,7 +138,7 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-let logSpy: ReturnType<typeof vi.spyOn>;
+let logSpy: MockInstance<typeof console.info>;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);

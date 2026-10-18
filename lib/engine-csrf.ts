@@ -7,6 +7,6 @@
 // "non-simple" CORS request, which the browser preflights - and the proxy
 // never answers a preflight with CORS headers - while plain HTML forms cannot
 // set headers at all. It is one of three independent layers (Origin check,
-// this header, SameSite=Lax session cookie); see docs/ENGINE_PROXY.md.
+// this header, SameSite=Lax session cookie); see docs/ENGINE_AUTH.md.
 export const ENGINE_CSRF_HEADER = "x-kalos-csrf";
 export const ENGINE_CSRF_VALUE = "1";

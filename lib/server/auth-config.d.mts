@@ -41,12 +41,20 @@ export function mfaGateDecision(
   nowMs?: number,
 ): "allow" | "mfa_required" | "step_up_required";
 
+export const MAX_PROFILE_NAME_LENGTH: number;
+export const MAX_PROFILE_IMAGE_LENGTH: number;
+export function assertProfileUpdateAllowed(body: unknown): void;
+export function redactFullOrganization<T>(org: T, opts: { isAdmin: boolean }): T;
+export function assertCanListInvitations(ctx: unknown, sessionData: BetterAuthSessionLike): Promise<void>;
+export function mfaSubject(ctx: unknown, sessionData: BetterAuthSessionLike | null | undefined): Promise<{ userId: string; token: string | null } | null>;
 export function gateSessionLookup<T>(lookup: () => Promise<T>, headers: Headers | undefined): Promise<T | null>;
 export function userMfaLocked(row: { lockedUntil?: Date | string | null } | null | undefined, nowMs?: number): boolean;
-export function nextUserFailureState(
-  row: { failedVerificationCount?: number | null; lockedUntil?: Date | string | null } | null | undefined,
-  nowMs?: number,
-): { failedVerificationCount: number; lockedUntil: Date | null };
+export function reserveUserAttempt(adapter: unknown, userId: string, nowMs?: number): Promise<boolean>;
+export function lockIfExhausted(adapter: unknown, userId: string, nowMs?: number): Promise<unknown>;
+export function resetUserAttempts(adapter: unknown, userId: string): Promise<void>;
+export function admitVerifyAttempt(ctx: unknown, subject: { userId: string; token: string | null }): Promise<void>;
+export const MFA_ACCOUNTING_TIMEOUT_MS: number;
+export function exclusiveMfaAccounting<T>(key: string, fn: () => T | Promise<T>, opts?: { timeoutMs?: number }): Promise<T>;
 
 export interface MakeAuthOptions {
   database: unknown;
@@ -64,4 +72,9 @@ export interface MakeAuthOptions {
 export type KalosAuth = ReturnType<typeof betterAuth>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function makeAuth(o: MakeAuthOptions): any;
+export function ipAddressOptions(o?: { trustedProxies?: string[]; ipAddressHeaders?: string[] }): {
+  ipAddressHeaders: string[];
+  trustedProxies?: string[];
+  ipv6Subnet: number;
+};
 export function authOptionsFromEnv(env?: Record<string, string | undefined>): Omit<MakeAuthOptions, "database">;

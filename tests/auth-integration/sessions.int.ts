@@ -172,8 +172,10 @@ describe("rate limiting and client IPs", () => {
     const ip = run([path.join(__dirname, "_ip-worker.mjs")], { NODE_ENV: "production" });
     expect(ip.trusted).toBe("198.51.100.1");
     expect(ip.multiNoTrust).toBeNull();
-    expect(ip.single).toBe("6.6.6.6"); // spoofable unless the proxy overwrites XFF - see docs/AUTH.md
+    expect(ip.single).toBeNull(); // no trusted proxy: a single spoofable header is ignored (B-2)
+    expect(ip.singleNone).toBeNull();
     expect(ip.realIp).toBe("198.51.100.2");
+    expect(ip.realIpNoProxy).toBeNull();
     expect(ip.none).toBeNull();
   });
 });

@@ -11,7 +11,11 @@ import {
   MFA_USER_LOCK_SECONDS,
   mfaGateDecision,
   mfaSatisfied,
-  nextUserFailureState,
+  assertProfileUpdateAllowed,
+  lockIfExhausted,
+  resetUserAttempts,
+  MAX_PROFILE_NAME_LENGTH,
+  reserveUserAttempt,
   userMfaLocked,
   MFA_VERIFY_PATHS,
   parseRoles,
@@ -19,6 +23,7 @@ import {
   RECENT_AUTH_MAX_AGE_SECONDS,
   SESSION_TTL_SECONDS,
   UNVERIFIED_SESSION_TTL_SECONDS,
+  redactFullOrganization,
   validateUserInfo,
 } from "@/lib/server/auth-config.mjs";
 import { RECENT_AUTH_MAX_AGE_SECONDS as NEUTRAL_RECENT } from "@/lib/server/session-context";
@@ -124,23 +129,68 @@ describe("scope guard on /sign-in/social", () => {
   });
 });
 
-describe("per-user TOTP lock (M1)", () => {
+describe("per-user TOTP lock (M1, B-3 atomic reserve, M-3 guarded writes)", () => {
+  // In-memory twoFactor table with the adapter's incrementOne semantics: the
+  // where clauses must all hold, then increment/set apply to that one row.
   const now = Date.UTC(2026, 9, 17);
-  it("counts failures and locks after the limit", () => {
-    let row: { failedVerificationCount: number; lockedUntil: Date | null } = { failedVerificationCount: 0, lockedUntil: null };
-    for (let i = 1; i < MFA_MAX_FAILURES_PER_USER; i++) {
-      row = nextUserFailureState(row, now);
-      expect(row).toEqual({ failedVerificationCount: i, lockedUntil: null });
+  function fakeAdapter(row: Record<string, unknown>) {
+    const holds = (w: { field: string; operator?: string; value: unknown }) => {
+      const v = row[w.field];
+      const num = (x: unknown) => (x instanceof Date ? x.getTime() : x);
+      switch (w.operator ?? "eq") {
+        case "lt": return Number(v) < Number(w.value);
+        case "gte": return Number(v) >= Number(w.value);
+        case "lte": return num(v) != null && Number(num(v)) <= Number(num(w.value));
+        default: return w.value === null ? v == null : v === w.value;
+      }
+    };
+    return {
+      row,
+      findOne: async () => ({ ...row }),
+      incrementOne: async ({ where, increment = {}, set = {} }: { where: Parameters<typeof holds>[0][]; increment?: Record<string, number>; set?: Record<string, unknown> }) => {
+        if (!where.every(holds)) return null;
+        for (const [k, d] of Object.entries(increment)) row[k] = Number(row[k] ?? 0) + Number(d);
+        Object.assign(row, set);
+        return { ...row };
+      },
+    };
+  }
+  const fresh = (extra: Record<string, unknown> = {}) => ({ userId: "u1", failedVerificationCount: 0, lockedUntil: null, ...extra });
+
+  it("admits up to the limit, refuses the next attempt and locks", async () => {
+    const a = fakeAdapter(fresh());
+    for (let i = 1; i <= MFA_MAX_FAILURES_PER_USER; i++) {
+      expect(await reserveUserAttempt(a, "u1", now)).toBe(true);
+      expect(a.row.failedVerificationCount).toBe(i);
     }
-    row = nextUserFailureState(row, now);
-    expect(row.lockedUntil?.getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
-    expect(userMfaLocked(row, now + 1000)).toBe(true);
-    expect(userMfaLocked(row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
+    expect(await reserveUserAttempt(a, "u1", now)).toBe(false);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    expect(await reserveUserAttempt(a, "u1", now + 1000)).toBe(false);
+    expect(userMfaLocked(a.row, now + 1000)).toBe(true);
+    expect(userMfaLocked(a.row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
   });
-  it("an expired lock starts a fresh count", () => {
-    expect(nextUserFailureState({ failedVerificationCount: 7, lockedUntil: new Date(now - 1) }, now)).toEqual({ failedVerificationCount: 1, lockedUntil: null });
+  it("lockIfExhausted locks only a spent budget and never moves an existing lock", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER - 1 }));
+    await lockIfExhausted(a, "u1", now);
+    expect(a.row.lockedUntil).toBeNull();
+    a.row.failedVerificationCount = MFA_MAX_FAILURES_PER_USER;
+    await lockIfExhausted(a, "u1", now);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    await lockIfExhausted(a, "u1", now + 5000);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+  });
+  it("an expired lock starts a fresh count", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: new Date(now - 1) }));
+    expect(await reserveUserAttempt(a, "u1", now)).toBe(true);
+    expect(a.row).toMatchObject({ failedVerificationCount: 1, lockedUntil: null });
     expect(userMfaLocked(null)).toBe(false);
     expect(userMfaLocked({ lockedUntil: "garbage" })).toBe(false);
+  });
+  it("a late success reset cannot lift a lock set after it started (M-3)", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: new Date(now + 60_000) }));
+    await resetUserAttempts(a, "u1");
+    expect(a.row.lockedUntil).toEqual(new Date(now + 60_000));
+    expect(a.row.failedVerificationCount).toBe(MFA_MAX_FAILURES_PER_USER);
   });
 });
 
@@ -191,5 +241,48 @@ describe("MFA gate", () => {
     const now = Date.now();
     expect(mfaGateDecision("/two-factor/generate-backup-codes", sess(new Date(now - 60e3)), now)).toBe("allow");
     expect(mfaGateDecision("/two-factor/generate-backup-codes", sess(new Date(now - (RECENT_AUTH_MAX_AGE_SECONDS + 1) * 1000)), now)).toBe("step_up_required");
+  });
+});
+
+describe("profile updates are bounded (update-user)", () => {
+  const rejects = (body: unknown) => {
+    try {
+      assertProfileUpdateAllowed(body);
+    } catch (e) {
+      return (e as { body?: { code?: string } }).body?.code ?? (e as Error).message;
+    }
+    return null;
+  };
+  it("accepts a normal name, an https image, a null image, and no fields", () => {
+    expect(rejects({ name: "Brendan" })).toBeNull();
+    expect(rejects({ name: "A".repeat(MAX_PROFILE_NAME_LENGTH) })).toBeNull();
+    expect(rejects({ image: "https://lh3.googleusercontent.com/a/x=s96" })).toBeNull();
+    expect(rejects({ image: null })).toBeNull();
+    expect(rejects({})).toBeNull();
+  });
+  it("rejects over-long or empty names, non-https and non-string images", () => {
+    expect(rejects({ name: "A".repeat(MAX_PROFILE_NAME_LENGTH + 1) })).toBe("PROFILE_INVALID");
+    expect(rejects({ name: "   " })).toBe("PROFILE_INVALID");
+    expect(rejects({ name: 42 })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "http://example.com/a.png" })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "javascript:alert(1)" })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "https://example.com/" + "a".repeat(2048) })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: ["https://x"] })).toBe("PROFILE_INVALID");
+  });
+});
+
+describe("get-full-organization redaction (pure)", () => {
+  const org = { id: "o1", name: "Org", members: [{ role: "member" }], invitations: [{ email: "x@example.com" }] };
+  it("keeps invitations for org:admin, drops them for everyone else (members stay)", () => {
+    expect(redactFullOrganization(org, { isAdmin: true })).toBe(org);
+    const out = redactFullOrganization(org, { isAdmin: false });
+    expect("invitations" in out).toBe(false);
+    expect(out.members).toEqual(org.members);
+    expect("invitations" in org).toBe(true); // input not mutated
+  });
+  it("leaves bodies without an invitations key untouched", () => {
+    const plain = { id: "o1" };
+    expect(redactFullOrganization(plain, { isAdmin: false })).toBe(plain);
+    expect(redactFullOrganization(null, { isAdmin: false })).toBeNull();
   });
 });

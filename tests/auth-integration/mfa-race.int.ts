@@ -102,6 +102,32 @@ describe("I5: session-less verification (two_factor challenge cookie) is counted
     return c.req("/two-factor/verify-totp", { method: "POST", body: { code } });
   }
 
+  // Regression (double count): each wrong code was counted by the stock
+  // accountLockout AND by Kalos, so the lock fired after 5 wrong codes. Exactly
+  // MFA_MAX_FAILURES_PER_USER wrong codes are allowed; the next one is refused.
+  // A fresh challenge per attempt: Better Auth also caps one challenge cookie at 5.
+  it(`exactly ${MFA_MAX_FAILURES_PER_USER} wrong codes are allowed without a session; the ${MFA_MAX_FAILURES_PER_USER + 1}th is locked`, async () => {
+    const email = "race-exact@example.com";
+    invite(email);
+    const owner = await halfSession(email);
+    const enrolled = await enrolTotp(owner);
+    const userId = env.db.prepare("SELECT id FROM user WHERE email = ?").get(email).id;
+    const cur = await totpNow(enrolled.totpURI);
+    const wrong = () => String((Number(cur) + 500_000) % 1_000_000).padStart(6, "0"); // never a neighbouring valid step
+
+    const seen: Array<[number, unknown]> = [];
+    for (let i = 0; i < MFA_MAX_FAILURES_PER_USER; i++) {
+      const r = await sessionless(userId, wrong());
+      seen.push([r.status, r.json?.code]);
+      expect(reachedVerifier(r), `wrong code ${i + 1}: ${JSON.stringify(seen)}`).toBe(true);
+    }
+    const over = await sessionless(userId, wrong());
+    expect(over.status).toBe(429);
+    expect(over.json?.code).toBe("TWO_FACTOR_LOCKED");
+    const right = await sessionless(userId, await totpNow(enrolled.totpURI));
+    expect(right.status).toBe(429);
+  });
+
   it(`${PARALLEL} parallel wrong codes without a session -> at most ${MFA_MAX_FAILURES_PER_USER} reach the verifier, then the user is locked`, async () => {
     const email = "race-challenge@example.com";
     invite(email);

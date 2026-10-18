@@ -108,7 +108,13 @@ verified in the scratch project and re-checked by
    in flight. The earlier read-modify-write let 30 parallel wrong codes all be
    verified. Attempts are counted whether or not a session is present: with no
    session, the attempt is charged to the user of the `two_factor` challenge
-   cookie (per-user counter only; there is no session to count against). The queue is keyed by user id (other users never wait), every
+   cookie (per-user counter only; there is no session to count against).
+   Better Auth's own `accountLockout` is **disabled** (`twoFactor({ accountLockout: { enabled: false } })`):
+   it counted each wrong code a second time, so the lock fired after 5. Exactly
+   10 wrong codes are allowed per user; the 11th is refused (regression:
+   `mfa-race.int.ts`, "exactly 10 wrong codes"). Better Auth also caps one
+   two-factor challenge cookie at 5 wrong codes (stock, per challenge).
+   The queue is keyed by user id (other users never wait), every
    section has a 10 s deadline (`MFA_ACCOUNTING_TIMEOUT_MS`; on expiry the
    request fails closed with 503 `MFA_ACCOUNTING_TIMEOUT` and the lock is
    released), and a same-user call from inside its own section runs directly

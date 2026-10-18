@@ -72,7 +72,7 @@ describe("dev fallback secret only for loopback (C-3)", () => {
 // B-4: the boot check runs unless the dev fallback is allowed, and no code path
 // hands Better Auth an empty secret (it would use its public default).
 describe("boot check and secret fail closed (B-4)", () => {
-  it("boot check is skipped ONLY for development/test on loopback (or test with no URL)", () => {
+  it("boot check is skipped ONLY for development/test on a loopback URL", () => {
     expect(bootCheckRequired({ NODE_ENV: "development", BETTER_AUTH_URL: "http://localhost:3000" })).toBe(false);
     expect(bootCheckRequired({ NODE_ENV: "test", BETTER_AUTH_URL: "http://127.0.0.1:3000" })).toBe(false);
     expect(devFallbackAllowed({ NODE_ENV: "test", BETTER_AUTH_URL: "http://127.0.0.1:3000" })).toBe(true);

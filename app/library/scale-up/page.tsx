@@ -7,6 +7,7 @@ import { UploadDropzone } from "@/components/upload-dropzone";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { Card, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -298,13 +299,10 @@ export default function ScaleReadoutPage() {
                         const checked = checkedProcessColumns.has(col);
                         return (
                           <div key={col} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={checked}
                               onChange={() => toggleProcessColumn(col)}
                               disabled={disabled}
-                              className="size-3.5 shrink-0"
-                              style={{ accentColor: "var(--blue)" }}
                             />
                             <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg">{col}</span>
                             {checked ? (
@@ -361,13 +359,10 @@ export default function ScaleReadoutPage() {
 
               {mode.kind === "manual" ? (
                 <label className="flex items-center gap-2 text-[12px] text-muted">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={manualHasPhysics}
                     onChange={(e) => setManualHasPhysics(e.target.checked)}
                     disabled={disabled}
-                    className="size-3.5"
-                    style={{ accentColor: "var(--blue)" }}
                   />
                   This sheet records agitation_rpm and airflow_L_per_min
                 </label>

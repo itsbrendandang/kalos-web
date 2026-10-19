@@ -90,6 +90,8 @@ const pairs: Pair[] = [
     ["--ring", bg, 3],
     ["--accent", bg, 3],
   ]),
+  // Control boundaries (input, select, checkbox) against every surface they sit on (UI, 3:1).
+  ...SURFACES.map((bg): Pair => ["--border-input", bg, 3]),
   // Chart marks (lines, points, bars) against the plot surface (graphics, 3:1).
   ...[...CHART, "--chart-predicted", "--chart-measured", "--chart-reference", "--chart-seq-5"].flatMap((c) =>
     ["--bg", "--surface"].map((bg): Pair => [c, bg, 3]),

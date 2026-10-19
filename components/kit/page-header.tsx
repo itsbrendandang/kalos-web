@@ -22,8 +22,8 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-x-6 gap-y-4", className)}>
-      <div className="min-w-0 flex-1">
+    <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-x-6", className)}>
+      <div className="min-w-0 sm:flex-1">
         {eyebrow ? <p className="mb-1 text-label text-fg-muted">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="min-w-0 text-title break-words text-fg">{title}</h1>
@@ -31,7 +31,7 @@ export function PageHeader({
         </div>
         {description ? <p className="mt-1.5 max-w-[68ch] text-body text-fg-muted">{description}</p> : null}
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      {action ? <div className="flex w-full shrink-0 items-center gap-2 *:max-sm:flex-1 sm:w-auto">{action}</div> : null}
     </header>
   );
 }

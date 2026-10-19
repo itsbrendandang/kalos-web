@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,8 +14,11 @@ export type TreeLeaf = {
   /** A short right-aligned value, e.g. a predicted titer. */
   detail?: ReactNode;
   icon?: ReactNode;
-  /** The full accessible name, including any state the icon shows. */
-  name: string;
+  /**
+   * State the icon shows, announced after the visible text. The accessible
+   * name is the visible label and detail first, then this (WCAG 2.5.3).
+   */
+  status?: string;
   /** Monospace only for code-like labels (run ids). */
   mono?: boolean;
 };
@@ -42,6 +45,7 @@ type Row = { node: TreeNode; parent: string | null };
  */
 export function ExplorerTree({ label, nodes, activeHref }: { label: string; nodes: TreeNode[]; activeHref: string }) {
   const router = useRouter();
+  const uid = useId();
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const refs = useRef(new Map<string, HTMLElement>());
@@ -118,7 +122,6 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
         aria-level={level}
         aria-selected={selected}
         aria-current={selected ? "page" : undefined}
-        aria-label={n.name}
         tabIndex={n.key === focus ? 0 : -1}
         ref={register(n.key)}
         onFocus={() => setFocusKey(n.key)}
@@ -132,6 +135,7 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
         {n.icon}
         <span className={cn("min-w-0 truncate", n.detail != null ? "max-w-[75%] shrink-0" : "flex-1", n.mono && "font-mono text-code")}>{n.label}</span>
         {n.detail != null ? <span className="ml-auto min-w-0 truncate text-caption text-fg-muted tabular-nums">{n.detail}</span> : null}
+        {n.status ? <span className="sr-only">, {n.status}</span> : null}
       </Link>
     );
   };
@@ -142,37 +146,33 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
         if (n.kind === "leaf") return leaf(n, 1);
         const at = visible.findIndex((r) => r.node.key === n.key);
         const open = !closed.has(n.key);
+        const groupId = `${uid}-${n.key.replace(/[^\w-]/g, "_")}`;
         return (
-          <div
-            key={n.key}
-            role="treeitem"
-            aria-level={1}
-            aria-expanded={open}
-            aria-selected={false}
-            aria-label={`${n.label}, ${n.leaves.length}`}
-            tabIndex={n.key === focus ? 0 : -1}
-            ref={register(n.key)}
-            onFocus={(e) => {
-              if (e.target === e.currentTarget) setFocusKey(n.key);
-            }}
-            onKeyDown={(e) => {
-              if (e.target === e.currentTarget) onKeyDown(e, visible[at], at);
-            }}
-            className="mt-2 outline-none first:mt-0 [&:focus-visible>div:first-child]:outline-2 [&:focus-visible>div:first-child]:outline-offset-[-2px] [&:focus-visible>div:first-child]:outline-ring [&:focus-visible>div:first-child]:outline"
-          >
+          <div key={n.key} className="mt-2 first:mt-0">
+            {/* The treeitem is the header row only, so its visible text is exactly
+                its name; the group of leaves is owned via aria-owns instead of nested. */}
             <div
+              role="treeitem"
+              aria-level={1}
+              aria-expanded={open}
+              aria-selected={false}
+              aria-owns={open ? groupId : undefined}
+              tabIndex={n.key === focus ? 0 : -1}
+              ref={register(n.key)}
+              onFocus={() => setFocusKey(n.key)}
+              onKeyDown={(e) => onKeyDown(e, visible[at], at)}
               onClick={() => {
                 setFocusKey(n.key);
                 setOpen(n.key, !open);
               }}
-              className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-1 text-caption font-medium text-fg-muted select-none hover:text-fg"
+              className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-1 text-caption font-medium text-fg-muted select-none hover:text-fg focus-visible:outline-offset-[-2px]"
             >
               <ChevronRight className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")} aria-hidden />
               <span className="flex-1 truncate">{n.label}</span>
               <span className="tabular-nums">{n.leaves.length}</span>
             </div>
             {open ? (
-              <div role="group" className="flex flex-col gap-px">
+              <div role="group" id={groupId} className="flex flex-col gap-px">
                 {n.leaves.length ? n.leaves.map((l) => leaf(l, 2)) : <p className="h-7 pl-7 text-caption leading-7 text-fg-muted">{n.empty ?? "None"}</p>}
               </div>
             ) : null}

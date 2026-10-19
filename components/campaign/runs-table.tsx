@@ -69,8 +69,7 @@ export function RunsTable({
                     <button
                       type="button"
                       aria-expanded={expanded}
-                      aria-label={`Full recipe for run ${shortId(r.id)}`}
-                      onClick={() => toggle(r.id)}
+                                      onClick={() => toggle(r.id)}
                       className="-mx-1 flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-subtle"
                     >
                       <ChevronRight className={cn("size-4 shrink-0 text-fg-muted transition-transform", expanded && "rotate-90")} aria-hidden />
@@ -79,6 +78,7 @@ export function RunsTable({
                           {k} <span className="text-fg tabular-nums">{formatNumber(r.recipe[k])}</span>
                         </span>
                       ))}
+                      <span className="sr-only">full recipe for run {shortId(r.id)}</span>
                     </button>
                   </TableCell>
                   <TableCell numeric>

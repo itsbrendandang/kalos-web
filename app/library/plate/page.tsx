@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlateHeatmap } from "@/components/plate/plate-heatmap";
@@ -107,12 +108,9 @@ export default function PlatePage() {
                       showFlags ? "border-blue-border bg-blue-tint text-blue-deep" : "border-border text-muted",
                     )}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={showFlags}
                       onChange={(e) => setShowFlags(e.target.checked)}
-                      className="size-3.5"
-                      style={{ accentColor: "var(--blue)" }}
                     />
                     Show flags
                   </label>
@@ -122,12 +120,9 @@ export default function PlatePage() {
                       showValues ? "border-blue-border bg-blue-tint text-blue-deep" : "border-border text-muted",
                     )}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={showValues}
                       onChange={(e) => setShowValues(e.target.checked)}
-                      className="size-3.5"
-                      style={{ accentColor: "var(--blue)" }}
                     />
                     Show values
                   </label>

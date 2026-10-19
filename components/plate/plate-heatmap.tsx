@@ -108,6 +108,12 @@ export function PlateHeatmap({
                         {w.metrics.deltaOD.toFixed(2)}
                       </span>
                     ) : null}
+                    <span className="sr-only">
+                      Well {id}, {w.condition}, Δ OD {w.metrics.deltaOD.toFixed(3)}
+                      {w.isControl ? `, ${w.controlType} control` : ""}
+                      {w.status ? `, ${STATUS_LABEL[w.status]}` : ""}
+                      {showFlags && w.flags.length > 0 ? ", flagged" : ""}
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="text-left">

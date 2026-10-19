@@ -38,7 +38,6 @@ export function UploadDropzone({
       <div
         role="button"
         tabIndex={0}
-        aria-label="Upload a run sheet (CSV, TSV, or Excel)"
         onClick={() => {
           if (!disabled) inputRef.current?.click();
         }}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Ellipsis, Keyboard, Settings } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Ellipsis, Keyboard, LogOut, Settings, ShieldCheck, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
+import { signOutAction } from "@/lib/server/auth-actions";
 import { cn } from "@/lib/utils";
 
 const SHORTCUTS: [keys: string, what: string][] = [
@@ -29,13 +30,14 @@ const SHORTCUTS: [keys: string, what: string][] = [
 ];
 
 /**
- * The workspace menu. Kalos has no accounts, so it shows no identity: only
- * Theme, Settings and Keyboard shortcuts.
+ * The workspace menu: Theme, Settings, Security (two-step sign-in, sessions),
+ * Members (invitations), Keyboard shortcuts and Sign out (a POST server action, never a GET link).
  */
 export function WorkspaceMenu({ side = "right", className }: { side?: "right" | "bottom"; className?: string }) {
   const router = useRouter();
   const theme = useThemePreference();
   const [shortcuts, setShortcuts] = useState(false);
+  const [signingOut, startSignOut] = useTransition();
   return (
     <>
       <DropdownMenu>
@@ -59,9 +61,22 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
             <Settings aria-hidden />
             Settings
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/settings/security")}>
+            <ShieldCheck aria-hidden />
+            Security
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/settings/organization")}>
+            <Users aria-hidden />
+            Members
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setShortcuts(true)}>
             <Keyboard aria-hidden />
             Keyboard shortcuts
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={signingOut} onClick={() => startSignOut(() => signOutAction())}>
+            <LogOut aria-hidden />
+            Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

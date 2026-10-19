@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
+import { ReplaceRunsDialog } from "@/components/campaign/replace-runs-dialog";
 import { SheetPicker } from "@/components/campaign/sheet-picker";
 import { UploadZone } from "@/components/campaign/upload-zone";
 import { ValidationSummary } from "@/components/campaign/validation-summary";
@@ -14,7 +15,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
-import type { ColumnRolesInput, ProvenanceEntry } from "@/lib/api";
+import { CampaignHasRunsError, type ColumnRolesInput, type ProvenanceEntry } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
@@ -50,17 +51,27 @@ export default function SetupPage() {
   const [formerTargets, setFormerTargets] = useState<string[]>([]);
   // Provenance of the last fit the engine inferred roles for (see sheet-roles RolesContext.baseline).
   const [baseline, setBaseline] = useState<ProvenanceEntry[]>([]);
+  // An upload the engine refused until the user confirms the replacement. Nothing was replaced, so the
+  // held file, roles and analysis stay on screen until the user answers the dialog.
+  const [pending, setPending] = useState<{
+    file: File;
+    target?: string;
+    roles?: ColumnRolesInput;
+    sheet?: string;
+    refusal: CampaignHasRunsError;
+  } | null>(null);
   const elapsed = useElapsedSeconds(busy);
 
-  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string) {
+  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string, replace = false) {
     // A different file, or a different worksheet of the same file, is new data: roles, targets and scan restart.
     // A re-fit of the held file keeps reading the worksheet the engine used.
     const fresh = f !== file || sheet !== undefined;
     const sheetArg = sheet ?? (fresh ? undefined : (state.sheetUsed ?? undefined));
-    dispatch({ type: "start" });
     setBusy(true);
     try {
-      const d = await runFile(f, target, nextRoles, sheetArg);
+      const d = await runFile(f, target, nextRoles, sheetArg, { replace });
+      // The attempt starts once the engine has answered: a refused upload must not clear the notes on screen.
+      dispatch({ type: "start" });
       if (d.error) {
         // The engine's own { error } is a problem with the sheet, not the connection.
         dispatch({ type: "failure", file: f, error: d.error, sheets: sheetsFrom(d) });
@@ -77,7 +88,12 @@ export default function SetupPage() {
       dispatch({ type: "success", file: f, sheets: sheetsFrom(d), sheetUsed: d.sheet_used ?? null });
       // Scan the worksheet the engine actually read, so the row-type check describes the fitted data.
       if (fresh) void scanSheet(f, d.sheet_used ?? sheetArg).then((r) => setScanned({ file: f, scan: r }));
-    } catch {
+    } catch (err) {
+      if (err instanceof CampaignHasRunsError) {
+        // Nothing was replaced: keep the current file, target and analysis, and ask first.
+        setPending({ file: f, target, roles: nextRoles, sheet, refusal: err });
+        return;
+      }
       dispatch({ type: "failure", file: f, error: "The analysis service did not respond. Try again in a moment." });
     } finally {
       setBusy(false);
@@ -125,6 +141,16 @@ export default function SetupPage() {
       />
 
       <UploadZone onFile={(f) => void analyze(f)} disabled={busy} compact={!!analysis} />
+
+      <ReplaceRunsDialog
+        refusal={pending?.refusal ?? null}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          const p = pending;
+          setPending(null);
+          if (p) void analyze(p.file, p.target, p.roles, p.sheet, true);
+        }}
+      />
 
       {failed ? (
         <Callout tone="bad" title={`${failed.name} could not be analyzed`}>

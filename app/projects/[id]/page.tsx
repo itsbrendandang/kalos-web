@@ -6,7 +6,7 @@ export function generateStaticParams() {
 }
 
 // Projects created client-side (via the Projects UI) only exist in the
-// browser's localStorage-backed store, not in this seed-derived static param
+// browser's in-memory store, not in this seed-derived static param
 // list - ProjectWorkspace resolves the live project from that store itself,
 // so this route intentionally never 404s on the server for an unknown id.
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {

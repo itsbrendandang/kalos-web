@@ -7,20 +7,19 @@
  * one route is still visible after navigating to the other), and the Projects
  * explorer lists the same projects.
  *
- * Seeded from the CUSTOMERS constant (app/projects/data.ts stays the source of
- * truth for initial content), then hydrated from localStorage in an effect -
- * never read localStorage during render, so the first client render matches
- * the server-rendered seed HTML exactly and there is no hydration mismatch.
+ * Seeded from the CUSTOMERS constant (clearly-labelled illustrative demo data
+ * in app/projects/data.ts, not real customers). State is in memory only: customer
+ * names, addresses and objectives are never written to localStorage, and a
+ * legacy `projects-store-v1` key from older builds is removed on load.
  */
 
-import { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import type { Customer, PipelineStage, Project, ProjectStatus } from "@/app/projects/data";
 import {
+  clearLegacyPersistedState,
   getProjectWithFallback,
   initialProjectsState,
   projectsReducer,
-  readPersistedState,
-  STORAGE_KEY,
   type NewCustomerInput,
   type ProjectEditInput,
 } from "@/lib/projects-store";
@@ -50,35 +49,14 @@ const ProjectsStoreContext = createContext<ProjectsStoreValue | null>(null);
 
 export function ProjectsStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(projectsReducer, undefined, initialProjectsState);
-  // Gates the persist effect below. Deliberately state (not a ref): the hydrate
-  // effect calls dispatch(...) and setHydrated(true) together in the same tick,
-  // so React batches them into a single re-render - the persist effect below
-  // only ever observes hydrated=true in the same render where `state` already
-  // reflects the hydration. A ref would flip to true on a render that still
-  // closes over the pre-hydration `state`, letting the persist effect write
-  // the seed over real localStorage data before the hydrated state lands
-  // (this actually happened in dev, where Strict Mode double-invokes effects).
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
-      const persisted = readPersistedState(window.localStorage);
-      if (persisted) dispatch({ type: "hydrate", state: persisted });
+      clearLegacyPersistedState(window.localStorage);
     } catch {
-      // Inaccessible storage - fall back to the seed state.
-    } finally {
-      setHydrated(true);
+      // Inaccessible storage - nothing to clear.
     }
   }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Ignore quota/availability errors - persistence is best-effort.
-    }
-  }, [state, hydrated]);
 
   const value = useMemo<ProjectsStoreValue>(
     () => ({

@@ -3,7 +3,7 @@
  * and the exceptions worth a second look. Tested in __tests__/plan-batch.test.ts.
  */
 
-import type { Proposal } from "@/lib/api";
+import { proposalRecipe, type Proposal } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 
 /** A recipe whose estimated chance of being feasible is below this is flagged. */
@@ -38,7 +38,31 @@ export function orderBatch(proposals: readonly Proposal[], incumbent: number | n
 export const targetIsNonNegative = (best: number, oof: readonly [number, number][]): boolean =>
   best >= 0 && oof.every(([measured]) => measured >= 0);
 
-export type ExceptionKind = "negative" | "low-feasibility" | "gain-within-band";
+export type ExceptionKind = "negative" | "low-feasibility" | "gain-within-band" | "at-edge";
+
+/** A setpoint within this fraction of the range width from either end counts as "at the edge". */
+export const EDGE_FRACTION = 0.02;
+
+/**
+ * The inputs of a recipe sitting at the edge of the range tried so far. There the
+ * model is extrapolating from one side only, so the predicted value is less
+ * trustworthy. Needs the engine's `feature_ranges`; with none, nothing is flagged.
+ */
+export function edgeInputs(
+  recipe: Record<string, number>,
+  ranges: Record<string, [number, number]> | undefined,
+  fraction = EDGE_FRACTION,
+): string[] {
+  if (!ranges) return [];
+  return Object.entries(recipe)
+    .filter(([name, v]) => {
+      const r = ranges[name];
+      if (!r || !Number.isFinite(v)) return false;
+      const width = r[1] - r[0];
+      return width > 0 && (v - r[0] <= width * fraction || r[1] - v <= width * fraction);
+    })
+    .map(([name]) => name);
+}
 
 export type BatchException = { rank: number; kind: ExceptionKind; text: string };
 
@@ -52,9 +76,16 @@ export type BatchException = { rank: number; kind: ExceptionKind; text: string }
  */
 export function batchExceptions(
   items: readonly BatchItem[],
-  ctx: { incumbent: number | null; band: number | null; nonNegative: boolean },
+  ctx: {
+    incumbent: number | null;
+    band: number | null;
+    nonNegative: boolean;
+    /** Engine `feature_ranges` and the `proposal_features` order, to flag edge recipes. Optional. */
+    ranges?: Record<string, [number, number]>;
+    features?: string[];
+  },
 ): { shown: BatchException[]; total: number } {
-  const order: ExceptionKind[] = ["negative", "low-feasibility", "gain-within-band"];
+  const order: ExceptionKind[] = ["negative", "low-feasibility", "gain-within-band", "at-edge"];
   const flags: BatchException[] = [];
   for (const { rank, proposal: p } of items) {
     const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
@@ -64,6 +95,11 @@ export function batchExceptions(
       flags.push({ rank, kind: "low-feasibility", text: `Recipe ${rank} has only a ${formatNumber(p.p_feasible, "pct")} estimated chance of being feasible.` });
     } else if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
       flags.push({ rank, kind: "gain-within-band", text: `Recipe ${rank} is predicted to beat the best by ${formatNumber(gain)}, less than its prediction band of ${formatNumber(ctx.band)}.` });
+    } else {
+      const edge = edgeInputs(proposalRecipe(p, ctx.features ?? []), ctx.ranges);
+      if (edge.length > 0) {
+        flags.push({ rank, kind: "at-edge", text: `Recipe ${rank} sits at the edge of the range tried for ${edge.slice(0, 3).join(", ")}${edge.length > 3 ? ` and ${edge.length - 3} more` : ""}, so the model is extrapolating there.` });
+      }
     }
   }
   flags.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.rank - b.rank);

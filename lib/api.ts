@@ -349,6 +349,8 @@ export type ProvenanceEntry = {
   status: string;
   coerced_cells: number;
   non_null: number;
+  /** "inferred" from column names, or "declared" when the caller sent explicit roles. Absent on older engines. */
+  source?: string;
 };
 
 export type AnalyzeResult = Partial<Diagnostics> & {
@@ -400,6 +402,8 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   /** How the engine selected which `drivers` to report. Absent on older engine builds. */
   driver_selection?: DriverSelection;
   proposal_features: string[];
+  /** Search range [low, high] of each continuous input; used to flag proposals at the edge. Absent on older engine builds. */
+  feature_ranges?: Record<string, [number, number]>;
   proposals: Proposal[];
   oof: [number, number][];
   /**
@@ -494,6 +498,9 @@ export const runMulti = (): Promise<MultiRun> =>
     return r.json();
   });
 
+/** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
+export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
+
 /**
  * The engine refused an upload because the campaign still has awaiting or
  * measured runs (HTTP 409, code `campaign_has_runs`). Nothing was replaced.
@@ -532,14 +539,20 @@ export function campaignHasRunsRefusal(status: number, body: unknown): CampaignH
 }
 
 /**
- * POST /api/run. `replace: true` sends the form field `replace=true`, which
- * the engine requires to overwrite a campaign that has awaiting or measured
- * runs; without it that case throws CampaignHasRunsError.
+ * POST /api/run. `roles` is sent when the user confirmed column roles. `replace: true` sends the
+ * form field `replace=true`, which the engine requires to overwrite a campaign that has awaiting
+ * or measured runs; without it that case throws CampaignHasRunsError.
  */
-export async function runFile(file: File, target?: string, opts: { replace?: boolean } = {}): Promise<AnalyzeResult> {
+export async function runFile(
+  file: File,
+  target?: string,
+  roles?: ColumnRolesInput,
+  opts: { replace?: boolean } = {},
+): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
+  if (roles) fd.append("roles", JSON.stringify(roles));
   if (opts.replace) fd.append("replace", "true");
   return fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() }).then(async (r) => {
     const d = (await r.json()) as AnalyzeResult;

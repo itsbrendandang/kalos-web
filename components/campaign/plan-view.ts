@@ -11,6 +11,7 @@
 import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
 import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { engineMessage } from "@/lib/engine-error";
 
 // --- Engine fields newer than lib/api.ts (kalos-engine PR #87) ---------------
 // Typed here, optional, so the page degrades on engines that do not send them.
@@ -490,9 +491,11 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
       suggestion: r.availableTargets?.length ? `Columns that do vary and could be the target: ${r.availableTargets.join(", ")}.` : null,
     };
   }
+  // A known code gets its plain sentence; an unknown one falls back to the engine's own wording. The raw code is never shown.
+  const known = engineMessage({ code: r.code, error: r.error });
   return {
     title: "The last upload was not used",
-    body: `The engine did not accept ${r.name} (${r.code ?? "no code"}). It said: ${r.error}`,
+    body: `The engine did not accept ${r.name}. ${known.message}`,
     suggestion: null,
   };
 }

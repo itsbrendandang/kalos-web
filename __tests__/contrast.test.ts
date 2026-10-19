@@ -90,6 +90,8 @@ const pairs: Pair[] = [
     ["--ring", bg, 3],
     ["--accent", bg, 3],
   ]),
+  // Control boundaries (input, select, checkbox) against every surface they sit on (UI, 3:1).
+  ...SURFACES.map((bg): Pair => ["--border-input", bg, 3]),
   // Chart marks (lines, points, bars) against the plot surface (graphics, 3:1).
   ...[...CHART, "--chart-predicted", "--chart-measured", "--chart-reference", "--chart-seq-5"].flatMap((c) =>
     ["--bg", "--surface"].map((bg): Pair => [c, bg, 3]),
@@ -117,5 +119,28 @@ describe.each([
         expect(v, name).toBeLessThanOrEqual(1.002);
       }
     }
+  });
+});
+
+// The response surface (components/campaign/plan/response-surface.tsx) draws cells in the sequential
+// ramp and marks with a page-coloured halo. The halo is what keeps a mark visible on a dark cell, so
+// the halo must clear 3:1 against the darkest steps. The lowest step sits close to the page: that is
+// the honest limit of a light-on-light ramp, so the plot is outlined and every value is also in the
+// readout and the sr-only table. The test pins that the lowest steps are still ordered and distinct.
+describe.each([
+  ["light", light],
+  ["dark", dark],
+])("%s theme: response surface marks and ramp", (_theme, tokens) => {
+  it.each(["--chart-seq-4", "--chart-seq-5"])("the page-coloured halo clears 3:1 against %s", (step) => {
+    expect(contrast(tokens, "--bg", step)).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(["--chart-predicted", "--chart-measured"])("%s clears 3:1 on the page-coloured halo", (mark) => {
+    expect(contrast(tokens, mark, "--bg")).toBeGreaterThanOrEqual(3);
+  });
+
+  it("the two lowest ramp steps stay distinct from each other against the page", () => {
+    const [s1, s2] = ["--chart-seq-1", "--chart-seq-2"].map((c) => contrast(tokens, c, "--bg"));
+    expect(s2 / s1).toBeGreaterThanOrEqual(1.3);
   });
 });

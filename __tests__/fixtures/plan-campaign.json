@@ -1,0 +1,1 @@
+{"has_campaign":true,"target":"lipase_titer","features":["pH","Temp_C","Methanol"],"n_base":40,"best":49.76,"round":0,"history":[{"round":0,"best":49.76,"n_base":40}],"pending":[],"n_awaiting":0,"n_measured":0,"analysis_in_sync":true}

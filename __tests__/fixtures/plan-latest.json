@@ -1,0 +1,440 @@
+{
+ "has_data": true,
+ "dataset": "good.csv",
+ "updated": 1792270959.533095,
+ "campaign_generation": "1b863f7a6e24456ab4fa4a7b2b3efba3",
+ "n": 40,
+ "d": 3,
+ "target": "lipase_titer",
+ "targets": [
+  "lipase_titer",
+  "biomass_gL"
+ ],
+ "features": [
+  "Methanol",
+  "pH",
+  "Temp_C"
+ ],
+ "best": 49.76,
+ "proposals": [
+  {
+   "pred": 47.642,
+   "std": 0.706,
+   "mode": "explore",
+   "reason": "diversifies the batch (predicted 47.6, \u00b10.706)",
+   "vals": [
+    6.278,
+    33.035,
+    1.795
+   ],
+   "recipe": {
+    "Methanol": 1.795,
+    "pH": 6.278,
+    "Temp_C": 33.035
+   },
+   "p_feasible": null
+  },
+  {
+   "pred": 45.46,
+   "std": 1.046,
+   "mode": "explore",
+   "reason": "reduce model uncertainty here (\u00b11.05)",
+   "vals": [
+    6.133,
+    27.448,
+    2.296
+   ],
+   "recipe": {
+    "Methanol": 2.296,
+    "pH": 6.133,
+    "Temp_C": 27.448
+   },
+   "p_feasible": null
+  },
+  {
+   "pred": 46.66,
+   "std": 1.133,
+   "mode": "explore",
+   "reason": "reduce model uncertainty here (\u00b11.13)",
+   "vals": [
+    5.447,
+    32.071,
+    1.792
+   ],
+   "recipe": {
+    "Methanol": 1.792,
+    "pH": 5.447,
+    "Temp_C": 32.071
+   },
+   "p_feasible": null
+  },
+  {
+   "pred": 51.205,
+   "std": 0.825,
+   "mode": "exploit",
+   "reason": "predicted high (+1.45 vs best)",
+   "vals": [
+    5.968,
+    29.968,
+    1.727
+   ],
+   "recipe": {
+    "Methanol": 1.727,
+    "pH": 5.968,
+    "Temp_C": 29.968
+   },
+   "p_feasible": null
+  },
+  {
+   "pred": 50.55,
+   "std": 0.801,
+   "mode": "explore",
+   "reason": "diversifies the batch (predicted 50.5, \u00b10.801)",
+   "vals": [
+    5.917,
+    29.98,
+    1.957
+   ],
+   "recipe": {
+    "Methanol": 1.957,
+    "pH": 5.917,
+    "Temp_C": 29.98
+   },
+   "p_feasible": null
+  }
+ ],
+ "proposal_features": [
+  "pH",
+  "Temp_C",
+  "Methanol"
+ ],
+ "conformal_q": 3.8329,
+ "conformal_coverage": 0.9,
+ "reliability": {
+  "spearman": 0.88,
+  "ci95": [
+   0.72,
+   0.932
+  ],
+  "spearman_floor": 0.2,
+  "clears_floor": true,
+  "producer_spearman": 0.88,
+  "producer_clears_floor": true,
+  "n_producers": 40,
+  "producer_threshold": 0.0,
+  "ci_excludes_zero": true,
+  "calibration": {
+   "available": true,
+   "reason": null,
+   "n": 40,
+   "ece": 0.1062,
+   "z_std": 1.2464,
+   "levels": [
+    {
+     "nominal": 0.5,
+     "empirical": 0.425
+    },
+    {
+     "nominal": 0.8,
+     "empirical": 0.625
+    },
+    {
+     "nominal": 0.9,
+     "empirical": 0.8
+    },
+    {
+     "nominal": 0.95,
+     "empirical": 0.875
+    }
+   ]
+  },
+  "unmodeled": [
+   "feasibility probability",
+   "scale-up transfer"
+  ]
+ },
+ "cv_spearman": 0.88,
+ "cv_ci95": [
+  0.72,
+  0.932
+ ],
+ "noise": {
+  "n_recipes": 40,
+  "n_replicated": 0,
+  "replicate_aware": false,
+  "icc": null,
+  "noise_sd": null,
+  "signal_sd": 5.1296,
+  "best_single": 49.76,
+  "best_reproducible": null,
+  "scale": {
+   "variance_mean_rho": null,
+   "homoscedastic": null,
+   "icc_raw": null,
+   "icc_log": null,
+   "icc_gain": null,
+   "log_offset": null,
+   "suggests_transform": false,
+   "reason": "only 0 replicated recipe(s); at least 4 are needed to relate within-recipe variance to recipe mean"
+  }
+ },
+ "constraint": {
+  "column": null,
+  "floor": null,
+  "n_rows_with_value": 0,
+  "applied": false,
+  "reason": "no constraint requested"
+ },
+ "proposal_gating": {
+  "gated": false,
+  "reason": "feasibility classifier did not fit (cold-start fallback: too few non-producer examples to train on); not zero-inflated enough: n_infeasible=0 < 5; feasibility CV AUC not measurable on this sheet",
+  "n_infeasible": 0,
+  "feasibility_auc": null,
+  "threshold": 0.0
+ },
+ "batch_diversity": {
+  "requested": 5,
+  "returned": 5,
+  "near_duplicates_replaced": 1,
+  "min_separation": 0.05,
+  "metric": "max over continuous factors of |difference| / factor range; any differing categorical level counts as fully distinct"
+ },
+ "proposal_notice": null,
+ "design_box_exclusions": [],
+ "drivers": [],
+ "oof": [
+  [
+   42.72,
+   41.2358
+  ],
+  [
+   33.21,
+   34.6801
+  ],
+  [
+   46.35,
+   45.4718
+  ],
+  [
+   45.23,
+   44.7568
+  ],
+  [
+   39.45,
+   40.6771
+  ],
+  [
+   47.35,
+   48.2249
+  ]
+ ],
+ "response_surface": {
+  "x_feature": "pH",
+  "y_feature": "Temp_C",
+  "x_vals": [],
+  "y_vals": [],
+  "z": [],
+  "runs": [
+   [
+    6.28,
+    31.6,
+    49.76
+   ],
+   [
+    6.71,
+    27.5,
+    38.06
+   ],
+   [
+    6.19,
+    32.7,
+    38.24
+   ],
+   [
+    5.52,
+    27.1,
+    33.24
+   ],
+   [
+    6.68,
+    33.3,
+    42.72
+   ],
+   [
+    6.02,
+    25.6,
+    47.55
+   ],
+   [
+    6.02,
+    33.3,
+    40.49
+   ],
+   [
+    6.51,
+    26.6,
+    42.47
+   ],
+   [
+    5.3,
+    28.8,
+    47.47
+   ],
+   [
+    6.64,
+    28.2,
+    33.21
+   ],
+   [
+    6.37,
+    31.9,
+    44.65
+   ],
+   [
+    6.57,
+    26.8,
+    44.44
+   ],
+   [
+    5.38,
+    29.0,
+    46.35
+   ],
+   [
+    6.6,
+    25.1,
+    36.44
+   ],
+   [
+    5.38,
+    27.6,
+    44.05
+   ],
+   [
+    5.16,
+    29.2,
+    45.08
+   ],
+   [
+    6.71,
+    26.1,
+    33.77
+   ],
+   [
+    6.72,
+    31.3,
+    45.23
+   ],
+   [
+    6.75,
+    28.8,
+    39.77
+   ],
+   [
+    5.94,
+    32.3,
+    45.12
+   ],
+   [
+    5.55,
+    31.5,
+    43.73
+   ],
+   [
+    5.01,
+    29.3,
+    39.45
+   ],
+   [
+    6.29,
+    33.7,
+    47.51
+   ],
+   [
+    6.44,
+    31.3,
+    37.67
+   ],
+   [
+    6.67,
+    33.1,
+    34.66
+   ],
+   [
+    5.56,
+    28.4,
+    46.76
+   ],
+   [
+    5.43,
+    30.4,
+    47.35
+   ],
+   [
+    6.28,
+    27.0,
+    43.51
+   ],
+   [
+    6.61,
+    35.0,
+    34.43
+   ],
+   [
+    6.93,
+    27.4,
+    33.17
+   ],
+   [
+    5.3,
+    27.6,
+    43.59
+   ],
+   [
+    5.96,
+    25.7,
+    37.53
+   ],
+   [
+    6.79,
+    27.6,
+    43.1
+   ],
+   [
+    5.85,
+    32.6,
+    42.98
+   ],
+   [
+    6.18,
+    32.0,
+    46.83
+   ],
+   [
+    5.05,
+    26.3,
+    32.05
+   ],
+   [
+    6.35,
+    28.8,
+    39.75
+   ],
+   [
+    6.84,
+    29.2,
+    43.81
+   ],
+   [
+    6.65,
+    31.6,
+    46.76
+   ],
+   [
+    6.77,
+    29.6,
+    32.79
+   ]
+  ]
+ }
+}

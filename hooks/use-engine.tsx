@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import * as api from "@/lib/api";
 import { getCampaign, getLatest, type Campaign, type LatestResult } from "@/lib/api";
+import { toRejection, type UploadRejection } from "@/components/campaign/plan-view";
 
 /**
  * One engine read with honest states. `data` is the last good response and is
@@ -68,7 +69,17 @@ function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
   return { ...state, status, refreshing, refresh, set };
 }
 
-type EngineData = { latest: EngineResource<LatestResult>; campaign: EngineResource<Campaign> };
+/**
+ * The last upload the engine rejected in this browser session, or null. The
+ * engine keeps its previous analysis when it rejects a sheet, so pages that
+ * read /api/latest (Plan) need this to say the batch is from the earlier file,
+ * or why there is no batch at all (e.g. `target_constant`). In memory only:
+ * a reload forgets it, because the engine does not report it.
+ */
+type LastRejection = { rejection: UploadRejection | null; setRejection: (r: UploadRejection | null) => void };
+
+type EngineData = { latest: EngineResource<LatestResult>; campaign: EngineResource<Campaign> } & LastRejection;
+
 
 const EngineContext = createContext<EngineData | null>(null);
 
@@ -80,7 +91,8 @@ const EngineContext = createContext<EngineData | null>(null);
 export function EngineDataProvider({ children }: { children: ReactNode }) {
   const latest = useEngineResource(getLatest);
   const campaign = useEngineResource(getCampaign);
-  return <EngineContext.Provider value={{ latest, campaign }}>{children}</EngineContext.Provider>;
+  const [rejection, setRejection] = useState<UploadRejection | null>(null);
+  return <EngineContext.Provider value={{ latest, campaign, rejection, setRejection }}>{children}</EngineContext.Provider>;
 }
 
 function useEngineData(): EngineData {
@@ -99,6 +111,12 @@ export function useCampaign(): EngineResource<Campaign> {
   return useEngineData().campaign;
 }
 
+/** The last rejected upload this session, and a way to dismiss it (e.g. "keep planning from the previous sheet"). */
+export function useLastRejection(): LastRejection {
+  const { rejection, setRejection } = useEngineData();
+  return { rejection, setRejection };
+}
+
 /*
  * The one write path. Pages must call these instead of the lib/api writes so
  * the status bar, Explorer stages and Next card update without a reload:
@@ -114,17 +132,21 @@ export function useCampaign(): EngineResource<Campaign> {
  * only after the write succeeded. Read state with useLatest()/useCampaign().
  */
 export function useEngineWrites() {
-  const { latest, campaign } = useEngineData();
+  const { latest, campaign, setRejection } = useEngineData();
   const { refresh: refreshLatest } = latest;
   const { refresh: refreshCampaign, set: setCampaign } = campaign;
 
   const runFile = useCallback(
     async (file: File, target?: string, roles?: api.ColumnRolesInput, sheet?: string, opts?: { replace?: boolean }) => {
       const d = await api.runFile(file, target, roles, sheet, opts);
+      // Only a coded validation rejection is remembered, tagged with the dataset still on screen,
+      // so Plan can ignore it once /api/latest shows anything else.
+      const shown = latest.data?.has_data ? latest.data.dataset : null;
+      setRejection(d.error ? toRejection(file.name, d, shown) : null);
       if (!d.error) await Promise.all([refreshLatest(), refreshCampaign()]);
       return d;
     },
-    [refreshLatest, refreshCampaign],
+    [refreshLatest, refreshCampaign, setRejection, latest.data],
   );
   const startRuns = useCallback(
     async (recipes: api.StartRecipe[]) => {

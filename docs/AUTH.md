@@ -383,7 +383,8 @@ BACKUP=/srv/backups/auth-<ts>.db.age AGE_KEY_FILE=/secure/age.key ENV_FILE=/srv/
 - W2: engine proxy uses `requireApiSession()` → `resolveTenant()` → `scopesForClaims()` →
   `mintEngineTokenForSession()`; step-up for destructive engine calls; archive = admin only.
 - Role-change UI (API exists; `/settings/organization` covers invite, cancel, remove).
-- Operator commands for MFA reset and "sign out user everywhere" (SQL documented above).
+- Operator CLI for MFA reset and "sign out user everywhere": not written. Both are manual SQL, documented under
+  "Sessions" (kill switch) and "Limits" (lost authenticator and backup codes).
 
 ## Alternative: WorkOS
 

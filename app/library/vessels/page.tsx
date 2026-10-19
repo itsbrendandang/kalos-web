@@ -5,15 +5,17 @@ import { PlugZap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/honest-state";
 import { VesselTable } from "@/components/vessels/vessel-table";
-import { KineticOverlay } from "@/components/vessels/kinetic-overlay";
-import { CorrelationScatter } from "@/components/vessels/correlation-scatter";
 import { PageHeader, DemoBadge } from "@/components/page-header";
 import { VESSELS } from "@/lib/vessel-data";
 import { DEMO_MODE } from "@/lib/demo";
+import { lazyChart } from "@/components/kit/lazy-chart";
 
 /** Honest empty state: there is no live vessel/kinetics source yet, so with demo
  *  mode off the page renders nothing fabricated rather than 48 simulated vessels
  *  that could read as a real run. */
+const KineticOverlay = lazyChart(() => import("@/components/vessels/kinetic-overlay").then((m) => m.KineticOverlay));
+const CorrelationScatter = lazyChart(() => import("@/components/vessels/correlation-scatter").then((m) => m.CorrelationScatter));
+
 function NoLiveVessels() {
   return (
     <div className="flex flex-col gap-5">

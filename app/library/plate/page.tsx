@@ -11,11 +11,11 @@ import { WellStatusLegend } from "@/components/plate/well-status-legend";
 import { FlagSummary } from "@/components/plate/flag-summary";
 import { ControlSummary } from "@/components/plate/control-summary";
 import { WellDetail } from "@/components/plate/well-detail";
-import { GrowthCurve } from "@/components/plate/growth-curve";
 import { StatusChip } from "@/components/plate/status-chip";
 import { PageHeader, DemoBadge } from "@/components/page-header";
 import { PLATE } from "@/lib/plate-data";
 import { cn } from "@/lib/utils";
+import { lazyChart } from "@/components/kit/lazy-chart";
 
 type ViewTab = "overview" | "dose";
 
@@ -24,6 +24,8 @@ type ViewTab = "overview" | "dose";
  * growth-curve detail. Renders from the deterministic seed data in
  * lib/plate-data.ts - see that file for the real-API integration point.
  */
+const GrowthCurve = lazyChart(() => import("@/components/plate/growth-curve").then((m) => m.GrowthCurve));
+
 export default function PlatePage() {
   const [selectedWellId, setSelectedWellId] = useState(PLATE.defaultWellId);
   const [showFlags, setShowFlags] = useState(false);

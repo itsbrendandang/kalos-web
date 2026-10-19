@@ -21,7 +21,10 @@
 # deps - install once, reused by builder; kept separate so a source-only
 # change doesn't invalidate the (slow) npm ci layer.
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS deps
+# Base image pinned by digest: the multi-arch index of node:22-alpine, resolved on
+# 2026-10-18 with `docker buildx imagetools inspect node:22-alpine`. Refresh it
+# deliberately, in its own commit, and rebuild; a tag on its own can move.
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS deps
 # Next.js 16 requires Node >=20.9 (node_modules/next declares this in
 # package-lock.json's package metadata once installed). node:22-alpine is the
 # current LTS line, comfortably above that floor, and matches the Node
@@ -35,7 +38,7 @@ RUN npm ci --no-audit --no-fund --ignore-scripts
 # ---------------------------------------------------------------------------
 # builder
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -61,7 +64,7 @@ RUN test -f .next/standalone/node_modules/better-sqlite3/prebuilds/linuxmusl-$(n
 # ---------------------------------------------------------------------------
 # runtime
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production \

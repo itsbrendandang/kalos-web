@@ -31,11 +31,43 @@ function mix(c1: [number, number, number], c2: [number, number, number], t: numb
 /** Left-to-right preview of the sequential ramp, for a colorbar `background`. */
 export const SEQ_GRADIENT_CSS = `linear-gradient(to right, rgb(${BLUE_TINT.join(",")}), rgb(${BLUE.join(",")}), rgb(${BLUE_DEEP.join(",")}))`;
 
+function seqRgb(value: number, min: number, max: number): [number, number, number] {
+  if (max <= min) return BLUE;
+  const t = (value - min) / (max - min);
+  const lerp = (a: [number, number, number], b: [number, number, number], u: number): [number, number, number] => [
+    Math.round(a[0] + (b[0] - a[0]) * u),
+    Math.round(a[1] + (b[1] - a[1]) * u),
+    Math.round(a[2] + (b[2] - a[2]) * u),
+  ];
+  return t <= 0.5 ? lerp(BLUE_TINT, BLUE, t / 0.5) : lerp(BLUE, BLUE_DEEP, (t - 0.5) / 0.5);
+}
+
 /** Sequential blue ramp for a value in [min, max]: tint (low) -> blue -> deep (high). */
 export function seqColor(value: number, min: number, max: number): string {
-  if (max <= min) return mix(BLUE, BLUE, 0);
-  const t = (value - min) / (max - min);
-  return t <= 0.5 ? mix(BLUE_TINT, BLUE, t / 0.5) : mix(BLUE, BLUE_DEEP, (t - 0.5) / 0.5);
+  const [r, g, b] = seqRgb(value, min, max);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** WCAG relative luminance of an sRGB colour. */
+function luminance([r, g, b]: [number, number, number]): number {
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/**
+ * Text colour that reads on the sequential fill for this value: white or near-black,
+ * whichever has the higher WCAG contrast against the actual fill. A fixed cutoff on
+ * the ramp position is not enough: the mid-ramp brand blue fails near-black text.
+ */
+export function seqInk(value: number, min: number, max: number): string {
+  const L = luminance(seqRgb(value, min, max));
+  const onWhite = 1.05 / (L + 0.05);
+  // Pure black, not a near-black: with white it gives a worst case of ~4.6:1 over the ramp, so every fill passes AA.
+  const onInk = (L + 0.05) / 0.05; // black has zero luminance
+  return onWhite >= onInk ? "#ffffff" : "#000000";
 }
 
 /**

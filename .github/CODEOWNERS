@@ -1,0 +1,7 @@
+# Default owner for everything.
+*                          @itsbrendandang
+
+# Security-sensitive paths: the server-side engine proxy (holds the bearer token) and the
+# upload preflight, listed explicitly so they stay owned even if the default rule changes.
+/app/api/engine/           @itsbrendandang
+/lib/upload-preflight.ts   @itsbrendandang

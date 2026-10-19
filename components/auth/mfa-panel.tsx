@@ -5,6 +5,7 @@ import { Callout } from "@/components/kit/callout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { safeNextPath } from "@/lib/auth-routes";
+import { mfaErrorText as errorText } from "@/lib/mfa-error-copy";
 
 async function post(path: string, body: unknown): Promise<{ ok: boolean; status: number; data: Record<string, unknown> | null }> {
   const res = await fetch(`/api/auth${path}`, {
@@ -14,14 +15,6 @@ async function post(path: string, body: unknown): Promise<{ ok: boolean; status:
   });
   const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   return { ok: res.ok, status: res.status, data };
-}
-
-function errorText(status: number, data: Record<string, unknown> | null): string {
-  const code = typeof data?.code === "string" ? data.code : "";
-  if (status === 429) return "Too many attempts. Wait a little and try again.";
-  if (code === "TOTP_REPLAYED") return "That code was already used. Wait for the next one.";
-  if (status === 401 && code !== "INVALID_CODE" && code !== "INVALID_BACKUP_CODE") return "Your sign-in expired. Sign in again.";
-  return "That code is not right. Check your authenticator app and try again.";
 }
 
 /**

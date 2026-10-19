@@ -4,12 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
 import { CorrelationHeatmap } from "@/components/campaign/correlation-heatmap";
 import { DriversList } from "@/components/campaign/drivers-list";
 import { bandCalibration, calibrationSentence, canPlanNext, promotionLine } from "@/components/campaign/learn";
-import { PredVsMeasured } from "@/components/campaign/pred-vs-measured";
-import { RunLandscape } from "@/components/campaign/run-landscape";
 import { targetName } from "@/components/campaign/target";
 import { ChartFrame } from "@/components/kit/chart-frame";
 import { Callout } from "@/components/kit/callout";
@@ -27,6 +24,7 @@ import { formatNumber, formatRange } from "@/lib/format";
 import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
 import { measured, type ActiveCampaign } from "@/lib/workbench";
+import { lazyChart } from "@/components/kit/lazy-chart";
 
 /**
  * Learn: what the round taught the model. The verdict comes first, then the
@@ -34,6 +32,10 @@ import { measured, type ActiveCampaign } from "@/lib/workbench";
  * the drivers, and model detail one click down. "Plan round N+1" re-analyzes
  * with the measured results and opens the next batch on Plan.
  */
+const BestSoFarChart = lazyChart(() => import("@/components/campaign/best-so-far-chart").then((m) => m.BestSoFarChart));
+const PredVsMeasured = lazyChart(() => import("@/components/campaign/pred-vs-measured").then((m) => m.PredVsMeasured));
+const RunLandscape = lazyChart(() => import("@/components/campaign/run-landscape").then((m) => m.RunLandscape));
+
 export default function LearnPage() {
   const latest = useLatest();
   const campaign = useCampaign();

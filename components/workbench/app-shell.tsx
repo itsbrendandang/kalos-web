@@ -104,7 +104,7 @@ function Frame({ children }: { children: ReactNode }) {
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <EditorTabs titleFor={tabTitle} panelId={MAIN_ID} />
+          <EditorTabs titleFor={tabTitle} />
           <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-3 md:px-4">
             {hasExplorer && collapsed ? (
               <button
@@ -238,8 +238,9 @@ function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; on
 }
 
 function MobileTopBar({ onOpenSheet, onSearch }: { onOpenSheet: () => void; onSearch: () => void }) {
+  // A header, so the mobile bar is a banner landmark (axe "region": content outside landmarks).
   return (
-    <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-subtle px-2 md:hidden">
+    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-subtle px-2 md:hidden">
       <button type="button" onClick={onOpenSheet} aria-label="Open navigation" className="grid size-9 place-items-center rounded-lg text-fg hover:bg-surface">
         <Menu className="size-5" aria-hidden />
       </button>
@@ -251,7 +252,7 @@ function MobileTopBar({ onOpenSheet, onSearch }: { onOpenSheet: () => void; onSe
         <Search className="size-5" aria-hidden />
       </button>
       <WorkspaceMenu side="bottom" />
-    </div>
+    </header>
   );
 }
 

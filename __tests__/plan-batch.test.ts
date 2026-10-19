@@ -40,6 +40,7 @@ describe("batchExceptions", () => {
   });
   it("flags a gain smaller than the band, never a recipe not predicted to gain", () => {
     expect(run([p(5.3)]).shown.map((e) => e.kind)).toEqual(["gain-within-band"]);
+    expect(run([p(5.3)]).shown[0].text).toContain("half-width of its prediction band (±0.50)");
     expect(run([p(6)]).shown).toEqual([]);
     expect(run([p(4)]).shown).toEqual([]);
     expect(run([p(5.3)], { ...ctx, band: null }).shown).toEqual([]);

@@ -96,6 +96,11 @@ describe("recipeFlags", () => {
   it("is empty for an unremarkable recipe", () => {
     expect(kinds(p(45))).toEqual([]);
   });
+  it("says the band is compared by its half-width, the same measure as the gain", () => {
+    const flag = recipeFlags(p(51), { pH: 6 }, ctx).find((f) => f.kind === "gain-within-band");
+    expect(flag?.detail).toContain("half-width of ±3");
+    expect(flag?.detail).not.toContain("prediction band of");
+  });
   it("flags a gain smaller than the band, but not a gain larger than it or no gain", () => {
     expect(kinds(p(51))).toEqual(["gain-within-band"]);
     expect(kinds(p(54))).toEqual([]);

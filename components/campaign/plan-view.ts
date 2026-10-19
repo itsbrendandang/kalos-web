@@ -205,7 +205,7 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, less than the prediction band of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
+    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the prediction band's half-width of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
@@ -220,7 +220,7 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
     constraint: "predicted below the requested constraint floor",
     "outside-range": "an input outside the range tried so far",
     "at-edge": "an input at the edge of the range tried so far",
-    "gain-within-band": "predicted gain smaller than the prediction band",
+    "gain-within-band": "predicted gain smaller than the band's half-width",
   };
   return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => ({ kind, ranks: by.get(kind)!, label: label[kind] }));
 }

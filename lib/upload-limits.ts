@@ -1,7 +1,7 @@
-// One definition of the upload limit, shared by the server proxy and the browser.
 // The operator sets KALOS_MAX_UPLOAD_MB (same name and default as the engine,
-// kalos/portal/uploads.py); next.config.ts inlines it for the browser as
-// NEXT_PUBLIC_MAX_UPLOAD_MB, so both sides read the same setting.
+// kalos/portal/uploads.py). Only the server reads it: the proxy enforces the
+// limit and answers 413 when a body is over it. The browser is NOT told the
+// limit (next.config.ts does not inline it), so the client does no size pre-check.
 export const DEFAULT_MAX_UPLOAD_MB = 25;
 
 /** Extra bytes the proxy allows on top of the file limit: a multipart request carries the boundary,

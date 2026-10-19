@@ -11,6 +11,7 @@ import type { SheetColumn } from "@/lib/sheet-roles";
  * inputs Kalos used ticked and the target named, so a mislabelled ID column or a
  * measured-output column can be fixed before the fit is trusted. Re-fitting sends
  * the chosen columns as explicit roles; "Looks right" confirms the current ones.
+ * Confirmation is advisory by design (the fit is already saved; no route is blocked on it).
  */
 export function ColumnConfirm({
   columns,
@@ -83,6 +84,7 @@ export function ColumnConfirm({
                   <input type="checkbox" checked={picked.has(c.name)} onChange={() => toggle(c.name)} />
                   <span className="truncate">{c.name}</span>
                   {c.note ? <span className="shrink-0 text-caption text-fg-muted">({c.note})</span> : null}
+                  {c.warning ? <span className="shrink-0 text-caption text-warn">Note: {c.warning}</span> : null}
                 </label>
               </li>
             ))}
@@ -92,7 +94,7 @@ export function ColumnConfirm({
             Column names are the ones the engine read from your sheet. Re-fitting with your own choices uses the engine&apos;s generic column profile, which may skip bioprocess-specific name-based checks and unit conversions.
           </p>
           <p className="text-caption text-fg-muted">
-            Advisory only: Kalos has already saved this fit. Confirming here just unlocks this page&apos;s next step, and reloading the page skips it.
+            Advisory only: Kalos has already saved this fit. Confirming here just records that you checked the columns; the next step stays available without it (the sidebar links straight on), and reloading the page skips it.
           </p>
         </fieldset>
       </div>

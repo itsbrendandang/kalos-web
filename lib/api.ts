@@ -484,6 +484,12 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   timestamp?: number;
   engine_version?: string;
   error?: string;
+  /** Worksheet names when the uploaded workbook has several (may accompany an `error`). Absent on older engines. */
+  sheets?: string[];
+  /** The worksheet the engine actually read. Absent on older engines and CSV; may be null on an error. */
+  sheet_used?: string | null;
+  /** Machine code on a 400 (e.g. "sheet_not_found", "target_constant"); the human text is `error`. Absent on older engines. */
+  code?: string;
 };
 
 export const runSingle = (): Promise<SingleRun> =>
@@ -539,20 +545,23 @@ export function campaignHasRunsRefusal(status: number, body: unknown): CampaignH
 }
 
 /**
- * POST /api/run. `roles` is sent when the user confirmed column roles. `replace: true` sends the
- * form field `replace=true`, which the engine requires to overwrite a campaign that has awaiting
- * or measured runs; without it that case throws CampaignHasRunsError.
+ * POST /api/run. `roles` is sent when the user confirmed column roles; `sheet` picks a worksheet of a
+ * multi-sheet workbook (engine form field `sheet`), omitted the engine chooses. `replace: true` sends the
+ * form field `replace=true`, which the engine requires to overwrite a campaign that has awaiting or
+ * measured runs; without it that case throws CampaignHasRunsError.
  */
 export async function runFile(
   file: File,
   target?: string,
   roles?: ColumnRolesInput,
+  sheet?: string,
   opts: { replace?: boolean } = {},
 ): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
   if (roles) fd.append("roles", JSON.stringify(roles));
+  if (sheet) fd.append("sheet", sheet);
   if (opts.replace) fd.append("replace", "true");
   return fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() }).then(async (r) => {
     const d = (await r.json()) as AnalyzeResult;

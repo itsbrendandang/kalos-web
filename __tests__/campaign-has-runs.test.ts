@@ -32,7 +32,7 @@ describe("campaign_has_runs refusal (lib/api.ts)", () => {
   it("runFile with replace sends replace=true alongside the same file", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { n: 2 }));
     const f = sheet();
-    await runFile(f, undefined, undefined, { replace: true });
+    await runFile(f, undefined, undefined, undefined, { replace: true });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`${API}/api/run`);
     const fd = init.body as FormData;

@@ -86,3 +86,24 @@ export function nextAction(s: SetupState, opts: { hasAnalysis: boolean; validati
   const unconfirmed = s.file !== null && !s.confirmed;
   return { visible: true, emphasis: unconfirmed ? "secondary" : "primary", hint: unconfirmed ? "Columns not confirmed yet (optional)" : null };
 }
+
+/**
+ * Runs one async action at a time. A call made while one is still in flight returns null and does
+ * nothing: two uploads or re-fits racing each other would both write the engine and the page state.
+ * A ref-held instance is used, not React state, so a second click in the same tick is refused too.
+ */
+export function singleFlight() {
+  let inFlight = false;
+  return async function run<T>(fn: () => Promise<T>): Promise<T | null> {
+    if (inFlight) return null;
+    inFlight = true;
+    try {
+      return await fn();
+    } finally {
+      inFlight = false;
+    }
+  };
+}
+
+/** The target picker is usable only for a current analysis the user can act on, and never while a fit runs. */
+export const canChangeTarget = (s: SetupState, busy: boolean): boolean => !busy && canActOnAnalysis(s);

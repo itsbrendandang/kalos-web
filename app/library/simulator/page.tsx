@@ -8,15 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { PageHeader } from "@/components/page-header";
-import { ConvergenceChart, ParetoChart } from "@/components/charts";
 import { Proposals } from "@/components/proposals";
 import { formatNumber } from "@/lib/format";
+import { lazyChart } from "@/components/kit/lazy-chart";
 
 type Mode = "single" | "multi";
 
 /** Distance from the recipe the run actually found to the benchmark's known
  *  optimum recipe (both are points in the same unit cube) - 0 means the
  *  search landed exactly on the true optimum. */
+const ConvergenceChart = lazyChart(() => import("@/components/charts").then((m) => m.ConvergenceChart));
+const ParetoChart = lazyChart(() => import("@/components/charts").then((m) => m.ParetoChart));
+
 function recipeDistance(a: number[], b: number[]): number {
   return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
 }

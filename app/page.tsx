@@ -4,8 +4,6 @@ import { ChartFrame } from "@/components/kit/chart-frame";
 import { KpiCard } from "@/components/kit/kpi-card";
 import { NextCard } from "@/components/kit/next-card";
 import { PageHeader } from "@/components/kit/page-header";
-import { BarChart } from "@/components/tremor/bar-chart";
-import { LineChart } from "@/components/tremor/line-chart";
 import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +16,7 @@ import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { bestSoFarSeries, topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
 import { campaignView, type ActiveCampaign } from "@/lib/workbench";
+import { lazyChart } from "@/components/kit/lazy-chart";
 
 /**
  * Campaign Overview, the pinned first tab: where the round is, the one next
@@ -25,6 +24,9 @@ import { campaignView, type ActiveCampaign } from "@/lib/workbench";
  * Everything comes from /api/latest and /api/campaign; demo data appears only
  * when the engine confirms there is no campaign and demo mode is on, labelled.
  */
+const BarChart = lazyChart(() => import("@/components/tremor/bar-chart").then((m) => m.BarChart));
+const LineChart = lazyChart(() => import("@/components/tremor/line-chart").then((m) => m.LineChart));
+
 export default function OverviewPage() {
   const latest = useLatest();
   const campaign = useCampaign();

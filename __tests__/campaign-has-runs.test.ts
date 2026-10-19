@@ -68,6 +68,11 @@ describe("campaign_has_runs refusal (lib/api.ts)", () => {
     expect((err as Error).message).toBe("engine responded 409");
   });
 
+  it.each([401, 403, 404, 503])("a %i refusal with an { error, code } body throws instead of returning a result", async (status) => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, status, { error: "nope", code: "some_code" }));
+    await expect(runFile(sheet())).rejects.toThrow(`engine responded ${status}`);
+  });
+
   it("a 400 bad-sheet response is still returned inline, not thrown", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "no target column" }));
     await expect(runFile(sheet())).resolves.toEqual({ error: "no target column" });

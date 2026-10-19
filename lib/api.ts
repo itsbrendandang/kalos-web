@@ -547,10 +547,11 @@ export async function runFile(file: File, target?: string, opts: { replace?: boo
     if (refusal) throw refusal;
     // A 400 with the documented { error } body is an expected "bad upload"
     // response the caller renders inline (see analyze/page.tsx) - not a
-    // failure to throw on. Any other non-ok response (5xx, or a 4xx without
-    // that shape) is unexpected, so route it to the same error/offline path
-    // as the other engine calls instead of returning it as a fake result.
-    if (!r.ok && typeof d.error !== "string") throw new Error(`engine responded ${r.status}`);
+    // failure to throw on. Every other non-ok response is unexpected, even
+    // when it carries an { error, code } body (401/403/404/409/5xx refusals),
+    // so route it to the same error/offline path as the other engine calls
+    // instead of returning it as a fake result.
+    if (!r.ok && (r.status !== 400 || typeof d.error !== "string")) throw new Error(`engine responded ${r.status}`);
     return d;
   });
 }

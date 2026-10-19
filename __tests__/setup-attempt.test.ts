@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canActOnAnalysis, initialSetupState, isStale, nextAction, setupReducer, staleNotice, type SetupAction, type SetupState } from "@/lib/setup-attempt";
+import { canActOnAnalysis, canChangeTarget, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice, type SetupAction, type SetupState } from "@/lib/setup-attempt";
 
 const f = (name: string) => new File(["a,b\n1,2"], name);
 const run = (actions: SetupAction[], from: SetupState = initialSetupState) => actions.reduce(setupReducer, from);
@@ -74,5 +74,41 @@ describe("confirmation is advisory (fix 8): the next step stays available, label
   it("hidden without an analysis or when validation failed", () => {
     expect(nextAction(initialSetupState, { hasAnalysis: false, validationFailed: false }).visible).toBe(false);
     expect(nextAction(initialSetupState, { hasAnalysis: true, validationFailed: true }).visible).toBe(false);
+  });
+});
+
+describe("setup page guards", () => {
+  it("a failed attempt never becomes the held file: the previous successful file stays", () => {
+    const first = new File(["a"], "first.csv");
+    const second = new File(["b"], "second.csv");
+    let s = setupReducer(initialSetupState, { type: "success", file: first });
+    s = setupReducer(s, { type: "start" });
+    s = setupReducer(s, { type: "failure", file: second, error: "too few rows" });
+    expect(s.file).toBe(first);
+    expect(s.failed?.file).toBe(second);
+  });
+
+  it("the target picker is off while a fit is running, even for a current analysis", () => {
+    const f = new File(["a"], "a.csv");
+    const ready = setupReducer(initialSetupState, { type: "success", file: f });
+    expect(canChangeTarget(ready, false)).toBe(true);
+    expect(canChangeTarget(ready, true)).toBe(false);
+    expect(canChangeTarget(setupReducer(ready, { type: "failure", file: f, error: "x" }), false)).toBe(false);
+  });
+
+  it("singleFlight refuses a call made while one is in flight, and accepts the next after it settles", async () => {
+    const run = singleFlight();
+    let release!: () => void;
+    const first = run(() => new Promise<string>((r) => (release = () => r("one"))));
+    expect(await run(async () => "two")).toBeNull();
+    release();
+    await expect(first).resolves.toBe("one");
+    await expect(run(async () => "three")).resolves.toBe("three");
+  });
+
+  it("singleFlight frees itself when the action throws", async () => {
+    const run = singleFlight();
+    await expect(run(async () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+    await expect(run(async () => "ok")).resolves.toBe("ok");
   });
 });

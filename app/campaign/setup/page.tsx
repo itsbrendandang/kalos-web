@@ -1,7 +1,8 @@
 "use client";
 
-import { useReducer, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
@@ -16,12 +17,13 @@ import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { CampaignHasRunsError, type ColumnRolesInput, type ProvenanceEntry } from "@/lib/api";
+import { engineMessage, errorMessage } from "@/lib/engine-error";
 import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
 import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
-import { canActOnAnalysis, initialSetupState, isStale, nextAction, setupReducer, staleNotice } from "@/lib/setup-attempt";
+import { canActOnAnalysis, canChangeTarget, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice } from "@/lib/setup-attempt";
 
 /**
  * Setup: upload a run sheet, choose the target, read the data check. The
@@ -33,6 +35,7 @@ export default function SetupPage() {
   const latest = useLatest();
   const campaign = useCampaign();
   const { runFile } = useEngineWrites();
+  const router = useRouter();
   // Which file the shown analysis came from, whether the last attempt failed, and whether the user
   // confirmed the columns. See lib/setup-attempt.ts: a failed upload leaves the PREVIOUS analysis on
   // screen, so it is marked as such and nothing acts on it until the user says so.
@@ -61,8 +64,14 @@ export default function SetupPage() {
     refusal: CampaignHasRunsError;
   } | null>(null);
   const elapsed = useElapsedSeconds(busy);
+  // One fit at a time: a second call while one is in flight (double click, picker and target change at once) is refused.
+  const flight = useRef(singleFlight());
 
-  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string, replace = false) {
+  function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string, replace = false) {
+    return flight.current(() => runAnalysis(f, target, nextRoles, sheet, replace));
+  }
+
+  async function runAnalysis(f: File, target?: string, nextRoles?: ColumnRolesInput, sheet?: string, replace = false) {
     // A different file, or a different worksheet of the same file, is new data: roles, targets and scan restart.
     // A re-fit of the held file keeps reading the worksheet the engine used.
     const fresh = f !== file || sheet !== undefined;
@@ -73,8 +82,8 @@ export default function SetupPage() {
       // The attempt starts once the engine has answered: a refused upload must not clear the notes on screen.
       dispatch({ type: "start" });
       if (d.error) {
-        // The engine's own { error } is a problem with the sheet, not the connection.
-        dispatch({ type: "failure", file: f, error: d.error, sheets: sheetsFrom(d) });
+        // The engine's own { error } is a problem with the sheet, not the connection. Shown as plain copy, never the raw code.
+        dispatch({ type: "failure", file: f, error: engineMessage({ code: d.code, error: d.error }).message, sheets: sheetsFrom(d) });
         return;
       }
       // Per-file state is only replaced once the engine accepted the file: a rejected upload must not wipe
@@ -94,7 +103,10 @@ export default function SetupPage() {
         setPending({ file: f, target, roles: nextRoles, sheet, refusal: err });
         return;
       }
-      dispatch({ type: "failure", file: f, error: "The analysis service did not respond. Try again in a moment." });
+      const copy = errorMessage(err);
+      // An expired session cannot be fixed on this page: send the user to sign in, back here.
+      if (copy.signIn) router.push(`/sign-in?next=${encodeURIComponent("/campaign/setup")}`);
+      dispatch({ type: "failure", file: f, error: copy.message });
     } finally {
       setBusy(false);
     }
@@ -117,6 +129,7 @@ export default function SetupPage() {
   const stale = isStale(state);
   const notice = staleNotice(state, analysis?.dataset);
   const canAct = canActOnAnalysis(state);
+  const canTarget = canChangeTarget(state, busy);
   const picker = sheetSelector({ heldFile: file, heldSheets: state.sheets, sheetUsed: state.sheetUsed, failed });
   // Confirmation is advisory (see lib/setup-attempt.ts nextAction): the fit is already saved on the engine and
   // the sidebar/status bar link straight on, so this action is never a hard gate; it is just quieter until confirmed.
@@ -186,8 +199,8 @@ export default function SetupPage() {
               Maximize
               <Select
                 value={analysis.target}
-                onValueChange={(t) => canAct && file && t && void analyze(file, t, roles ? { target: t, features: roles.features.filter((c) => c !== t) } : undefined)}
-                disabled={!canAct}
+                onValueChange={(t) => canTarget && file && t && void analyze(file, t, roles ? { target: t, features: roles.features.filter((c) => c !== t) } : undefined)}
+                disabled={!canTarget}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />

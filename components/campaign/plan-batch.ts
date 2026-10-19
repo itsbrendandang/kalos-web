@@ -94,7 +94,7 @@ export function batchExceptions(
     } else if (p.p_feasible != null && p.p_feasible < LOW_FEASIBILITY) {
       flags.push({ rank, kind: "low-feasibility", text: `Recipe ${rank} has only a ${formatNumber(p.p_feasible, "pct")} estimated chance of being feasible.` });
     } else if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-      flags.push({ rank, kind: "gain-within-band", text: `Recipe ${rank} is predicted to beat the best by ${formatNumber(gain)}, less than its prediction band of ${formatNumber(ctx.band)}.` });
+      flags.push({ rank, kind: "gain-within-band", text: `Recipe ${rank} is predicted to beat the best by ${formatNumber(gain)}, less than the half-width of its prediction band (±${formatNumber(ctx.band)}).` });
     } else {
       const edge = edgeInputs(proposalRecipe(p, ctx.features ?? []), ctx.ranges);
       if (edge.length > 0) {

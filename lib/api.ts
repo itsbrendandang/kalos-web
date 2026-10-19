@@ -2,6 +2,7 @@
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
+import { EngineError } from "@/lib/engine-error";
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -633,18 +634,42 @@ export async function runFile(
   if (roles) fd.append("roles", JSON.stringify(roles));
   if (sheet) fd.append("sheet", sheet);
   if (opts.replace) fd.append("replace", "true");
-  return fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() }).then(async (r) => {
-    const d = (await r.json()) as AnalyzeResult;
-    const refusal = campaignHasRunsRefusal(r.status, d);
-    if (refusal) throw refusal;
-    // A 400 with the documented { error } body is an expected "bad upload"
-    // response the caller renders inline (see analyze/page.tsx) - not a
-    // failure to throw on. Any other non-ok response (5xx, or a 4xx without
-    // that shape) is unexpected, so route it to the same error/offline path
-    // as the other engine calls instead of returning it as a fake result.
-    if (!r.ok && typeof d.error !== "string") throw new Error(`engine responded ${r.status}`);
-    return d;
-  });
+  let r: Response;
+  try {
+    r = await fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() });
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  // A body that is not JSON (a proxy's HTML page, a truncated reply) is a typed failure, not a parse crash.
+  const d = await readJsonBody(r);
+  const refusal = campaignHasRunsRefusal(r.status, d);
+  if (refusal) throw refusal;
+  if (r.ok && d) return d as AnalyzeResult;
+  // A 400 with the documented { error } body is an expected "bad upload" the caller renders inline
+  // (see setup/page.tsx); it is returned, not thrown.
+  if (r.status === 400 && d && typeof d.error === "string") return d as AnalyzeResult;
+  // Everything else is a failure: the proxy's own code when it sent one, else the code this status means.
+  const code = typeof d?.error === "string" ? d.error : codeForStatus(r.status);
+  throw new EngineError(r.status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined);
+}
+
+async function readJsonBody(r: Response): Promise<Record<string, unknown> | null> {
+  try {
+    const v: unknown = await r.json();
+    return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The code a status means when the body carried none (proxy failures and non-JSON replies). */
+function codeForStatus(status: number): string {
+  if (status === 401) return "unauthenticated";
+  if (status === 413) return "payload_too_large";
+  if (status === 429) return "rate_limited";
+  if (status === 503) return "engine_busy";
+  if (status === 504) return "engine_timeout";
+  return "engine_error";
 }
 
 // The most recent real (uploaded) analysis - what the Overview reflects.

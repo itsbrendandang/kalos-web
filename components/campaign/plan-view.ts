@@ -11,6 +11,7 @@
 import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
 import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { engineMessage } from "@/lib/engine-error";
 
 // --- Engine fields newer than lib/api.ts (kalos-engine PR #87) ---------------
 // Typed here, optional, so the page degrades on engines that do not send them.
@@ -204,7 +205,7 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, less than the prediction band of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
+    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the prediction band's half-width of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
@@ -219,7 +220,7 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
     constraint: "predicted below the requested constraint floor",
     "outside-range": "an input outside the range tried so far",
     "at-edge": "an input at the edge of the range tried so far",
-    "gain-within-band": "predicted gain smaller than the prediction band",
+    "gain-within-band": "predicted gain smaller than the band's half-width",
   };
   return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => ({ kind, ranks: by.get(kind)!, label: label[kind] }));
 }
@@ -490,9 +491,11 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
       suggestion: r.availableTargets?.length ? `Columns that do vary and could be the target: ${r.availableTargets.join(", ")}.` : null,
     };
   }
+  // A known code gets its plain sentence; an unknown one falls back to the engine's own wording. The raw code is never shown.
+  const known = engineMessage({ code: r.code, error: r.error });
   return {
     title: "The last upload was not used",
-    body: `The engine did not accept ${r.name} (${r.code ?? "no code"}). It said: ${r.error}`,
+    body: `The engine did not accept ${r.name}. ${known.message}`,
     suggestion: null,
   };
 }

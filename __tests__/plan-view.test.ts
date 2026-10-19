@@ -96,6 +96,11 @@ describe("recipeFlags", () => {
   it("is empty for an unremarkable recipe", () => {
     expect(kinds(p(45))).toEqual([]);
   });
+  it("says the band is compared by its half-width, the same measure as the gain", () => {
+    const flag = recipeFlags(p(51), { pH: 6 }, ctx).find((f) => f.kind === "gain-within-band");
+    expect(flag?.detail).toContain("half-width of ±3");
+    expect(flag?.detail).not.toContain("prediction band of");
+  });
   it("flags a gain smaller than the band, but not a gain larger than it or no gain", () => {
     expect(kinds(p(51))).toEqual(["gain-within-band"]);
     expect(kinds(p(54))).toEqual([]);
@@ -310,10 +315,16 @@ describe("rejectionCopy", () => {
     expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5) in every one of its 40 rows, so there is nothing for the model to learn from and the engine proposed no experiments.");
     expect(c.suggestion).toBe("Columns that do vary and could be the target: biomass_gL.");
   });
-  it("falls back to the engine's message for other rejections", () => {
+  it("gives a known code its plain sentence and never shows the raw code", () => {
     const c = rejectionCopy({ name: "tiny.csv", forDataset: null, code: "too_few_rows", error: "need at least 6 rows" });
-    expect(c.body).toBe("The engine did not accept tiny.csv (too_few_rows). It said: need at least 6 rows");
+    expect(c.body).toBe("The engine did not accept tiny.csv. This sheet has too few rows to fit a model. Add more measured runs.");
+    expect(c.body).not.toContain("too_few_rows");
     expect(c.suggestion).toBeNull();
+  });
+  it("falls back to the engine's own sentence for an unknown code, still without the code", () => {
+    const c = rejectionCopy({ name: "x.csv", forDataset: null, code: "novel_code", error: "Column 'pH' is not numeric" });
+    expect(c.body).toBe("The engine did not accept x.csv. Column 'pH' is not numeric");
+    expect(c.body).not.toContain("novel_code");
   });
 });
 

@@ -1,9 +1,18 @@
 import type { NextConfig } from "next";
+import { securityHeaders } from "./lib/security-headers";
 
 const nextConfig: NextConfig = {
   // The Dockerfile copies .next/standalone at build time and fails loudly
   // without this - see its header comment.
   output: "standalone",
+  // Native addon for the auth database (lib/server/auth-db.ts). Already on
+  // Next's built-in external list; listed to document intent. The standalone
+  // trace then copies only prebuilds/<platform>-<arch>.node of the BUILD host,
+  // so the image must be built on the production platform (see Dockerfile).
+  serverExternalPackages: ["better-sqlite3"],
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders(process.env.NODE_ENV !== "production") }];
+  },
   async redirects() {
     return [
       // The 2026-10 redesign moved every page into Campaign / Data / Library.

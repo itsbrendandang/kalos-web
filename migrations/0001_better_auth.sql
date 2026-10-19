@@ -1,0 +1,39 @@
+-- Better Auth 1.7.10 schema for kalos-web (generated with AUTH_MIGRATE=sql on an empty database).
+-- Reference/review copy only: the app applies migrations itself (AUTH_MIGRATE=1|only).
+-- Regenerate and diff on every better-auth upgrade (docs/AUTH.md "Upgrade checklist").
+
+create table "user" ("id" text not null primary key, "name" text not null, "email" text not null unique, "emailVerified" integer not null, "image" text, "createdAt" date not null, "updatedAt" date not null, "twoFactorEnabled" integer);
+
+create table "session" ("id" text not null primary key, "expiresAt" date not null, "token" text not null unique, "createdAt" date not null, "updatedAt" date not null, "ipAddress" text, "userAgent" text, "userId" text not null references "user" ("id") on delete cascade, "activeOrganizationId" text, "mfaVerifiedAt" date, "mfaFailures" integer);
+
+create table "account" ("id" text not null primary key, "accountId" text not null, "providerId" text not null, "userId" text not null references "user" ("id") on delete cascade, "accessToken" text, "refreshToken" text, "idToken" text, "accessTokenExpiresAt" date, "refreshTokenExpiresAt" date, "scope" text, "password" text, "createdAt" date not null, "updatedAt" date not null);
+
+create table "verification" ("id" text not null primary key, "identifier" text not null, "value" text not null, "expiresAt" date not null, "createdAt" date not null, "updatedAt" date not null);
+
+create table "twoFactor" ("id" text not null primary key, "secret" text not null, "backupCodes" text not null, "userId" text not null references "user" ("id") on delete cascade, "verified" integer, "failedVerificationCount" integer, "lockedUntil" date);
+
+create table "organization" ("id" text not null primary key, "name" text not null, "slug" text not null unique, "logo" text, "createdAt" date not null, "metadata" text);
+
+create table "member" ("id" text not null primary key, "organizationId" text not null references "organization" ("id") on delete cascade, "userId" text not null references "user" ("id") on delete cascade, "role" text not null, "createdAt" date not null);
+
+create table "invitation" ("id" text not null primary key, "organizationId" text not null references "organization" ("id") on delete cascade, "email" text not null, "role" text, "status" text not null, "expiresAt" date not null, "createdAt" date not null, "inviterId" text not null references "user" ("id") on delete cascade);
+
+create table "rateLimit" ("id" text not null primary key, "key" text not null unique, "count" integer not null, "lastRequest" bigint not null);
+
+create index "session_userId_idx" on "session" ("userId");
+
+create index "account_userId_idx" on "account" ("userId");
+
+create index "verification_identifier_idx" on "verification" ("identifier");
+
+create index "twoFactor_secret_idx" on "twoFactor" ("secret");
+
+create index "twoFactor_userId_idx" on "twoFactor" ("userId");
+
+create index "member_organizationId_idx" on "member" ("organizationId");
+
+create index "member_userId_idx" on "member" ("userId");
+
+create index "invitation_organizationId_idx" on "invitation" ("organizationId");
+
+create index "invitation_email_idx" on "invitation" ("email");

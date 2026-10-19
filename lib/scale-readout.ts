@@ -2,7 +2,7 @@
 // see kalos/docs/SCALE_READOUT.md). Reuses the same same-origin proxy base
 // URL as lib/api.ts. No React here on purpose - every helper below is
 // unit-testable without a DOM (see __tests__/scale-readout.test.ts).
-import { API } from "@/lib/api";
+import { API, mutationHeaders } from "@/lib/api";
 
 /** Thrown by `buildReadoutTarget` on a bad or incomplete form - the message
  *  is written to be shown directly to the scientist filling out the form. */
@@ -183,7 +183,7 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
 
   let r: Response;
   try {
-    r = await fetch(`${API}/api/scale/readout`, { method: "POST", body: fd });
+    r = await fetch(`${API}/api/scale/readout`, { method: "POST", body: fd, headers: mutationHeaders() });
   } catch {
     return { kind: "unavailable", message: "The scale-up readout service is unreachable. Try again in a moment." };
   }

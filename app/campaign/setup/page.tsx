@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
+import { ReplaceRunsDialog } from "@/components/campaign/replace-runs-dialog";
 import { UploadZone } from "@/components/campaign/upload-zone";
 import { ValidationSummary } from "@/components/campaign/validation-summary";
 import { Callout } from "@/components/kit/callout";
@@ -13,7 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
-import type { ColumnRolesInput } from "@/lib/api";
+import { CampaignHasRunsError, type ColumnRolesInput } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
@@ -41,32 +42,51 @@ export default function SetupPage() {
   const [candidates, setCandidates] = useState<string[]>([]);
   // The user has looked at the detected columns for THIS fit; any re-fit or new upload clears it.
   const [confirmed, setConfirmed] = useState(false);
+  // An upload the engine refused until the user confirms the replacement. Nothing was replaced, so
+  // the current file, roles and analysis stay on screen until the user answers.
+  const [pending, setPending] = useState<{
+    file: File;
+    target?: string;
+    roles?: ColumnRolesInput;
+    refusal: CampaignHasRunsError;
+  } | null>(null);
   const elapsed = useElapsedSeconds(busy);
 
-  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput) {
-    if (f !== file) {
-      const seq = ++scanSeq.current;
-      setScan(null);
-      setRoles(undefined);
-      setCandidates([]);
-      void scanSheet(f).then((r) => {
-        if (seq === scanSeq.current) setScan(r);
-      });
-    }
+  // Makes `f` the sheet on screen. A new file clears the previous file's scan, roles and candidates.
+  function adoptFile(f: File) {
+    if (f === file) return;
+    const seq = ++scanSeq.current;
     setFile(f);
-    setConfirmed(false);
+    setScan(null);
+    setRoles(undefined);
+    setCandidates([]);
+    void scanSheet(f).then((r) => {
+      if (seq === scanSeq.current) setScan(r);
+    });
+  }
+
+  async function analyze(f: File, target?: string, nextRoles?: ColumnRolesInput, replace = false) {
     setBusy(true);
     setError(null);
     try {
-      const d = await runFile(f, target, nextRoles);
+      const d = await runFile(f, target, nextRoles, { replace });
+      adoptFile(f);
+      setConfirmed(false);
       if (!d.error) {
         setRoles(nextRoles);
         setCandidates((prev) => mergeTargets(prev, d.targets ?? [], nextRoles !== undefined));
       }
       // The engine's own { error } is a problem with the sheet, not the connection.
       if (d.error) setError(d.error);
-    } catch {
-      setError("The analysis service did not respond. Try again in a moment.");
+    } catch (err) {
+      if (err instanceof CampaignHasRunsError) {
+        // Nothing was replaced: keep the current file, target and analysis, and ask first.
+        setPending({ file: f, target, roles: nextRoles, refusal: err });
+      } else {
+        adoptFile(f);
+        setConfirmed(false);
+        setError("The analysis service did not respond. Try again in a moment.");
+      }
     } finally {
       setBusy(false);
     }
@@ -103,6 +123,16 @@ export default function SetupPage() {
       />
 
       <UploadZone onFile={(f) => void analyze(f)} disabled={busy} compact={!!analysis} />
+
+      <ReplaceRunsDialog
+        refusal={pending?.refusal ?? null}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          const p = pending;
+          setPending(null);
+          if (p) void analyze(p.file, p.target, p.roles, true);
+        }}
+      />
 
       {error ? <Callout tone="bad" title="This run sheet could not be analyzed">{error}</Callout> : null}
       {busy ? <FitProgress elapsed={elapsed} /> : null}

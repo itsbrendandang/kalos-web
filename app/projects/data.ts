@@ -445,6 +445,7 @@ const P_LIVE: Project = {
   report: null,
 };
 
+/** Illustrative DEMO customers (placeholder names/addresses, not real). Held in memory only; never persisted. */
 export const CUSTOMERS: Customer[] = [
   {
     id: "c1",

@@ -1,0 +1,288 @@
+// Unit tests for the Better Auth policy in lib/server/auth-config.mjs (no DB).
+import { describe, expect, it } from "vitest";
+import {
+  ALLOWED_WITHOUT_MFA,
+  assertSocialRequestAllowed,
+  DISABLED_PATHS,
+  GOOGLE_SCOPES,
+  hasPendingInvitation,
+  gateSessionLookup,
+  MFA_MAX_FAILURES_PER_USER,
+  MFA_USER_LOCK_SECONDS,
+  mfaGateDecision,
+  mfaSatisfied,
+  assertProfileUpdateAllowed,
+  lockIfExhausted,
+  resetUserAttempts,
+  MAX_PROFILE_NAME_LENGTH,
+  reserveUserAttempt,
+  userMfaLocked,
+  MFA_VERIFY_PATHS,
+  parseRoles,
+  permissionsForRole,
+  RECENT_AUTH_MAX_AGE_SECONDS,
+  SESSION_TTL_SECONDS,
+  UNVERIFIED_SESSION_TTL_SECONDS,
+  redactFullOrganization,
+  validateUserInfo,
+} from "@/lib/server/auth-config.mjs";
+import { RECENT_AUTH_MAX_AGE_SECONDS as NEUTRAL_RECENT } from "@/lib/server/session-context";
+import { scopesForClaims } from "@/lib/server/scopes";
+
+const sess = (mfaVerifiedAt: Date | null, twoFactorEnabled = true) => ({
+  session: { id: "s1", userId: "u1", mfaVerifiedAt },
+  user: { id: "u1", twoFactorEnabled },
+});
+
+function fakeAdapter(rows: Array<{ email: string; status: string; expiresAt: string }>) {
+  return {
+    findMany: async ({ where }: { where: Array<{ field: string; value: string }> }) =>
+      rows.filter((r) => where.every((w) => (r as Record<string, string>)[w.field] === w.value)),
+  };
+}
+const oauth = (action: string, providerId = "google") => ({ method: "oauth", action, oauth: { providerId } });
+const future = new Date(Date.now() + 3600e3).toISOString();
+
+describe("policy constants", () => {
+  it("Google scopes are exactly openid email profile", () => expect([...GOOGLE_SCOPES]).toEqual(["openid", "email", "profile"]));
+  it("session lifetimes", () => {
+    expect(SESSION_TTL_SECONDS).toBe(7 * 86400);
+    expect(UNVERIFIED_SESSION_TTL_SECONDS).toBeLessThanOrEqual(15 * 60);
+  });
+  it("recent-auth window matches the provider-neutral contract", () => expect(RECENT_AUTH_MAX_AGE_SECONDS).toBe(NEUTRAL_RECENT));
+  it("email/password, reset, linking and 2FA-disable endpoints are disabled", () => {
+    for (const p of ["/sign-up/email", "/sign-in/email", "/request-password-reset", "/reset-password", "/link-social", "/two-factor/disable", "/send-verification-email"]) {
+      expect(DISABLED_PATHS).toContain(p);
+    }
+  });
+  it("only the 2FA verify endpoints prove MFA", () => expect([...MFA_VERIFY_PATHS].sort()).toEqual(["/two-factor/verify-backup-code", "/two-factor/verify-totp"]));
+});
+
+describe("roles -> permissions (createAccessControl)", () => {
+  it.each([
+    ["viewer", ["campaigns:read"]],
+    ["member", ["campaigns:read", "campaigns:write"]],
+    ["admin", ["campaigns:archive", "campaigns:read", "campaigns:write", "org:admin"]],
+    ["owner", ["campaigns:archive", "campaigns:read", "campaigns:write", "org:admin"]],
+    ["admin,viewer", ["campaigns:archive", "campaigns:read", "campaigns:write", "org:admin"]],
+    ["unknown", []],
+    ["__proto__", []],
+    ["", []],
+  ])("%s", (role, perms) => expect(permissionsForRole(role)).toEqual(perms));
+
+  it("archiving is admin/owner only", () => {
+    expect(permissionsForRole("member")).not.toContain("campaigns:archive");
+    expect(permissionsForRole("viewer")).not.toContain("campaigns:archive");
+  });
+  it("maps to engine scopes through scopesForClaims (archive is not an engine scope)", () => {
+    expect(scopesForClaims({ permissions: permissionsForRole("viewer") })).toEqual(["campaigns:read"]);
+    expect(scopesForClaims({ permissions: permissionsForRole("member") })).toEqual(["campaigns:read", "campaigns:write"]);
+    expect(scopesForClaims({ permissions: permissionsForRole("owner") })).toEqual(["campaigns:read", "campaigns:write", "org:admin"]);
+  });
+  it("parseRoles keeps only known roles", () => expect(parseRoles(" admin , bogus,admin")).toEqual(["admin"]));
+});
+
+describe("validateUserInfo (onboarding)", () => {
+  const ctx = (rows: Parameters<typeof fakeAdapter>[0]) => ({ context: { adapter: fakeAdapter(rows) } });
+  it("rejects unverified Google emails on every action", async () => {
+    for (const action of ["create-user", "sign-in", "link-account"]) {
+      expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: false }, source: oauth(action) }, ctx([]))).toMatchObject({ error: "email_not_verified" });
+    }
+  });
+  it("rejects a NEW user without a pending invitation (invite-only)", async () => {
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user") }, ctx([]))).toMatchObject({ error: "not_invited" });
+  });
+  it("rejects expired or non-pending invitations", async () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user") }, ctx([{ email: "a@x.com", status: "pending", expiresAt: past }]))).toMatchObject({ error: "not_invited" });
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user") }, ctx([{ email: "a@x.com", status: "accepted", expiresAt: future }]))).toMatchObject({ error: "not_invited" });
+  });
+  it("admits an invited, verified email (case-insensitive)", async () => {
+    expect(await validateUserInfo({ user: { email: "A@X.com", emailVerified: true }, source: oauth("create-user") }, ctx([{ email: "a@x.com", status: "pending", expiresAt: future }]))).toBeUndefined();
+  });
+  it("fails closed without an adapter", async () => {
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user") }, undefined)).toMatchObject({ error: "not_invited" });
+  });
+  it("M2: refuses to link another Google account into an existing user", async () => {
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("link-account") }, ctx([]))).toMatchObject({ error: "account_not_linked" });
+  });
+  it("rejects non-Google and non-OAuth methods", async () => {
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("create-user", "github") }, ctx([]))).toMatchObject({ error: "method_not_allowed" });
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: { method: "email-password", action: "create-user" } }, ctx([]))).toMatchObject({ error: "method_not_allowed" });
+  });
+  it("existing users signing in again only need a verified email", async () => {
+    expect(await validateUserInfo({ user: { email: "a@x.com", emailVerified: true }, source: oauth("sign-in") }, ctx([]))).toBeUndefined();
+  });
+  it("hasPendingInvitation ignores empty input", async () => expect(await hasPendingInvitation(fakeAdapter([]), "")).toBe(false));
+});
+
+describe("scope guard on /sign-in/social", () => {
+  it("rejects scopes, idToken and non-Google providers", () => {
+    expect(() => assertSocialRequestAllowed("/sign-in/social", { provider: "google", scopes: ["drive"] })).toThrow(/Extra scopes/);
+    expect(() => assertSocialRequestAllowed("/sign-in/social", { provider: "google", scopes: [] })).not.toThrow();
+    expect(() => assertSocialRequestAllowed("/sign-in/social", { provider: "google", scopes: "drive" })).toThrow(/Extra scopes/);
+    expect(() => assertSocialRequestAllowed("/link-social", { provider: "google", scopes: ["drive"] })).toThrow(/Extra scopes/);
+    expect(() => assertSocialRequestAllowed("/sign-in/social", { provider: "google", idToken: { token: "x" } })).toThrow(/ID token/);
+    expect(() => assertSocialRequestAllowed("/sign-in/social", { provider: "github" })).toThrow(/Only Google/);
+    expect(() => assertSocialRequestAllowed("/sign-in/social", { provider: "google", callbackURL: "/" })).not.toThrow();
+    expect(() => assertSocialRequestAllowed("/get-session", { scopes: ["x"] })).not.toThrow();
+  });
+});
+
+describe("per-user TOTP lock (M1, B-3 atomic reserve, M-3 guarded writes)", () => {
+  // In-memory twoFactor table with the adapter's incrementOne semantics: the
+  // where clauses must all hold, then increment/set apply to that one row.
+  const now = Date.UTC(2026, 9, 17);
+  function fakeAdapter(row: Record<string, unknown>) {
+    const holds = (w: { field: string; operator?: string; value: unknown }) => {
+      const v = row[w.field];
+      const num = (x: unknown) => (x instanceof Date ? x.getTime() : x);
+      switch (w.operator ?? "eq") {
+        case "lt": return Number(v) < Number(w.value);
+        case "gte": return Number(v) >= Number(w.value);
+        case "lte": return num(v) != null && Number(num(v)) <= Number(num(w.value));
+        default: return w.value === null ? v == null : v === w.value;
+      }
+    };
+    return {
+      row,
+      findOne: async () => ({ ...row }),
+      incrementOne: async ({ where, increment = {}, set = {} }: { where: Parameters<typeof holds>[0][]; increment?: Record<string, number>; set?: Record<string, unknown> }) => {
+        if (!where.every(holds)) return null;
+        for (const [k, d] of Object.entries(increment)) row[k] = Number(row[k] ?? 0) + Number(d);
+        Object.assign(row, set);
+        return { ...row };
+      },
+    };
+  }
+  const fresh = (extra: Record<string, unknown> = {}) => ({ userId: "u1", failedVerificationCount: 0, lockedUntil: null, ...extra });
+
+  it("admits up to the limit, refuses the next attempt and locks", async () => {
+    const a = fakeAdapter(fresh());
+    for (let i = 1; i <= MFA_MAX_FAILURES_PER_USER; i++) {
+      expect(await reserveUserAttempt(a, "u1", now)).toBe(true);
+      expect(a.row.failedVerificationCount).toBe(i);
+    }
+    expect(await reserveUserAttempt(a, "u1", now)).toBe(false);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    expect(await reserveUserAttempt(a, "u1", now + 1000)).toBe(false);
+    expect(userMfaLocked(a.row, now + 1000)).toBe(true);
+    expect(userMfaLocked(a.row, now + MFA_USER_LOCK_SECONDS * 1000 + 1)).toBe(false);
+  });
+  it("lockIfExhausted locks only a spent budget and never moves an existing lock", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER - 1 }));
+    await lockIfExhausted(a, "u1", now);
+    expect(a.row.lockedUntil).toBeNull();
+    a.row.failedVerificationCount = MFA_MAX_FAILURES_PER_USER;
+    await lockIfExhausted(a, "u1", now);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+    await lockIfExhausted(a, "u1", now + 5000);
+    expect((a.row.lockedUntil as Date).getTime()).toBe(now + MFA_USER_LOCK_SECONDS * 1000);
+  });
+  it("an expired lock starts a fresh count", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: new Date(now - 1) }));
+    expect(await reserveUserAttempt(a, "u1", now)).toBe(true);
+    expect(a.row).toMatchObject({ failedVerificationCount: 1, lockedUntil: null });
+    expect(userMfaLocked(null)).toBe(false);
+    expect(userMfaLocked({ lockedUntil: "garbage" })).toBe(false);
+  });
+  it("a late success reset cannot lift a lock set after it started (M-3)", async () => {
+    const a = fakeAdapter(fresh({ failedVerificationCount: MFA_MAX_FAILURES_PER_USER, lockedUntil: new Date(now + 60_000) }));
+    await resetUserAttempts(a, "u1");
+    expect(a.row.lockedUntil).toEqual(new Date(now + 60_000));
+    expect(a.row.failedVerificationCount).toBe(MFA_MAX_FAILURES_PER_USER);
+  });
+});
+
+describe("gate session lookup fails closed (m3)", () => {
+  const boom = () => Promise.reject(new Error("db down"));
+  it("throws when a session cookie is present and the lookup fails", async () => {
+    await expect(gateSessionLookup(boom, new Headers({ cookie: "better-auth.session_token=abc" }))).rejects.toMatchObject({ statusCode: 503 });
+    await expect(gateSessionLookup(boom, new Headers({ cookie: "__Secure-better-auth.session_token=abc" }))).rejects.toMatchObject({ statusCode: 503 });
+  });
+  it("treats a cookie-less failed lookup as no session, and passes results through", async () => {
+    expect(await gateSessionLookup(boom, new Headers())).toBeNull();
+    expect(await gateSessionLookup(boom, undefined)).toBeNull();
+    expect(await gateSessionLookup(async () => ({ ok: 1 }), new Headers())).toEqual({ ok: 1 });
+  });
+});
+
+describe("MFA gate", () => {
+  it("mfaSatisfied needs a valid mfaVerifiedAt", () => {
+    expect(mfaSatisfied(null)).toBe(false);
+    expect(mfaSatisfied(sess(null))).toBe(false);
+    expect(mfaSatisfied(sess(new Date()))).toBe(true);
+    expect(mfaSatisfied({ session: { mfaVerifiedAt: "not a date" } } as never)).toBe(false);
+  });
+  it("B2: mfaVerifiedAt without a confirmed enrolment (twoFactorEnabled) is NOT satisfied", () => {
+    expect(mfaSatisfied(sess(new Date(), false))).toBe(false);
+    expect(mfaSatisfied({ session: { id: "s", userId: "u", mfaVerifiedAt: new Date() }, user: { id: "u" } })).toBe(false);
+  });
+  it("B2: backup codes are refused until the TOTP enrolment is confirmed", () => {
+    expect(mfaGateDecision("/two-factor/verify-backup-code", sess(null, false))).toBe("mfa_required");
+    expect(mfaGateDecision("/two-factor/verify-backup-code", sess(null, true))).toBe("allow");
+    expect(mfaGateDecision("/two-factor/verify-totp", sess(null, false))).toBe("allow"); // confirms the enrolment
+  });
+  it("a half session may only enrol (first time), verify, read itself and sign out", () => {
+    for (const p of ALLOWED_WITHOUT_MFA) expect(mfaGateDecision(p, sess(null))).toBe("allow");
+    expect(mfaGateDecision("/two-factor/enable", sess(null, false))).toBe("allow");
+    expect(mfaGateDecision("/two-factor/enable", sess(null, true))).toBe("mfa_required");
+    for (const p of ["/list-sessions", "/revoke-sessions", "/organization/accept-invitation", "/organization/set-active", "/update-user", "/two-factor/generate-backup-codes"]) {
+      expect(mfaGateDecision(p, sess(null))).toBe("mfa_required");
+    }
+  });
+  it("pre-session endpoints and session-less calls are not gated", () => {
+    expect(mfaGateDecision("/sign-in/social", sess(null))).toBe("allow");
+    expect(mfaGateDecision("/callback/google", sess(null))).toBe("allow");
+    expect(mfaGateDecision("/list-sessions", null)).toBe("allow"); // endpoint answers 401 itself
+    expect(mfaGateDecision(undefined, sess(null))).toBe("allow");
+  });
+  it("backup-code regeneration needs MFA within the recent-auth window", () => {
+    const now = Date.now();
+    expect(mfaGateDecision("/two-factor/generate-backup-codes", sess(new Date(now - 60e3)), now)).toBe("allow");
+    expect(mfaGateDecision("/two-factor/generate-backup-codes", sess(new Date(now - (RECENT_AUTH_MAX_AGE_SECONDS + 1) * 1000)), now)).toBe("step_up_required");
+  });
+});
+
+describe("profile updates are bounded (update-user)", () => {
+  const rejects = (body: unknown) => {
+    try {
+      assertProfileUpdateAllowed(body);
+    } catch (e) {
+      return (e as { body?: { code?: string } }).body?.code ?? (e as Error).message;
+    }
+    return null;
+  };
+  it("accepts a normal name, an https image, a null image, and no fields", () => {
+    expect(rejects({ name: "Brendan" })).toBeNull();
+    expect(rejects({ name: "A".repeat(MAX_PROFILE_NAME_LENGTH) })).toBeNull();
+    expect(rejects({ image: "https://lh3.googleusercontent.com/a/x=s96" })).toBeNull();
+    expect(rejects({ image: null })).toBeNull();
+    expect(rejects({})).toBeNull();
+  });
+  it("rejects over-long or empty names, non-https and non-string images", () => {
+    expect(rejects({ name: "A".repeat(MAX_PROFILE_NAME_LENGTH + 1) })).toBe("PROFILE_INVALID");
+    expect(rejects({ name: "   " })).toBe("PROFILE_INVALID");
+    expect(rejects({ name: 42 })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "http://example.com/a.png" })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "javascript:alert(1)" })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: "https://example.com/" + "a".repeat(2048) })).toBe("PROFILE_INVALID");
+    expect(rejects({ image: ["https://x"] })).toBe("PROFILE_INVALID");
+  });
+});
+
+describe("get-full-organization redaction (pure)", () => {
+  const org = { id: "o1", name: "Org", members: [{ role: "member" }], invitations: [{ email: "x@example.com" }] };
+  it("keeps invitations for org:admin, drops them for everyone else (members stay)", () => {
+    expect(redactFullOrganization(org, { isAdmin: true })).toBe(org);
+    const out = redactFullOrganization(org, { isAdmin: false });
+    expect("invitations" in out).toBe(false);
+    expect(out.members).toEqual(org.members);
+    expect("invitations" in org).toBe(true); // input not mutated
+  });
+  it("leaves bodies without an invitations key untouched", () => {
+    const plain = { id: "o1" };
+    expect(redactFullOrganization(plain, { isAdmin: false })).toBe(plain);
+    expect(redactFullOrganization(null, { isAdmin: false })).toBeNull();
+  });
+});

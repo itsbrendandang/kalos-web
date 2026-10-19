@@ -71,7 +71,7 @@ describe("campaign client (lib/api.ts)", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`${API}/api/campaign/start`);
     expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(init.headers).toMatchObject({ "Content-Type": "application/json", "x-kalos-csrf": "1" });
     expect(JSON.parse(init.body as string)).toEqual({ recipes });
   });
 
@@ -92,7 +92,7 @@ describe("campaign client (lib/api.ts)", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`${API}/api/campaign/result`);
     expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(init.headers).toMatchObject({ "Content-Type": "application/json", "x-kalos-csrf": "1" });
     expect(JSON.parse(init.body as string)).toEqual({ id: "b1e2", value: 3.2 });
   });
 
@@ -146,6 +146,7 @@ describe("campaign client (lib/api.ts)", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`${API}/api/campaign/reanalyze`);
     expect(init.method).toBe("POST");
+    expect(init.headers).toMatchObject({ "x-kalos-csrf": "1" });
     expect(result).toEqual({ analysis, campaign });
   });
 

@@ -1,14 +1,11 @@
 "use client";
 
 import { Fragment } from "react";
-import { seqColor, SEQ_GRADIENT_CSS } from "@/components/dashboard/heat-scale";
+import { seqColor, seqInk, SEQ_GRADIENT_CSS } from "@/components/dashboard/heat-scale";
 import { STATUS_LABEL } from "@/components/plate/status-chip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { COLS, ROWS, type Well } from "@/lib/plate-data";
-
-/** White above this normalized intensity, else the ink color - keeps marks/values legible on the ramp. */
-const LIGHT_TEXT_CUTOFF = 0.62;
 
 interface PlateHeatmapProps {
   wells: Record<string, Well>;
@@ -30,8 +27,6 @@ export function PlateHeatmap({
   showFlags,
   showValues,
 }: PlateHeatmapProps) {
-  const span = deltaMax - deltaMin || 1;
-
   return (
     <div>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: "28px repeat(12, minmax(0, 1fr))" }}>
@@ -63,10 +58,25 @@ export function PlateHeatmap({
                   />
                 );
               }
-              const t = (w.metrics.deltaOD - deltaMin) / span;
-              const markColor = t > LIGHT_TEXT_CUTOFF ? "#ffffff" : "var(--blue-deep)";
-              const valueColor = t > LIGHT_TEXT_CUTOFF ? "#ffffff" : "var(--fg)";
+              // Mark and value text pick white or ink by contrast against this well's fill.
+              const ink = seqInk(w.metrics.deltaOD, deltaMin, deltaMax);
+              const markColor = ink;
+              const valueColor = ink;
               const selected = selectedWellId === id;
+              // Accessible name carries what the colour, mark and value show
+              // visually: id, condition, the value, control type, status, flag.
+              // Colour alone never reaches a screen reader.
+              const controlName = w.isControl ? (w.controlType === "positive" ? "positive control" : "negative control") : null;
+              const wellName = [
+                `Well ${id}`,
+                w.condition,
+                `Δ OD ${w.metrics.deltaOD.toFixed(3)}`,
+                controlName,
+                w.status ? STATUS_LABEL[w.status] : null,
+                w.flags.length > 0 ? "flagged" : null,
+              ]
+                .filter(Boolean)
+                .join(", ");
               return (
                 <Tooltip key={id}>
                   <TooltipTrigger
@@ -74,6 +84,7 @@ export function PlateHeatmap({
                       <button
                         type="button"
                         onClick={() => onSelect(id)}
+                        aria-label={wellName}
                         aria-pressed={selected}
                         className={cn(
                           "relative aspect-square rounded-[6px] outline-none transition-[filter] hover:brightness-110 focus-visible:brightness-110",
@@ -85,6 +96,7 @@ export function PlateHeatmap({
                   >
                     {w.isControl ? (
                       <span
+                        aria-hidden
                         className="absolute top-0.5 left-1 font-mono text-[13px] leading-none font-bold"
                         style={{ color: markColor }}
                       >
@@ -93,15 +105,17 @@ export function PlateHeatmap({
                     ) : null}
                     {showFlags && w.flags.length > 0 ? (
                       <span
+                        role="img"
+                        aria-label="flagged"
                         className="absolute top-0.5 right-1 text-[9px] leading-none"
                         style={{ color: markColor }}
-                        aria-label="flagged"
                       >
                         ⚑
                       </span>
                     ) : null}
                     {showValues ? (
                       <span
+                        aria-hidden
                         className="absolute inset-0 flex items-center justify-center font-mono text-[9.5px] font-bold tabular-nums"
                         style={{ color: valueColor }}
                       >

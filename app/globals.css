@@ -307,3 +307,13 @@ body {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* Response surface cells (components/campaign/plan/response-surface.tsx): one focus ring, as everywhere else. */
+.surface-cell {
+  outline: none;
+  stroke: transparent;
+  stroke-width: 2;
+}
+.surface-cell:focus-visible {
+  stroke: var(--ring);
+}

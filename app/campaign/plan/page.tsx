@@ -6,6 +6,8 @@ import { CircleAlert, FileWarning, Info, TriangleAlert } from "lucide-react";
 import { orderBatch, targetIsNonNegative } from "@/components/campaign/plan-batch";
 import { ApproveDialog } from "@/components/campaign/plan/approve-dialog";
 import { Comparison } from "@/components/campaign/plan/comparison";
+import { ResponseSurface2D } from "@/components/campaign/plan/response-surface";
+import { parseSurface } from "@/components/campaign/plan/surface-model";
 import { MarkLegend, MeasuredValue } from "@/components/campaign/plan/marks";
 import { RecommendationCards, RecommendationsTable, type PlanContext, type PlanRow, type RowState } from "@/components/campaign/plan/recommendations";
 import {
@@ -332,6 +334,19 @@ function Batch({
   const VerdictIcon = TONE_ICON[verdictTone];
   const constraint = constraintNote(d.constraint);
   const boxNote = designBoxExclusionsNote(d.design_box_exclusions);
+  const notes = dataNotes(d);
+  const surface = useMemo(() => parseSurface(d.response_surface), [d.response_surface]);
+  const surfacePoints = useMemo(
+    () =>
+      surface == null
+        ? []
+        : rows.flatMap((r) => {
+            const x = r.recipe[surface.x.name];
+            const y = r.recipe[surface.y.name];
+            return typeof x === "number" && typeof y === "number" ? [{ id: r.id, x, y }] : [];
+          }),
+    [rows, surface],
+  );
   const checkedInputs = Object.keys(ranges).filter((k) => rows.some((r) => k in r.recipe));
   const uncheckedInputs = [...d.proposal_features, ...others].filter((k) => !ranges[k] && rows.some((r) => typeof r.recipe[k] === "number"));
 
@@ -413,6 +428,21 @@ function Batch({
         </dl>
       </section>
 
+      {notes.length ? (
+        <section aria-labelledby="plan-data-title" className="flex flex-col gap-2">
+          <h2 id="plan-data-title" className="text-heading text-fg">
+            What changed in the data
+          </h2>
+          <ul className="flex flex-col gap-1.5">
+            {notes.map((n) => (
+              <Note key={n.text} tone={n.tone}>
+                {n.text}
+              </Note>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section aria-labelledby="plan-notes-title" className="flex flex-col gap-2">
         <h2 id="plan-notes-title" className="text-heading text-fg">
           Before you start
@@ -444,11 +474,6 @@ function Batch({
           {band == null && rows.length > 0 ? <Note tone="neutral">The engine reported no prediction band, so predicted gains are shown without an interval and not checked against one.</Note> : null}
           {constraint ? <Note tone="neutral">{constraint}</Note> : null}
           {boxNote ? <Note tone="neutral">{boxNote}</Note> : null}
-          {dataNotes(d).map((n) => (
-            <Note key={n.text} tone={n.tone}>
-              {n.text}
-            </Note>
-          ))}
         </ul>
       </section>
 
@@ -523,6 +548,12 @@ function Batch({
           .
         </span>
       </p>
+
+      {surface ? (
+        <Disclosure summary="How the model responds to two inputs" meta="predicted mean only">
+          <ResponseSurface2D surface={d.response_surface} target={name} proposals={surfacePoints} />
+        </Disclosure>
+      ) : null}
 
       <ProvenancePanel run={d.run} />
 

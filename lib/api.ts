@@ -510,6 +510,19 @@ export type AnalyzeResult = Partial<Diagnostics> & {
     y_vals: number[];
     z: number[][];
     runs: [number, number, number][];
+    /**
+     * Posterior SD on the same grid. Computed by the engine's feat/data-handling
+     * branch (viz_utils._response_surface_gp) but not returned on engine main yet.
+     * Typed for the request in docs/PLAN_ENGINE_REQUIREMENTS.md; the Plan surface
+     * does not render it ("predicted mean only").
+     */
+    std?: number[][];
+    /** What the non-plotted inputs were held at, e.g. "incumbent". Absent on older engines. */
+    swept_at?: string;
+    /** The values the other inputs were held at, keyed by input. Absent on older engines. */
+    fixed_recipe?: Record<string, number | string>;
+    /** Which recipe the incumbent was taken from ("single" or "recipe_mean"). Absent on older engines. */
+    incumbent_basis?: string;
   };
   /**
    * Inputs the engine modeled as categorical without declared roles (text

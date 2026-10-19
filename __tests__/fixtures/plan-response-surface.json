@@ -1,0 +1,105 @@
+{
+  "_comment": "Mocked engine response_surface: 5 x-values by 4 y-values (not the engine's 21x21), predicted mean only. Shape from kalos-engine viz_utils._response_surface_gp.",
+  "response_surface": {
+    "x_feature": "Temperature (C)",
+    "y_feature": "pH",
+    "x_vals": [
+      30.0,
+      35.0,
+      40.0,
+      45.0,
+      50.0
+    ],
+    "y_vals": [
+      6.5,
+      6.75,
+      7.0,
+      7.25
+    ],
+    "z": [
+      [
+        36.4,
+        38.8383,
+        40.9244,
+        42.3925,
+        43.1279
+      ],
+      [
+        37.4,
+        39.8383,
+        41.9244,
+        43.3925,
+        44.1279
+      ],
+      [
+        37.6,
+        40.0383,
+        42.1244,
+        43.5925,
+        44.3279
+      ],
+      [
+        36.6,
+        39.0383,
+        41.1244,
+        42.5925,
+        43.3279
+      ]
+    ],
+    "runs": [
+      [
+        30,
+        6.5,
+        33.1
+      ],
+      [
+        40,
+        7.0,
+        44.2
+      ],
+      [
+        50,
+        7.25,
+        38.9
+      ],
+      [
+        35,
+        6.75,
+        41.0
+      ],
+      [
+        45,
+        7.0,
+        47.5
+      ],
+      [
+        42,
+        6.9,
+        46.2
+      ]
+    ],
+    "swept_at": "incumbent",
+    "fixed_recipe": {
+      "Feed rate (mL/h)": 1.25,
+      "Strain": "K12"
+    },
+    "incumbent_basis": "single"
+  },
+  "proposals": [
+    {
+      "id": "P1",
+      "x": 42.5,
+      "y": 6.9
+    },
+    {
+      "id": "P2",
+      "x": 31,
+      "y": 7.1
+    },
+    {
+      "id": "P3",
+      "x": 60,
+      "y": 6.8
+    }
+  ]
+}

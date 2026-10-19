@@ -94,11 +94,13 @@ Plan shows the analysis's `best`, labelled as the best measured run of that anal
 
 **Shape.** `campaign.best_recorded: { value: number, run_id: string, in_model: boolean }`.
 
-### 10. Uncertainty on the response surface (`response_surface.z_sd`)
+### 10. Uncertainty on the response surface (`response_surface.std`)
 
-**Why.** `response_surface.z` is the GP posterior mean only. A 2D surface can show where the model is guessing only if it has a standard deviation grid of the same shape. Until then the surface must say "predicted mean only".
+**Why.** `response_surface.z` is the GP posterior mean only. The Plan surface says "predicted mean only, uncertainty not shown" until the engine returns the uncertainty for the same grid.
 
-**Shape.** `response_surface.z_sd: number[][]`, same shape as `z`, same indexing.
+**Already computed, not returned on main.** The engine's `feat/data-handling` branch (`kalos/portal/viz_utils.py`, `_response_surface_gp`) builds `std` on the same grid and returns it. `main` computes `std` and drops it. `lib/api.ts` types `std?: number[][]` as optional so the field can land without a web change. The name is `std`, not `z_sd`.
+
+**Shape.** `response_surface.std: number[][]`, same shape and indexing as `z` (row = `y_vals`, column = `x_vals`).
 
 ### 11. One-way effect curve (`effect_curves`)
 

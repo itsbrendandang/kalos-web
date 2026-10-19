@@ -4,6 +4,7 @@ import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import latestFixture from "./fixtures/plan-latest.json";
 import campaignFixture from "./fixtures/plan-campaign.json";
+import surfaceMock from "./fixtures/plan-response-surface.json";
 
 // next/link needs the Next router at runtime; a plain anchor is enough here.
 vi.mock("next/link", () => ({
@@ -217,5 +218,28 @@ describe("Plan data notes and provenance", () => {
     await renderPlan();
     expect(screen.getByText("How this batch was made")).toBeTruthy();
     expect(screen.getByText("not reported")).toBeTruthy();
+  });
+
+  it("mounts the response surface only when its disclosure is opened, labelled predicted mean only", async () => {
+    // The fixture's own surface is empty (the engine sent no grid), so the disclosure must not appear for it.
+    await renderPlan();
+    expect(screen.queryByText("How the model responds to two inputs")).toBeNull();
+    cleanup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/api/latest")) return json({ ...latestFixture, response_surface: surfaceMock.response_surface });
+        if (url.endsWith("/api/campaign")) return json(campaignFixture);
+        throw new Error(`unexpected fetch ${url}`);
+      }),
+    );
+    await renderPlan();
+    const summary = screen.getByText("How the model responds to two inputs");
+    expect(screen.queryByText(/Predicted mean only, uncertainty not shown/)).toBeNull();
+    const details = summary.closest("details") as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    expect(await screen.findByText(/Predicted mean only, uncertainty not shown/)).toBeTruthy();
   });
 });

@@ -11,6 +11,8 @@ import { RecommendationCards, RecommendationsTable, type PlanContext, type PlanR
 import {
   bandLabel,
   boundaryChecks,
+  dataNotes,
+  runFacts,
   COMPARE_MAX,
   COMPARE_MIN,
   diversitySummary,
@@ -29,6 +31,7 @@ import {
 } from "@/components/campaign/plan-view";
 import { targetName } from "@/components/campaign/target";
 import { Callout } from "@/components/kit/callout";
+import { Disclosure } from "@/components/kit/disclosure";
 import { TONE_ICON, TONE_TEXT, type Tone } from "@/components/kit/tone";
 import { Verdict } from "@/components/kit/verdict";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -441,6 +444,11 @@ function Batch({
           {band == null && rows.length > 0 ? <Note tone="neutral">The engine reported no prediction band, so predicted gains are shown without an interval and not checked against one.</Note> : null}
           {constraint ? <Note tone="neutral">{constraint}</Note> : null}
           {boxNote ? <Note tone="neutral">{boxNote}</Note> : null}
+          {dataNotes(d).map((n) => (
+            <Note key={n.text} tone={n.tone}>
+              {n.text}
+            </Note>
+          ))}
         </ul>
       </section>
 
@@ -516,6 +524,8 @@ function Batch({
         </span>
       </p>
 
+      <ProvenancePanel run={d.run} />
+
       {rows.length > 0 ? (
         <div className="sticky bottom-0 z-20 -mx-4 flex items-center justify-between gap-3 border-t border-border bg-bg px-4 py-3 sm:hidden">
           <span className="text-label text-fg">
@@ -575,4 +585,24 @@ function edgeSources(inputs: string[], ranges: ReturnType<typeof observedRanges>
     observed.length ? `the values tried in the measured runs for ${observed.join(" and ")}` : null,
   ].filter(Boolean);
   return `Edge-of-range checks use ${parts.join(", and ")}.`;
+}
+
+function ProvenancePanel({ run }: { run: PlanAnalysis["run"] }) {
+  const facts = runFacts(run);
+  return (
+    <Disclosure summary="How this batch was made" meta={facts.length ? undefined : "not reported"}>
+      {facts.length ? (
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-body">
+          {facts.map((f) => (
+            <div key={f.label} className="contents">
+              <dt className="text-fg-muted">{f.label}</dt>
+              <dd className="min-w-0 break-words text-body text-fg">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-body text-fg-muted">The engine did not report how this analysis was produced.</p>
+      )}
+    </Disclosure>
+  );
 }

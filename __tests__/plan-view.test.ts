@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ConstraintReport, PopulatedResult, Proposal } from "@/lib/api";
 import {
   activeRejection,
+  dataNotes,
+  runFacts,
   BAND_CAVEAT,
   bandLabel,
   exactSetpoint,
@@ -312,5 +314,55 @@ describe("rejectionCopy", () => {
     const c = rejectionCopy({ name: "tiny.csv", forDataset: null, code: "too_few_rows", error: "need at least 6 rows" });
     expect(c.body).toBe("The engine did not accept tiny.csv (too_few_rows). It said: need at least 6 rows");
     expect(c.suggestion).toBeNull();
+  });
+});
+
+describe("dataNotes", () => {
+  it("says nothing when the engine reports no drops and no categoricals", () => {
+    expect(dataNotes({ auto_categorical: [], n_dropped_incomplete: 0, n_censored_excluded: 0 })).toEqual([]);
+    expect(dataNotes({})).toEqual([]);
+  });
+
+  it("names auto-detected categoricals and asks for the declaration on Setup", () => {
+    const [n] = dataNotes({ auto_categorical: ["Strain"] });
+    expect(n.tone).toBe("neutral");
+    expect(n.text).toContain("Strain was read as categorical");
+    expect(n.text).toContain("Declare the columns on Setup");
+  });
+
+  it("counts missing and censored exclusions separately and says nothing was imputed", () => {
+    const [n] = dataNotes({ n_dropped_incomplete: 2, n_censored_excluded: 1 });
+    expect(n.tone).toBe("warn");
+    expect(n.text).toContain("2 runs with a missing or non-numeric value");
+    expect(n.text).toContain("1 run with a censored value such as <LOD");
+    expect(n.text).toContain("Nothing was imputed");
+  });
+
+  it("falls back to data_drops when the top-level counts are absent", () => {
+    const [n] = dataNotes({ data_drops: { rows_dropped: 3, censored_rows_excluded: 0 } });
+    expect(n.text).toContain("3 runs with a missing or non-numeric value");
+    expect(n.text).not.toContain("censored");
+  });
+});
+
+describe("runFacts", () => {
+  it("returns nothing when the engine sent no run record", () => {
+    expect(runFacts(undefined)).toEqual([]);
+    expect(runFacts(null)).toEqual([]);
+  });
+
+  it("shows the fingerprint and build, and never the sheet name under anonymize", () => {
+    const facts = runFacts({ kind: "upload", profile: "bioprocess", input_sha256: "abcdef0123456789ff", sheet: "Runs", anonymize: true, torch_threads: null, build_sha: "1234567890abcdef" });
+    const get = (label: string) => facts.find((f) => f.label === label)?.value;
+    expect(get("Input fingerprint")).toBe("abcdef012345");
+    expect(get("Sheet")).toBeUndefined();
+    expect(get("Threads")).toBe("not pinned");
+    expect(get("Engine build")).toBe("1234567890ab");
+    expect(get("Source")).toBe("Run sheet upload");
+  });
+
+  it("shows the sheet when the upload was not anonymized", () => {
+    const facts = runFacts({ sheet: "Runs", anonymize: false });
+    expect(facts).toEqual([{ label: "Sheet", value: "Runs" }]);
   });
 });

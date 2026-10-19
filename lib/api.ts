@@ -353,6 +353,47 @@ export type ProvenanceEntry = {
   source?: string;
 };
 
+/** Counts of what the fit excluded or treated specially. Counts only, never column names in the run record. */
+export type DataDrops = {
+  rows_dropped?: number;
+  censored_rows_excluded?: number;
+  /** Keys: missing, non_numeric, censored (counted over cells). */
+  cells_by_reason?: Record<string, number>;
+  cells_by_column?: Record<string, Record<string, number>>;
+  blank_cells_as_absent?: number;
+  auto_categorical_count?: number;
+};
+
+/**
+ * The `run` block (kalos run record, schema_version 1). Every field is optional
+ * so an older or partial record renders only what it carries. `filename` and
+ * `sheet` are absent under anonymize. Source: docs/CAMPAIGNS_API.md (feat/data-handling).
+ */
+export type RunRecord = {
+  schema_version?: number;
+  kind?: "upload" | "reanalyze" | string;
+  input_sha256?: string;
+  input_bytes?: number;
+  filename?: string;
+  sheet?: string | null;
+  target?: string;
+  profile?: "bioprocess" | "generic" | string;
+  roles_declared?: unknown;
+  anonymize?: boolean;
+  seed?: number;
+  torch_threads?: number | null;
+  torch_threads_actual?: number | null;
+  max_fit_rows?: number;
+  build_sha?: string;
+  library_versions?: Partial<Record<"numpy" | "pandas" | "torch" | "botorch", string | null>>;
+  validation_mode?: "warn" | "strict" | string;
+  pending_runs?: number;
+  n_rows?: number;
+  n_features?: number;
+  data_drops?: DataDrops;
+  header_row?: number | null;
+};
+
 export type AnalyzeResult = Partial<Diagnostics> & {
   n: number;
   d: number;
@@ -470,6 +511,22 @@ export type AnalyzeResult = Partial<Diagnostics> & {
     z: number[][];
     runs: [number, number, number][];
   };
+  /**
+   * Inputs the engine modeled as categorical without declared roles (text
+   * columns with 2-12 repeated levels). Absent on older engine builds; an
+   * empty array means none were detected. Source: docs/UPLOADS.md (feat/data-handling).
+   */
+  auto_categorical?: string[];
+  /** All categorical inputs the model used (declared or auto-detected). Absent on older engine builds. */
+  categorical_features?: string[];
+  /** Runs excluded from the fit for a missing or non-numeric target/feature cell. Absent on older engine builds. */
+  n_dropped_incomplete?: number;
+  /** Runs excluded from the fit for a censored value (e.g. `<LOD`). Not imputed. Absent on older engine builds. */
+  n_censored_excluded?: number;
+  /** What the fit excluded, as counts. Absent on older engine builds. */
+  data_drops?: DataDrops;
+  /** How this analysis was produced (provenance). Absent on rows written before the engine recorded it. */
+  run?: RunRecord;
   /** Per-column data-cleaning trail (kept/dropped/target), for traceability. */
   provenance?: ProvenanceEntry[];
   /**

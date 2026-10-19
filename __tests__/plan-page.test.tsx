@@ -184,3 +184,38 @@ describe("Plan after a rejected upload", () => {
     expect(isDisabled(reviewButton())).toBe(false);
   });
 });
+
+describe("Plan data notes and provenance", () => {
+  it("names categoricals, exclusions and the run fingerprint from the engine's own fields", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/api/latest"))
+          return json({
+            ...latestFixture,
+            auto_categorical: ["Strain"],
+            n_dropped_incomplete: 2,
+            n_censored_excluded: 1,
+            run: { kind: "upload", input_sha256: "abcdef0123456789", profile: "bioprocess" },
+          });
+        if (url.endsWith("/api/campaign")) return json(campaignFixture);
+        throw new Error(`unexpected fetch ${url}`);
+      }),
+    );
+    await renderPlan();
+    expect(screen.getByText(/Strain was read as categorical/)).toBeTruthy();
+    expect(screen.getByText(/2 runs with a missing or non-numeric value/)).toBeTruthy();
+    expect(screen.getByText(/1 run with a censored value such as <LOD/)).toBeTruthy();
+    const details = screen.getByText("How this batch was made").closest("details") as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    expect(await screen.findByText("abcdef012345")).toBeTruthy();
+  });
+
+  it("says the engine did not report provenance when the run block is absent", async () => {
+    await renderPlan();
+    expect(screen.getByText("How this batch was made")).toBeTruthy();
+    expect(screen.getByText("not reported")).toBeTruthy();
+  });
+});

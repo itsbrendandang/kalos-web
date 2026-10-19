@@ -9,7 +9,7 @@
  */
 
 import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
-import type { ConstraintReport, PopulatedResult, Proposal } from "@/lib/api";
+import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 
 // --- Engine fields newer than lib/api.ts (kalos-engine PR #87) ---------------
@@ -495,4 +495,71 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
     body: `The engine did not accept ${r.name} (${r.code ?? "no code"}). It said: ${r.error}`,
     suggestion: null,
   };
+}
+
+/**
+ * Notes about how the fit treated the data, from engine fields only:
+ * auto-detected categoricals (`auto_categorical`) and runs excluded from the
+ * fit (`n_dropped_incomplete`, `n_censored_excluded`, falling back to
+ * `data_drops`). Nothing is inferred from the sheet on the client.
+ */
+export type DataNote = { tone: "neutral" | "warn"; text: string };
+
+const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+
+export function dataNotes(d: {
+  auto_categorical?: string[];
+  n_dropped_incomplete?: number;
+  n_censored_excluded?: number;
+  data_drops?: DataDrops;
+}): DataNote[] {
+  const notes: DataNote[] = [];
+  const auto = (d.auto_categorical ?? []).filter((c) => typeof c === "string" && c.length > 0);
+  if (auto.length) {
+    notes.push({
+      tone: "neutral",
+      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as categorical because ${auto.length === 1 ? "it holds" : "they hold"} text levels, so proposals vary ${auto.length === 1 ? "it" : "them"}. Declare the columns on Setup to change that.`,
+    });
+  }
+  const missing = d.n_dropped_incomplete ?? d.data_drops?.rows_dropped ?? 0;
+  const censored = d.n_censored_excluded ?? d.data_drops?.censored_rows_excluded ?? 0;
+  if (missing > 0 || censored > 0) {
+    const parts = [
+      missing > 0 ? `${count(missing, "run")} with a missing or non-numeric value` : null,
+      censored > 0 ? `${count(censored, "run")} with a censored value such as <LOD` : null,
+    ].filter((p): p is string => p != null);
+    notes.push({
+      tone: "warn",
+      text: `${parts.join(" and ")} ${missing + censored === 1 ? "was" : "were"} left out of the fit. Nothing was imputed.`,
+    });
+  }
+  return notes;
+}
+
+/** The provenance facts the engine recorded, as label/value rows. Only fields present on `run` are returned. */
+export function runFacts(run: RunRecord | null | undefined): { label: string; value: string }[] {
+  if (!run) return [];
+  const rows: { label: string; value: string }[] = [];
+  const add = (label: string, value: string | null | undefined) => {
+    if (value != null && value !== "") rows.push({ label, value });
+  };
+  if (run.kind === "upload") add("Source", "Run sheet upload");
+  else if (run.kind === "reanalyze") add("Source", "Re-analysis of the campaign's folded runs");
+  if (run.profile === "bioprocess") add("Columns", "Inferred from names (bioprocess profile)");
+  else if (run.profile === "generic") add("Columns", "Declared by you (generic profile)");
+  if (run.input_sha256) add("Input fingerprint", run.input_sha256.slice(0, 12));
+  if (run.anonymize !== true) add("Sheet", run.sheet ?? undefined);
+  if (typeof run.n_rows === "number") add("Runs fitted", run.n_rows.toLocaleString("en-US"));
+  if (typeof run.n_features === "number") add("Inputs modeled", run.n_features.toLocaleString("en-US"));
+  if (typeof run.pending_runs === "number") add("Runs in flight when proposed", run.pending_runs.toLocaleString("en-US"));
+  if (typeof run.seed === "number") add("Fit seed", String(run.seed));
+  if (run.torch_threads !== undefined) add("Threads", run.torch_threads === null ? "not pinned" : String(run.torch_threads));
+  if (run.library_versions) {
+    const v = Object.entries(run.library_versions)
+      .filter(([, ver]) => typeof ver === "string")
+      .map(([name, ver]) => `${name} ${ver}`);
+    add("Libraries", v.length ? v.join(", ") : null);
+  }
+  if (run.build_sha) add("Engine build", run.build_sha.slice(0, 12));
+  return rows;
 }

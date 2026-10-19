@@ -25,6 +25,10 @@ Checked against the engine branch `fix/constant-target-and-batch-diversity` (kal
 | Edge-of-range checks | min/max of `response_surface.runs` for its two plotted inputs; `feature_ranges` for others when present |
 | Sheet precision | decimal places of the values in `response_surface.runs` |
 | Constant target | `code: "target_constant"`, `target`, `target_summary`, `available_targets` on the 400 body of `POST /api/run` |
+| Auto-detected categoricals | `auto_categorical`, `categorical_features` (documented in kalos-engine `docs/UPLOADS.md`, `feat/data-handling`); "Before you start" names them |
+| Runs left out of the fit | `n_dropped_incomplete`, `n_censored_excluded`, `data_drops` (fallback for the counts); nothing imputed, the page says so |
+| How the batch was made | `run` block (`docs/CAMPAIGNS_API.md`, run record schema 1): input fingerprint, profile, seed, threads, build, libraries, runs in flight. Shown in "How this batch was made"; absent on older rows |
+| Uploads refused with 409 | `campaign_has_runs` on `POST /api/run` is handled by the replace dialog on Setup (the only page that uploads). Plan has no upload path; its rejection link goes to Setup |
 
 ## Requested fields
 
@@ -89,6 +93,24 @@ The web app remembers the rejection in memory for the browser session (`useLastR
 Plan shows the analysis's `best`, labelled as the best measured run of that analysis.
 
 **Shape.** `campaign.best_recorded: { value: number, run_id: string, in_model: boolean }`.
+
+### 10. Uncertainty on the response surface (`response_surface.z_sd`)
+
+**Why.** `response_surface.z` is the GP posterior mean only. A 2D surface can show where the model is guessing only if it has a standard deviation grid of the same shape. Until then the surface must say "predicted mean only".
+
+**Shape.** `response_surface.z_sd: number[][]`, same shape as `z`, same indexing.
+
+### 11. One-way effect curve (`effect_curves`)
+
+**Why.** Plan cannot show how the predicted value moves along one input with the others held at their median, with an interval. The engine would have to compute the sweep.
+
+**Shape.** `effect_curves: { [input]: { x: number[], mean: number[], lo: number[], hi: number[], others: "median" | string } }`, where `lo`/`hi` are the interval for each `x`, with the coverage stated.
+
+### 12. Driver uncertainty (`drivers[].ci95`)
+
+**Why.** `drivers` gives a ranking and a value but no interval, so driver bars cannot carry whiskers. The Plan page will not show driver intervals until the engine computes them.
+
+**Shape.** `drivers[].ci95: [number, number] | null`, with the method (for example bootstrap over groups) in `driver_selection` or a sibling `drivers_method` string.
 
 ## Not requested
 

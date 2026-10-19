@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertCircle, AlertTriangle, Info, RefreshCw, ShieldAlert, SquareArrowOutUpRight, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Info, RefreshCw, Printer, ShieldAlert, X } from "lucide-react";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { ServiceUnavailable } from "@/components/service-unavailable";
@@ -205,12 +205,25 @@ export default function ScaleReadoutPage() {
     }
   }
 
-  function openPrintable(html: string) {
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    // Give the new tab time to load the blob before revoking it.
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  /**
+   * Print the readout without a same-origin document. A text/html blob opened
+   * from this origin would run with the app's origin (a blob inherits its
+   * creator's), so it is never used. The readout goes into a hidden iframe
+   * without same-origin permission, which gives it an opaque origin; its own
+   * script (a print-on-load call, the only one added) prints that frame.
+   * Scripts are allowed only so the frame can call print() itself: a parent
+   * cannot call print() on a cross-origin frame.
+   */
+  function printReadout(html: string) {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", "allow-scripts");
+    frame.setAttribute("aria-hidden", "true");
+    frame.setAttribute("tabindex", "-1");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
+    frame.srcdoc = `${html}<script>window.addEventListener("load",function(){setTimeout(function(){window.print()},0)});</script>`;
+    document.body.appendChild(frame);
+    // Keep the frame until the print dialog has had time to read it.
+    setTimeout(() => frame.remove(), 60_000);
   }
 
   return (
@@ -412,9 +425,9 @@ export default function ScaleReadoutPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[12.5px] text-muted">{file?.name}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => openPrintable(result.html)}>
-                <SquareArrowOutUpRight />
-                Open printable page
+              <Button variant="outline" size="sm" onClick={() => printReadout(result.html)}>
+                <Printer />
+                Print readout
               </Button>
               <Button variant="ghost" size="sm" onClick={reset}>
                 <X />

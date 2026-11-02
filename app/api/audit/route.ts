@@ -10,19 +10,26 @@ import type { NextRequest } from "next/server";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { ACTOR, GENESIS, payload, type AuditEntry } from "@/lib/audit";
 import { isLocalMode } from "@/lib/local-mode";
+import { hostAllowed, originAllowed, readTextCapped } from "@/lib/server/local-guard";
 
 export const dynamic = "force-dynamic";
+
+/** Actions the app writes. Anything else is refused, so a stray caller cannot invent history. */
+const ACTIONS = /^(map\.(created|removed|renamed)|step\.(added|removed|renamed|type|owner|partner)|param\.(added|added\.sop|changed|removed)|sop\.(added|removed|replaced)|data\.(added|removed)|campaign\.(upload|start|result|reanalyze)|sync\.migrated)$/;
+const MAX_BODY = 64 * 1024;
 
 const dir = () => process.env.KALOS_STATE_DIR || join(homedir(), ".kalos");
 const file = () => join(dir(), "audit-log.jsonl");
 const sha = (t: string) => createHash("sha256").update(t).digest("hex");
 
+/** Missing file = empty history. Any other read error is a failure: never present it as "empty", or the next write would start a second chain. */
 async function load(): Promise<AuditEntry[]> {
   let raw: string;
   try {
     raw = await readFile(file(), "utf8");
-  } catch {
-    return [];
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw e;
   }
   const out: AuditEntry[] = [];
   for (const line of raw.split("\n")) {
@@ -36,30 +43,45 @@ async function load(): Promise<AuditEntry[]> {
   return out;
 }
 
+async function endsWithoutNewline(): Promise<string> {
+  try {
+    const raw = await readFile(file(), "utf8");
+    return raw.length > 0 && !raw.endsWith("\n") ? "\n" : "";
+  } catch {
+    return "";
+  }
+}
+
 // Appends are serialised so two quick saves cannot read the same last hash.
 let queue: Promise<unknown> = Promise.resolve();
 
 export async function GET(): Promise<Response> {
   if (!isLocalMode()) return Response.json({ error: "Not available." }, { status: 404 });
-  return Response.json({ entries: await load() });
+  try {
+    return Response.json({ entries: await load() }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return Response.json({ error: "Could not read the history file." }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
   if (!isLocalMode()) return Response.json({ error: "Not available." }, { status: 404 });
   if (req.headers.get(ENGINE_CSRF_HEADER) !== ENGINE_CSRF_VALUE) return Response.json({ error: "Blocked." }, { status: 403 });
-  const origin = req.headers.get("origin");
-  if (origin && new URL(origin).host !== req.headers.get("host")) return Response.json({ error: "Blocked." }, { status: 403 });
+  const host = req.headers.get("host");
+  if (!hostAllowed(host) || !originAllowed(req.headers.get("origin"), host)) return Response.json({ error: "Blocked." }, { status: 403 });
 
-  let body: { events?: { action?: unknown; detail?: unknown }[] };
+  const text = await readTextCapped(req, MAX_BODY);
+  if (text === null) return Response.json({ error: "Too large." }, { status: 413 });
+  let body: { events?: ({ action?: unknown; detail?: unknown } | null)[] };
   try {
-    body = await req.json();
+    body = JSON.parse(text);
   } catch {
     return Response.json({ error: "Bad request." }, { status: 400 });
   }
-  const events = (Array.isArray(body.events) ? body.events : [])
-    .filter((e) => typeof e.action === "string" && typeof e.detail === "string")
+  const events = (Array.isArray(body?.events) ? body.events : [])
+    .filter((e): e is { action: string; detail: string } => !!e && typeof e.action === "string" && typeof e.detail === "string" && ACTIONS.test(e.action))
     .slice(0, 200)
-    .map((e) => ({ action: String(e.action).slice(0, 80), detail: String(e.detail).slice(0, 1000) }));
+    .map((e) => ({ action: e.action, detail: e.detail.slice(0, 1000) }));
   if (!events.length) return Response.json({ error: "No events." }, { status: 400 });
 
   const run = queue.then(async () => {
@@ -72,7 +94,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       text += `${JSON.stringify(prev)}\n`;
     }
     await mkdir(dir(), { recursive: true });
-    await appendFile(file(), text, { mode: 0o600 });
+    // A crash can leave a last line without its newline; start on a fresh line so the new entry is not glued to it.
+    const lead = await endsWithoutNewline();
+    await appendFile(file(), lead + text, { mode: 0o600 });
     return events.length;
   });
   queue = run.catch(() => undefined);

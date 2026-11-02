@@ -50,6 +50,23 @@ export async function refreshAudit(): Promise<void> {
   publish(parseLocal());
 }
 
+/** Entries saved in the browser while the file could not be written: copy them into the file (marked as such), then clear the browser copy. */
+async function migrateBrowserBacklog(): Promise<void> {
+  const backlog = parseLocal();
+  if (!backlog.length) return;
+  try {
+    const r = await fetch("/api/audit", {
+      method: "POST",
+      headers: { "content-type": "application/json", [ENGINE_CSRF_HEADER]: ENGINE_CSRF_VALUE },
+      body: JSON.stringify({ events: backlog.slice(0, 200).map((e) => ({ action: "sync.migrated", detail: `Saved offline on ${e.at}: ${e.detail}` })) }),
+    });
+    if (r.ok && backlog.length <= 200) localStorage.removeItem(KEY);
+    else if (r.ok) localStorage.setItem(KEY, JSON.stringify(backlog.slice(200)));
+  } catch {
+    // Try again at the next successful write.
+  }
+}
+
 let pending: AuditEvent[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 let chain: Promise<void> = Promise.resolve();
@@ -75,7 +92,7 @@ export function flushAudit(): Promise<void> {
         headers: { "content-type": "application/json", [ENGINE_CSRF_HEADER]: ENGINE_CSRF_VALUE },
         body: JSON.stringify({ events: batch.map((e) => ({ action: e.action, detail: e.detail })) }),
       });
-      if (r.ok) { where = "file"; return refreshAudit(); }
+      if (r.ok) { where = "file"; await migrateBrowserBacklog(); return refreshAudit(); }
     } catch {
       // fall through to the browser copy
     }

@@ -1634,6 +1634,7 @@ dependencies = [
 name = "kalos-desktop"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "tauri",
  "tauri-build",
 ]

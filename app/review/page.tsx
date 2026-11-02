@@ -9,6 +9,7 @@ import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { chatContext, exampleCourse, parseTimeCourse, review, unusualWells, type Context, type Parsed, type Verdict } from "@/lib/review";
+import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { cn } from "@/lib/utils";
 
 const TONE: Record<Verdict, "good" | "warn" | "neutral" | "accent"> = { supported: "accent", possible: "warn", unlikely: "neutral", "cannot-say": "neutral" };
@@ -191,7 +192,7 @@ function Chat({ context }: { context: string }) {
     setQ("");
     setBusy(true);
     try {
-      const res = await fetch("/api/review/chat", { method: "POST", headers: { "content-type": "application/json", "x-kalos-csrf": "1" }, body: JSON.stringify({ messages: next, context }) });
+      const res = await fetch("/api/review/chat", { method: "POST", headers: { "content-type": "application/json", [ENGINE_CSRF_HEADER]: ENGINE_CSRF_VALUE }, body: JSON.stringify({ messages: next, context }) });
       const j = (await res.json()) as { reply?: string; error?: string };
       setTurns([...next, { role: "assistant", content: j.reply ?? j.error ?? "No answer." }]);
     } catch {

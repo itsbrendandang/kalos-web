@@ -3,6 +3,7 @@
 // (loopback) mode, so it cannot be reached as a public endpoint.
 import type { NextRequest } from "next/server";
 import { isLocalMode } from "@/lib/local-mode";
+import { hostAllowed, originAllowed, readTextCapped } from "@/lib/server/local-guard";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 
 export const dynamic = "force-dynamic";
@@ -24,17 +25,19 @@ type Msg = { role: "user" | "assistant"; content: string };
 export async function POST(req: NextRequest): Promise<Response> {
   if (!isLocalMode()) return Response.json({ error: "Not available." }, { status: 404 });
   if (req.headers.get(ENGINE_CSRF_HEADER) !== ENGINE_CSRF_VALUE) return Response.json({ error: "Blocked." }, { status: 403 });
-  const origin = req.headers.get("origin");
-  if (origin && new URL(origin).host !== req.headers.get("host")) return Response.json({ error: "Blocked." }, { status: 403 });
+  const host = req.headers.get("host");
+  if (!hostAllowed(host) || !originAllowed(req.headers.get("origin"), host)) return Response.json({ error: "Blocked." }, { status: 403 });
 
-  let body: { messages?: Msg[]; context?: string };
+  const text = await readTextCapped(req, 256 * 1024);
+  if (text === null) return Response.json({ error: "Too large." }, { status: 413 });
+  let body: { messages?: (Msg | null)[]; context?: string };
   try {
-    body = await req.json();
+    body = JSON.parse(text);
   } catch {
     return Response.json({ error: "Bad request." }, { status: 400 });
   }
-  const messages = (body.messages ?? []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
-  const context = String(body.context ?? "").slice(0, 20000);
+  const messages = (Array.isArray(body?.messages) ? body.messages : []).filter((m): m is Msg => !!m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
+  const context = String(body?.context ?? "").slice(0, 20000);
   if (!messages.length || messages[messages.length - 1].role !== "user") return Response.json({ error: "Ask a question." }, { status: 400 });
 
   try {

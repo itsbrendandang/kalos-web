@@ -9,9 +9,11 @@
 //      AUTH_MIGRATE=sql  print SQL and exit 0
 //    Any failure (including a module-load error) exits 1: Next would
 //    otherwise log "Failed to prepare server" and keep a one-shot job alive.
+import { isLocalMode } from "@/lib/local-mode";
+
 export async function registerNode(): Promise<void> {
   if (process.env.NEXT_PHASE === "phase-production-build") return;
-  if (process.env.KALOS_LOCAL_MODE === "1" && ["127.0.0.1", "localhost"].includes(process.env.HOSTNAME ?? "")) return; // on-device: no auth to check
+  if (isLocalMode()) return; // on-device: no auth to check (loopback bind AND the launch secret are both required)
 
   // Checked unless the dev fallback is allowed (development/test on a loopback
   // URL): fails closed (B-4, C-3).

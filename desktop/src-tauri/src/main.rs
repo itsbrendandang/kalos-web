@@ -35,6 +35,23 @@ fn wait_for(port: u16, secs: u64) -> bool {
     false
 }
 
+/// A fresh secret for this launch. The web server only answers requests that carry it (lib/server/local-guard.ts).
+fn launch_token() -> Result<String, String> {
+    use std::io::Read;
+    let mut buf = [0u8; 24];
+    std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut buf))
+        .map_err(|e| format!("could not make a launch secret: {e}"))?;
+    Ok(buf.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+fn kill_all(children: &Children) {
+    for c in children.0.lock().unwrap().iter_mut() {
+        let _ = c.kill();
+        let _ = c.wait();
+    }
+}
+
 fn home() -> PathBuf {
     PathBuf::from(std::env::var("HOME").expect("HOME"))
 }
@@ -66,11 +83,14 @@ fn log_file(name: &str) -> Stdio {
     std::fs::File::create(dir.join(format!("{name}.log"))).map(Stdio::from).unwrap_or_else(|_| Stdio::null())
 }
 
-fn start() -> Result<(Vec<Child>, u16), String> {
+/// Starts both processes. Each child is registered the moment it exists, so quitting
+/// (or a failure) at any point still stops everything that was started.
+fn start(children: &Children) -> Result<(u16, String), String> {
     let engine_dir = std::env::var("KALOS_ENGINE_DIR").map(PathBuf::from).unwrap_or_else(|_| home().join("GitHub/kalos"));
     let web_dir = std::env::var("KALOS_WEB_DIR").map(PathBuf::from).unwrap_or_else(|_| home().join("GitHub/kalos-web"));
     let node = find_node();
     let state = std::env::var("KALOS_STATE_DIR").unwrap_or_else(|_| home().join(".kalos").to_string_lossy().into());
+    let token = launch_token()?;
 
     let (engine_port, web_port) = (free_port(), free_port());
 
@@ -85,6 +105,7 @@ fn start() -> Result<(Vec<Child>, u16), String> {
         .stderr(log_file("engine-err"))
         .spawn()
         .map_err(|e| format!("could not start the engine ({}): {e}", python.display()))?;
+    children.0.lock().unwrap().push(engine);
 
     let standalone = web_dir.join(".next/standalone");
     let server = Command::new(&node)
@@ -94,17 +115,19 @@ fn start() -> Result<(Vec<Child>, u16), String> {
         .env("HOSTNAME", "127.0.0.1")
         .env("PORT", web_port.to_string())
         .env("KALOS_LOCAL_MODE", "1")
+        .env("KALOS_LOCAL_TOKEN", &token)
+        .env("KALOS_STATE_DIR", &state)
         .env("KALOS_ENGINE_URL", format!("http://127.0.0.1:{engine_port}"))
         .stdout(log_file("web"))
         .stderr(log_file("web-err"))
         .spawn()
         .map_err(|e| format!("could not start the app server: {e}"))?;
+    children.0.lock().unwrap().push(server);
 
-    let children = vec![engine, server];
     if !wait_for(web_port, 40) {
         return Err("the app server did not start".into());
     }
-    Ok((children, web_port))
+    Ok((web_port, token))
 }
 
 fn main() {
@@ -114,13 +137,16 @@ fn main() {
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 let win = handle.get_webview_window("main").unwrap();
-                match start() {
-                    Ok((children, port)) => {
-                        handle.state::<Children>().0.lock().unwrap().extend(children);
-                        let _ = win.navigate(format!("http://127.0.0.1:{port}/").parse().unwrap());
+                let children = handle.state::<Children>();
+                match start(&children) {
+                    Ok((port, token)) => {
+                        // The secret travels once, in the first address; the server turns it into a cookie and drops it.
+                        let _ = win.navigate(format!("http://127.0.0.1:{port}/?k={token}").parse().unwrap());
                     }
                     Err(msg) => {
-                        let _ = win.eval(&format!("document.querySelector('.w div:last-child').textContent = {:?}", msg));
+                        kill_all(&children);
+                        let text = serde_json::to_string(&msg).unwrap_or_else(|_| "\"could not start\"".into());
+                        let _ = win.eval(&format!("document.querySelector('.w div:last-child').textContent = {text}"));
                     }
                 }
             });
@@ -131,9 +157,7 @@ fn main() {
 
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
-            for c in handle.state::<Children>().0.lock().unwrap().iter_mut() {
-                let _ = c.kill();
-            }
+            kill_all(&handle.state::<Children>());
         }
     });
 }

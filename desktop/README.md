@@ -15,8 +15,13 @@ Needs Rust (rustup) and Node. It finds the engine at `~/GitHub/kalos` (needs `.v
 and the web build at `~/GitHub/kalos-web`; override with `KALOS_ENGINE_DIR`,
 `KALOS_WEB_DIR`, `KALOS_NODE`, `KALOS_STATE_DIR`.
 
-Local mode is honoured only when `HOSTNAME` is a loopback address
-(`lib/local-mode.ts`), so the flag cannot open a networked deployment.
+Local mode turns on only when ALL of these hold (`lib/local-mode.ts`): the flag is set,
+`HOSTNAME` is a loopback address, and `KALOS_LOCAL_TOKEN` is a secret of 16+ characters.
+The app makes a new secret on every launch and the server answers only requests that
+carry it (as a cookie it sets on first load) and whose `Host` is loopback
+(`lib/server/local-guard.ts`). That blocks another web page, a DNS-rebinding page, or a
+tunnel from reaching the app just by finding the port. It is not a defence against other
+programs running as you: the engine itself listens open on a random loopback port.
 
 Not done yet: bundling Python and Node inside the .app (it uses your installed
 copies today), code signing/notarization, an updater.

@@ -1,6 +1,7 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
+import { recordAudit } from "@/lib/audit-store";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
 
@@ -644,7 +645,10 @@ export async function runFile(
   const d = await readJsonBody(r);
   const refusal = campaignHasRunsRefusal(r.status, d);
   if (refusal) throw refusal;
-  if (r.ok && d) return d as AnalyzeResult;
+  if (r.ok && d) {
+    recordAudit([{ action: "campaign.upload", detail: `Uploaded "${file.name}" as the campaign data${target ? ` (target ${target})` : ""}${opts.replace ? ", replacing the previous campaign" : ""}.` }]);
+    return d as AnalyzeResult;
+  }
   // A 400 with the documented { error } body is an expected "bad upload" the caller renders inline
   // (see setup/page.tsx); it is returned, not thrown.
   if (r.status === 400 && d && typeof d.error === "string") return d as AnalyzeResult;
@@ -1111,6 +1115,7 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
     body: JSON.stringify({ recipes }),
   });
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  recordAudit([{ action: "campaign.start", detail: `Started ${recipes.length} run${recipes.length === 1 ? "" : "s"}: ${recipes.map((x) => x.mode).join(", ")}.` }]);
 }
 
 export async function logResult(id: string, value: number): Promise<void> {
@@ -1133,11 +1138,13 @@ export async function logResult(id: string, value: number): Promise<void> {
     }
     throw new Error(message);
   }
+  recordAudit([{ action: "campaign.result", detail: `Recorded result ${value} for run ${id}.` }]);
 }
 
 export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
   const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST", headers: mutationHeaders() });
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  recordAudit([{ action: "campaign.reanalyze", detail: "Updated the model with the recorded results." }]);
   return r.json();
 }
 

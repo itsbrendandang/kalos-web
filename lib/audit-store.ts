@@ -1,36 +1,53 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { coalesce, makeEntry, type AuditEntry, type AuditEvent } from "@/lib/audit";
+import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 
+/*
+ * Where the history lives: in a file in the Kalos state folder when the app runs
+ * on this device (/api/audit), otherwise in this browser's storage. Both use the
+ * same hash chain. The file is the record; the browser copy is only the fallback.
+ */
 const KEY = "kalos.audit.v1";
 const listeners = new Set<() => void>();
 const EMPTY: AuditEntry[] = [];
-let cachedRaw: string | null | undefined;
-let cached: AuditEntry[] = EMPTY;
+let entries: AuditEntry[] = EMPTY;
+let where: "file" | "browser" | "unknown" = "unknown";
 
 export async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function parse(raw: string | null): AuditEntry[] {
-  if (!raw) return EMPTY;
+function parseLocal(): AuditEntry[] {
   try {
-    const v = JSON.parse(raw);
+    const v = JSON.parse(localStorage.getItem(KEY) ?? "[]");
     return Array.isArray(v) ? (v as AuditEntry[]) : EMPTY;
   } catch {
     return EMPTY;
   }
 }
 
-export function readAudit(): AuditEntry[] {
-  const raw = localStorage.getItem(KEY);
-  if (raw !== cachedRaw) {
-    cachedRaw = raw;
-    cached = parse(raw);
+function publish(next: AuditEntry[]): void {
+  entries = next;
+  listeners.forEach((l) => l());
+}
+
+/** Load the history from wherever it lives. */
+export async function refreshAudit(): Promise<void> {
+  try {
+    const r = await fetch("/api/audit", { cache: "no-store" });
+    if (r.ok) {
+      where = "file";
+      const j = (await r.json()) as { entries?: AuditEntry[] };
+      return publish(Array.isArray(j.entries) ? j.entries : EMPTY);
+    }
+  } catch {
+    // fall through to the browser copy
   }
-  return cached;
+  where = "browser";
+  publish(parseLocal());
 }
 
 let pending: AuditEvent[] = [];
@@ -39,10 +56,10 @@ let chain: Promise<void> = Promise.resolve();
 
 /** Queue changes. They are flushed together after a short pause so typing is one entry; the log itself is append-only. */
 export function recordAudit(events: AuditEvent[]): void {
-  if (!events.length) return;
+  if (typeof window === "undefined" || !events.length) return;
   pending.push(...events);
   if (timer) clearTimeout(timer);
-  timer = setTimeout(flushAudit, 1500);
+  timer = setTimeout(() => void flushAudit(), 1500);
 }
 
 export function flushAudit(): Promise<void> {
@@ -51,24 +68,38 @@ export function flushAudit(): Promise<void> {
   pending = [];
   if (!batch.length) return chain;
   chain = chain.then(async () => {
-    const entries = [...parse(localStorage.getItem(KEY))];
-    for (const ev of batch) entries.push(await makeEntry(entries[entries.length - 1] ?? null, ev, new Date(), sha256));
-    localStorage.setItem(KEY, JSON.stringify(entries));
-    listeners.forEach((l) => l());
+    try {
+      const r = await fetch("/api/audit", {
+        method: "POST",
+        keepalive: true,
+        headers: { "content-type": "application/json", [ENGINE_CSRF_HEADER]: ENGINE_CSRF_VALUE },
+        body: JSON.stringify({ events: batch.map((e) => ({ action: e.action, detail: e.detail })) }),
+      });
+      if (r.ok) { where = "file"; return refreshAudit(); }
+    } catch {
+      // fall through to the browser copy
+    }
+    try {
+      const list = [...parseLocal()];
+      for (const ev of batch) list.push(await makeEntry(list[list.length - 1] ?? null, ev, new Date(), sha256));
+      localStorage.setItem(KEY, JSON.stringify(list));
+      where = "browser";
+      publish(list);
+    } catch {
+      // Storage unavailable: the change itself is unaffected.
+    }
   });
   return chain;
 }
 
 if (typeof window !== "undefined") window.addEventListener("pagehide", () => void flushAudit());
 
-export function useAudit(): AuditEntry[] {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      window.addEventListener("storage", cb);
-      return () => { listeners.delete(cb); window.removeEventListener("storage", cb); };
-    },
-    readAudit,
+export function useAudit(): { entries: AuditEntry[]; where: "file" | "browser" | "unknown" } {
+  const list = useSyncExternalStore(
+    (cb) => { listeners.add(cb); return () => { listeners.delete(cb); }; },
+    () => entries,
     () => EMPTY,
   );
+  useEffect(() => { void refreshAudit(); }, []);
+  return { entries: list, where };
 }

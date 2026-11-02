@@ -12,7 +12,7 @@ type Check = { state: "idle" } | { state: "ok" } | { state: "bad"; seq: number; 
 
 /** Change history of the process map on this device. Each entry is chained to the one before it. */
 export default function AuditPage() {
-  const entries = useAudit();
+  const { entries, where } = useAudit();
   const [check, setCheck] = useState<Check>({ state: "idle" });
 
   const verify = async () => {
@@ -58,7 +58,7 @@ export default function AuditPage() {
         </ol>
       )}
       <p className="text-caption text-fg-muted">
-        This history is kept on this device and records changes made as {entries[0]?.actor ?? "this device"}. It is tamper-evident, not tamper-proof: anyone who can open this browser&apos;s storage can rewrite all of it. It is not an electronic-signature or validated GxP record.
+        {where === "file" ? "This history is kept in a file in your Kalos folder (audit-log.jsonl)" : "This history is kept in this browser's storage"} and records changes made as {entries[0]?.actor ?? "this device"}. It is tamper-evident, not tamper-proof: anyone who can open {where === "file" ? "that file" : "this browser's storage"} can rewrite all of it. It is not an electronic-signature or validated GxP record.
       </p>
     </div>
   );

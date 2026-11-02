@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { agentStatus } from "@/lib/agent";
 import { Disclosure } from "@/components/kit/disclosure";
-import { Section } from "@/components/kit/section";
 import { driverLine, trustPlain } from "@/lib/plain";
 
 import { ChartFrame } from "@/components/kit/chart-frame";
@@ -88,8 +87,9 @@ export default function OverviewPage() {
         eyebrow={stage.round ? `Round ${stage.round}` : undefined}
         title={`Goal: raise ${target}`}
         meta={demo ? <ExampleBadge /> : null}
-        description="Each round, the model learns from every run so far and suggests the next experiments, some chosen because they look good and some to learn faster."
       />
+
+      <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
 
       <section aria-label="Where things stand" className="grid gap-4 md:grid-cols-2">
         <div className="glass flex flex-col gap-1 p-6">
@@ -111,7 +111,6 @@ export default function OverviewPage() {
                 <Badge tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"}>{trust.word}</Badge>
               </p>
               <p className="text-body text-fg-muted">{trust.sentence}</p>
-              <p className="text-body text-fg">{trust.gloss}</p>
               {verdict?.rho != null ? (
                 <Disclosure summary="The numbers behind this">
                   <p className="pb-3 text-body text-fg-muted">
@@ -127,11 +126,10 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
-
       {lines.length ? (
-        <Section title="What seems to move your result" description={`Patterns across your ${formatNumber(runs, "count")} runs. These show what goes together, not proof of cause.`}>
-          <ul className="glass divide-y divide-border px-5">
+        <Disclosure summary="What seems to move your result" meta={`${lines.length} inputs`}>
+          <p className="pb-2 text-body text-fg-muted">Patterns across your {formatNumber(runs, "count")} runs. These show what goes together, not proof of cause.</p>
+          <ul className="divide-y divide-border pb-2">
             {lines.map((l) => (
               <li key={l.name} className="flex items-start gap-3 py-3.5">
                 <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-label", l.clear ? "bg-accent text-accent-fg" : "border border-border-strong text-fg-muted")} aria-hidden>
@@ -144,27 +142,10 @@ export default function OverviewPage() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Disclosure>
       ) : null}
 
-      <Section title="Where you are in the loop" description="Each round repeats the same five steps.">
-        <ol className="glass grid gap-px overflow-hidden p-0 sm:grid-cols-5">
-          {stage.steps.map((st) => (
-            <li key={st.key}>
-              <Link href={st.href} aria-current={st.state === "current" ? "step" : undefined} className={cn("flex h-full flex-col gap-1 p-4 transition-colors hover:bg-subtle", st.state === "current" && "bg-accent-soft")}>
-                <span className="flex items-center gap-2 text-label text-fg">
-                  <span className={cn("size-2 rounded-full", st.state === "done" ? "bg-good" : st.state === "current" ? "bg-accent" : "bg-border-strong")} aria-hidden />
-                  {st.label}
-                  <span className="sr-only">, {st.state === "done" ? "done" : st.state === "current" ? "you are here" : "coming up"}</span>
-                </span>
-                <span className="text-caption text-fg-muted">{STAGE_PLAIN[st.key]}</span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      </Section>
-
-      <LabStrip active={active} demo={demo} />
+      {agentStatus(active).state === "waiting" ? <LabStrip active={active} demo={demo} /> : null}
 
       <Disclosure summary="Detailed charts and numbers" meta={nProposed ? `${nProposed} proposed recipes` : undefined}>
         <div className="flex flex-col gap-6 pb-2">
@@ -180,25 +161,9 @@ export default function OverviewPage() {
         </div>
       </Disclosure>
 
-      <Disclosure summary="New here? How this works">
-        <div className="flex flex-col gap-2 pb-3 text-body text-fg-muted">
-          <p><span className="text-fg">The model</span> is a statistical model fitted to your runs. It predicts a result and how unsure it is.</p>
-          <p><span className="text-fg">Suggestions</span> balance two aims: try recipes it expects to be good, and try ones where it is unsure so it learns faster.</p>
-          <p><span className="text-fg">You decide.</span> Untick anything you will not run. After the lab results come back, enter them and the model learns again.</p>
-          <p><span className="text-fg">What it cannot do:</span> prove why something works. It finds patterns in your runs; only a deliberate experiment confirms a cause.</p>
-        </div>
-      </Disclosure>
     </div>
   );
 }
-
-const STAGE_PLAIN: Record<string, string> = {
-  setup: "Upload past runs",
-  plan: "Choose what to try",
-  run: "Do them in the lab",
-  record: "Enter the results",
-  learn: "The model updates",
-};
 
 function Delta({ d }: { d: { delta: number; previousRound: number } }) {
   const up = d.delta > 0;

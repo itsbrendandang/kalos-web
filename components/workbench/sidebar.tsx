@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { Bot, FlaskConical, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
+import { ChevronRight, Bot, FlaskConical, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
 import { KalosMark } from "@/components/brand/kalos-mark";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
 import { ExampleBadge } from "@/components/ui/badge";
@@ -22,6 +22,8 @@ const ICON: Record<NavKey, LucideIcon> = {
   projects: FolderKanban,
   settings: Settings,
 };
+
+const MORE: NavKey[] = ["review", "process", "graph", "data", "library", "projects"];
 
 function useShortcutLabel(): string {
   return useSyncExternalStore(
@@ -70,38 +72,36 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
         <kbd className="font-sans text-caption">{shortcut}</kbd>
       </button>
 
-      <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pt-1">
-        <section aria-labelledby="nav-campaign">
-          <h2 id="nav-campaign" className="mb-1 px-2.5 text-caption font-medium text-fg-muted">
-            Campaign
-          </h2>
-          <ul className="flex flex-col gap-0.5">
-            <li>
-              <Link href="/" aria-current={pathname === "/" ? "page" : undefined} className={row(pathname === "/")}>
-                <LayoutDashboard className="size-[18px] shrink-0" aria-hidden />
-                Overview
+      <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pt-1">
+        <ul className="flex flex-col gap-0.5">
+          {[
+            { href: "/", label: "Overview", Icon: LayoutDashboard, active: pathname === "/" },
+            {
+              href: "/experiments",
+              label: "Experiments",
+              Icon: FlaskConical,
+              active: pathname === "/experiments" || pathname.startsWith("/campaign/"),
+              hint: current?.label,
+              aria: stage ? `Experiments, ${doneCount} of ${stage.steps.length} stages done${current ? `, now ${current.label}` : ""}` : "Experiments",
+            },
+            { href: "/agent", label: "Agent", Icon: Bot, active: section === "agent" },
+          ].map((n) => (
+            <li key={n.href}>
+              <Link href={n.href} aria-current={pathname === n.href ? "page" : undefined} aria-label={n.aria} className={row(n.active)}>
+                <n.Icon className="size-[18px] shrink-0" aria-hidden />
+                <span className="flex-1">{n.label}</span>
+                {n.hint ? <span className="text-caption font-normal text-fg-muted">{n.hint}</span> : null}
               </Link>
             </li>
-            <li>
-              <Link
-                href="/experiments"
-                aria-current={pathname === "/experiments" ? "page" : undefined}
-                aria-label={stage ? `Experiments, ${doneCount} of ${stage.steps.length} stages done${current ? `, now ${current.label}` : ""}` : "Experiments"}
-                className={row(pathname === "/experiments" || pathname.startsWith("/campaign/"))}
-              >
-                <FlaskConical className="size-[18px] shrink-0" aria-hidden />
-                <span className="flex-1">Experiments</span>
-                {current ? <span className="text-caption font-normal text-fg-muted">{current.label}</span> : null}
-              </Link>
-            </li>
-          </ul>
-        </section>
-        <section aria-labelledby="nav-assistant">
-          <h2 id="nav-assistant" className="mb-1 px-2.5 text-caption font-medium text-fg-muted">
-            Assistant
-          </h2>
-          <ul className="flex flex-col gap-0.5">
-            {(["agent", "review", "process", "graph"] as const).map((k) => {
+          ))}
+        </ul>
+        <details open={MORE.includes(section)} className="group">
+          <summary className="flex h-9 cursor-pointer list-none items-center gap-2.5 rounded-lg px-2.5 text-body text-fg-muted hover:bg-fg/[0.05] hover:text-fg [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="size-[18px] shrink-0 transition-transform group-open:rotate-90" aria-hidden />
+            More
+          </summary>
+          <ul className="mt-0.5 flex flex-col gap-0.5">
+            {MORE.map((k) => {
               const n = NAV_ITEMS.find((x) => x.key === k)!;
               const Icon = ICON[k];
               return (
@@ -114,26 +114,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
               );
             })}
           </ul>
-        </section>
-        <section aria-labelledby="nav-reference">
-          <h2 id="nav-reference" className="mb-1 px-2.5 text-caption font-medium text-fg-muted">
-            Reference
-          </h2>
-          <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.filter((n) => n.key !== "settings" && n.key !== "campaign" && n.key !== "agent" && n.key !== "graph" && n.key !== "process" && n.key !== "review").map((n) => {
-              const Icon = ICON[n.key];
-              const active = n.key === section;
-              return (
-                <li key={n.key}>
-                  <Link href={n.href} aria-current={active && pathname === n.href ? "page" : undefined} className={row(active)}>
-                    <Icon className="size-[18px] shrink-0" aria-hidden />
-                    {n.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        </details>
       </nav>
 
       <div className="flex flex-col gap-0.5 border-t border-border pt-2">

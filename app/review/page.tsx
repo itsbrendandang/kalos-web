@@ -49,7 +49,6 @@ export default function ReviewPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="Review"
         title="What happened in this experiment?"
         meta={example ? <ExampleBadge /> : null}
         description="Bring a plate or culture time course. See where it went differently, and ask whether it was something you did. Your file is read on this device."
@@ -126,7 +125,8 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
         </aside>
       </div>
 
-      <section aria-label="Setup" className="glass grid gap-3 p-5 sm:grid-cols-[auto_auto_1fr]">
+      <Disclosure summary="Add context (optional)" meta="Vessel, volume, what you did">
+      <section aria-label="Setup" className="grid gap-3 pb-4 sm:grid-cols-[auto_auto_1fr]">
         <label className="flex flex-col gap-1 text-caption text-fg-muted">Vessel
           <select className={select} value={plate} onChange={(e) => setPlate(e.target.value as Context["plate"])}>
             <option value="96">96-well plate</option><option value="24">24-well plate</option><option value="6">6-well plate</option><option value="flask">Flask</option><option value="other">Other</option>
@@ -139,10 +139,13 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Added 100 µL medium per well on day 0. No medium change after." className="rounded-lg border border-border-strong bg-surface p-2.5 text-body text-fg placeholder:text-fg-muted hover:border-fg-muted focus-visible:border-accent" />
         </label>
       </section>
+      </Disclosure>
 
       <section aria-label="What the data shows" className="flex flex-col gap-4">
         <h2 className="text-heading text-fg">What the data shows</h2>
-        <ul className="flex flex-col gap-1 text-body text-fg-muted">{r.facts.map((f, i) => <li key={i}>{f}</li>)}</ul>
+        <Disclosure summary="The measurements behind this">
+          <ul className="flex flex-col gap-1 pb-3 text-body text-fg-muted">{r.facts.map((f, i) => <li key={i}>{f}</li>)}</ul>
+        </Disclosure>
         <div className="flex flex-col">
           {r.findings.map((f) => (
             <Disclosure key={f.id} defaultOpen={f.verdict === "supported"} summary={f.title} meta={<Badge tone={TONE[f.verdict]}>{WORD[f.verdict]}</Badge>}>
@@ -154,7 +157,7 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
             </Disclosure>
           ))}
         </div>
-        <p className="text-caption text-fg-muted">{r.caveat} No papers are attached to these findings yet, so none are cited.</p>
+        <p className="text-caption text-fg-muted">{r.caveat}</p>
       </section>
 
       <Chat context={chatContext(r, ctx, notes)} />

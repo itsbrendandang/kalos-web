@@ -49,7 +49,6 @@ export default function AgentPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="Agent"
         title={view.state === "data" ? status.headline : "Your experiment agent"}
         meta={demo ? <ExampleBadge /> : null}
         description={view.state === "data" ? status.detail : "It tracks the experiments in your lab and uses a model of your process to guess results before they come back."}
@@ -62,10 +61,6 @@ export default function AgentPage() {
           ) : null
         }
       />
-
-      <p className="text-body text-fg-muted">
-        <span className="text-fg">How it works:</span> the twin predicts each experiment, your lab runs it, and you enter the real result so the model can learn from it. You always decide what to run.
-      </p>
 
       <Tabs defaultValue="live" className="gap-6">
         <TabsList variant="line">
@@ -80,7 +75,7 @@ export default function AgentPage() {
           ) : (
             <>
               <RunningExperiments c={c} />
-              <TwinCheckSection c={c} />
+              {c && measuredRuns(c).length ? <TwinCheckSection c={c} /> : null}
             </>
           )}
         </TabsContent>
@@ -95,11 +90,11 @@ export default function AgentPage() {
 function RunningExperiments({ c }: { c: ActiveCampaign | null }) {
   const runs = c ? awaitingRuns(c) : [];
   return (
-    <Section title="In the lab right now" description={c && runs.length ? `Round ${c.round}. Each card is an experiment waiting for its result.` : undefined} actions={runs.length ? <Link href="/campaign/record" className={buttonVariants({ variant: "outline" })}>Record results <ArrowRight /></Link> : null}>
+    <Section title="In the lab right now"  actions={runs.length ? <Link href="/campaign/record" className={buttonVariants({ variant: "outline" })}>Record results <ArrowRight /></Link> : null}>
       {runs.length === 0 ? (
         <Panel className="flex items-center gap-3 text-body text-fg-muted">
           <FlaskConical className="size-5 shrink-0" aria-hidden />
-          Nothing is in the lab right now. Experiments you start from Plan show up here until their results are entered.
+          Nothing is in the lab right now.
         </Panel>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
@@ -240,7 +235,6 @@ function Sandbox() {
             {playing ? "The agent is trying experiments and learning from each one." : simSummary(active.data.trajectory[total - 1]?.n ?? total, active.distance)}
           </p>
           <ConvergenceChart data={points} yLabel="best result so far" />
-          <p className="text-caption text-fg-muted">Each step along the line is one experiment. The line climbs as the agent learns where the best recipe is.</p>
           <Disclosure summary="About this practice problem">
             <p className="pb-3 text-body text-fg-muted">
               This runs the same search the engine uses on your real campaign, but on a made-up surface with a hidden best recipe. It shows how the method behaves. It says nothing about your process.
@@ -248,20 +242,6 @@ function Sandbox() {
           </Disclosure>
         </Panel>
       )}
-      {sims.length > 1 ? (
-        <div>
-          <p className="mb-2 text-label text-fg-muted">This session</p>
-          <ul className="divide-y divide-border rounded-2xl glass px-5 text-body">
-            {sims.map((s) => (
-              <li key={s.id} className="flex items-center justify-between py-2.5">
-                <span className="text-fg">Simulation {s.id}</span>
-                <span className="tabular-nums text-fg-muted">best {formatNumber(s.data.best_value)}</span>
-                <span className="tabular-nums text-fg-muted">{formatNumber(s.distance)} from perfect</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </Section>
   );
 }

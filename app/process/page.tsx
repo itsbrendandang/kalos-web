@@ -62,7 +62,6 @@ export default function ProcessPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="Process"
         title={map.name}
         description={`${sum.steps} steps, ${sum.params} parameters, data on ${sum.withData} of ${sum.steps} steps${sum.partners.length ? `. Partners: ${sum.partners.join(", ")}` : ""}.`}
         action={
@@ -118,9 +117,8 @@ export default function ProcessPage() {
           ) : (
             <div className="glass p-5">
               <p className="text-heading text-fg">Pick a step</p>
-              <p className="mt-1 text-body text-fg-muted">Add its SOP to read the parameters, and the data from whoever ran it. Once a step has both, you can take its data to Setup to fit a model. (The map itself is not used by the optimizer yet.)</p>
+              <p className="mt-1 text-body text-fg-muted">Add its SOP and the data from whoever ran it. (The optimizer does not read this map yet.)</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Link href="/graph" className={buttonVariants({ variant: "outline" })}>See the graph <ArrowRight /></Link>
                 <Button variant="ghost" onClick={() => { if (window.confirm("Remove the whole process map from this device?")) clearMap(); }}>Reset</Button>
               </div>
             </div>

@@ -6,7 +6,7 @@ import { LIBRARY_ITEMS } from "@/lib/routes";
 export default function LibraryPage() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader eyebrow="Reference" title="Library" description="Standalone tools that work alongside the campaign." />
+      <PageHeader title="Library" description="Standalone tools that work alongside the campaign." />
       <ul className="divide-y divide-border border-y border-border">
         {LIBRARY_ITEMS.filter((i) => i.href.startsWith("/library/")).map((item) => (
           <li key={item.href}>

@@ -25,7 +25,7 @@ export default function GraphPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader eyebrow="Graph" title="How it all connects" description="Your result in the middle, the inputs around it, and the recipes the model suggests on the outside. Tap anything to see why." />
+      <PageHeader title="How it all connects" description="Your result in the middle, the inputs around it, and the recipes the model suggests on the outside. Tap anything to see why." />
       {latest.status === "error" ? (
         <ErrorState title="Could not reach the engine" description="This is a connection problem, not an empty graph." onRetry={() => void latest.refresh()} busy={latest.refreshing} />
       ) : !latest.data ? (

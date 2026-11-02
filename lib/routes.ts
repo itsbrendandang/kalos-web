@@ -25,6 +25,8 @@ export type NavKey = (typeof NAV_ITEMS)[number]["key"];
 
 export const OVERVIEW_ROUTE: RouteItem = { href: "/", label: "Overview", description: "Where the campaign is and what to do next." };
 
+export const EXPERIMENTS_ROUTE: RouteItem = { href: "/experiments", label: "Experiments", description: "The whole loop in one place: set up, plan, run, record, learn." };
+
 /** The campaign stages, in order: Setup once, then Plan, Run, Record, Learn each round. */
 export const CAMPAIGN_STAGES = [
   { key: "setup", href: "/campaign/setup", label: "Setup", description: "Upload a run sheet, check data quality and choose the target." },
@@ -42,11 +44,11 @@ export const LIBRARY_ITEMS: readonly RouteItem[] = [
   { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
 ];
 
-const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
+const PAGES: readonly RouteItem[] = [EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
 
 /** Which rail section a pathname belongs to. */
 export function navKeyFor(pathname: string): NavKey {
-  if (pathname === "/" || pathname.startsWith("/campaign")) return "campaign";
+  if (pathname === "/" || pathname.startsWith("/campaign") || pathname.startsWith("/experiments")) return "campaign";
   if (pathname.startsWith("/agent")) return "agent";
   if (pathname.startsWith("/review")) return "review";
   if (pathname.startsWith("/process")) return "process";

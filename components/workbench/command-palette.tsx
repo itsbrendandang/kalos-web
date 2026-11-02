@@ -6,7 +6,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog } from "@base-ui/react/dialog";
 import { CornerDownLeft, Search } from "lucide-react";
 import { toggleTheme } from "@/hooks/use-theme";
-import { CAMPAIGN_STAGES, LIBRARY_ITEMS, NAV_ITEMS, OVERVIEW_ROUTE } from "@/lib/routes";
+import { CAMPAIGN_STAGES, EXPERIMENTS_ROUTE, LIBRARY_ITEMS, NAV_ITEMS, OVERVIEW_ROUTE } from "@/lib/routes";
 
 type Command = { value: string; label: string; hint: string; run: () => void };
 type CommandGroup = { value: string; items: Command[] };
@@ -33,7 +33,7 @@ export function CommandPalette({
   const groups: CommandGroup[] = [
     {
       value: "Campaign",
-      items: [OVERVIEW_ROUTE, ...CAMPAIGN_STAGES].map((r) => ({ value: r.href, label: r.label, hint: r.description, run: go(r.href) })),
+      items: [OVERVIEW_ROUTE, EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES].map((r) => ({ value: r.href, label: r.label, hint: r.description, run: go(r.href) })),
     },
     {
       value: "Pages",

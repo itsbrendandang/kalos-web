@@ -122,6 +122,9 @@ describe("routes", () => {
   it("maps every page to its sidebar section", () => {
     expect(navKeyFor("/")).toBe("campaign");
     expect(navKeyFor("/campaign/record")).toBe("campaign");
+    expect(navKeyFor("/experiments")).toBe("campaign");
+    expect(titleFor("/experiments")).toBe("Experiments");
+    expect(breadcrumbFor("/experiments").map((r) => r.label)).toEqual(["Campaign", "Experiments"]);
     expect(navKeyFor("/library/plate")).toBe("library");
     expect(navKeyFor("/projects/p-cho/report")).toBe("projects");
     expect(navKeyFor("/settings")).toBe("settings");

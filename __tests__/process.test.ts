@@ -37,7 +37,7 @@ describe("stepHealth and summarize", () => {
     m.steps[2].partner = "Acme Bio";
     m.steps[2].data.push({ name: "x.csv", rows: 40, target: "titer", added: 1 });
     const s = summarize(m);
-    expect(s.steps).toBe(8);
+    expect(s.steps).toBe(10);
     expect(s.withData).toBe(1);
     expect(s.partners).toEqual(["Acme Bio"]);
     expect(stepHealth(m.steps[2])).toEqual({ state: "ready", label: "40 runs" });
@@ -50,7 +50,7 @@ describe("parseStored", () => {
     expect(parseStored("{")).toBeNull();
     expect(parseStored('{"name":1}')).toBeNull();
   });
-  it("round-trips", () => expect(parseStored(JSON.stringify(mabTemplate()))?.steps).toHaveLength(8));
+  it("round-trips", () => expect(parseStored(JSON.stringify(mabTemplate()))?.steps).toHaveLength(10));
 });
 
 import { matchColumns, sheetSummary } from "@/lib/process";
@@ -59,8 +59,8 @@ describe("sheetSummary and matchColumns", () => {
   it("needs a header and a row", () => expect(sheetSummary("a,b")).toBeNull());
   it("matches parameters to columns by name", () => {
     const m = mabTemplate().steps[2];
-    const r = matchColumns(m.params, ["run_id", "pH", "temperature_C", "feed_rate_mLh", "titer"]);
-    expect(r.matched.map((x) => x.column)).toEqual(["pH", "temperature_C", "feed_rate_mLh"]);
+    const r = matchColumns(m.params, ["run_id", "pH", "temperature_C", "glucose_gL", "titer"]);
+    expect(r.matched.map((x) => x.column)).toEqual(["pH", "temperature_C", "glucose_gL"]);
     expect(r.unmatchedColumns).toEqual(["run_id", "titer"]);
   });
 });

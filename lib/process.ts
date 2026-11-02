@@ -52,19 +52,21 @@ export const uid = (p: string) => `${p}${Date.now().toString(36)}${(counter++).t
 const p = (name: string, unit: string, low: number, high: number): Param => ({ id: uid("p"), name, unit, low, high, source: "manual" });
 const step = (name: string, kind: StepKind, params: Param[]): Step => ({ id: uid("s"), name, kind, owner: "in-house", partner: "", params, sop: null, data: [] });
 
-/** A starter chain for a monoclonal antibody. Ranges are typical, to be edited, never a recommendation. */
+/** A starter chain for a monoclonal antibody (indicative CHO platform values, docs/research-process-map.md; unverified). To be edited, never a recommendation. */
 export function mabTemplate(): ProcessMap {
   return {
     name: "Monoclonal antibody process",
     steps: [
       step("Cell line", "cell-line", []),
-      step("Seed train", "seed", [p("Seeding density", "1e6 cells/mL", 0.3, 0.6), p("Temperature", "°C", 36, 37)]),
-      step("Production bioreactor", "upstream", [p("pH", "", 6.8, 7.2), p("Temperature", "°C", 33, 37), p("Dissolved oxygen", "%", 30, 60), p("Feed rate", "mL/h", 0.5, 2)]),
-      step("Harvest", "harvest", [p("Centrifuge speed", "g", 3000, 5000)]),
-      step("Protein A capture", "capture", [p("Load", "g/L resin", 20, 40), p("Elution pH", "", 3.2, 3.8)]),
-      step("Polishing", "polish", [p("Conductivity", "mS/cm", 4, 8), p("pH", "", 5.5, 7.5)]),
-      step("UF/DF", "ufdf", [p("Concentration", "g/L", 50, 150)]),
-      step("Fill / finish", "fill-finish", []),
+      step("Seed train", "seed", [p("Seeding density", "1e6 cells/mL", 0.3, 0.5), p("Temperature", "°C", 36.5, 37), p("pH", "", 6.9, 7.2), p("Dissolved oxygen", "%", 30, 50)]),
+      step("Production bioreactor", "upstream", [p("pH", "", 6.8, 7.2), p("Temperature", "°C", 30, 37), p("Dissolved oxygen", "%", 30, 60), p("Glucose", "g/L", 2, 6), p("Osmolality", "mOsm/kg", 300, 450)]),
+      step("Harvest", "harvest", []),
+      step("Protein A capture", "capture", [p("Load", "g/L resin", 30, 60), p("Residence time", "min", 2, 6), p("Elution pH", "", 3.0, 3.6)]),
+      step("Viral inactivation", "other", [p("Hold pH", "", 3.4, 3.6), p("Hold time", "min", 55, 65)]),
+      step("Polishing", "polish", []),
+      step("Viral filtration", "other", []),
+      step("UF/DF", "ufdf", [p("Concentration", "g/L", 50, 100), p("TMP", "psi", 15, 25), p("Diavolumes", "DV", 7, 10)]),
+      step("Fill / finish", "fill-finish", [p("Formulation pH", "", 5.5, 6.5), p("Polysorbate 80", "%", 0.01, 0.04)]),
     ],
   };
 }

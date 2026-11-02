@@ -1,6 +1,8 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { diffMaps } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit-store";
 import { mabTemplate, parseStored, STORAGE_KEY, type ProcessMap } from "@/lib/process";
 
 /** The process map lives in this browser's storage (on this device). A tiny external store so every tab and component sees one copy. */
@@ -19,11 +21,13 @@ function read(): ProcessMap | null {
 }
 
 export function saveMap(m: ProcessMap): void {
+  recordAudit(diffMaps(read(), m));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
   listeners.forEach((l) => l());
 }
 
 export function clearMap(): void {
+  recordAudit(diffMaps(read(), null));
   localStorage.removeItem(STORAGE_KEY);
   listeners.forEach((l) => l());
 }

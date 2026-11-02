@@ -6,7 +6,8 @@ import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
@@ -26,6 +27,9 @@ export default function SettingsPage() {
       <Appearance />
       <EngineConnection />
       <Integrations />
+      <Section title="Change history" description="Every change to your process map is logged on this device.">
+        <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>View change history</Link>
+      </Section>
     </div>
   );
 }

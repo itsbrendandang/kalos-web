@@ -60,7 +60,7 @@ export function CommandPalette({
         <Dialog.Viewport className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[12vh]">
           <Dialog.Popup
             aria-label="Command palette"
-            className="flex max-h-[min(32rem,calc(100dvh-6rem))] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-card text-fg shadow-popover transition-[opacity,scale] duration-150 data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0"
+            className="flex max-h-[min(32rem,calc(100dvh-6rem))] w-full max-w-lg flex-col overflow-hidden rounded-2xl glass text-fg shadow-popover transition-[opacity,scale] duration-150 data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0"
           >
             <Autocomplete.Root open inline items={groups} autoHighlight="always" keepHighlight>
               <div className="flex items-center gap-2 border-b border-border px-3">

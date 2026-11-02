@@ -40,7 +40,7 @@ export function ErrorState({
   className?: string;
 }) {
   return (
-    <div role="alert" className={cn("flex items-start gap-3 rounded-2xl border border-border/70 bg-surface shadow-card p-4", className)}>
+    <div role="alert" className={cn("flex items-start gap-3 rounded-2xl glass p-4", className)}>
       <WifiOff className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">{title}</p>
@@ -121,7 +121,7 @@ export function LoadingSkeleton({
     return (
       <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", className)} {...common}>
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-border/70 bg-surface shadow-card p-5">
+          <div key={i} className="rounded-2xl glass p-5">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="mt-3 h-6 w-16" />
             <Skeleton className="mt-2 h-3 w-28" />

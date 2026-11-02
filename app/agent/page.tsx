@@ -251,7 +251,7 @@ function Sandbox() {
       {sims.length > 1 ? (
         <div>
           <p className="mb-2 text-label text-fg-muted">This session</p>
-          <ul className="divide-y divide-border rounded-2xl border border-border/70 bg-surface px-5 text-body">
+          <ul className="divide-y divide-border rounded-2xl glass px-5 text-body">
             {sims.map((s) => (
               <li key={s.id} className="flex items-center justify-between py-2.5">
                 <span className="text-fg">Simulation {s.id}</span>

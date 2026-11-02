@@ -48,7 +48,7 @@ function Frame({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg">
+    <div className="canvas flex h-dvh flex-col overflow-hidden">
       <a
         href={`#${MAIN_ID}`}
         className="sr-only z-50 rounded-md bg-surface px-3 py-2 text-label text-fg focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -59,7 +59,7 @@ function Frame({ children }: { children: ReactNode }) {
       <MobileTopBar onOpenSheet={() => setSheetOpen(true)} onSearch={() => setPaletteOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
-        <aside aria-label="Sidebar" className="hidden w-64 shrink-0 border-r border-border bg-subtle md:block">
+        <aside aria-label="Sidebar" className="hidden w-64 shrink-0 border-r border-border/60 bg-surface/50 backdrop-blur-2xl backdrop-saturate-150 md:block">
           <Sidebar onSearch={() => setPaletteOpen(true)} />
         </aside>
         <main id={MAIN_ID} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { Bot, Check, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
+import { Bot, Check, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
 import { KalosMark } from "@/components/brand/kalos-mark";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
 import { ExampleBadge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 const ICON: Record<NavKey, LucideIcon> = {
   campaign: LayoutDashboard,
   agent: Bot,
+  process: Workflow,
+  graph: Network,
   data: Database,
   library: Library,
   projects: FolderKanban,
@@ -111,6 +113,18 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
                 Agent
               </Link>
             </li>
+            <li>
+              <Link href="/process" aria-current={pathname === "/process" ? "page" : undefined} className={row(section === "process")}>
+                <Workflow className="size-[18px] shrink-0" aria-hidden />
+                Process
+              </Link>
+            </li>
+            <li>
+              <Link href="/graph" aria-current={pathname === "/graph" ? "page" : undefined} className={row(section === "graph")}>
+                <Network className="size-[18px] shrink-0" aria-hidden />
+                Graph
+              </Link>
+            </li>
             {steps?.map((s, i) => {
               const here = pathname === s.href;
               return (
@@ -135,7 +149,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
             Reference
           </h2>
           <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.filter((n) => n.key !== "settings" && n.key !== "campaign" && n.key !== "agent").map((n) => {
+            {NAV_ITEMS.filter((n) => n.key !== "settings" && n.key !== "campaign" && n.key !== "agent" && n.key !== "graph" && n.key !== "process").map((n) => {
               const Icon = ICON[n.key];
               const active = n.key === section;
               return (

@@ -105,7 +105,7 @@ function LabStrip({ active, demo }: { active: ActiveCampaign | null; demo: boole
   const status = agentStatus(active);
   const live = status.state === "waiting";
   return (
-    <Link href="/agent" className="flex items-center gap-3 rounded-2xl border border-border/70 bg-surface px-5 py-4 shadow-card transition-colors hover:bg-subtle">
+    <Link href="/agent" className="flex items-center gap-3 rounded-2xl glass px-5 py-4 transition-colors hover:bg-subtle">
       <span className={cn("size-2.5 shrink-0 rounded-full", live ? "bg-accent" : "bg-border-strong")} aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="text-heading text-fg">{status.headline}</span>
@@ -135,7 +135,7 @@ function Kpis({
   const verdict = analysis ? reliabilityVerdict(analysis) : null;
   const verdictTone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
   return (
-    <section aria-label="Key numbers" className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl border border-border/70 bg-surface p-5 shadow-card lg:grid-cols-4 lg:divide-x lg:divide-border [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">
+    <section aria-label="Key numbers" className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl glass p-5 lg:grid-cols-4 lg:divide-x lg:divide-border [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">
       <KpiCard
         bare
         label={`Best ${target}`}

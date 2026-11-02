@@ -327,3 +327,32 @@ body {
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8' viewBox='0 0 16 8'%3E%3Cpath d='M0 7.5H3.5V1.5H12.5V6H8V4' fill='none' stroke='black' stroke-width='1' stroke-linejoin='miter'/%3E%3Cpath d='M12.5 7.5H16' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") repeat-x left center / 16px 8px;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8' viewBox='0 0 16 8'%3E%3Cpath d='M0 7.5H3.5V1.5H12.5V6H8V4' fill='none' stroke='black' stroke-width='1' stroke-linejoin='miter'/%3E%3Cpath d='M12.5 7.5H16' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") repeat-x left center / 16px 8px;
 }
+
+
+/* Glass: the one surface treatment. Translucent enough to pick up the canvas
+ * behind it, opaque enough that text keeps its contrast (body text on a glass
+ * panel stays above 7:1). Overlays keep their own shadow-popover. */
+@layer components {
+  .glass {
+    background: color-mix(in oklch, var(--surface) 74%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    backdrop-filter: blur(24px) saturate(1.5);
+    border: 1px solid color-mix(in oklch, var(--surface) 55%, var(--border));
+    box-shadow: var(--shadow-card), inset 0 1px 0 oklch(1 0 0 / 0.55);
+  }
+  .dark .glass {
+    background: color-mix(in oklch, var(--surface) 62%, transparent);
+    border-color: oklch(1 0 0 / 0.09);
+    box-shadow: var(--shadow-card), inset 0 1px 0 oklch(1 0 0 / 0.06);
+  }
+  .canvas {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(52rem 36rem at 88% -8%, color-mix(in oklch, var(--accent) 10%, transparent), transparent 70%),
+      radial-gradient(44rem 34rem at -6% 108%, color-mix(in oklch, oklch(0.75 0.1 200) 12%, transparent), transparent 70%);
+    background-attachment: fixed;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+}

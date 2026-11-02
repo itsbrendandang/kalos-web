@@ -12,6 +12,8 @@ export type RouteItem = { href: string; label: string; description: string };
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
   { key: "agent", href: "/agent", label: "Agent", description: "Running experiments and digital twin simulations." },
+  { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
+  { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },
   { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
   { key: "library", href: "/library", label: "Library", description: "Standalone tools: vessels, plates, scale-up, simulator." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
@@ -45,6 +47,8 @@ const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
 export function navKeyFor(pathname: string): NavKey {
   if (pathname === "/" || pathname.startsWith("/campaign")) return "campaign";
   if (pathname.startsWith("/agent")) return "agent";
+  if (pathname.startsWith("/process")) return "process";
+  if (pathname.startsWith("/graph")) return "graph";
   if (pathname.startsWith("/data")) return "data";
   if (pathname.startsWith("/library")) return "library";
   if (pathname.startsWith("/projects")) return "projects";

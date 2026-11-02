@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export function Card({ className, render, ...props }: useRender.ComponentProps<"div">) {
   return useRender({
     defaultTagName: "div",
-    props: mergeProps<"div">({ className: cn("relative w-full rounded-2xl border border-border/70 bg-surface p-6 shadow-card text-left", className) }, props),
+    props: mergeProps<"div">({ className: cn("relative w-full rounded-2xl glass p-6 text-left", className) }, props),
     render,
   });
 }

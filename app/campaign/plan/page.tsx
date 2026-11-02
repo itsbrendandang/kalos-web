@@ -166,7 +166,7 @@ function PlanSkeleton() {
 function RejectedUpload({ rejection }: { rejection: UploadRejection }) {
   const copy = rejectionCopy(rejection);
   return (
-    <div role="alert" className="flex items-start gap-3 rounded-2xl border border-border/70 bg-surface shadow-card p-4">
+    <div role="alert" className="flex items-start gap-3 rounded-2xl glass p-4">
       <FileWarning className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">{copy.title}</p>

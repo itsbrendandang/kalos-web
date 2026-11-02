@@ -61,7 +61,7 @@ export function Comparison({
   const removable = rows.length > COMPARE_MIN;
 
   return (
-    <section aria-labelledby="plan-compare-title" className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-surface shadow-card p-3 sm:p-4">
+    <section aria-labelledby="plan-compare-title" className="flex flex-col gap-3 rounded-2xl glass p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 id="plan-compare-title" ref={headingRef} tabIndex={-1} className="text-heading text-fg outline-none">

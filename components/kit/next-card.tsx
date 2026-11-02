@@ -24,7 +24,7 @@ export function NextCard({
   return (
     <section
       aria-label="Next step"
-      className={cn("flex flex-col gap-4 rounded-2xl border border-border/70 bg-surface p-6 shadow-card sm:flex-row sm:items-center sm:justify-between", className)}
+      className={cn("flex flex-col gap-4 rounded-2xl glass p-6 sm:flex-row sm:items-center sm:justify-between", className)}
     >
       <div className="min-w-0">
         <p className="text-label text-accent">{eyebrow}</p>

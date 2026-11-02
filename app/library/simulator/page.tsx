@@ -84,7 +84,7 @@ export default function Simulate() {
         }
       />
 
-      <div className="flex items-start gap-2.5 rounded-2xl border border-border/70 bg-surface shadow-card p-4 text-[13px] leading-relaxed text-muted">
+      <div className="flex items-start gap-2.5 rounded-2xl glass p-4 text-[13px] leading-relaxed text-muted">
         <Info className="mt-0.5 size-4 shrink-0" />
         <p>
           This runs the engine&apos;s real Bayesian optimization loop, but against a{" "}

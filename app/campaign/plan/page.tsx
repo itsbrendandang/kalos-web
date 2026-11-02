@@ -128,7 +128,7 @@ function PlanHeader({ round, eyebrow, meta, action }: { round?: number; eyebrow?
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? <p className="mb-1 text-label text-fg-muted">{eyebrow}</p> : null}
-        <h1 className="text-title text-fg">{round != null ? `Plan round ${round}` : "Plan"}</h1>
+        <h1 className="text-display text-fg">{round != null ? `Plan round ${round}` : "Plan"}</h1>
         {meta}
       </div>
       {action ? <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">{action}</div> : null}
@@ -141,7 +141,7 @@ function PlanSkeleton() {
     <div className="flex flex-col gap-6" role="status" aria-live="polite" aria-label="Loading the proposed batch">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-3.5 w-40" />
-        <h1 className="text-title text-fg">Plan</h1>
+        <h1 className="text-display text-fg">Plan</h1>
         <Skeleton className="h-3.5 w-72 max-w-full" />
       </div>
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-4">
@@ -166,7 +166,7 @@ function PlanSkeleton() {
 function RejectedUpload({ rejection }: { rejection: UploadRejection }) {
   const copy = rejectionCopy(rejection);
   return (
-    <div role="alert" className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4">
+    <div role="alert" className="flex items-start gap-3 rounded-2xl border border-border/70 bg-surface shadow-card p-4">
       <FileWarning className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">{copy.title}</p>

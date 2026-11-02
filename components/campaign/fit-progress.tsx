@@ -29,7 +29,7 @@ export function useElapsedSeconds(active: boolean): number {
 export function FitProgress({ elapsed }: { elapsed: number }) {
   const announced = Math.floor(elapsed / 15) * 15;
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
+    <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-surface shadow-card px-4 py-3.5">
       <Loader2 className="size-4 shrink-0 animate-spin text-accent" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">Fitting the model to your runs</p>

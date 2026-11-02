@@ -48,3 +48,8 @@ __tests__/vectors/.local-private-keys.json
 *.db
 *.db-wal
 *.db-shm
+
+# desktop shell
+desktop/node_modules
+desktop/src-tauri/target
+desktop/src-tauri/gen

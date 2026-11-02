@@ -33,6 +33,8 @@ const SHORTCUTS: [keys: string, what: string][] = [
  * The workspace menu: Theme, Settings, Security (two-step sign-in, sessions),
  * Members (invitations), Keyboard shortcuts and Sign out (a POST server action, never a GET link).
  */
+const LOCAL = process.env.NEXT_PUBLIC_KALOS_LOCAL === "1";
+
 export function WorkspaceMenu({ side = "right", className }: { side?: "right" | "bottom"; className?: string }) {
   const router = useRouter();
   const theme = useThemePreference();
@@ -61,6 +63,8 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
             <Settings aria-hidden />
             Settings
           </DropdownMenuItem>
+          {LOCAL ? null : (
+            <>
           <DropdownMenuItem onClick={() => router.push("/settings/security")}>
             <ShieldCheck aria-hidden />
             Security
@@ -69,15 +73,21 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
             <Users aria-hidden />
             Members
           </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem onClick={() => setShortcuts(true)}>
             <Keyboard aria-hidden />
             Keyboard shortcuts
           </DropdownMenuItem>
+          {LOCAL ? null : (
+            <>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={signingOut} onClick={() => startSignOut(() => signOutAction())}>
             <LogOut aria-hidden />
             Sign out
           </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={shortcuts} onOpenChange={setShortcuts}>

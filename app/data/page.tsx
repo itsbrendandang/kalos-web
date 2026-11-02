@@ -6,7 +6,12 @@ import { Card, Kpi, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/ui/honest-state";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { Panel, Section } from "@/components/kit/section";
+import { buttonVariants } from "@/components/ui/button";
+import { useLatest } from "@/hooks/use-engine";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, DemoBadge } from "@/components/page-header";
@@ -69,26 +74,76 @@ function StatusPill({ status }: { status: DatasetRecord["status"] }) {
  *  model that consumes the registry gets attributed rather than in chrome
  *  that's visible on every route. */
 function EngineCredit() {
-  return <p className="text-center font-mono text-[10px] tracking-wide text-muted">powered by BoTorch + ESM-2</p>;
+  return <p className="text-center text-caption text-fg-muted">powered by BoTorch + ESM-2</p>;
 }
 
-/** Honest empty state: the registry has no live source yet, so with demo mode off
- *  it renders nothing fabricated rather than a list of simulated datasets. */
-function NoLiveRegistry() {
+const ROLE: Record<string, string> = {
+  kept_feature: "Process input",
+  target: "Result being optimized",
+  dropped_id: "Run label, not used",
+  dropped_sparse: "Not used (text or too sparse)",
+};
+const roleLabel = (status: string) => ROLE[status] ?? status.replace(/_/g, " ");
+
+/** The dataset the engine is working from, read live from the engine. With
+ *  nothing uploaded, or example data off, it says so rather than inventing a list. */
+function LiveRegistry() {
+  const latest = useLatest();
+  const d = latest.status === "error" ? null : latest.data?.has_data ? latest.data : null;
   return (
-    <div className="flex flex-col gap-7">
-      <PageHeader eyebrow="Data room" title="Bioprocessing data registry"
-        desc="The datasets and runs the engine has seen." />
-      <EmptyState
-        icon={PlugZap}
-        title="No live datasets"
-        description={
-          <>
-            No live data registry is connected yet. Example data is off, so there is nothing to show here.
-          </>
-        }
-      />
+    <div className="flex flex-col gap-8">
+      <PageHeader eyebrow="Data" title="Your data" desc="The run sheet the engine is working from, and how it read each column." />
+      {latest.status === "error" ? (
+        <ErrorState title="Could not reach the engine" description="This is a connection problem, not an empty registry." onRetry={() => void latest.refresh()} busy={latest.refreshing} />
+      ) : !latest.data ? (
+        <LoadingSkeleton rows={3} label="Loading your data" />
+      ) : !d ? (
+        <EmptyState
+          icon={PlugZap}
+          title="No data yet"
+          description="Upload a run sheet in Setup and it will appear here."
+          action={<Link href="/campaign/setup" className={buttonVariants({})}>Go to Setup <ArrowRight /></Link>}
+        />
+      ) : (
+        <>
+          <Panel className="flex flex-wrap items-center gap-x-10 gap-y-4">
+            <div className="min-w-0">
+              <p className="text-label text-fg-muted">Run sheet</p>
+              <p className="text-heading text-fg break-all">{d.dataset}</p>
+            </div>
+            <Stat label="Runs" value={String(d.n)} />
+            <Stat label="Process inputs" value={String(d.features.length)} />
+            <Stat label="Optimizing" value={d.target} />
+            {d.n_dropped_incomplete ? <Stat label="Rows dropped" value={String(d.n_dropped_incomplete)} sub="missing values" /> : null}
+          </Panel>
+          {d.provenance?.length ? (
+            <Section title="How each column was read" description="Check these before trusting the model. A column marked not used did not influence the result.">
+              <Panel className="px-5 py-1">
+                <ul className="divide-y divide-border">
+                  {d.provenance.map((c) => (
+                    <li key={c.name} className="grid grid-cols-[1fr_auto] items-center gap-x-3 py-2.5 text-body sm:grid-cols-[1fr_1fr_6rem]">
+                      <span className="font-mono text-code text-fg">{c.name}</span>
+                      <span className="text-fg-muted">{roleLabel(c.status)}</span>
+                      <span className="w-24 text-right tabular-nums text-caption text-fg-muted">{c.non_null} filled</span>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            </Section>
+          ) : null}
+        </>
+      )}
       <EngineCredit />
+    </div>
+  );
+}
+
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div>
+      <p className="text-label text-fg-muted">{label}</p>
+      <p className="text-title tabular-nums text-fg">{value}</p>
+      {sub ? <p className="text-caption text-fg-muted">{sub}</p> : null}
     </div>
   );
 }
@@ -120,7 +175,7 @@ export default function DataPage() {
     setSelected((cur) => (cur === barcode ? null : barcode));
   }
 
-  if (!DEMO_MODE) return <NoLiveRegistry />;
+  if (!DEMO_MODE) return <LiveRegistry />;
 
   return (
     <div className="flex flex-col gap-7">

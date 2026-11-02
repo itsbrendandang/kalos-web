@@ -38,5 +38,5 @@ export function Section({
 
 /** A bordered region (12px radius, hairline, no shadow), for content that needs a boundary. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("rounded-xl border border-border bg-surface p-5", className)} {...props} />;
+  return <div className={cn("rounded-2xl border border-border/70 bg-surface shadow-card p-5", className)} {...props} />;
 }

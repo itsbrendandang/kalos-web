@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthFrame } from "@/components/auth/auth-frame";
+import { isLocalMode } from "@/lib/local-mode";
 import { resolveSession } from "@/lib/server/session";
 
 // Geist (UI and text) and Geist Mono (code-like values only), SIL OFL 1.1,
@@ -36,7 +37,7 @@ const NO_FLASH_THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("theme
 // membership from the member table); AuthFrame then picks the frame or
 // redirects. Pages that read data must still check for themselves.
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { status } = await resolveSession();
+  const { status } = isLocalMode() ? { status: "ok" as const } : await resolveSession();
   return (
     <html
       lang="en"

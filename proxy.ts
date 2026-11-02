@@ -8,9 +8,11 @@
 // lib/server/session.ts, because a proxy can be bypassed.
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { isLocalMode } from "@/lib/local-mode";
 import { proxyDecision } from "@/lib/auth-routes";
 
 export function proxy(request: NextRequest) {
+  if (isLocalMode()) return NextResponse.next();
   const { pathname, search } = request.nextUrl;
   const d = proxyDecision(pathname, search, getSessionCookie(request) !== null);
   if (d.action === "next") return NextResponse.next();

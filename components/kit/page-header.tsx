@@ -26,10 +26,10 @@ export function PageHeader({
       <div className="min-w-0 flex-1">
         {eyebrow ? <p className="mb-1 text-label text-fg-muted">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="min-w-0 text-title break-words text-fg">{title}</h1>
+          <h1 className="min-w-0 text-display break-words text-fg">{title}</h1>
           {meta}
         </div>
-        {description ? <p className="mt-1.5 max-w-[68ch] text-body text-fg-muted">{description}</p> : null}
+        {description ? <p className="mt-2 max-w-[68ch] text-heading font-normal text-fg-muted">{description}</p> : null}
       </div>
       {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
     </header>

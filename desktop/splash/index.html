@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Kalos</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; height: 100vh; display: grid; place-items: center; background: #f6f5f3; font: 14px -apple-system, system-ui, sans-serif; color: #55555c; }
+  @media (prefers-color-scheme: dark) { body { background: #1b1b1f; color: #aaa; } .k { background: #f2f2f2; color: #1b1b1f; } }
+  .w { display: grid; gap: 14px; justify-items: center; }
+  .k { width: 44px; height: 44px; border-radius: 12px; background: #1b1b1f; color: #f6f5f3; display: grid; place-items: center; font-weight: 600; font-size: 20px; }
+  .b { width: 120px; height: 3px; border-radius: 3px; background: rgba(128,128,128,.25); overflow: hidden; }
+  .b::after { content: ""; display: block; width: 40%; height: 100%; background: currentColor; border-radius: 3px; animation: s 1.2s ease-in-out infinite; }
+  @keyframes s { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+</style>
+<div class="w"><div class="k">K</div><div class="b"></div><div>Starting Kalos</div></div>

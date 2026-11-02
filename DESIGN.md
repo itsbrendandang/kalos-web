@@ -1,6 +1,7 @@
 # Kalos web design system
 
-Calm, editorial, light first, with full dark mode.
+Calm, Apple-like, light first, with full dark mode: one sidebar, large titles, soft rounded cards (`rounded-2xl`, `shadow-card`) on a light grey page.
+The desktop app (`desktop/`) runs the same UI in local mode, with no sign-in.
 Generous whitespace, few boxes, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
 Every value below is quoted from `app/globals.css`, which is the single source of truth.
 If this file and the CSS disagree, the CSS wins.
@@ -121,10 +122,10 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 - 8px grid.
 - Content max width is 1120px (`max-w-[1120px]` in `components/workbench/app-shell.tsx`), with full width allowed for tables and charts.
   Page padding is 24px on desktop and 16px on mobile.
-- Radius: `rounded-lg` (8px) for controls and `rounded-xl` (12px) for panels.
+- Radius: `rounded-lg` (8px) for controls and `rounded-2xl` (16px) for cards and panels.
   Tailwind's defaults are not overridden.
-  No `rounded-2xl` boxes, and no pill badges unless they show status.
-- No shadows, except overlays (popovers, menus, dialogs, the command palette), which use `shadow-popover`.
+  No pill badges unless they show status.
+- Cards use `shadow-card` (a hairline plus a very soft lift). No other shadows, except overlays (popovers, menus, dialogs, the command palette), which use `shadow-popover`.
   The rest of the shadow scale is set to `none` in `@theme`, rather than banned with `!important`, which would also kill `ring-*` focus rings.
 - Prefer whitespace and hairline rules over cards.
 - Tables use right-aligned numerics with `tabular-nums`, 40px rows and a sticky header.

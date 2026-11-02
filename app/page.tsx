@@ -1,5 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { agentStatus } from "@/lib/agent";
+
 import { ChartFrame } from "@/components/kit/chart-frame";
 import { KpiCard } from "@/components/kit/kpi-card";
 import { NextCard } from "@/components/kit/next-card";
@@ -14,7 +18,7 @@ import { DEMO_MODE } from "@/lib/demo";
 import { formatNumber, formatRange } from "@/lib/format";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { bestSoFarSeries, topDrivers } from "@/lib/overview";
-import { parseUnit } from "@/lib/utils";
+import { cn, parseUnit } from "@/lib/utils";
 import { campaignView, type ActiveCampaign } from "@/lib/workbench";
 import { lazyChart } from "@/components/kit/lazy-chart";
 
@@ -66,6 +70,7 @@ export default function OverviewPage() {
   }
 
   const unit = parseUnit(target);
+  const trendReady = active != null && bestSoFarSeries(active).filter((p) => p.best != null).length >= 2;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -80,11 +85,36 @@ export default function OverviewPage() {
       />
       <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
       <Kpis active={active} analysis={analysis} target={target} unit={unit} round={stage.round} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BestSoFarChart active={active} target={target} unit={unit} />
-        <DriversChart analysis={analysis} target={target} />
-      </div>
+      <LabStrip active={active} demo={demo} />
+      {trendReady ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <BestSoFarChart active={active} target={target} unit={unit} />
+          <DriversChart analysis={analysis} target={target} />
+        </div>
+      ) : (
+        <>
+          <DriversChart analysis={analysis} target={target} />
+          <p className="text-body text-fg-muted">The best-so-far trend appears after the first round&apos;s results are added.</p>
+        </>
+      )}
     </div>
+  );
+}
+
+function LabStrip({ active, demo }: { active: ActiveCampaign | null; demo: boolean }) {
+  const status = agentStatus(active);
+  const live = status.state === "waiting";
+  return (
+    <Link href="/agent" className="flex items-center gap-3 rounded-2xl border border-border/70 bg-surface px-5 py-4 shadow-card transition-colors hover:bg-subtle">
+      <span className={cn("size-2.5 shrink-0 rounded-full", live ? "bg-accent" : "bg-border-strong")} aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="text-heading text-fg">{status.headline}</span>
+        <span className="ml-2 text-body text-fg-muted">{demo ? "Example data" : "In the lab right now"}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1 text-label text-accent">
+        Open agent <ArrowRight className="size-4" aria-hidden />
+      </span>
+    </Link>
   );
 }
 
@@ -105,8 +135,9 @@ function Kpis({
   const verdict = analysis ? reliabilityVerdict(analysis) : null;
   const verdictTone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
   return (
-    <section aria-label="Key numbers" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section aria-label="Key numbers" className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl border border-border/70 bg-surface p-5 shadow-card lg:grid-cols-4 lg:divide-x lg:divide-border [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">
       <KpiCard
+        bare
         label={`Best ${target}`}
         value={active?.best ?? analysis?.best ?? null}
         unit={unit}
@@ -114,6 +145,7 @@ function Kpis({
         qualifier="Measured, not predicted"
       />
       <KpiCard
+        bare
         label="Model reliability"
         value={verdict?.rho ?? null}
         quantity="corr"
@@ -127,12 +159,14 @@ function Kpis({
         }
       />
       <KpiCard
+        bare
         label="Runs in flight"
         value={active?.n_awaiting ?? 0}
         quantity="count"
         qualifier={`${formatNumber(active?.n_measured ?? 0, "count")} measured this round`}
       />
       <KpiCard
+        bare
         label="Round"
         value={round}
         quantity="count"

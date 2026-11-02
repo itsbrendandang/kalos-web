@@ -27,6 +27,7 @@ export function KpiCard({
   delta,
   qualifier,
   badge,
+  bare,
   className,
 }: {
   label: ReactNode;
@@ -37,21 +38,24 @@ export function KpiCard({
   qualifier?: ReactNode;
   /** A small status badge beside the label, e.g. the reliability verdict. */
   badge?: ReactNode;
+  /** Drop the card chrome so several sit inside one shared panel. */
+  bare?: boolean;
   className?: string;
 }) {
+  const Wrap = bare ? "div" : Card;
   const shown = typeof value === "string" ? value : formatNumber(value, quantity);
   return (
-    <Card className={cn("flex flex-col gap-1", className)}>
+    <Wrap className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-label text-fg-muted">{label}</p>
         {badge}
       </div>
       <p className="flex items-baseline gap-1.5">
-        <span className="text-metric text-fg tabular-nums">{shown}</span>
+        <span className={cn("text-fg tabular-nums", bare ? "text-title" : "text-metric")}>{shown}</span>
         {unit && value != null ? <span className="text-body text-fg-muted">{unit}</span> : null}
       </p>
       {delta ? <DeltaLine delta={delta} /> : qualifier ? <p className="text-caption text-fg-muted">{qualifier}</p> : null}
-    </Card>
+    </Wrap>
   );
 }
 

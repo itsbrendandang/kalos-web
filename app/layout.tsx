@@ -1,26 +1,8 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { isLocalMode } from "@/lib/local-mode";
 import { resolveSession } from "@/lib/server/session";
-
-// Geist (UI and text) and Geist Mono (code-like values only), SIL OFL 1.1,
-// self-hosted from app/fonts/ so the build never fetches a font. The files are
-// the vercel/geist-font v1.7.2 variable webfonts, renamed only - see DESIGN.md
-// "Fonts" for the blob hashes. Numbers use Geist with tabular-nums, not mono.
-const geist = localFont({
-  src: "./fonts/Geist-Variable.woff2",
-  variable: "--font-geist",
-  weight: "100 900",
-  display: "swap",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMono-Variable.woff2",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Kalos",
@@ -41,7 +23,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${geistMono.variable} antialiased`}
+      className="antialiased"
       suppressHydrationWarning
     >
       <head>

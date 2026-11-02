@@ -164,3 +164,7 @@ They exist only because some pages (Data, the Library tools, the campaign stage 
 Do not use them in new code, and delete an alias once nothing reads it.
 
 Replaced the earlier blue and Satoshi system in October 2026.
+
+## Notion pass (type and surfaces)
+
+Type is the system UI stack (SF Pro on Mac, Segoe UI on Windows), 15px body, bold 40px page titles; no font files ship. Surfaces are flat white with a hairline border and a 1px shadow; the sidebar is a quiet grey panel. Radii are small (5/6/8px). Ink is warm near-black, accent is Notion-style blue. The old "Fonts" section above (Geist) and the glass/Apple notes are superseded.

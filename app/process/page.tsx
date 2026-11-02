@@ -13,7 +13,6 @@ import {
   KIND_LABEL,
   matchColumns,
   OWNER_LABEL,
-  sheetSummary,
   stepHealth,
   summarize,
   uid,
@@ -23,6 +22,7 @@ import {
   type Step,
   type StepKind,
 } from "@/lib/process";
+import { checkSheet, convertFactor, readSheet } from "@/lib/normalize";
 import { cn } from "@/lib/utils";
 
 const select = "h-9 rounded-lg border border-border-strong bg-surface px-2.5 text-body text-fg hover:border-fg-muted focus-visible:border-accent";
@@ -134,6 +134,7 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
   const [sopText, setSopText] = useState("");
   const [picks, setPicks] = useState<Record<number, boolean>>({});
   const [note, setNote] = useState<string | null>(null);
+  const [issues, setIssues] = useState<string[]>([]);
   const found = useMemo<Extracted[]>(() => (sopText.trim() ? extractParams(sopText) : []), [sopText]);
   const chosen = found.filter((_, i) => picks[i] ?? true);
 
@@ -146,10 +147,23 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
       onChange((s) => ({ ...s, sop: { name: file.name, added: Date.now() } }));
       setNote(null);
     } else {
+      setIssues([]);
       if (/\.(xlsx?|pdf)$/.test(lower)) return setNote("Export Excel or PDF sheets to CSV first; only CSV and TSV are read here.");
-      const sum = sheetSummary(await file.text());
-      if (!sum) return setNote("That file needs a header row and at least one run.");
-      const { matched } = matchColumns(step.params, sum.columns);
+      const sheet = readSheet(await file.text());
+      if (!sheet) return setNote("That file needs a header row and at least one run.");
+      const sum = { columns: sheet.columns, rows: sheet.rows.length };
+      const reports = checkSheet(sheet.columns, sheet.rows);
+      const { matched } = matchColumns(step.params, reports.map((r) => r.name));
+      const findings: string[] = [];
+      for (const m of matched) {
+        const r = reports.find((x) => x.name === m.column);
+        if (!r) continue;
+        if (r.unit && m.param.unit && convertFactor(r.unit, m.param.unit) == null) findings.push(`${r.name}: sheet says ${r.unit}, the step expects ${m.param.unit}. Check the units before using it.`);
+        else if (r.unit && m.param.unit && convertFactor(r.unit, m.param.unit) !== 1) findings.push(`${r.name}: sheet is in ${r.unit}; ${m.param.unit} needs a conversion (x${Number(convertFactor(r.unit, m.param.unit)!.toPrecision(4))}).`);
+        else if (!r.unit && m.param.unit) findings.push(`${r.name}: the sheet gives no unit. Confirm it is ${m.param.unit}.`);
+      }
+      for (const r of reports) for (const i of r.issues) findings.push(`${r.name}: ${i}`);
+      setIssues(findings);
       onChange((s) => ({ ...s, data: [...s.data, { name: file.name, rows: sum.rows, target: null, added: Date.now() }] }));
       setNote(`Read ${sum.rows} runs. ${matched.length} of ${step.params.length} parameters have a matching column${matched.length < step.params.length ? "; the rest will need mapping" : ""}.`);
     }
@@ -243,6 +257,12 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
           ))}
         </ul>
         {note ? <p role="status" className="text-caption text-fg-muted">{note}</p> : null}
+        {issues.length ? (
+          <div className="rounded-xl bg-subtle p-3">
+            <p className="text-label text-fg">Check before using this sheet</p>
+            <ul className="mt-1 flex list-disc flex-col gap-1 pl-4 text-caption text-fg-muted">{issues.map((x, i) => <li key={i}>{x}</li>)}</ul>
+          </div>
+        ) : null}
         {step.data.length ? <Link href="/campaign/setup" className={buttonVariants({ variant: "outline" })}>Optimize in Setup <ArrowRight /></Link> : null}
         <p className="text-caption text-fg-muted">Sheets are read on this device. Only the header and row count are kept here.</p>
       </section>

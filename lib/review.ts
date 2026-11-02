@@ -20,6 +20,14 @@ function rowsOf(text: string): string[][] {
   return lines.map((l) => l.split(d).map((c) => c.trim().replace(/^"|"$/g, "")));
 }
 
+/** "time_days" is days, "time (h)" and "hours" are hours. A bare letter inside a word ("Phase") is not a unit. */
+function timeUnit(header: string): string {
+  const h = header.toLowerCase();
+  if (/(^|[^a-z])days?([^a-z]|$)/.test(h)) return "days";
+  if (/(^|[^a-z])(h|hr|hrs|hours?)([^a-z]|$)/.test(h)) return "hours";
+  return "";
+}
+
 /** Long (time, well, value) or wide (time down the side, one column per well). Null when neither reads. */
 export function parseTimeCourse(text: string): Parsed | null {
   const rows = rowsOf(text);
@@ -31,7 +39,7 @@ export function parseTimeCourse(text: string): Parsed | null {
   const by = new Map<string, Series>();
   let unit = "";
   if (ti >= 0 && wi >= 0 && vi >= 0) {
-    unit = /day/.test(head[ti]) ? "days" : /h/.test(head[ti]) ? "hours" : "";
+    unit = timeUnit(head[ti]);
     for (const r of rows.slice(1)) {
       const t = num(r[ti] ?? "");
       const y = num(r[vi] ?? "");
@@ -42,7 +50,7 @@ export function parseTimeCourse(text: string): Parsed | null {
       by.set(r[wi], s);
     }
   } else if (rows[0].length >= 2 && rows.slice(1).every((r) => num(r[0] ?? "") != null)) {
-    unit = /day/.test(head[0]) ? "days" : /h/.test(head[0]) ? "hours" : "";
+    unit = timeUnit(head[0]);
     rows[0].slice(1).forEach((name, c) => {
       const s: Series = { name: name || `col${c + 1}`, t: [], y: [] };
       for (const r of rows.slice(1)) {
@@ -83,7 +91,6 @@ export function statsOf(s: Series): SeriesStats {
 export type Context = { plate: "96" | "24" | "6" | "flask" | "other"; volumeUl: number | null; days: number | null };
 export type Verdict = "supported" | "possible" | "unlikely" | "cannot-say";
 export type Finding = { id: string; title: string; verdict: Verdict; for: string[]; against: string[]; test: string };
-export type Source = { title: string; cite: string; url?: string };
 
 export type Review = {
   facts: string[];
@@ -114,7 +121,7 @@ export function review(p: Parsed, ctx: Context): Review {
   const cvPeak = mean(peaks) !== 0 ? sd(peaks) / Math.abs(mean(peaks)) : 0;
 
   facts.push(`${n} series, ${p.series[0].t.length} time points each, over ${f2(Math.max(...p.series.map((s) => s.t[s.t.length - 1])) - Math.min(...p.series.map((s) => s.t[0])))} ${unit}.`);
-  facts.push(`Peak (middle series) at about ${f2(medPeakT)} ${unit}; ${pct(rfShare)} of series rose and then fell by more than 25% from their peak.`);
+  facts.push(`Median peak at about ${f2(medPeakT)} ${unit}; ${pct(rfShare)} of series rose and then fell by more than 25% from their peak.`);
   facts.push(`Spread between series at the end: ${pct(cvFinal)} (coefficient of variation); at the peak: ${pct(cvPeak)}.`);
 
   // Edge effect, only when names are plate wells.

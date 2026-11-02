@@ -13,7 +13,7 @@ import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { cn } from "@/lib/utils";
 
 const TONE: Record<Verdict, "good" | "warn" | "neutral" | "accent"> = { supported: "accent", possible: "warn", unlikely: "neutral", "cannot-say": "neutral" };
-const WORD: Record<Verdict, string> = { supported: "Supported by the data", possible: "Possible", unlikely: "Unlikely", "cannot-say": "Can't tell from this run" };
+const WORD: Record<Verdict, string> = { supported: "Consistent with the data", possible: "Possible", unlikely: "Unlikely", "cannot-say": "Can't tell from this run" };
 const select = "h-9 rounded-lg border border-border-strong bg-surface px-2.5 text-body text-fg hover:border-fg-muted focus-visible:border-accent";
 const ASKS = ["Was it something I did?", "Why did growth decline?", "What should I check first?"];
 
@@ -22,14 +22,15 @@ type Turn = { role: "user" | "assistant"; content: string };
 /**
  * Review: bring a finished (or running) experiment, see where on the plate
  * things went differently, and ask what happened. The numbers and the
- * explanations come from fixed rules over your data. A model on this device only
- * words the answer and may use nothing else, and every finding says what it
- * could not tell.
+ * explanations come from fixed rules over your data. A model on this device
+ * words the answer and is told to use nothing else, and every finding says what
+ * it could not tell.
  */
 export default function ReviewPage() {
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [example, setExample] = useState(false);
+  const [loadId, setLoadId] = useState(0);
   const [err, setErr] = useState<string | null>(null);
   const [plate, setPlate] = useState<Context["plate"]>("96");
   const [vol, setVol] = useState("100");
@@ -42,6 +43,7 @@ export default function ReviewPage() {
     setParsed(p);
     setFileName(name);
     setExample(isExample);
+    setLoadId((n) => n + 1);
   };
 
   return (
@@ -50,10 +52,10 @@ export default function ReviewPage() {
         eyebrow="Review"
         title="What happened in this experiment?"
         meta={example ? <ExampleBadge /> : null}
-        description="Bring a plate or culture time course. See where it went differently, and ask whether it was something you did. Nothing leaves this device."
+        description="Bring a plate or culture time course. See where it went differently, and ask whether it was something you did. Your file is read on this device."
         action={
           <div className="flex gap-2">
-            <label className={cn(buttonVariants({ variant: "outline" }), "cursor-pointer")}>
+            <label className={cn(buttonVariants({ variant: "outline" }), "cursor-pointer focus-within:ring-2 focus-within:ring-accent")}>
               <Upload /> Upload CSV
               <input type="file" accept=".csv,.tsv,.txt" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) load(await f.text(), f.name, false); e.target.value = ""; }} />
             </label>
@@ -68,7 +70,7 @@ export default function ReviewPage() {
           <p className="max-w-[60ch]">Upload a CSV of readings over time (OD, confluence, viable cell density). One row per reading with <span className="font-mono text-code">time, well, value</span>, or time down the side and one column per well. Wells named like A1 to H12 appear on a plate map.</p>
         </div>
       ) : (
-        <Results parsed={parsed} fileName={fileName} plate={plate} setPlate={setPlate} vol={vol} setVol={setVol} notes={notes} setNotes={setNotes} />
+        <Results key={loadId} parsed={parsed} fileName={fileName} plate={plate} setPlate={setPlate} vol={vol} setVol={setVol} notes={notes} setNotes={setNotes} />
       )}
     </div>
   );
@@ -94,9 +96,9 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
         <section className="glass flex flex-col gap-4 p-5" aria-label="Plate">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-heading text-fg">{fileName}</h2>
-            <div role="radiogroup" aria-label="Colour by" className="flex gap-1 rounded-lg bg-subtle p-1 text-label">
+            <div role="group" aria-label="Colour by" className="flex gap-1 rounded-lg bg-subtle p-1 text-label">
               {([["now", "At a time"], ["peak", "Peak"], ["fall", "Drop from peak"]] as const).map(([k, l]) => (
-                <button key={k} role="radio" aria-checked={metric === k} onClick={() => setMetric(k)} className={cn("rounded-md px-3 py-1", metric === k ? "bg-surface text-fg" : "text-fg-muted hover:text-fg")}>{l}</button>
+                <button key={k} type="button" aria-pressed={metric === k} onClick={() => setMetric(k)} className={cn("rounded-md px-3 py-1", metric === k ? "bg-surface text-fg" : "text-fg-muted hover:text-fg")}>{l}</button>
               ))}
             </div>
           </div>
@@ -110,12 +112,14 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
           {flagged.size ? <p className="text-caption text-fg-muted">A dot marks wells that ended far from the rest or jumped and then fell ({flagged.size}).</p> : null}
         </section>
 
-        <aside aria-live="polite" className="glass h-fit p-5 lg:sticky lg:top-6">
+        <aside className="glass h-fit p-5 lg:sticky lg:top-6">
           {sel ? <WellCard s={sel} all={parsed} /> : (
             <>
               <p className="text-label text-fg-muted">Was it you?</p>
+              <div aria-live="polite">
               <p className="mt-1 flex items-center gap-2"><Badge tone={TONE[r.mine.verdict]}>{WORD[r.mine.verdict]}</Badge></p>
               <p className="mt-2 text-body text-fg-muted">{r.mine.text}</p>
+              </div>
               <p className="mt-3 text-caption text-fg-muted">Tap a well to see its curve.</p>
             </>
           )}
@@ -207,7 +211,7 @@ function Chat({ context }: { context: string }) {
     <section aria-label="Ask about this experiment" className="glass flex flex-col gap-3 p-5">
       <div>
         <h2 className="text-heading text-fg">Ask about this experiment</h2>
-        <p className="text-caption text-fg-muted">Answered by a model on this device, using only the findings above and your notes.</p>
+        <p className="text-caption text-fg-muted">Answered by a model running on this device. It is instructed to use only the findings above and your notes. That is an instruction, not a guarantee, so check answers against the findings.</p>
       </div>
       {turns.length === 0 ? (
         <div className="flex flex-wrap gap-2">{ASKS.map((a) => <Button key={a} variant="outline" onClick={() => void ask(a)}>{a}</Button>)}</div>

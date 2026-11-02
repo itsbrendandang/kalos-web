@@ -6,29 +6,56 @@
  * Tested in __tests__/normalize.test.ts.
  */
 
-export type Cell = { kind: "number"; value: number } | { kind: "censored"; op: "<" | ">"; limit: number } | { kind: "blank" } | { kind: "text" };
+export type Sep = "auto" | "decimal" | "thousands";
+export type Cell =
+  | { kind: "number"; value: number }
+  | { kind: "censored"; op: "<" | ">"; limit: number | null }
+  | { kind: "ambiguous"; asDecimal: number; asThousands: number }
+  | { kind: "blank" }
+  | { kind: "text" };
 
-/** One cell. "<0.1" and "BLQ" are censored, never zero. A lone comma is a decimal ("1,5"), "1,234.5" is a thousands separator. */
-export function parseCell(raw: string): Cell {
+/**
+ * One cell. "<0.1" and "BLQ" are censored, never zero. "1,5" is a decimal;
+ * "1,234.5" and "1.234,5" are unambiguous. "1,250" alone could be 1.25 or 1250,
+ * so it is "ambiguous" unless the column's separator style is known (`sep`).
+ */
+export function parseCell(raw: string, sep: Sep = "auto"): Cell {
   const t = raw.trim();
   if (!t || /^(na|n\/a|nan|null|-|--)$/i.test(t)) return { kind: "blank" };
-  if (/^(blq|bql|<\s*loq|nd|n\.d\.)$/i.test(t)) return { kind: "censored", op: "<", limit: NaN };
+  if (/^(blq|bql|<\s*loq|nd|n\.d\.)$/i.test(t)) return { kind: "censored", op: "<", limit: null };
   const c = t.match(/^([<>])\s*=?\s*(-?[\d.,]+)$/);
   if (c) {
-    const v = num(c[2]);
-    return v == null ? { kind: "text" } : { kind: "censored", op: c[1] as "<" | ">", limit: v };
+    const v = num(c[2], "decimal");
+    return typeof v === "number" ? { kind: "censored", op: c[1] as "<" | ">", limit: v } : { kind: "text" };
   }
-  const v = num(t);
-  return v == null ? { kind: "text" } : { kind: "number", value: v };
+  const v = num(t, sep);
+  if (v === null) return { kind: "text" };
+  return typeof v === "number" ? { kind: "number", value: v } : { kind: "ambiguous", ...v };
 }
-function num(s: string): number | null {
+
+const THOUSANDS_LIKE = /^-?\d{1,3},\d{3}$/;
+function num(s: string, sep: Sep): number | { asDecimal: number; asThousands: number } | null {
   let x = s.trim();
   if (!/^-?[\d.,]+$/.test(x) || !/\d/.test(x)) return null;
-  if (x.includes(",") && x.includes(".")) x = x.lastIndexOf(",") > x.lastIndexOf(".") ? x.replace(/\./g, "").replace(",", ".") : x.replace(/,/g, "");
-  else if ((x.match(/,/g)?.length ?? 0) === 1 && !/^-?\d{1,3},\d{3}$/.test(x)) x = x.replace(",", ".");
+  const commas = x.match(/,/g)?.length ?? 0;
+  if (commas && x.includes(".")) x = x.lastIndexOf(",") > x.lastIndexOf(".") ? x.replace(/\./g, "").replace(",", ".") : x.replace(/,/g, "");
+  else if (commas === 1 && THOUSANDS_LIKE.test(x)) {
+    const dec = Number(x.replace(",", "."));
+    const thou = Number(x.replace(",", ""));
+    if (sep === "decimal") return dec;
+    if (sep === "thousands") return thou;
+    return { asDecimal: dec, asThousands: thou };
+  } else if (commas === 1) x = x.replace(",", ".");
   else x = x.replace(/,/g, "");
   const v = Number(x);
   return Number.isFinite(v) ? v : null;
+}
+
+/** Which way a column writes its numbers: a dot decimal means commas are thousands; "1,5" or "0,25" means commas are decimals. */
+export function columnSep(cells: string[]): Sep {
+  if (cells.some((c) => /^-?\d+\.\d+$/.test(c.trim()))) return "thousands";
+  if (cells.some((c) => /^-?\d+,(\d{1,2}|\d{4,})$/.test(c.trim()))) return "decimal";
+  return "auto";
 }
 
 /** The unit written in a header: "titer (g/L)" or "titer [mg/mL]". */
@@ -64,18 +91,23 @@ export type ColumnReport = {
 export function checkSheet(columns: string[], rows: string[][]): ColumnReport[] {
   return columns.map((column, i) => {
     const { name, unit } = headerUnit(column);
-    let numeric = 0, censored = 0, blank = 0, text = 0, comma = 0;
+    let numeric = 0, censored = 0, blank = 0, text = 0, comma = 0, ambiguous = 0;
+    let example: Extract<Cell, { kind: "ambiguous" }> | null = null;
+    let exampleRaw = "";
+    const sep = columnSep(rows.map((r) => r[i] ?? ""));
     for (const r of rows) {
       const raw = r[i] ?? "";
-      const c = parseCell(raw);
-      if (c.kind === "number") { numeric++; if (/^-?\d+,\d{1,2}$/.test(raw.trim())) comma++; }
+      const c = parseCell(raw, sep);
+      if (c.kind === "number") { numeric++; if (sep === "decimal" && raw.includes(",") && !raw.includes(".")) comma++; }
+      else if (c.kind === "ambiguous") { ambiguous++; example ??= c; exampleRaw = exampleRaw || raw.trim(); }
       else if (c.kind === "censored") censored++;
       else if (c.kind === "blank") blank++;
       else text++;
     }
     const total = rows.length || 1;
     const issues: string[] = [];
-    if (censored) issues.push(`${censored} value${censored > 1 ? "s are" : " is"} below or above a detection limit (like "<0.1"). They are kept as limits, not zeros.`);
+    if (censored) issues.push(`${censored} value${censored > 1 ? "s are" : " is"} below or above a detection limit (like "<0.1"). They are flagged as limits, never read as zeros.`);
+    if (ambiguous && example) issues.push(`${ambiguous} value${ambiguous > 1 ? "s" : ""} like "${exampleRaw}" could be ${example.asDecimal} or ${example.asThousands}. Nothing in this column shows whether a comma is a decimal or a thousands mark, so these are not used until you check.`);
     if (comma) issues.push(`${comma} number${comma > 1 ? "s use" : " uses"} a decimal comma and was read as a decimal.`);
     if (blank / total > 0.2) issues.push(`${Math.round((blank / total) * 100)}% of rows are blank.`);
     if (numeric && text) issues.push(`${text} entr${text > 1 ? "ies are" : "y is"} text in an otherwise numeric column.`);
@@ -83,7 +115,7 @@ export function checkSheet(columns: string[], rows: string[][]): ColumnReport[] 
   });
 }
 
-/** Parse a whole CSV/TSV into header + rows (same delimiter rules as sheetSummary). */
+/** Parse a whole CSV/TSV into header + rows (comma, semicolon or tab, whichever the header uses most). */
 export function readSheet(text: string): { columns: string[]; rows: string[][] } | null {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return null;

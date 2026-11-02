@@ -22,9 +22,19 @@ Rules:
 
 type Msg = { role: "user" | "assistant"; content: string };
 
+/** The model must be on this machine: the page promises it, so a non-loopback KALOS_LLM_URL is refused rather than used. */
+function modelIsLocal(): boolean {
+  try {
+    return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(OLLAMA).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest): Promise<Response> {
   if (!isLocalMode()) return Response.json({ error: "Not available." }, { status: 404 });
   if (req.headers.get(ENGINE_CSRF_HEADER) !== ENGINE_CSRF_VALUE) return Response.json({ error: "Blocked." }, { status: 403 });
+  if (!modelIsLocal()) return Response.json({ error: "KALOS_LLM_URL must point at this device." }, { status: 503 });
   const host = req.headers.get("host");
   if (!hostAllowed(host) || !originAllowed(req.headers.get("origin"), host)) return Response.json({ error: "Blocked." }, { status: 403 });
 

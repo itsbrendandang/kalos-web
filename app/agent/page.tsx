@@ -64,7 +64,7 @@ export default function AgentPage() {
       />
 
       <p className="text-body text-fg-muted">
-        <span className="text-fg">How it works:</span> the twin predicts each experiment, your lab runs it, and the real result makes the next prediction better. You always decide what to run.
+        <span className="text-fg">How it works:</span> the twin predicts each experiment, your lab runs it, and you enter the real result so the model can learn from it. You always decide what to run.
       </p>
 
       <Tabs defaultValue="live" className="gap-6">

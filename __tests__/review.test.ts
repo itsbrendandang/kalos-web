@@ -57,3 +57,13 @@ describe("chatContext and unusualWells", () => {
   });
   it("finds no odd wells in a tidy plate", () => expect(unusualWells(p).size).toBe(0));
 });
+
+describe("time unit detection", () => {
+  it("reads days and hours from the header, not a letter inside a word", () => {
+    const wide = (h: string) => parseTimeCourse(`${h},A1,A2\n1,1,1\n2,2,2\n3,3,3`)!.timeUnit;
+    expect(wide("time_days")).toBe("days");
+    expect(wide("Time (h)")).toBe("hours");
+    expect(wide("hours")).toBe("hours");
+    expect(wide("Phase")).toBe("");
+  });
+});

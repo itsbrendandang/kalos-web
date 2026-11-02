@@ -53,10 +53,13 @@ describe("parseStored", () => {
   it("round-trips", () => expect(parseStored(JSON.stringify(mabTemplate()))?.steps).toHaveLength(10));
 });
 
-import { matchColumns, sheetSummary } from "@/lib/process";
-describe("sheetSummary and matchColumns", () => {
-  it("reads header and rows", () => expect(sheetSummary('run,pH,"Temp, C",titer\n1,7,36,2\n2,7.1,37,3')).toEqual({ columns: ["run", "pH", "Temp, C", "titer"], rows: 2 }));
-  it("needs a header and a row", () => expect(sheetSummary("a,b")).toBeNull());
+import { matchColumns } from "@/lib/process";
+describe("matchColumns", () => {
+  it("reads mg/L, ug/mL and cell densities as units", () => {
+    expect(extractParams("Glucose 2 - 6 mg/L")[0].unit).toBe("mg/L");
+    expect(extractParams("Antibody 5 - 10 µg/mL")[0].unit).toBe("µg/mL");
+    expect(extractParams("Seeding density: 0.3 - 0.5 cells/mL")[0].unit).toBe("cells/mL");
+  });
   it("matches parameters to columns by name", () => {
     const m = mabTemplate().steps[2];
     const r = matchColumns(m.params, ["run_id", "pH", "temperature_C", "glucose_gL", "titer"]);

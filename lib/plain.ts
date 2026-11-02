@@ -5,14 +5,13 @@
  */
 import type { Driver, ReliabilityVerdict } from "@/lib/api";
 
-export type Trust = { level: "good" | "fair" | "weak" | "none"; word: string; sentence: string };
+export type Trust = { level: "good" | "warn" | "none"; word: string; sentence: string; gloss: string };
 
+/** The one trust verdict (lib/api reliabilityVerdict) in plain words. Wording never contradicts the engine's own label or reason. */
 export function trustPlain(v: ReliabilityVerdict): Trust {
-  const rho = v.rho;
-  if (v.state === "insufficient" || rho == null) return { level: "none", word: "Not enough data yet", sentence: "There are too few runs to check how well the model predicts. Treat its suggestions as ideas to try, not predictions." };
-  if (v.state === "reliable" && rho >= 0.7) return { level: "good", word: "Good", sentence: "On runs it had not seen, the model ordered results close to how they really came out. Its suggestions are worth running." };
-  if (v.state === "reliable") return { level: "fair", word: "Fair", sentence: "On runs it had not seen, the model's ordering matched reality moderately well. Worth trying, but expect surprises." };
-  return { level: "weak", word: "Weak", sentence: "On runs it had not seen, the model did not order results reliably. Treat suggestions as hunches and add more runs before leaning on them." };
+  if (v.state === "reliable") return { level: "good", word: v.label, sentence: v.reason, gloss: "In plain terms: the model has ordered unseen runs well enough that its suggestions are worth running. Still check each result." };
+  if (v.state === "insufficient") return { level: "none", word: v.label, sentence: v.reason, gloss: "In plain terms: treat suggestions as ideas to try, not predictions." };
+  return { level: "warn", word: v.label, sentence: v.reason, gloss: "In plain terms: treat suggestions as ideas to try, and add more runs before leaning on them." };
 }
 
 export type DriverLine = { name: string; sentence: string; clear: boolean; up: boolean };

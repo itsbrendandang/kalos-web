@@ -4,11 +4,15 @@ import type { Driver, ReliabilityVerdict } from "@/lib/api";
 
 const v = (o: Partial<ReliabilityVerdict>) => ({ state: "reliable", label: "", rho: 0.54, ci: null, floor: null, reason: "", ...o }) as ReliabilityVerdict;
 describe("trustPlain", () => {
-  it("grades by state and strength", () => {
-    expect(trustPlain(v({ rho: 0.8 })).level).toBe("good");
-    expect(trustPlain(v({ rho: 0.54 })).level).toBe("fair");
-    expect(trustPlain(v({ state: "not-yet" })).level).toBe("weak");
-    expect(trustPlain(v({ state: "insufficient", rho: null })).level).toBe("none");
+  it("follows the engine's verdict and reuses its label and reason", () => {
+    const good = trustPlain(v({ state: "reliable", label: "Reliable", reason: "above the floor" }));
+    expect(good).toMatchObject({ level: "good", word: "Reliable", sentence: "above the floor" });
+    expect(trustPlain(v({ state: "not-yet", label: "Not yet reliable", reason: "interval includes zero" }))).toMatchObject({ level: "warn", word: "Not yet reliable" });
+    expect(trustPlain(v({ state: "insufficient", label: "Not enough data", rho: null }))).toMatchObject({ level: "none", word: "Not enough data" });
+  });
+  it("does not depend on a hard-coded cut-off", () => {
+    expect(trustPlain(v({ rho: 0.95, state: "not-yet", label: "Not yet reliable" })).level).toBe("warn");
+    expect(trustPlain(v({ rho: 0.3, state: "reliable", label: "Reliable" })).level).toBe("good");
   });
 });
 describe("driverLine", () => {

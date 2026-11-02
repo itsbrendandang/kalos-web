@@ -30,7 +30,8 @@ const select = "h-9 rounded-lg border border-border-strong bg-surface px-2.5 tex
 /**
  * Process: the whole workflow as a chain of steps. Each step holds its SOP, the
  * parameters read from it (confirmed by you), and data from whoever ran it,
- * in-house, a CRO or a CDMO. It is the map the optimizer will work across.
+ * in-house, a CRO or a CDMO. Today it is a place to record and check them;
+ * the optimizer does not read this map yet.
  * Stored on this device only; nothing here is sent anywhere.
  */
 export default function ProcessPage() {
@@ -101,7 +102,7 @@ export default function ProcessPage() {
                       {KIND_LABEL[s.kind]} · {s.owner === "in-house" ? "In-house" : `${OWNER_LABEL[s.owner]}${s.partner ? `, ${s.partner}` : ""}`}
                     </span>
                   </span>
-                  {s.sop ? <FileText className="size-4 text-fg-muted" aria-label="Has an SOP" /> : null}
+                  {s.sop ? <FileText className="size-4 text-fg-muted" role="img" aria-label="Has an SOP" /> : null}
                   <span className="text-caption tabular-nums text-fg-muted">{s.params.length} {s.params.length === 1 ? "param" : "params"}</span>
                   <Badge tone={h.state === "ready" ? "good" : "neutral"}>{h.label}</Badge>
                 </button>
@@ -117,7 +118,7 @@ export default function ProcessPage() {
           ) : (
             <div className="glass p-5">
               <p className="text-heading text-fg">Pick a step</p>
-              <p className="mt-1 text-body text-fg-muted">Add its SOP to read the parameters, and the data from whoever ran it. Once a step has both, the optimizer can work on it.</p>
+              <p className="mt-1 text-body text-fg-muted">Add its SOP to read the parameters, and the data from whoever ran it. Once a step has both, you can take its data to Setup to fit a model. (The map itself is not used by the optimizer yet.)</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link href="/graph" className={buttonVariants({ variant: "outline" })}>See the graph <ArrowRight /></Link>
                 <Button variant="ghost" onClick={() => { if (window.confirm("Remove the whole process map from this device?")) clearMap(); }}>Reset</Button>
@@ -263,7 +264,7 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
             <ul className="mt-1 flex list-disc flex-col gap-1 pl-4 text-caption text-fg-muted">{issues.map((x, i) => <li key={i}>{x}</li>)}</ul>
           </div>
         ) : null}
-        {step.data.length ? <Link href="/campaign/setup" className={buttonVariants({ variant: "outline" })}>Optimize in Setup <ArrowRight /></Link> : null}
+        {step.data.length ? <Link href="/campaign/setup" className={buttonVariants({ variant: "outline" })}>Open Setup <ArrowRight /></Link> : null}
         <p className="text-caption text-fg-muted">Sheets are read on this device. Only the header and row count are kept here.</p>
       </section>
     </div>
@@ -272,7 +273,7 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
 
 function FilePick({ label, accept, onFile, icon }: { label: string; accept: string; onFile: (f: File) => void; icon: React.ReactNode }) {
   return (
-    <label className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "cursor-pointer")}>
+    <label className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "cursor-pointer focus-within:ring-2 focus-within:ring-accent")}>
       {icon}
       {label}
       <input type="file" accept={accept} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />

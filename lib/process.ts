@@ -74,7 +74,7 @@ export function mabTemplate(): ProcessMap {
 export type Extracted = { name: string; unit: string; low: number | null; high: number | null; line: string };
 
 const NUM = String.raw`(-?\d+(?:\.\d+)?)`;
-const UNIT = String.raw`(°\s?[CF]|%|g\/L|mg\/mL|mS\/cm|mL\/h|rpm|g|min|h|hours?|L|mL|mM|mOsm\/kg|mOsm|kDa|psi|bar|vvm)?`;
+const UNIT = String.raw`(°\s?[CF]|%|g\/L|mg\/mL|mg\/L|[µu]g\/mL|ng\/mL|g\/mL|cells\/mL|mS\/cm|mL\/h|rpm|g|min|h|hours?|L|mL|mM|[µun]M|mOsm\/kg|mOsm|kDa|psi|bar|vvm)?`;
 const RANGE = new RegExp(String.raw`^\s*(?:[-•*\d.)]+\s*)?([A-Za-z][A-Za-z0-9 /()%_-]{1,40}?)\s*[:=]?\s*(?:of\s+)?${NUM}\s*(?:-|–|—|to)\s*${NUM}\s*${UNIT}`, "i");
 const PLUSMINUS = new RegExp(String.raw`^\s*(?:[-•*\d.)]+\s*)?([A-Za-z][A-Za-z0-9 /()%_-]{1,40}?)\s*[:=]?\s*${NUM}\s*(?:±|\+\/-)\s*${NUM}\s*${UNIT}`, "i");
 const SINGLE = new RegExp(String.raw`^\s*(?:[-•*\d.)]+\s*)?([A-Za-z][A-Za-z0-9 /()%_-]{1,40}?)\s*[:=]\s*${NUM}\s*${UNIT}\s*$`, "i");
@@ -150,29 +150,6 @@ export function parseStored(raw: string | null): ProcessMap | null {
   } catch {
     return null;
   }
-}
-
-export type SheetSummary = { columns: string[]; rows: number };
-
-/** Read just the header and row count of a CSV/TSV, on this device, without sending it anywhere. */
-export function sheetSummary(text: string): SheetSummary | null {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return null;
-  const delim = (lines[0].match(/\t/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? "\t" : ",";
-  const columns = splitRow(lines[0], delim).map((c) => c.trim()).filter(Boolean);
-  return columns.length ? { columns, rows: lines.length - 1 } : null;
-}
-function splitRow(line: string, d: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let q = false;
-  for (const ch of line) {
-    if (ch === '"') q = !q;
-    else if (ch === d && !q) { out.push(cur); cur = ""; }
-    else cur += ch;
-  }
-  out.push(cur);
-  return out;
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");

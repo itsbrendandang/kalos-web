@@ -19,7 +19,7 @@ export function agentStatus(c: ActiveCampaign | null): AgentStatus {
     return {
       state: "waiting",
       headline: `Waiting on ${plural(c.n_awaiting, "lab result")}`,
-      detail: `${plural(c.n_awaiting, "run")} started in round ${c.round} and not yet recorded. The agent checks again every 20 seconds.`,
+      detail: `${plural(c.n_awaiting, "run")} started in round ${c.round} and not yet recorded. This page checks again every 20 seconds while it is open.`,
     };
   }
   return { state: "idle", headline: "Nothing running", detail: "No runs are in flight. Plan the next batch when you are ready." };

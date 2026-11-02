@@ -4,13 +4,21 @@ import { checkSheet, convertFactor, headerUnit, mapName, parseCell, readSheet } 
 describe("parseCell", () => {
   it("keeps censored values as limits, not zeros", () => {
     expect(parseCell("<0.1")).toEqual({ kind: "censored", op: "<", limit: 0.1 });
+    expect(parseCell("BLQ")).toEqual({ kind: "censored", op: "<", limit: null });
     expect(parseCell("BLQ").kind).toBe("censored");
   });
   it("reads decimal commas and thousands separators", () => {
     expect(parseCell("1,5")).toEqual({ kind: "number", value: 1.5 });
     expect(parseCell("1,234.5")).toEqual({ kind: "number", value: 1234.5 });
     expect(parseCell("1.234,5")).toEqual({ kind: "number", value: 1234.5 });
-    expect(parseCell("1,234")).toEqual({ kind: "number", value: 1234 });
+    expect(parseCell("1,234", "thousands")).toEqual({ kind: "number", value: 1234 });
+    expect(parseCell("1,234", "decimal")).toEqual({ kind: "number", value: 1.234 });
+    expect(parseCell("1,234,567")).toEqual({ kind: "number", value: 1234567 });
+  });
+  it("never guesses on 0,500 or 1,250", () => {
+    expect(parseCell("0,500")).toEqual({ kind: "ambiguous", asDecimal: 0.5, asThousands: 500 });
+    expect(parseCell("1,250")).toEqual({ kind: "ambiguous", asDecimal: 1.25, asThousands: 1250 });
+    expect(parseCell("1,250", "decimal")).toEqual({ kind: "number", value: 1.25 });
   });
   it("sorts blanks and text", () => {
     expect(parseCell("N/A").kind).toBe("blank");
@@ -36,6 +44,24 @@ describe("checkSheet", () => {
     expect(t.issues.join(" ")).toMatch(/detection limit/);
     expect(t.issues.join(" ")).toMatch(/decimal comma/);
     expect(t.issues.join(" ")).toMatch(/text in an otherwise numeric/);
+  });
+});
+describe("checkSheet separators", () => {
+  const col = (cells: string[]) => checkSheet(["x"], cells.map((c) => [c]))[0];
+  it("flags a column whose commas could be either", () => {
+    const r = col(["0,500", "1,250", "2,100"]);
+    expect(r.numeric).toBe(0);
+    expect(r.issues.join(" ")).toMatch(/could be 0\.5 or 500/);
+  });
+  it("reads commas as decimals when the column shows it", () => {
+    const r = col(["0,5", "1,250", "2,1"]);
+    expect(r.numeric).toBe(3);
+    expect(r.issues.join(" ")).toMatch(/decimal comma/);
+  });
+  it("reads commas as thousands when the column uses dot decimals", () => {
+    const r = col(["1,250", "3.5", "2,100"]);
+    expect(r.numeric).toBe(3);
+    expect(r.issues).toEqual([]);
   });
 });
 describe("mapName", () => {

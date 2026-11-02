@@ -65,7 +65,7 @@ export function PlateMap({
         type="button"
         onClick={() => onSelect(name)}
         aria-pressed={on}
-        aria-label={`Well ${name}: ${fmt(v)} ${unit}${flagged.has(name) ? ", unusual" : ""}`}
+        aria-label={`Well ${name}: ${fmt(v)} ${unit}${metric === "now" ? `, reading ${timeIndex + 1}` : ""}${flagged.has(name) ? ", unusual" : ""}`}
         title={`${name}: ${fmt(v)} ${unit}`}
         style={{ backgroundColor: `var(--chart-seq-${step(x)})` }}
         className={cn("relative size-full rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2", on && "ring-2 ring-fg ring-offset-2 ring-offset-surface")}

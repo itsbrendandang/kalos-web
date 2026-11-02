@@ -88,7 +88,7 @@ export default function OverviewPage() {
         eyebrow={stage.round ? `Round ${stage.round}` : undefined}
         title={`Goal: raise ${target}`}
         meta={demo ? <ExampleBadge /> : null}
-        description="Each round, the model learns from every run so far and suggests the next experiments most likely to beat your best."
+        description="Each round, the model learns from every run so far and suggests the next experiments, some chosen because they look good and some to learn faster."
       />
 
       <section aria-label="Where things stand" className="grid gap-4 md:grid-cols-2">
@@ -99,7 +99,7 @@ export default function OverviewPage() {
             {unit ? <span className="text-heading font-normal text-fg-muted">{unit}</span> : null}
           </p>
           <p className="text-body text-fg-muted">
-            Measured in your lab across {formatNumber(runs, "count")} runs. Not a prediction.
+            Best measured result among your {formatNumber(runs, "count")} runs, including any history you uploaded. Not a prediction.
           </p>
           {active && bestDeltaFromPreviousRound(active) ? <Delta d={bestDeltaFromPreviousRound(active)!} /> : null}
         </div>
@@ -108,9 +108,10 @@ export default function OverviewPage() {
           {trust ? (
             <>
               <p className="flex items-center gap-2">
-                <Badge tone={trust.level === "good" ? "good" : trust.level === "fair" ? "warn" : "neutral"}>{trust.word}</Badge>
+                <Badge tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"}>{trust.word}</Badge>
               </p>
               <p className="text-body text-fg-muted">{trust.sentence}</p>
+              <p className="text-body text-fg">{trust.gloss}</p>
               {verdict?.rho != null ? (
                 <Disclosure summary="The numbers behind this">
                   <p className="pb-3 text-body text-fg-muted">
@@ -217,7 +218,7 @@ function LabStrip({ active, demo }: { active: ActiveCampaign | null; demo: boole
       <span className={cn("size-2.5 shrink-0 rounded-full", live ? "bg-accent" : "bg-border-strong")} aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="text-heading text-fg">{status.headline}</span>
-        <span className="ml-2 text-body text-fg-muted">{demo ? "Example data" : "In the lab right now"}</span>
+        <span className="ml-2 text-body text-fg-muted">{demo ? "Example data" : live ? "In the lab right now" : null}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1 text-label text-accent">
         Open agent <ArrowRight className="size-4" aria-hidden />

@@ -50,7 +50,7 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
                     <span className="text-caption text-fg-muted tabular-nums">
                       {range.source === "observed"
                         ? `tried ${formatSetpoint(range.min, range.decimals)} to ${formatSetpoint(range.max, range.decimals)} in ${formatNumber(range.n, "count")} runs`
-                        : `engine range ${formatNumber(range.min)} to ${formatNumber(range.max)}`}
+                        : `allowed range ${formatNumber(range.min)} to ${formatNumber(range.max)}`}
                     </span>
                     {check.where !== "inside" ? (
                       <span className="inline-flex items-center gap-1 text-caption text-warn">
@@ -68,7 +68,7 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
         </ul>
         <p className="mt-2 text-caption text-fg-muted">
           Values are exactly what Start sends; the table rounds them to the sheet&apos;s precision. Ranges are the lowest and highest values in the measured runs
-          {missing.length ? `. The engine returns none for ${missing.join(", ")}, so their edges are not checked` : ""}.
+          {missing.length ? `. No range is reported for ${missing.join(", ")}, so their edges are not checked` : ""}.
         </p>
       </section>
 
@@ -90,10 +90,10 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
                   </span>
                 </>
               ) : (
-                <span className="text-fg-muted">Not reported by the engine</span>
+                <span className="text-fg-muted">Not reported</span>
               )}
             </dd>
-            <dt className="text-fg-muted">Model SD</dt>
+            <dt className="text-fg-muted">Model spread (SD)</dt>
             <dd className="tabular-nums">
               {formatNumber(p.std)}
               <span className="block text-caption text-fg-muted">The model&apos;s own spread. Judge the prediction by the band, not this.</span>
@@ -124,13 +124,13 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
         </div>
 
         <div>
-          <h3 className="text-label text-fg">Why the engine proposed it</h3>
+          <h3 className="text-label text-fg">Why it was proposed</h3>
           <p className="mt-1 text-body text-fg">
             {p.mode === "exploit" ? "Exploit: the model expects a high value here." : "Explore: chosen to learn where the model is unsure, or to spread the batch out."}
           </p>
           <details className="group mt-2">
             <summary className="cursor-pointer text-caption text-fg-muted select-none hover:text-accent [&::-webkit-details-marker]:hidden">
-              Engine note, as sent
+              Raw note from the engine
             </summary>
             <p className="mt-1 font-mono text-code break-words text-fg-muted">{p.reason}</p>
           </details>

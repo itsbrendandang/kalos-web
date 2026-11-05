@@ -24,7 +24,7 @@ export function MethodDetails({ d, m }: { d: PlanAnalysis; m: BatchModel }) {
             ))}
           </ul>
         ) : (
-          <p className="text-body text-fg-muted">No check ran against a range, because the engine returned none.</p>
+          <p className="text-body text-fg-muted">No check ran against a range, because none was reported.</p>
         )}
       </section>
 
@@ -42,7 +42,7 @@ export function MethodDetails({ d, m }: { d: PlanAnalysis; m: BatchModel }) {
             ))}
           </dl>
         ) : (
-          <p className="text-body text-fg-muted">Not reported: the engine did not say how this analysis was produced.</p>
+          <p className="text-body text-fg-muted">Not reported: how this analysis was produced is not recorded.</p>
         )}
         <p className="max-w-[72ch] text-caption text-fg-muted">
           Predicted values and bands are the model&apos;s estimates from {formatNumber(d.n, "count")} measured {d.n === 1 ? "run" : "runs"}, not results. The optimizer has not been validated

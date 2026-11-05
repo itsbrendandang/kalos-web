@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { spreadSentences, trustNumbers, trustSentence, trustTone, uncheckedSentence } from "@/components/campaign/plan/copy";
+import { searchLimitSentence, spreadSentences, trustNumbers, trustSentence, trustTone, uncheckedSentence } from "@/components/campaign/plan/copy";
 import type { ReliabilityVerdict } from "@/lib/api";
 
 const verdict = (over: Partial<ReliabilityVerdict>): ReliabilityVerdict => ({
@@ -43,7 +43,7 @@ describe("Plan spread and checks prose", () => {
   });
 
   it("says a missing range plainly", () => {
-    expect(uncheckedSentence(["DO_pct"])).toBe("The engine returns no range for DO_pct, so it is not checked at the edges.");
+    expect(uncheckedSentence(["DO_pct"])).toBe("No range is reported for DO_pct, so it is not checked at the edges.");
     expect(uncheckedSentence([])).toBe("");
   });
 });
@@ -54,5 +54,18 @@ describe("spreadSentences wording matches diversitySummary", () => {
     expect(text).toContain("Kalos keeps proposals at least 5% apart");
     expect(text).toContain("The model sent a notice about this batch.");
     expect(text).not.toMatch(/engine|max over|factor range|other_notice/);
+  });
+});
+
+describe("searchLimitSentence", () => {
+  it("is null when the engine narrowed nothing", () => {
+    expect(searchLimitSentence(null)).toBeNull();
+    expect(searchLimitSentence([])).toBeNull();
+  });
+
+  it("states the narrowed range in plain words, without the engine's 'design box' term", () => {
+    const s = searchLimitSentence([{ column: "pH", lower: 6.5, upper: 7.5, n_excluded: 1 }]);
+    expect(s).toBe("The search was limited to a narrower range for 1 input: pH from 6.50 to 7.50 (1 run left out).");
+    expect(s).not.toMatch(/design|box|space|engine/i);
   });
 });

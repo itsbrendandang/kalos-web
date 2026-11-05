@@ -155,10 +155,10 @@ export function surfaceSummary(model: SurfaceModel, target: string, fmt: (n: num
   const { x, y } = model;
   const peak = peakCell(model.z);
   const others = model.fixed.length
-    ? `Other inputs are held at the incumbent recipe (${model.fixed.map((f) => `${f.name} ${f.value}`).join(", ")}).`
+    ? `Other inputs are held at the best recipe so far (${model.fixed.map((f) => `${f.name} ${f.value}`).join(", ")}).`
     : model.sweptAt === "incumbent"
-      ? "Other inputs are held at the incumbent recipe."
-      : "Other inputs are held at fixed values the engine did not report.";
+      ? "Other inputs are held at the best recipe so far."
+      : "Other inputs are held at fixed values that are not recorded.";
   const plotted = `${counts.runs} measured ${counts.runs === 1 ? "run" : "runs"} and ${counts.proposals} proposed ${counts.proposals === 1 ? "experiment" : "experiments"} are plotted${counts.outside ? `; ${counts.outside} proposed ${counts.outside === 1 ? "experiment lies" : "experiments lie"} outside the plotted range and ${counts.outside === 1 ? "is" : "are"} not drawn` : ""}.`;
   return [
     `Predicted mean ${target} across ${x.name} from ${fmt(x.vals[0])} to ${fmt(x.vals[x.vals.length - 1])} and ${y.name} from ${fmt(y.vals[0])} to ${fmt(y.vals[y.vals.length - 1])}.`,

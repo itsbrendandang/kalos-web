@@ -149,7 +149,7 @@ export function Batch({
 
         {rows.length === 0 ? (
           <EmptyState
-            title="The engine proposed no experiments"
+            title="The model proposed no experiments"
             description={m.diversity?.short ? `${m.diversity.headline} ${m.spread.join(" ")}` : "This analysis returned an empty batch."}
           />
         ) : (

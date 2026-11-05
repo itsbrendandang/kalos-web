@@ -34,9 +34,9 @@ export function BeforeStart({ m, notes, diversity }: { m: BatchModel; notes: Dat
             {diversity.headline}
           </Note>
         ) : (
-          <Note tone="neutral">The engine did not report how far apart the proposals are.</Note>
+          <Note tone="neutral">How far apart the proposals are was not reported.</Note>
         )}
-        {m.band == null && rowCount > 0 ? <Note tone="neutral">The engine reported no prediction band, so predicted gains are shown without an interval.</Note> : null}
+        {m.band == null && rowCount > 0 ? <Note tone="neutral">No prediction band was reported, so predicted gains are shown without an interval.</Note> : null}
       </ul>
     </section>
   );

@@ -20,10 +20,10 @@ export function BatchSummary({ d, m }: { d: PlanAnalysis; m: BatchModel }) {
         <SummaryCell label={`Best ${m.name}`} caption={incumbent != null ? m.ctx.incumbentLabel : "no reproducible best for this fit"}>
           {incumbent != null ? <MeasuredValue value={formatNumber(incumbent)} unit={unit || undefined} className="text-title" /> : <span className="text-heading text-fg-muted">n/a</span>}
         </SummaryCell>
-        <SummaryCell label="Prediction band" caption={band != null ? `${bandLabel(d.conformal_coverage)}, same width for every proposal. ${BAND_CAVEAT}` : "the engine did not report one"}>
+        <SummaryCell label="Prediction band" caption={band != null ? `${bandLabel(d.conformal_coverage)}, same width for every proposal. ${BAND_CAVEAT}` : "not reported"}>
           <span className={cn("tabular-nums", band != null ? "text-title" : "text-heading text-fg-muted")}>{band != null ? `± ${formatNumber(band)}` : "Not reported"}</span>
         </SummaryCell>
-        <SummaryCell label="Constraints" caption={d.proposal_gating ? (d.proposal_gating.gated ? "gated by predicted feasibility" : "no feasibility gate") : undefined}>
+        <SummaryCell label="Constraints" caption={d.proposal_gating ? (d.proposal_gating.gated ? "filtered by likely feasibility" : "no feasibility filter") : undefined}>
           <span className="text-heading">{d.constraint == null ? "Not reported" : constraint == null ? "None requested" : d.constraint.applied ? "Applied" : "Not applied"}</span>
         </SummaryCell>
       </dl>

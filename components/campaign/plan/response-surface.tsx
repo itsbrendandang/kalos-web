@@ -109,7 +109,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
         <span id={titleId} className="text-heading text-fg">
           Predicted {target} across two inputs
         </span>
-        <span className="text-caption text-fg-muted">Predicted mean only, uncertainty not shown. Other inputs held at the incumbent recipe.</span>
+        <span className="text-caption text-fg-muted">Predicted mean only, uncertainty not shown. Other inputs held at the best recipe so far.</span>
       </figcaption>
 
       <div className="w-full max-w-[520px] overflow-x-auto">

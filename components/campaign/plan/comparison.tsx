@@ -224,5 +224,5 @@ function rangeText(range: ObservedRange | null, prefix = true): string {
   if (!range) return prefix ? "range not reported" : "not reported";
   return range.source === "observed"
     ? `${prefix ? "tried " : ""}${formatSetpoint(range.min, range.decimals)} to ${formatSetpoint(range.max, range.decimals)}`
-    : `${prefix ? "engine range " : ""}${formatNumber(range.min)} to ${formatNumber(range.max)}${prefix ? "" : " (engine)"}`;
+    : `${prefix ? "allowed range " : ""}${formatNumber(range.min)} to ${formatNumber(range.max)}${prefix ? "" : " (allowed)"}`;
 }

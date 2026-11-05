@@ -18,7 +18,7 @@ import { targetName } from "@/components/campaign/target";
 import { constraintNote, designBoxExclusionsNote, incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict } from "@/lib/api";
 import { parseUnit } from "@/lib/utils";
 import { parseSurface } from "@/components/campaign/plan/surface-model";
-import { spreadSentences, uncheckedSentence, edgeSourcesSentence } from "@/components/campaign/plan/copy";
+import { spreadSentences, uncheckedSentence, edgeSourcesSentence, searchLimitSentence } from "@/components/campaign/plan/copy";
 import type { PlanContext, PlanRow } from "@/components/campaign/plan/types";
 
 /**
@@ -93,6 +93,7 @@ export function useBatchModel(d: PlanAnalysis) {
   );
 
   const diversity = diversitySummary(d.batch_diversity, d.proposal_notice);
+  const searchLimit = designBoxExclusionsNote(d.design_box_exclusions);
   const constraint = constraintNote(d.constraint);
 
   return {
@@ -105,7 +106,11 @@ export function useBatchModel(d: PlanAnalysis) {
     /** Plain sentence on how many proposals the engine returned, or null when it sent nothing about it. */
     diversity,
     /** The engine's own strings for this batch, verbatim, for the Method disclosure. */
-    rawDetails: [...(diversity?.rawNotes ?? []), ...(constraint?.raw ? [`Constraint: ${constraint.raw}`] : [])],
+    rawDetails: [
+      ...(diversity?.rawNotes ?? []),
+      ...(constraint?.raw ? [`Constraint: ${constraint.raw}`] : []),
+      ...(searchLimit ? [searchLimit] : []),
+    ],
     spread,
     rows,
     others,
@@ -120,7 +125,7 @@ export function useBatchModel(d: PlanAnalysis) {
       checkedInputs.length ? edgeSourcesSentence(checkedInputs, ranges) : null,
       uncheckedInputs.length ? uncheckedSentence(uncheckedInputs) : null,
       constraint?.plain,
-      designBoxExclusionsNote(d.design_box_exclusions),
+      searchLimitSentence(d.design_box_exclusions),
     ].filter((s): s is string => s != null && s !== ""),
     dataNotes: dataNotes(d),
   };

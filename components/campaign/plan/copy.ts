@@ -51,12 +51,12 @@ export function spreadSentences(div: BatchDiversity | null | undefined, notice: 
   return out;
 }
 
-/** Which range each checked input is compared with: the engine's ranges, or the values tried in the measured runs. */
+/** Which range each checked input is compared with: the allowed range, or the values tried in the measured runs. */
 export function edgeSourcesSentence(inputs: string[], ranges: Record<string, ObservedRange>): string {
-  const engine = inputs.filter((k) => ranges[k]?.source === "engine");
+  const allowed = inputs.filter((k) => ranges[k]?.source === "engine");
   const observed = inputs.filter((k) => ranges[k]?.source === "observed");
   const parts = [
-    engine.length ? `the engine's range for ${engine.join(" and ")}` : null,
+    allowed.length ? `the allowed range for ${allowed.join(" and ")}` : null,
     observed.length ? `the values tried in the measured runs for ${observed.join(" and ")}` : null,
   ].filter(Boolean);
   return `Edge-of-range checks use ${parts.join(", and ")}.`;
@@ -65,5 +65,15 @@ export function edgeSourcesSentence(inputs: string[], ranges: Record<string, Obs
 export function uncheckedSentence(inputs: string[]): string {
   if (inputs.length === 0) return "";
   const list = inputs.join(", ");
-  return inputs.length === 1 ? `The engine returns no range for ${list}, so it is not checked at the edges.` : `The engine returns no ranges for ${list}, so they are not checked at the edges.`;
+  return inputs.length === 1 ? `No range is reported for ${list}, so it is not checked at the edges.` : `No ranges are reported for ${list}, so they are not checked at the edges.`;
+}
+
+/**
+ * The search-box limit in plain words. The engine's own wording ("design box")
+ * is kept out of the sentence; the raw note goes to the Method disclosure.
+ */
+export function searchLimitSentence(exclusions: { column: string; lower: number; upper: number; n_excluded: number }[] | null | undefined): string | null {
+  if (!exclusions || exclusions.length === 0) return null;
+  const parts = exclusions.map((e) => `${e.column} from ${formatNumber(e.lower)} to ${formatNumber(e.upper)} (${formatNumber(e.n_excluded, "count")} ${e.n_excluded === 1 ? "run" : "runs"} left out)`);
+  return `The search was limited to a narrower range for ${exclusions.length} ${exclusions.length === 1 ? "input" : "inputs"}: ${parts.join("; ")}.`;
 }

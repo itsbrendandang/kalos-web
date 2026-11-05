@@ -29,7 +29,7 @@ describe("ResponseSurface2D", () => {
 
   it("says it shows the predicted mean only and that uncertainty is not shown", () => {
     render(<ResponseSurface2D surface={surface} target="titer (g/L)" proposals={proposals} />);
-    expect(screen.getByText("Predicted mean only, uncertainty not shown. Other inputs held at the incumbent recipe.")).toBeTruthy();
+    expect(screen.getByText("Predicted mean only, uncertainty not shown. Other inputs held at the best recipe so far.")).toBeTruthy();
     expect(screen.getByText("Predicted mean only: uncertainty is not shown.", { exact: false })).toBeTruthy();
   });
 

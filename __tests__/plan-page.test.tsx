@@ -219,7 +219,7 @@ describe("Plan data notes and provenance", () => {
     await renderPlan();
     openTab("Method");
     expect(await screen.findByText("How this batch was made")).toBeTruthy();
-    expect(screen.getByText(/^Not reported: the engine did not say/)).toBeTruthy();
+    expect(screen.getByText(/^Not reported: how this analysis was produced/)).toBeTruthy();
   });
 
   it("mounts the response surface only when its disclosure is opened, labelled predicted mean only", async () => {

@@ -20,6 +20,7 @@ import { CampaignHasRunsError, type ColumnRolesInput, type ProvenanceEntry } fro
 import { engineMessage, errorMessage } from "@/lib/engine-error";
 import { campaignStage } from "@/lib/campaign-stage";
 import { directionWarning } from "@/lib/objective";
+import { fitRoom, fitRoomSentence } from "@/lib/fit-rows";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
@@ -131,6 +132,8 @@ export default function SetupPage() {
   const notice = staleNotice(state, analysis?.dataset);
   const canAct = canActOnAnalysis(state);
   const canTarget = canChangeTarget(state, busy);
+  // The engine refuses a re-analysis over its complete-row cap; say how close this fit is before the loop hits it.
+  const roomSentence = analysis ? fitRoomSentence(fitRoom(analysis.n, analysis.run?.max_fit_rows)) : null;
   const picker = sheetSelector({ heldFile: file, heldSheets: state.sheets, sheetUsed: state.sheetUsed, failed });
   // Confirmation is advisory (see lib/setup-attempt.ts nextAction): the fit is already saved on the engine and
   // the sidebar/status bar link straight on, so this action is never a hard gate; it is just quieter until confirmed.
@@ -197,6 +200,7 @@ export default function SetupPage() {
             <p className="text-body text-fg">
               {analysis.dataset}: <span className="tabular-nums">{formatNumber(analysis.n, "count")}</span> runs, <span className="tabular-nums">{formatNumber(analysis.d, "count")}</span> inputs.
             </p>
+            {roomSentence ? <p className="text-body text-fg">{roomSentence}</p> : null}
             <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
               Maximize
               <Select

@@ -71,7 +71,7 @@ export function RecordForm({
       <PageHeader
         eyebrow={`Round ${displayRound(round)}`}
         title="Record results"
-        description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
+        description="Enter each measured value as it comes back. Saving again replaces the value shown; the campaign keeps only the latest one. Results go into the model when you Learn from their round, and after that they cannot be changed here."
         action={
           <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
             {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}

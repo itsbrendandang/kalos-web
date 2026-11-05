@@ -91,7 +91,7 @@ export function RunsTable({
                   </TableCell>
                   <TableCell>
                     <Link href={`/campaign/record#record-${r.id}`} className="text-label text-accent hover:underline">
-                      {r.awaiting ? "Record result" : "Correct result"}
+                      {r.awaiting ? "Record result" : "Change result"}
                     </Link>
                   </TableCell>
                 </TableRow>

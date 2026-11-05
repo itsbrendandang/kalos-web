@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { parseUnit } from "@/lib/utils";
 
-/** Record: enter or correct measured results for this round. Reads and writes the live campaign only, never demo data. */
+/** Record: enter or change measured results for this round. Reads and writes the live campaign only, never demo data. */
 export default function RecordPage() {
   const campaign = useCampaign();
   const latest = useLatest();

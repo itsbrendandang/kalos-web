@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
+import { TheModel } from "@/components/campaign/data/the-model";
 import { YourData } from "@/components/campaign/data/your-data";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
 import { ReplaceRunsDialog } from "@/components/campaign/replace-runs-dialog";
@@ -275,6 +276,8 @@ export default function SetupPage() {
               </p>
             )}
           </div>
+          {/* The fitted model for this file: never shown for a previous file's analysis. */}
+          {stale ? null : <TheModel analysis={analysis} />}
         </div>
       ) : null}
     </div>

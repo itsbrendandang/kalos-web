@@ -50,6 +50,14 @@ describe("YourDataView", () => {
     expect(screen.getByText("No replicates: no two runs share every input value, so run-to-run spread cannot be measured from this sheet.")).toBeTruthy();
   });
 
+  it("charts only the engine's inputs once it has answered, and names the columns it did not use", () => {
+    const { container } = render(<YourDataView name="run.csv" state={ready} target="Titer" engineInputs={["CarbonSource", "SP"]} />);
+    expect(screen.getByText("Not used as inputs by the engine: column 1, Gly.")).toBeTruthy();
+    // Two input histograms plus the target's own distribution; one scatter per input.
+    expect(container.querySelectorAll('svg[aria-label^="Histogram of"]').length).toBe(3);
+    expect(container.querySelectorAll('svg[aria-label^="Titer against"]').length).toBe(2);
+  });
+
   it("says when the engine fitted fewer rows than the sheet holds", () => {
     render(<YourDataView name="run.csv" state={ready} target="Titer" engineRuns={5} />);
     expect(screen.getByText(/The engine fitted/).textContent).toContain("5 of these 6 rows");

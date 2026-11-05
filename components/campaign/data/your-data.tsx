@@ -16,12 +16,28 @@ import { Section } from "@/components/kit/section";
 import { formatNumber } from "@/lib/format";
 
 /** Reads the held file in the browser and shows what it contains. `sheet` picks a worksheet the engine used. */
-export function YourData({ file, sheet, target, engineRuns }: { file: File; sheet?: string; target?: string; engineRuns?: number | null }) {
+export function YourData({ file, sheet, target, engineRuns, engineInputs }: { file: File; sheet?: string; target?: string; engineRuns?: number | null; engineInputs?: string[] }) {
   const state = useSheetProfile(file, sheet);
-  return <YourDataView name={file.name} state={state} target={target} engineRuns={engineRuns} />;
+  return <YourDataView name={file.name} state={state} target={target} engineRuns={engineRuns} engineInputs={engineInputs} />;
 }
 
-export function YourDataView({ name, state, target, engineRuns }: { name: string; state: SheetProfileState | null; target?: string; engineRuns?: number | null }) {
+/**
+ * `engineInputs` is the engine's own input list once it has answered. Before that every column that is not the
+ * target is shown as a candidate input; afterwards only the engine's inputs are charted, and the rest are named.
+ */
+export function YourDataView({
+  name,
+  state,
+  target,
+  engineRuns,
+  engineInputs,
+}: {
+  name: string;
+  state: SheetProfileState | null;
+  target?: string;
+  engineRuns?: number | null;
+  engineInputs?: string[];
+}) {
   if (!state || state.status === "loading") {
     return (
       <Section title="Your data" description={`${name}, read in your browser.`}>
@@ -49,7 +65,9 @@ export function YourDataView({ name, state, target, engineRuns }: { name: string
     );
   }
   const flags = dataFlags(profile);
-  const inputs = profile.columns.filter((c) => c.name !== target && (c.kind === "numeric" || c.kind === "category"));
+  const isInput = (c: ColumnProfile) => (engineInputs ? engineInputs.includes(c.name) : c.name !== target) && (c.kind === "numeric" || c.kind === "category");
+  const inputs = profile.columns.filter(isInput);
+  const notUsed = engineInputs ? profile.columns.filter((c) => c.kind !== "empty" && c.name !== target && !engineInputs.includes(c.name)).map((c) => c.name) : [];
   const targetCol = target ? profile.columns.find((c) => c.name === target) : undefined;
   const summary = `${formatNumber(profile.n, "count")} ${profile.n === 1 ? "run" : "runs"}, ${formatNumber(profile.columns.filter((c) => c.kind !== "empty").length, "count")} columns, read from this file in your browser.`;
   return (
@@ -73,6 +91,7 @@ export function YourDataView({ name, state, target, engineRuns }: { name: string
           ) : (
             <p className="text-body text-fg-muted">No blank cells, constant columns, repeated runs or identical columns found.</p>
           )}
+          {notUsed.length ? <p className="text-body text-fg-muted">Not used as inputs by the engine: {notUsed.join(", ")}.</p> : null}
           {inputs.length ? (
             <ul className="flex flex-col divide-y divide-border">
               {inputs.map((c) => (
@@ -139,7 +158,6 @@ function InputRow({ col }: { col: ColumnProfile }) {
             .
           </p>
         ) : null}
-        {col.headerless ? <p className="text-caption text-fg-muted">No header in the sheet; named by position.</p> : null}
         <p className="mt-1 text-caption text-fg-muted">{gapSentence(gaps?.gaps ?? [], gaps ? { min: gaps.min, max: gaps.max } : null)}</p>
       </div>
       <div className="flex min-w-0 flex-col gap-3">

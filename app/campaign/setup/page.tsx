@@ -203,6 +203,7 @@ export default function SetupPage() {
           sheet={state.sheetUsed ?? undefined}
           target={analysis && !stale && !busy ? analysis.target : undefined}
           engineRuns={analysis && !stale && !busy ? analysis.n : null}
+          engineInputs={analysis && !stale && !busy ? analysis.features : undefined}
         />
       ) : null}
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CampaignRun, Promotion } from "@/lib/api";
-import { bandCalibration, calibrationSentence, canPlanNext, promotionLine } from "@/components/campaign/learn";
+import { bandCalibration, calibrationSentence, canPlanNext, promotionLine, verdictImpact } from "@/components/campaign/learn";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 const run = (pred: number, result: number | null): CampaignRun => ({
@@ -59,5 +59,14 @@ describe("promotionLine", () => {
   });
   it("explains an unmeasurable gate as unmeasured", () => {
     expect(promotionLine(promo(false, ["feasibility_auc missing/NaN (unmeasured)"]))).toContain("could not be measured on this data");
+  });
+});
+
+describe("verdictImpact", () => {
+  it("says what the next round does for each verdict", () => {
+    expect(verdictImpact("reliable", true, 3)).toBe("Plan round 3 uses it to suggest the next batch of recipes.");
+    expect(verdictImpact("reliable", false, 3)).toContain("not cleared to promote");
+    expect(verdictImpact("not-yet", true, 2)).toContain("provisional");
+    expect(verdictImpact("insufficient", true, 2)).toContain("Not enough held-out runs");
   });
 });

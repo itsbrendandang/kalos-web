@@ -53,3 +53,15 @@ export function promotionLine(promotion: Promotion | undefined): string | null {
   const more = rest.length ? ` (${rest.length} more ${rest.length === 1 ? "check" : "checks"} also fell short)` : "";
   return `Not cleared to promote: ${reason}${more}. ${gate?.fix ?? "Add more measured runs."}`;
 }
+
+/**
+ * What the verdict changes for the next round, in one plain sentence. Reads the
+ * reliability state and whether the promotion gate cleared; the raw gate detail
+ * stays in the verdict's disclosure.
+ */
+export function verdictImpact(state: "reliable" | "not-yet" | "insufficient", promotionCleared: boolean, nextRound: number): string {
+  if (state === "insufficient") return `Not enough held-out runs to judge the model yet. Record more results before relying on its ranking.`;
+  if (state === "not-yet") return `Treat its suggestions as provisional. Plan round ${nextRound} still uses every measured result to refit the model.`;
+  if (!promotionCleared) return `Plan round ${nextRound} can use it to suggest recipes, but it is not cleared to promote yet.`;
+  return `Plan round ${nextRound} uses it to suggest the next batch of recipes.`;
+}

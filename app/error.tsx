@@ -33,14 +33,14 @@ export default function GlobalErrorBoundary({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-4 border-red/30 bg-card sm:flex-row sm:items-center sm:justify-between">
+      <Card className="flex flex-col gap-4 border-bad/30 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-red">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-subtle text-bad">
             <AlertCircle className="size-5" />
           </span>
           <div>
-            <div className="font-head text-[16px] font-semibold text-fg">Something went wrong</div>
-            <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-explore-deep">
+            <div className="text-heading text-fg">Something went wrong</div>
+            <p className="mt-1 max-w-[62ch] text-body text-fg">
               This page hit an unexpected error while rendering. Try again, or head back and pick a different
               experiment or page.
             </p>

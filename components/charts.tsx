@@ -14,34 +14,24 @@ import { formatNumber } from "@/lib/format";
 const fmtTick = (v: number) => formatNumber(v);
 
 /**
- * Shared recharts theme, driven by the app-wide design tokens
- * (app/globals.css). Every chart on every surface reads from this object so
- * series color, grid, axis, and tooltip styling stay in sync across the app.
- * See DESIGN.md for the token reference.
+ * Shared recharts theme, read from the design tokens in app/globals.css (see
+ * DESIGN.md). Every chart reads from this object so series, grid, axis and
+ * tooltip styling stay in sync. Colour is never the only carrier of meaning:
+ * the series names and the chart captions say what each mark is.
  *
- * `series` points at `--accent` (the brand blue chrome color), not a
- * `--chart-*` step: none of the charts below encode ORDERED MAGNITUDE (that
- * role belongs to `--chart-1..5`, reserved for heatmaps/response surfaces -
- * see components/dashboard/heat-scale.ts) or UNORDERED CATEGORIES (that role
- * belongs to `--series-1..6`, the Okabe-Ito palette, for multi-series
- * overlays like per-vessel kinetic traces). Every chart here is either a
- * single trend line or a two-way "highlighted vs. background" split
- * (Pareto front / the rest, positive / negative correlation, zero-producer /
- * normal run) - a plain accent-vs-explore emphasis pair, the same pairing
- * the rest of the app already uses for "selected vs. not". Pulling from
- * --chart-1 (the *lightest*, near-white step of the sequential ramp) here -
- * as this file previously did - both misused a magnitude-only token for a
- * non-magnitude encoding and rendered as a washed-out, low-contrast line.
+ * `series` is the accent. `seriesDown` is the neutral reference colour, used
+ * for the second group in a two-way split (for example the runs that are not
+ * on the Pareto front, or a negative correlation).
  */
 export const CHART_THEME = {
   series: "var(--accent)",
-  seriesDown: "var(--explore)",
-  grid: "var(--grid)",
-  axis: "var(--muted)",
+  seriesDown: "var(--chart-reference)",
+  grid: "var(--chart-grid)",
+  axis: "var(--fg)",
   hoverCursor: "color-mix(in oklch, var(--accent) 6%, transparent)",
   tooltip: {
     border: "var(--border)",
-    background: "var(--card)",
+    background: "var(--surface)",
     text: "var(--fg)",
   },
 } as const;
@@ -52,11 +42,11 @@ const GRAY = CHART_THEME.seriesDown;
 const GRID = CHART_THEME.grid;
 const INK = CHART_THEME.axis;
 
-export const tick = { fontSize: 11, fill: INK, fontFamily: "var(--font-mono)" } as const;
+export const tick = { fontSize: 11, fill: INK, fontVariantNumeric: "tabular-nums" } as const;
 export const tip = {
   contentStyle: {
     fontSize: 12,
-    fontFamily: "var(--font-mono)",
+    fontVariantNumeric: "tabular-nums",
     borderRadius: 8,
     border: `1px solid ${CHART_THEME.tooltip.border}`,
     background: CHART_THEME.tooltip.background,
@@ -117,8 +107,8 @@ export function ProgressChart({ data }: { data: { round: number; best: number | 
               labelFormatter={(round) => `round ${round}`}
               formatter={(value, name) => (
                 <div className="flex w-full items-center justify-between gap-3">
-                  <span className="text-muted-foreground">{name}</span>
-                  <span className="font-mono font-medium text-foreground tabular-nums">{formatNumber(Number(value))}</span>
+                  <span className="text-fg">{name}</span>
+                  <span className="font-medium text-fg tabular-nums">{formatNumber(Number(value))}</span>
                 </div>
               )}
             />

@@ -37,7 +37,8 @@ export function UploadDropzone({
       />
       <div
         role="button"
-        tabIndex={0}
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled || undefined}
         aria-label="Upload a run sheet (CSV, TSV, or Excel)"
         onClick={() => {
           if (!disabled) inputRef.current?.click();
@@ -63,16 +64,16 @@ export function UploadDropzone({
         }}
         className={cn(
           "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors",
-          drag ? "border-accent bg-accent-soft" : "border-border bg-card hover:bg-blue-soft",
-          disabled && "pointer-events-none opacity-60",
+          drag ? "border-accent bg-accent-soft" : "border-border bg-surface hover:bg-subtle",
+          disabled && "pointer-events-none cursor-default bg-subtle",
           className,
         )}
       >
         <Upload className="size-7 text-accent" />
-        <div className="text-sm font-semibold">
-          Drop a run sheet here <span className="font-normal text-muted">or click to choose</span>
+        <div className="text-heading text-fg">
+          Drop a run sheet here <span className="font-normal">or click to choose</span>
         </div>
-        <div className="font-mono text-[11px] text-muted">CSV / TSV / XLSX / parsed for this analysis</div>
+        <div className="text-caption text-fg">CSV, TSV or Excel (.xlsx, .xls)</div>
       </div>
     </>
   );

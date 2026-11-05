@@ -15,7 +15,7 @@ export function ServiceUnavailable({
   onRetry,
   busy,
   title = "Analysis service unavailable",
-  body = "The dashboard could not reach the analysis service. Try again in a moment or contact Kalos support.",
+  body = "This page could not reach the analysis service. Try again in a moment. If it keeps happening, contact Kalos support.",
 }: {
   onRetry: () => void;
   busy: boolean;
@@ -23,29 +23,25 @@ export function ServiceUnavailable({
   body?: string;
 }) {
   return (
-    // variant stays "default": the "destructive" variant forces
-    // AlertDescription's text to the stock, contrast-unverified
-    // `--destructive` red via a `*:data-[slot=alert-description]:...` child
-    // selector that outranks any color class passed through className. This
-    // banner is an amber "transport unavailable" warning, not a red error,
-    // and its colors come from the app's own AA-checked `--amber`/`--explore`
-    // tokens instead.
+    // variant stays "default": the "destructive" variant forces the description
+    // text to a red that outranks className. This banner is a warning about
+    // the connection, not a data error, so it uses the warn tokens.
     <Alert
       variant="default"
-      className="flex flex-col items-start gap-4 border-amber/30 bg-amber-soft px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col items-start gap-4 border-warn/30 bg-warn-soft px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex min-w-0 gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-amber">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-warn">
           <AlertTriangle className="size-5" aria-hidden />
         </span>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <AlertTitle className="font-head text-[16px] font-normal text-fg">{title}</AlertTitle>
-            <Badge variant="outline" className="border-amber/40 text-amber">
-              transport error
+            <AlertTitle className="text-heading font-normal text-fg">{title}</AlertTitle>
+            <Badge variant="outline" className="border-warn/40 text-warn">
+              Connection problem
             </Badge>
           </div>
-          <AlertDescription className="mt-1 max-w-[62ch] text-[13px] leading-5 text-explore-deep">
+          <AlertDescription className="mt-1 max-w-[62ch] text-body text-fg">
             {body}
           </AlertDescription>
         </div>

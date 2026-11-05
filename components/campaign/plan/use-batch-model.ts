@@ -92,6 +92,9 @@ export function useBatchModel(d: PlanAnalysis) {
     [rows, surface],
   );
 
+  const diversity = diversitySummary(d.batch_diversity, d.proposal_notice);
+  const constraint = constraintNote(d.constraint);
+
   return {
     name,
     unit,
@@ -100,7 +103,9 @@ export function useBatchModel(d: PlanAnalysis) {
     verdict,
     ranges,
     /** Plain sentence on how many proposals the engine returned, or null when it sent nothing about it. */
-    diversity: diversitySummary(d.batch_diversity, d.proposal_notice),
+    diversity,
+    /** The engine's own strings for this batch, verbatim, for the Method disclosure. */
+    rawDetails: [...(diversity?.rawNotes ?? []), ...(constraint?.raw ? [`Constraint: ${constraint.raw}`] : [])],
     spread,
     rows,
     others,
@@ -114,7 +119,7 @@ export function useBatchModel(d: PlanAnalysis) {
     checkSentences: [
       checkedInputs.length ? edgeSourcesSentence(checkedInputs, ranges) : null,
       uncheckedInputs.length ? uncheckedSentence(uncheckedInputs) : null,
-      constraintNote(d.constraint),
+      constraint?.plain,
       designBoxExclusionsNote(d.design_box_exclusions),
     ].filter((s): s is string => s != null && s !== ""),
     dataNotes: dataNotes(d),

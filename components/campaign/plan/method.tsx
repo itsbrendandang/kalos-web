@@ -10,7 +10,7 @@ import { formatNumber } from "@/lib/format";
  */
 export function MethodDetails({ d, m }: { d: PlanAnalysis; m: BatchModel }) {
   const facts = runFacts(d.run);
-  const raw = m.diversity?.notes ?? [];
+  const raw = m.rawDetails;
   return (
     <div className="flex flex-col gap-6">
       <section aria-labelledby="plan-method-checks" className="flex flex-col gap-2">

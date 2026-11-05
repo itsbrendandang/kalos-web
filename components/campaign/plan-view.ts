@@ -387,8 +387,10 @@ export function toggleCompare(current: readonly number[], rank: number, max = CO
 export type DiversitySummary = {
   /** One sentence. */
   headline: string;
-  /** Supporting sentences, plain words, from the engine's numbers. */
+  /** Supporting sentences in plain words, from the engine's numbers. No metric text, no codes. */
   notes: string[];
+  /** The engine's own strings for this batch (the metric definition, a notice code), verbatim, for a disclosure. */
+  rawNotes: string[];
   /** True when the batch came back shorter than requested. */
   short: boolean;
 };
@@ -405,29 +407,30 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
   const sep = div?.min_separation ?? notice?.min_separation;
   const short = notice != null || (requested != null && returned != null && returned < requested);
   const notes: string[] = [];
+  const rawNotes: string[] = [];
   let headline: string;
   if (requested != null && returned != null) {
     headline = short
-      ? `The engine returned ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} proposals requested.`
-      : `The engine returned all ${formatNumber(requested, "count")} proposals requested.`;
+      ? `Kalos returned ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} proposals requested.`
+      : `Kalos returned all ${formatNumber(requested, "count")} proposals requested.`;
   } else {
-    headline = short ? "The engine returned fewer proposals than requested." : "The engine reported how far apart this batch's proposals are.";
+    headline = short ? "Kalos returned fewer proposals than requested." : "Kalos reported how far apart this batch's proposals are.";
   }
   if (sep != null && Number.isFinite(sep)) {
-    notes.push(`Minimum separation it enforces: ${formatNumber(sep, "pct")}${div?.metric ? `, measured as "${div.metric}"` : ""}.`);
-  } else if (div?.metric) {
-    notes.push(`Separation measured as "${div.metric}".`);
+    notes.push(`Proposals are kept at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
   }
+  if (div?.metric) rawNotes.push(`Separation measured as "${div.metric}".`);
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
-    notes.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
+    notes.push(`Kalos replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") {
-    notes.push("It found no further candidate at least that far from the others (code fewer_distinct_candidates).");
+    notes.push("No further candidate was far enough from the others, so the batch is shorter than requested.");
   } else if (notice) {
-    notes.push(`Engine notice code: ${notice.code}.`);
+    notes.push("The model sent a notice about this batch. Its details are under Method.");
   }
-  return { headline, notes, short };
+  if (notice) rawNotes.push(`Notice code: ${notice.code}.`);
+  return { headline, notes, rawNotes, short };
 }
 
 // --- Upload rejections -----------------------------------------------------------------

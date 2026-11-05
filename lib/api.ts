@@ -975,19 +975,32 @@ export function proposalGatingNote(gating: ProposalGating | null | undefined): s
 }
 
 /**
+ * A constraint's status in plain words (`plain`), with the engine's own reason kept apart (`raw`) for a
+ * disclosure. `raw` is null when the engine gave no reason to show (the constraint applied).
+ */
+export type ConstraintNote = { plain: string; raw: string | null };
+
+/**
  * Whether/why a requested constraint was applied to this batch
  * (`constraint`). `null` when the field is absent, or present but inert (the
  * overwhelmingly common "no constraint requested" case) - rendering nothing
  * for that case even though the field itself is present, since there is
  * nothing to disclose.
  */
-export function constraintNote(constraint: ConstraintReport | null | undefined): string | null {
+export function constraintNote(constraint: ConstraintReport | null | undefined): ConstraintNote | null {
   if (!constraint) return null;
   if (constraint.reason === "no constraint requested") return null;
   if (constraint.applied) {
-    return `Constrained by ${constraint.column} >= ${constraint.floor} (fit on ${constraint.n_rows_with_value} rows).`;
+    return { plain: `The batch keeps ${constraint.column} at or above ${constraint.floor}, using the ${constraint.n_rows_with_value} runs that report it.`, raw: null };
   }
-  return `Constraint on ${constraint.column ?? "the requested column"} not applied - ${constraint.reason ?? "unknown reason"}.`;
+  const column = constraint.column ?? "the requested column";
+  // The engine's reason names the count; the sentence says it in plain words and keeps the reason verbatim.
+  const few = constraint.reason != null && /numeric value/.test(constraint.reason);
+  const n = constraint.n_rows_with_value;
+  const plain = few
+    ? `The constraint on ${column} was not applied: only ${n} ${n === 1 ? "run reports" : "runs report"} a numeric value for it.`
+    : `The constraint on ${column} was not applied to this batch.`;
+  return { plain, raw: constraint.reason };
 }
 
 /**

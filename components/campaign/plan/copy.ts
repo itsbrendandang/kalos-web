@@ -41,13 +41,13 @@ export function trustNumbers(v: ReliabilityVerdict): string | null {
 export function spreadSentences(div: BatchDiversity | null | undefined, notice: ProposalNotice | null | undefined): string[] {
   const out: string[] = [];
   const sep = div?.min_separation ?? notice?.min_separation;
-  if (sep != null && Number.isFinite(sep)) out.push(`The engine keeps proposals at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
+  if (sep != null && Number.isFinite(sep)) out.push(`Kalos keeps proposals at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
     out.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") out.push("No further candidate was far enough from the others, so the batch is shorter than requested.");
-  else if (notice) out.push("The engine sent a notice about this batch. Its details are under Method.");
+  else if (notice) out.push("The model sent a notice about this batch. Its details are under Method.");
   return out;
 }
 

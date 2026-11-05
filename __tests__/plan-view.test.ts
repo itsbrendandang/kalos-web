@@ -244,15 +244,13 @@ describe("diversitySummary", () => {
     expect(diversitySummary(undefined, undefined)).toBeNull();
     expect(diversitySummary(null, null)).toBeNull();
   });
-  it("describes a full batch from the engine's numbers, quoting its metric, without claims it did not make", () => {
+  it("describes a full batch in plain words, and keeps the engine's metric text apart from them", () => {
     const s = diversitySummary({ requested: 5, returned: 5, near_duplicates_replaced: 1, min_separation: 0.05, metric: "max over continuous factors of |difference| / factor range" }, null)!;
     expect(s.short).toBe(false);
-    expect(s.headline).toBe("The engine returned all 5 proposals requested.");
-    expect(s.notes).toEqual([
-      'Minimum separation it enforces: 5%, measured as "max over continuous factors of |difference| / factor range".',
-      "It replaced 1 near-duplicate proposal.",
-    ]);
-    expect(JSON.stringify(s)).not.toMatch(/distinct|in flight/);
+    expect(s.headline).toBe("Kalos returned all 5 proposals requested.");
+    expect(s.notes).toEqual(["Proposals are kept at least 5% apart on the input ranges.", "Kalos replaced 1 near-duplicate proposal."]);
+    expect(s.notes.join(" ")).not.toMatch(/max over|factor range|engine|distinct|in flight/);
+    expect(s.rawNotes).toEqual(['Separation measured as "max over continuous factors of |difference| / factor range".']);
   });
   it("says when the batch came back short", () => {
     const s = diversitySummary(
@@ -260,8 +258,10 @@ describe("diversitySummary", () => {
       { code: "fewer_distinct_candidates", requested: 5, returned: 3, min_separation: 0.05, message: "..." },
     )!;
     expect(s.short).toBe(true);
-    expect(s.headline).toBe("The engine returned 3 of the 5 proposals requested.");
-    expect(s.notes.at(-1)).toMatch(/no further candidate.*fewer_distinct_candidates/);
+    expect(s.headline).toBe("Kalos returned 3 of the 5 proposals requested.");
+    expect(s.notes.at(-1)).toBe("No further candidate was far enough from the others, so the batch is shorter than requested.");
+    expect(s.notes.join(" ")).not.toMatch(/fewer_distinct_candidates|code/);
+    expect(s.rawNotes).toEqual(["Notice code: fewer_distinct_candidates."]);
   });
 });
 

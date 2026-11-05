@@ -47,3 +47,12 @@ describe("Plan spread and checks prose", () => {
     expect(uncheckedSentence([])).toBe("");
   });
 });
+
+describe("spreadSentences wording matches diversitySummary", () => {
+  it("says Kalos, not the engine, and never shows the metric text or a notice code", () => {
+    const text = spreadSentences({ requested: 5, returned: 5, near_duplicates_replaced: 0, min_separation: 0.05, metric: "max over continuous factors of |difference| / factor range" }, { code: "other_notice", requested: 5, returned: 5, min_separation: 0.05, message: "..." }).join(" ");
+    expect(text).toContain("Kalos keeps proposals at least 5% apart");
+    expect(text).toContain("The model sent a notice about this batch.");
+    expect(text).not.toMatch(/engine|max over|factor range|other_notice/);
+  });
+});

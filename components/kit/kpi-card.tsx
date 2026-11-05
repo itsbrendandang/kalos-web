@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import { Card } from "@/components/tremor/card";
+import { Card } from "@/components/ui/card";
 import { formatNumber, type Quantity } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,7 @@ export function KpiCard({
   const Wrap = bare ? "div" : Card;
   const shown = typeof value === "string" ? value : formatNumber(value, quantity);
   return (
-    <Wrap className={cn("flex flex-col gap-1", className)}>
+    <Wrap className={cn("flex flex-col gap-1", bare ? null : "p-6", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-label text-fg-muted">{label}</p>
         {badge}

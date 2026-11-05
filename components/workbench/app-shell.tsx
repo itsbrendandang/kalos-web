@@ -79,14 +79,14 @@ function MobileTopBar({ onOpenSheet, onSearch }: { onOpenSheet: () => void; onSe
   // A header, so the mobile bar is a banner landmark (axe "region": content outside landmarks).
   return (
     <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-subtle px-2 md:hidden">
-      <button type="button" onClick={onOpenSheet} aria-label="Open navigation" className="grid size-9 place-items-center rounded-lg text-fg hover:bg-surface">
+      <button type="button" onClick={onOpenSheet} aria-label="Open navigation" className="grid size-9 place-items-center rounded-lg text-fg hover:bg-fill-hover">
         <Menu className="size-5" aria-hidden />
       </button>
       <Link href="/" className="px-1 text-heading text-fg">
         Kalos
       </Link>
       <span className="flex-1" />
-      <button type="button" onClick={onSearch} aria-label="Search pages and actions" className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-surface hover:text-fg">
+      <button type="button" onClick={onSearch} aria-label="Search pages and actions" className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-fill-hover hover:text-fg">
         <Search className="size-5" aria-hidden />
       </button>
       <WorkspaceMenu side="bottom" />

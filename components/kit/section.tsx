@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,7 +37,7 @@ export function Section({
   );
 }
 
-/** A bordered region (12px radius, hairline, no shadow), for content that needs a boundary. */
+/** A bordered region: the shared Card surface (hairline, card shadow, 8px radius), for content that needs a boundary. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("rounded-2xl glass p-5", className)} {...props} />;
+  return <Card className={className} {...props} />;
 }

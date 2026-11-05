@@ -48,7 +48,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
   const row = (active: boolean) =>
     cn(
       "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-body transition-colors",
-      active ? "bg-fg/[0.07] font-medium text-fg" : "text-fg-muted hover:bg-fg/[0.05] hover:text-fg",
+      active ? "bg-fill-active font-medium text-fg" : "text-fg-muted hover:bg-fill-hover hover:text-fg",
     );
 
   return (
@@ -65,7 +65,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
         type="button"
         onClick={onSearch}
         aria-label={`Search pages and actions (${shortcut})`}
-        className="flex h-9 items-center gap-2 rounded-lg bg-fg/[0.05] px-2.5 text-body text-fg-muted hover:bg-fg/[0.08]"
+        className="flex h-9 items-center gap-2 rounded-lg bg-fill-hover px-2.5 text-body text-fg-muted hover:bg-fill-active"
       >
         <Search className="size-4" aria-hidden />
         <span className="flex-1 text-left">Search</span>
@@ -96,7 +96,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
           ))}
         </ul>
         <details open={MORE.includes(section)} className="group">
-          <summary className="flex h-9 cursor-pointer list-none items-center gap-2.5 rounded-lg px-2.5 text-body text-fg-muted hover:bg-fg/[0.05] hover:text-fg [&::-webkit-details-marker]:hidden">
+          <summary className="flex h-9 cursor-pointer list-none items-center gap-2.5 rounded-lg px-2.5 text-body text-fg-muted hover:bg-fill-hover hover:text-fg [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-[18px] shrink-0 transition-transform group-open:rotate-90" aria-hidden />
             More
           </summary>
@@ -125,7 +125,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
         <p className="px-2.5 pb-1 text-caption text-fg-muted">Research use only. Suggestions are hypotheses to test, not validated specifications.</p>
         <div className="flex items-center gap-1 pl-1">
           {status === "offline" ? (
-            <button type="button" onClick={retry} className="flex h-9 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fg/[0.05]">
+            <button type="button" onClick={retry} className="flex h-9 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fill-hover">
               <span className="size-2 rounded-full bg-bad" aria-hidden />
               Engine offline. Retry
             </button>

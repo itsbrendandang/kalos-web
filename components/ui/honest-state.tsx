@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 import { Inbox, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -121,11 +122,11 @@ export function LoadingSkeleton({
     return (
       <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", className)} {...common}>
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="rounded-2xl glass p-5">
+          <Card key={i}>
             <Skeleton className="h-3 w-20" />
             <Skeleton className="mt-3 h-6 w-16" />
             <Skeleton className="mt-2 h-3 w-28" />
-          </div>
+          </Card>
         ))}
       </div>
     );

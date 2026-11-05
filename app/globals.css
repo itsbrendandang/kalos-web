@@ -17,7 +17,7 @@
 :root {
   color-scheme: light;
 
-  /* Neutrals: warm paper, ink text. */
+  /* Neutrals: flat white surfaces, warm grey hairlines, warm near-black ink. */
   --bg: oklch(1 0 0);
   --surface: oklch(1 0 0);
   --subtle: oklch(0.972 0.003 95);
@@ -27,6 +27,9 @@
   --border-input: oklch(0.6 0.008 90);
   --fg: oklch(0.33 0.012 85);
   --fg-muted: oklch(0.5 0.008 90);
+  /* Translucent ink for hover and selected rows on the grey sidebar. */
+  --fill-hover: oklch(0.33 0.012 85 / 0.05);
+  --fill-active: oklch(0.33 0.012 85 / 0.08);
 
   /* Accent: the primary action, links, focus, the model's proposal. */
   --accent: oklch(0.52 0.15 252);
@@ -77,6 +80,8 @@
   --border-input: oklch(0.56 0.01 270);
   --fg: oklch(0.92 0.004 90);
   --fg-muted: oklch(0.72 0.006 90);
+  --fill-hover: oklch(0.92 0.004 90 / 0.06);
+  --fill-active: oklch(0.92 0.004 90 / 0.1);
 
   /* A light accent fill on a dark page, so the label on it is dark ink. */
   --accent: oklch(0.72 0.11 245);
@@ -142,7 +147,6 @@
   --chart-1-ink: var(--accent);
   --primary-foreground: var(--accent-fg);
   --secondary: var(--subtle);
-  --font-jbmono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 @theme inline {
@@ -154,6 +158,8 @@
   --color-border-input: var(--border-input);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
+  --color-fill-hover: var(--fill-hover);
+  --color-fill-active: var(--fill-active);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
@@ -228,8 +234,8 @@
 }
 
 /* Type scale: role tokens, one per job. `text-metric` numbers also take
- * `tabular-nums` (Metric and KpiCard apply it). Geist Mono via `font-mono
- * text-code` is for code-like values only (ids, column keys), never numbers. */
+ * `tabular-nums` (Metric and KpiCard apply it). The system monospace via
+ * `font-mono text-code` is for code-like values only (ids, column keys), never numbers. */
 @theme {
   --text-display: 2.5rem;
   --text-display--line-height: 3rem;
@@ -258,8 +264,9 @@
   --text-code: 0.8125rem;
   --text-code--line-height: 1.125rem;
 
-  /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
-   * are Tailwind's defaults, so the scale is not overridden. */
+  /* Radius (Notion style, small): rounded-lg 5px for controls, rounded-xl 6px
+   * for callouts and inline panels, rounded-2xl 8px for cards. Do not use
+   * rounded-3xl or larger. */
 
   /* Elevation: none, except overlays (popovers, menus, dialogs, the palette),
    * which use shadow-popover. The scale is zeroed rather than banned with
@@ -271,7 +278,7 @@
   --shadow-lg: none;
   --shadow-xl: none;
   --shadow-2xl: none;
-  /* Cards: a hairline plus a soft, low lift (Apple style). */
+  /* Cards: a hairline plus a 1px lift, used by the `glass` class. */
   --shadow-card: 0 1px 2px oklch(0.33 0.012 85 / 0.06);
   --radius-lg: 0.3125rem;
   --radius-xl: 0.375rem;
@@ -331,8 +338,9 @@ body {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8' viewBox='0 0 16 8'%3E%3Cpath d='M0 7.5H3.5V1.5H12.5V6H8V4' fill='none' stroke='black' stroke-width='1' stroke-linejoin='miter'/%3E%3Cpath d='M12.5 7.5H16' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") repeat-x left center / 16px 8px;
 }
 
-
-/* Surface: the one card treatment, flat with a hairline (Notion style). Overlays keep their own shadow-popover. */
+/* Surfaces. `glass` is the one card treatment: a flat surface with a hairline
+ * and the card shadow (the name is historical; nothing is translucent).
+ * Overlays keep their own shadow-popover. `canvas` is the page background. */
 @layer components {
   .glass {
     background: var(--surface);
@@ -341,8 +349,5 @@ body {
   }
   .canvas {
     background-color: var(--bg);
-  }
-  @media (prefers-reduced-transparency: reduce) {
-    .glass { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
 }

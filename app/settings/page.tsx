@@ -27,8 +27,8 @@ export default function SettingsPage() {
       <Appearance />
       <EngineConnection />
       <Integrations />
-      <Section title="Change history" description="Every change to your process map is logged on this device.">
-        <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>View change history</Link>
+      <Section title="Activity log" description="A local log of changes you made to your process map. It is not an audit trail for regulated records.">
+        <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>View activity log</Link>
       </Section>
     </div>
   );

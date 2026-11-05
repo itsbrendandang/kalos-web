@@ -10,7 +10,7 @@ import { sha256, useAudit } from "@/lib/audit-store";
 
 type Check = { state: "idle" } | { state: "ok" } | { state: "bad"; seq: number; why: string };
 
-/** Change history of the process map on this device. Each entry is chained to the one before it. */
+/** Local activity log of changes to the process map. Each entry is chained to the one before it. Not an audit trail for regulated records. */
 export default function AuditPage() {
   const { entries, where } = useAudit();
   const [check, setCheck] = useState<Check>({ state: "idle" });
@@ -23,7 +23,7 @@ export default function AuditPage() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "kalos-audit-log.json";
+    a.download = "kalos-activity-log.json";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -32,8 +32,8 @@ export default function AuditPage() {
     <div className="flex max-w-3xl flex-col gap-8">
       <PageHeader
         eyebrow="Settings"
-        title="Change history"
-        description="Every change to your process map, newest first. Entries can be added but not edited here, and each one is linked to the one before it, so a changed or removed entry shows up when you check."
+        title="Local activity log"
+        description="Changes to your process map, newest first. This is a local activity log, not an audit trail for regulated records. Entries can be added but not edited here, and each one is linked to the one before it, so a changed or removed entry shows up when you check."
         action={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => void verify()} disabled={!entries.length}>Check the history</Button>
@@ -61,7 +61,7 @@ export default function AuditPage() {
         </ol>
       )}
       <p className="text-caption text-fg-muted">
-        {where === "file" ? "This history is kept in a file in your Kalos folder (audit-log.jsonl)" : "This history is kept in this browser's storage"} and records each change with who made it (a signed-in name, or Local mode, no sign-in). It is tamper-evident, not tamper-proof: anyone who can open {where === "file" ? "that file" : "this browser's storage"} can rewrite all of it. It is not an electronic-signature or validated GxP record.
+        {where === "file" ? "This log is kept in a file in your Kalos folder (audit-log.jsonl)" : "This log is kept in this browser's storage"} and records each change with who made it (a signed-in name, or Local mode, no sign-in). It is a local activity log, not an audit trail for regulated records. It is tamper-evident, not tamper-proof: anyone who can open {where === "file" ? "that file" : "this browser's storage"} can rewrite all of it. It is not an electronic-signature or validated GxP record.
       </p>
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EngineError, engineMessage, errorMessage } from "@/lib/engine-error";
+import { EngineError, engineMessage, errorMessage, LEARN_FALLBACK, learnFailure } from "@/lib/engine-error";
 
 const CODES = [
   "payload_too_large",
@@ -107,3 +107,46 @@ describe("fit-row cap (the engine's uncoded refusal over N complete rows)", () =
     expect(engineMessage({ code: "constructor" }).message).toMatch(/could not use this file/);
   });
 });
+
+/*
+ * Learn's failure state (Phase 0a follow-up): the plain reason first; the engine's own words only in
+ * `engineText`, for a secondary "Engine message" line. Engine vocabulary never becomes the reason.
+ */
+describe("learnFailure: plain reason first, engine words kept aside", () => {
+  const CAP = "The dataset is too large for the surrogate; the optimizer targets the small-sample regime, N<=2000.";
+  it("maps the row-cap sentence to plain copy and keeps the sentence for the disclosure", () => {
+    const m = learnFailure(new EngineError(400, "", undefined, CAP));
+    expect(m.message).toContain("2,000 complete rows");
+    expect(m.message).not.toMatch(/surrogate|N<=|optimizer|small-sample/);
+    expect(m.engineText).toBe(CAP);
+  });
+  it("replaces an unmapped engine sentence with plain copy, and keeps the sentence", () => {
+    const raw = "The engine returned an unexpected score matrix for the surrogate.";
+    const m = learnFailure(new EngineError(500, "", undefined, raw));
+    expect(m.message).toBe(LEARN_FALLBACK);
+    expect(m.message).not.toMatch(/surrogate/);
+    expect(m.engineText).toBe(raw);
+  });
+  it("with no sentence at all, uses the Learn fallback, not the upload wording", () => {
+    const m = learnFailure(new EngineError(500, "some_new_thing"));
+    expect(m).toEqual({ message: LEARN_FALLBACK, signIn: false, engineText: null });
+    expect(m.message).not.toMatch(/use this file/);
+  });
+  it("never shows a bare machine code in either line", () => {
+    const m = learnFailure(new EngineError(500, "", undefined, "weird_upstream_code"));
+    expect(m.message).toBe(LEARN_FALLBACK);
+    expect(m.engineText).toBeNull();
+  });
+  it("a known code keeps its plain copy and does not show the code", () => {
+    const m = learnFailure(new EngineError(503, "engine_busy"));
+    expect(m.message).toBe(engineMessage({ code: "engine_busy" }).message);
+    expect(m.engineText ?? "").not.toMatch(/engine_busy/);
+  });
+  it("an unexpected failure (network, bug) gets the did-not-respond copy", () => {
+    expect(learnFailure(new TypeError("boom"))).toEqual({ message: "The analysis service did not respond. Try again in a moment.", signIn: false, engineText: null });
+  });
+  it("an expired session still asks for sign-in", () => {
+    expect(learnFailure(new EngineError(401, "unauthenticated")).signIn).toBe(true);
+  });
+});
+

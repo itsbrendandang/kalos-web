@@ -20,7 +20,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { coveragePct, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
-import { errorMessage, type EngineMessage } from "@/lib/engine-error";
+import { learnFailure, type EngineMessage } from "@/lib/engine-error";
 import { formatNumber, formatRange } from "@/lib/format";
 import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
@@ -116,7 +116,7 @@ export default function LearnPage() {
       await reanalyze();
       router.push("/campaign/plan");
     } catch (err) {
-      const copy = errorMessage(err);
+      const copy = learnFailure(err);
       // An expired session cannot be fixed on this page: send the user to sign in, back here.
       if (copy.signIn) router.push(`/sign-in?next=${encodeURIComponent("/campaign/learn")}`);
       setFailure(copy);
@@ -142,6 +142,11 @@ export default function LearnPage() {
         <Callout tone="bad" title="Could not plan the next round">
           <p>{failure.message}</p>
           <p className="mt-1 text-fg-muted">Your recorded results are safe.</p>
+          {failure.engineText ? (
+            <Disclosure summary={<span className="text-caption text-fg-muted">Engine message</span>} className="mt-2 border-border">
+              <p className="break-words text-caption text-fg-muted">{failure.engineText}</p>
+            </Disclosure>
+          ) : null}
         </Callout>
       ) : null}
 

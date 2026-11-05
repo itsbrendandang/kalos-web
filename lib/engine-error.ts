@@ -22,6 +22,8 @@ export type EngineMessage = {
   message: string;
   /** The session is gone: the page should send the user to sign in. */
   signIn: boolean;
+  /** The engine's own sentence, kept verbatim for a secondary "Engine message" line. Never a bare code. Absent or null when there is none. */
+  engineText?: string | null;
 };
 
 const GENERIC = "The analysis service could not use this file. Check the sheet and try again.";
@@ -85,8 +87,24 @@ export function engineMessage(input: { code?: string | null; error?: string | nu
   // An unknown code, or none: the engine's own sentence when it sent one, never a bare code.
   const text = input.error?.trim();
   const cap = text ? fitRowCap(text) : null;
-  if (cap) return KNOWN.fit_rows_over_cap({ limitRows: cap.limitRows });
+  if (cap) return { ...KNOWN.fit_rows_over_cap({ limitRows: cap.limitRows }), engineText: text };
   return { message: text && !isCodeLike(text) ? text : GENERIC, signIn: false };
+}
+
+/** Learn's plain fallback when the engine sent only its own sentence (or nothing): no engine vocabulary. */
+export const LEARN_FALLBACK = "The analysis service could not update the model. Try again in a moment.";
+
+/**
+ * Learn's failed re-analysis: the plain reason and the next step first, and the engine's own sentence kept
+ * aside as `engineText` (for the "Engine message" line). A sentence the copy does not map to, or no sentence,
+ * never becomes the reason. A bare machine code is never shown anywhere.
+ */
+export function learnFailure(err: unknown): EngineMessage {
+  const copy = errorMessage(err);
+  const raw = err instanceof EngineError ? (err.detail ?? "").trim() : "";
+  const engineText = copy.engineText || (raw && !isCodeLike(raw) ? raw : null);
+  const plain = copy.message === raw || copy.message === GENERIC;
+  return { message: plain ? LEARN_FALLBACK : copy.message, signIn: copy.signIn, engineText: engineText || null };
 }
 
 /** Copy for anything thrown by a call: a typed EngineError, or an unexpected failure (network, bug). */

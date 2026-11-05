@@ -12,78 +12,62 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/campaign/learn" }));
 
 import LearnPage from "@/app/campaign/learn/page";
 import { EngineDataProvider } from "@/hooks/use-engine";
 
 /*
- * Learn's "Plan round N+1" must show the engine's reason when the re-analysis is refused,
- * not a generic "try again". fetch is the only seam.
+ * Phase 0a follow-up: when Learn cannot re-analyze, the plain reason and next step come first; the engine's
+ * own words (here "surrogate") sit in a secondary "Engine message" disclosure, never as the reason.
  */
 
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const CAP = "The dataset is too large for the surrogate; the optimizer targets the small-sample regime, N<=2000.";
-
-// One measured run so the Plan button is enabled (measured = pending runs that are not awaiting a result).
-const measuredCampaign = {
-  ...campaignFixture,
-  n_measured: 1,
-  pending: [{ id: "run-1", recipe: { pH: 7 }, pred: 50, std: 1, mode: "exploit", reason: "fixture", result: 51, awaiting: false, round: 0 }],
-};
-
-let reanalyzeResponse: () => Response;
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 beforeEach(() => {
-  reanalyzeResponse = () => json({ error: CAP }, 400);
+  // One measured run, so Plan next is enabled.
+  const campaign = {
+    ...campaignFixture,
+    n_measured: 1,
+    pending: [{ id: "r-measured-0001", recipe: { pH: 7, Temp_C: 30, Methanol: 1 }, pred: 51, std: 1, mode: "exploit", result: 49, awaiting: false, measured_at: 1700000000 }],
+  };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/api/latest")) return json(latestFixture);
-      if (url.endsWith("/api/campaign")) return json(measuredCampaign);
-      if (url.endsWith("/api/campaign/reanalyze")) return reanalyzeResponse();
+      if (url.endsWith("/api/campaign")) return json(campaign);
+      if (url.endsWith("/api/campaign/reanalyze")) return json({ error: CAP }, 400);
       throw new Error(`unexpected fetch ${url}`);
     }),
   );
 });
-
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  push.mockReset();
 });
 
-async function clickPlan() {
-  render(
-    <EngineDataProvider>
-      <LearnPage />
-    </EngineDataProvider>,
-  );
-  const button = await waitFor(() => {
-    const b = screen.getAllByRole("button").find((el) => /^Plan round \d+/.test(el.textContent ?? ""));
-    if (!b || (b as HTMLButtonElement).disabled) throw new Error("plan button not ready");
-    return b;
-  });
-  fireEvent.click(button);
-}
-
-describe("Learn: a refused re-analysis says why", () => {
-  it("shows the fit-row cap in plain words, with the limit and a next step", async () => {
-    await clickPlan();
-    const callout = await screen.findByText("Could not plan the next round");
-    const box = callout.closest("div")!.parentElement!;
-    expect(box.textContent).toContain("2,000 complete rows");
-    expect(box.textContent).toMatch(/upload a smaller sheet/i);
-    expect(box.textContent).toContain("Your recorded results are safe.");
-    expect(box.textContent).not.toMatch(/surrogate|N<=|engine responded|try again/i);
-  });
-
-  it("a server error with no body gets the service copy, not a bare status", async () => {
-    reanalyzeResponse = () => json({}, 500);
-    await clickPlan();
-    const callout = await screen.findByText("Could not plan the next round");
-    const box = callout.closest("div")!.parentElement!;
-    expect(box.textContent).toContain("The analysis service hit an error. Try again in a moment.");
-    expect(box.textContent).not.toMatch(/engine responded/);
+describe("Learn failure state", () => {
+  it("leads with the plain reason and next step; the engine's words sit in a secondary disclosure", async () => {
+    render(
+      <EngineDataProvider>
+        <LearnPage />
+      </EngineDataProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Plan round/ }));
+    await screen.findByText("Could not plan the next round");
+    expect(screen.getByText(/2,000 complete rows/)).toBeTruthy();
+    expect(screen.getByText("Your recorded results are safe.")).toBeTruthy();
+    // The engine's sentence is not visible until the disclosure is opened.
+    expect(screen.queryByText(/surrogate/)).toBeNull();
+    fireEvent.click(screen.getByText("Engine message"));
+    await waitFor(() => expect(screen.getByText(/surrogate/)).toBeTruthy());
+    // Plain copy comes before the engine line in reading order.
+    const plain = screen.getByText(/2,000 complete rows/);
+    const engine = screen.getByText("Engine message");
+    expect(plain.compareDocumentPosition(engine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
+import { YourData } from "@/components/campaign/data/your-data";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
 import { ReplaceRunsDialog } from "@/components/campaign/replace-runs-dialog";
 import { SheetPicker } from "@/components/campaign/sheet-picker";
@@ -193,6 +194,16 @@ export default function SetupPage() {
       {picker && failed && !busy ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
       {busy ? <FitProgress elapsed={elapsed} /> : null}
       {latest.status === "loading" ? <LoadingSkeleton variant="rows" rows={3} /> : null}
+
+      {/* Drawn from the held file in the browser, so it appears as soon as the file is read, before and apart from the fit. */}
+      {file ? (
+        <YourData
+          file={file}
+          sheet={state.sheetUsed ?? undefined}
+          target={analysis && !stale && !busy ? analysis.target : undefined}
+          engineRuns={analysis && !stale && !busy ? analysis.n : null}
+        />
+      ) : null}
 
       {analysis && !busy ? (
         <div className="flex flex-col gap-8" role={stale ? "group" : undefined} aria-label={stale ? "Previous analysis (not the file you just uploaded)" : undefined}>

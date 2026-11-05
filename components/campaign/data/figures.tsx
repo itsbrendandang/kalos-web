@@ -21,7 +21,7 @@ export function DistributionFigure({ name, hist, n }: { name: string; hist: Hist
   const bins = hist.counts.map((c, i) => ({ c, x0: x(hist.edges[i]), x1: x(hist.edges[i + 1]) }));
   const label = `Histogram of ${name}: ${n} runs, ${dataNumber(hist.edges[0])} to ${dataNumber(hist.edges[hist.edges.length - 1])}, most runs in one bin: ${max}.`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full overflow-visible">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full max-w-sm overflow-visible">
       <line x1={0} x2={W} y1={plotH} y2={plotH} className={GRID} strokeWidth={1} />
       {bins.map((b, i) => (
         <rect
@@ -48,7 +48,7 @@ export function CategoryFigure({ name, levels }: { name: string; levels: { value
   const slot = W / Math.max(1, levels.length);
   const label = `Bar chart of ${name}: ${levels.map((l) => `${l.value} ${l.n}`).join(", ")} runs.`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full overflow-visible">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full max-w-sm overflow-visible">
       <line x1={0} x2={W} y1={plotH} y2={plotH} className={GRID} strokeWidth={1} />
       {levels.map((l, i) => {
         const h = (l.n / max) * (plotH - 4);
@@ -75,13 +75,13 @@ export function CoverageFigure({ name, min, max, values, gaps }: { name: string;
   const distinct = [...new Set(values)];
   const gapText = gaps.length ? `${gaps.length} untested ${gaps.length === 1 ? "stretch" : "stretches"}` : "no untested stretch";
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Coverage of ${name} from ${dataNumber(min)} to ${dataNumber(max)}: ${distinct.length} distinct tested values, ${gapText}.`} className="block h-auto w-full overflow-visible">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Coverage of ${name} from ${dataNumber(min)} to ${dataNumber(max)}: ${distinct.length} distinct tested values, ${gapText}.`} className="block h-auto w-full max-w-sm overflow-visible">
       <line x1={6} x2={W - 6} y1={22} y2={22} className={GRID} strokeWidth={1} />
       {gaps.map((g) => (
         <rect key={`${g.from}-${g.to}`} x={x(g.from)} width={Math.max(1, x(g.to) - x(g.from))} y={16} height={12} className="fill-chart-band" data-gap={`${g.from}-${g.to}`} />
       ))}
       {distinct.map((v) => (
-        <line key={v} x1={x(v)} x2={x(v)} y1={12} y2={32} className="stroke-chart-measured" strokeWidth={1.5} />
+        <line key={v} x1={x(v)} x2={x(v)} y1={14} y2={30} className="stroke-chart-measured" strokeWidth={1} />
       ))}
     </svg>
   );
@@ -116,7 +116,7 @@ export function TargetScatterFigure({
   const toX = (v: number | string) => (categorical ? x(levels!.indexOf(String(v))) : x(Number(v)));
   const label = `${yName} against ${xName}: ${points.length} runs with both values.`;
   return (
-    <svg viewBox={`0 0 ${W2} ${H}`} role="img" aria-label={label} className="block h-auto w-full overflow-visible">
+    <svg viewBox={`0 0 ${W2} ${H}`} role="img" aria-label={label} className="block h-auto w-full max-w-sm overflow-visible">
       {yTicks.map((t) => (
         <g key={`y${t}`}>
           <line x1={pad.l} x2={W2 - pad.r} y1={y(t)} y2={y(t)} className={GRID} strokeWidth={1} />
@@ -155,7 +155,7 @@ export function RunOrderFigure({ yName, values }: { yName: string; values: (numb
     .filter(Boolean)
     .join(" ");
   return (
-    <svg viewBox={`0 0 ${W2} ${H}`} role="img" aria-label={`${yName} by row in the sheet: ${present.length} values, ${values.length} rows.`} className="block h-auto w-full overflow-visible">
+    <svg viewBox={`0 0 ${W2} ${H}`} role="img" aria-label={`${yName} by row in the sheet: ${present.length} values, ${values.length} rows.`} className="block h-auto w-full max-w-sm overflow-visible">
       {yTicks.map((t) => (
         <g key={t}>
           <line x1={pad.l} x2={W2 - pad.r} y1={y(t)} y2={y(t)} className={GRID} strokeWidth={1} />
@@ -187,7 +187,7 @@ export function ReplicateFigure({ yName, groups, limit = 40 }: { yName: string; 
       viewBox={`0 0 ${W2} ${H}`}
       role="img"
       aria-label={`${yName} for ${groups.length} replicate groups, ${shown.length} shown. Each column is one recipe run more than once.`}
-      className="block h-auto w-full overflow-visible"
+      className="block h-auto w-full max-w-sm overflow-visible"
     >
       {yTicks.map((t) => (
         <g key={t}>

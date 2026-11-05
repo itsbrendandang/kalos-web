@@ -55,7 +55,7 @@ const P1_BANDS: Band[] = [
 ];
 
 const P1_NODES: TNode[] = [
-  { key: "ROOT", label: "LHS", name: "LHS seed batch (30 runs)", type: "root", x: 180, y: 58, r: 13, yieldLabel: "30 runs", notes: "30-run LHS opened the design space across all 4 conditions." },
+  { key: "ROOT", label: "LHS", name: "LHS seed batch (30 runs)", type: "root", x: 180, y: 58, r: 13, yieldLabel: "30 runs", notes: "30-run LHS covered the full range of all 4 conditions." },
   { key: "031", label: "031", name: "BO Explore · A", type: "bo-exp", x: 95, y: 140, r: 11, pid: "ROOT", cond: ["3.50", "150", "2.0", "41"], result: "87.4", yieldLabel: "87.4%", notes: "BO iter 2, LHS peak region.", lineageParent: "EXP-ROOT", lineageChildren: "EXP-034, EXP-037" },
   { key: "032", label: "032", name: "BO Explore · B", type: "bo-exp", x: 180, y: 140, r: 11, pid: "ROOT", cond: ["3.52", "155", "2.1", "42"], result: "91.2", yieldLabel: "91.2%", notes: "BO iter 2, highest yield iter 2.", lineageParent: "EXP-ROOT", lineageChildren: "EXP-035, EXP-038" },
   { key: "033", label: "033", name: "BO Explore · C", type: "bo-exp", x: 265, y: 140, r: 11, pid: "ROOT", cond: ["3.46", "165", "1.8", "40"], result: "85.1", yieldLabel: "85.1%", notes: "BO iter 2, uncertainty probe.", lineageParent: "EXP-ROOT", lineageChildren: "EXP-036" },
@@ -84,7 +84,7 @@ const P2_BANDS: Band[] = [
 ];
 
 const P2_NODES: TNode[] = [
-  { key: "ROOT", label: "LHS", name: "LHS seed batch", type: "root", x: 180, y: 50, r: 12, notes: "30-run LHS opened the design space." },
+  { key: "ROOT", label: "LHS", name: "LHS seed batch", type: "root", x: 180, y: 50, r: 12, notes: "30-run LHS covered the full tested range." },
   { key: "031", label: "031", name: "BO Explore · A", type: "bo-exp", x: 105, y: 112, r: 10, pid: "ROOT", cond: ["3.50", "150", "2.0", "41"], result: "87.4", notes: "BO iter 2, LHS peak region.", lineageParent: "EXP-ROOT", lineageChildren: "EXP-034" },
   { key: "032", label: "032", name: "BO Explore · B", type: "bo-exp", x: 180, y: 112, r: 10, pid: "ROOT", cond: ["3.52", "155", "2.1", "42"], result: "91.2", notes: "BO iter 2, highest yield iter 2.", lineageParent: "EXP-ROOT", lineageChildren: "EXP-035, EXP-036" },
   { key: "033", label: "033", name: "BO Explore · C", type: "bo-exp", x: 255, y: 112, r: 10, pid: "ROOT", cond: ["3.46", "165", "1.8", "40"], result: "85.1", notes: "BO iter 2, uncertainty probe.", lineageParent: "EXP-ROOT", lineageChildren: "EXP-037" },

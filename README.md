@@ -174,7 +174,11 @@ Missing or limited:
 - On `main`, created projects are stored in the browser's `localStorage` (PR #68 removes this and notes it needs a server store).
 - On `main`, the proxy does not cap upload size itself; the engine enforces its own limit (default 25 MB).
 - `main` pins `next` 16.2.9; PR #68 bumps it for audit findings. Dev-only `npm audit` findings remain.
-- No rate limiting, audit log, or per-user authorisation. Not independently reviewed. No compliance or certification claims.
+- Rate limits are fixed-window counters in memory for the engine proxy, so they hold only for one replica (`lib/server/rate-limit.ts`).
+- Audit records, two separate ones, neither an audit trail for regulated records:
+  - The web app keeps a local activity log of process-map and campaign changes. It is a hash-chained file on the machine in local mode, or browser storage when hosted. Anyone who can open that file or that browser storage can rewrite it. Settings > Activity log shows it.
+  - The engine writes one `audit_log` row per mutating request (tenant, subject, action, outcome; never tokens, files or result values). Rows are not hash-chained, no database trigger blocks changes, and there is no read route. Rows older than `KALOS_AUDIT_RETENTION_DAYS` (default 365) are deleted.
+- No per-user authorisation. Not independently reviewed. No compliance or certification claims.
 
 Report vulnerabilities privately (SECURITY.md is proposed in open PR #67).
 

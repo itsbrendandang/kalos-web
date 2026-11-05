@@ -8,23 +8,39 @@ export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
 
 export type RouteItem = { href: string; label: string; description: string };
 
-/** The activity rail's sections, in order; Settings is pinned at the rail's foot. */
+/**
+ * The activity rail, in order. Overview is the one front door to the campaign
+ * (Experiments is a sub-view of it, not a second entry); Agent sits under it;
+ * the rest live under More; Settings is pinned at the foot. The sidebar reads
+ * these lists, so the rail and this file cannot drift.
+ */
 export const NAV_ITEMS = [
-  { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
+  { key: "campaign", href: "/", label: "Overview", description: "The live campaign: where the round is and what to do next." },
   { key: "agent", href: "/agent", label: "Agent", description: "Running experiments and digital twin simulations." },
+  { key: "review", href: "/review", label: "Review", description: "See where an experiment went differently and ask what happened." },
   { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
   { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },
-  { key: "review", href: "/review", label: "Review", description: "See where an experiment went differently and ask what happened." },
   { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
   { key: "library", href: "/library", label: "Library", description: "Standalone tools: vessels, plates, scale-up, simulator." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
   { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
 
+/** Rail sections shown above the "More" group, in order. */
+export const RAIL_TOP: readonly NavKey[] = ["campaign", "agent"];
+/** Rail sections under "More", in order. */
+export const RAIL_MORE: readonly NavKey[] = ["review", "process", "graph", "data", "library", "projects"];
+
 export type NavKey = (typeof NAV_ITEMS)[number]["key"];
+
+/** Looks up a rail section by key; every key in RAIL_TOP and RAIL_MORE exists in NAV_ITEMS. */
+export function navItem(key: NavKey): (typeof NAV_ITEMS)[number] {
+  return NAV_ITEMS.find((n) => n.key === key)!;
+}
 
 export const OVERVIEW_ROUTE: RouteItem = { href: "/", label: "Overview", description: "Where the campaign is and what to do next." };
 
+/** A sub-view of Overview (not a rail entry): the five stages in one list. */
 export const EXPERIMENTS_ROUTE: RouteItem = { href: "/experiments", label: "Experiments", description: "The whole loop in one place: set up, plan, run, record, learn." };
 
 /** The campaign stages, in order: Setup once, then Plan, Run, Record, Learn each round. */

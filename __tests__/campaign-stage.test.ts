@@ -124,14 +124,14 @@ describe("routes", () => {
     expect(navKeyFor("/campaign/record")).toBe("campaign");
     expect(navKeyFor("/experiments")).toBe("campaign");
     expect(titleFor("/experiments")).toBe("Experiments");
-    expect(breadcrumbFor("/experiments").map((r) => r.label)).toEqual(["Campaign", "Experiments"]);
+    expect(breadcrumbFor("/experiments").map((r) => r.label)).toEqual(["Overview", "Experiments"]);
     expect(navKeyFor("/library/plate")).toBe("library");
     expect(navKeyFor("/projects/p-cho/report")).toBe("projects");
     expect(navKeyFor("/settings")).toBe("settings");
   });
 
   it("builds a section > page breadcrumb", () => {
-    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Campaign", "Plan"]);
+    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Overview", "Plan"]);
     expect(breadcrumbFor("/library").map((r) => r.label)).toEqual(["Library"]);
     expect(breadcrumbFor("/projects").map((r) => r.label)).toEqual(["Projects"]);
   });

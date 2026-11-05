@@ -79,7 +79,7 @@ Engine-side detail: [`kalos-engine/docs/ARCHITECTURE.md`](https://github.com/its
 The app is a workbench.
 It has an activity rail, an explorer, a route-per-tab editor, a status bar and a command palette (Cmd+K).
 
-- **Activity rail.** Campaign, Data, Library and Projects, with Settings pinned at the foot.
+- **Activity rail.** Overview (the campaign's one front door), Agent, and More (Review, Process, Graph, Data, Library, Projects), with Settings pinned at the foot. Experiments is a sub-view of Overview at `/experiments`, not a rail entry.
 - **Explorer.** A tree specific to each section, with keyboard navigation.
 - **Editor tabs.** Every tab is a route, so deep links, reload and Back all work.
   The open-tab list is a per-viewer convenience kept in `sessionStorage`.
@@ -111,7 +111,7 @@ Earlier routes redirect permanently (`next.config.ts`), so old links and bookmar
 | `/decide`, `/optimize` | `/campaign/plan` |
 | `/results` | `/campaign/learn` |
 | `/analyze`, `/validate` | `/campaign/setup` |
-| `/experiments`, `/planning` | `/` |
+| `/planning` | `/` |
 | `/scale-readout` | `/library/scale-up` |
 | `/vessels` | `/library/vessels` |
 | `/plate` | `/library/plate` |

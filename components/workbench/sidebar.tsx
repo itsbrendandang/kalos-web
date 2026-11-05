@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { ChevronRight, Bot, FlaskConical, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
+import { ChevronRight, Bot, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
 import { KalosMark } from "@/components/brand/kalos-mark";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
 import { ExampleBadge } from "@/components/ui/badge";
 import { useCampaignStage } from "@/hooks/use-campaign-stage";
-import { NAV_ITEMS, navKeyFor, type NavKey } from "@/lib/routes";
+import { RAIL_MORE, RAIL_TOP, navItem, navKeyFor, type NavKey } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 const ICON: Record<NavKey, LucideIcon> = {
@@ -23,8 +23,6 @@ const ICON: Record<NavKey, LucideIcon> = {
   settings: Settings,
 };
 
-const MORE: NavKey[] = ["review", "process", "graph", "data", "library", "projects"];
-
 function useShortcutLabel(): string {
   return useSyncExternalStore(
     () => () => {},
@@ -34,8 +32,9 @@ function useShortcutLabel(): string {
 }
 
 /**
- * The one sidebar: search, the sections (Experiments is the one door to the
- * five-stage loop), and Settings, the menu and the engine status at the foot.
+ * The one sidebar: search, the sections (Overview is the one front door to the
+ * five-stage loop; Experiments is a sub-view of it), and Settings, the menu and
+ * the engine status at the foot. Sections come from NAV_ITEMS in lib/routes.ts.
  */
 export function Sidebar({ onSearch, className }: { onSearch: () => void; className?: string }) {
   const pathname = usePathname();
@@ -74,35 +73,35 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
 
       <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pt-1">
         <ul className="flex flex-col gap-0.5">
-          {[
-            { href: "/", label: "Overview", Icon: LayoutDashboard, active: pathname === "/" },
-            {
-              href: "/experiments",
-              label: "Experiments",
-              Icon: FlaskConical,
-              active: pathname === "/experiments" || pathname.startsWith("/campaign/"),
-              hint: current?.label,
-              aria: stage ? `Experiments, ${doneCount} of ${stage.steps.length} stages done${current ? `, now ${current.label}` : ""}` : "Experiments",
-            },
-            { href: "/agent", label: "Agent", Icon: Bot, active: section === "agent" },
-          ].map((n) => (
-            <li key={n.href}>
-              <Link href={n.href} aria-current={pathname === n.href ? "page" : undefined} aria-label={n.aria} className={row(n.active)}>
-                <n.Icon className="size-[18px] shrink-0" aria-hidden />
-                <span className="flex-1">{n.label}</span>
-                {n.hint ? <span className="text-caption font-normal text-fg-muted">{n.hint}</span> : null}
-              </Link>
-            </li>
-          ))}
+          {RAIL_TOP.map((k) => {
+            const n = navItem(k);
+            const Icon = ICON[k];
+            const campaignSection = k === "campaign";
+            const active = campaignSection ? section === "campaign" : section === k;
+            return (
+              <li key={k}>
+                <Link
+                  href={n.href}
+                  aria-current={pathname === n.href ? "page" : undefined}
+                  aria-label={campaignSection && stage ? `Overview, ${doneCount} of ${stage.steps.length} stages done${current ? `, now ${current.label}` : ""}` : undefined}
+                  className={row(active)}
+                >
+                  <Icon className="size-[18px] shrink-0" aria-hidden />
+                  <span className="flex-1">{n.label}</span>
+                  {campaignSection && current ? <span className="text-caption font-normal text-fg-muted">{current.label}</span> : null}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
-        <details open={MORE.includes(section)} className="group">
+        <details open={RAIL_MORE.includes(section)} className="group">
           <summary className="flex h-9 cursor-pointer list-none items-center gap-2.5 rounded-lg px-2.5 text-body text-fg-muted hover:bg-fill-hover hover:text-fg [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-[18px] shrink-0 transition-transform group-open:rotate-90" aria-hidden />
             More
           </summary>
           <ul className="mt-0.5 flex flex-col gap-0.5">
-            {MORE.map((k) => {
-              const n = NAV_ITEMS.find((x) => x.key === k)!;
+            {RAIL_MORE.map((k) => {
+              const n = navItem(k);
               const Icon = ICON[k];
               return (
                 <li key={k}>

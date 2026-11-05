@@ -27,6 +27,7 @@ import { driverLine, trustPlain, type Trust } from "@/lib/plain";
 import { cn, parseUnit } from "@/lib/utils";
 import { campaignView, type ActiveCampaign } from "@/lib/workbench";
 import { aimLine } from "@/lib/objective";
+import { EXPERIMENTS_ROUTE } from "@/lib/routes";
 
 /**
  * Campaign Overview. It answers one question, "what should I run next, and can
@@ -172,6 +173,9 @@ export default function OverviewPage() {
           ) : null}
         </div>
       </Disclosure>
+      <Link href={EXPERIMENTS_ROUTE.href} className="text-body text-accent hover:underline">
+        See all five stages
+      </Link>
     </div>
   );
 }

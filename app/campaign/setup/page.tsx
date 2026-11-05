@@ -46,6 +46,8 @@ export default function SetupPage() {
   const [state, dispatch] = useReducer(setupReducer, initialSetupState);
   const { file, failed, confirmed } = state;
   const [busy, setBusy] = useState(false);
+  // The file just dropped. Set when the attempt starts, not when the engine answers, so "Your data" appears at the drop.
+  const [dropped, setDropped] = useState<File | null>(null);
   // What the browser read from the held file. Tagged with its file so a slow scan of an earlier or rejected
   // file is never shown for the current one.
   const [scanned, setScanned] = useState<{ file: File; scan: SheetScan } | null>(null);
@@ -81,6 +83,7 @@ export default function SetupPage() {
     const fresh = f !== file || sheet !== undefined;
     const sheetArg = sheet ?? (fresh ? undefined : (state.sheetUsed ?? undefined));
     setBusy(true);
+    setDropped(f);
     try {
       const d = await runFile(f, target, nextRoles, sheetArg, { replace });
       // The attempt starts once the engine has answered: a refused upload must not clear the notes on screen.
@@ -197,10 +200,10 @@ export default function SetupPage() {
       {latest.status === "loading" ? <LoadingSkeleton variant="rows" rows={3} /> : null}
 
       {/* Drawn from the held file in the browser, so it appears as soon as the file is read, before and apart from the fit. */}
-      {file ? (
+      {dropped ? (
         <YourData
-          file={file}
-          sheet={state.sheetUsed ?? undefined}
+          file={dropped}
+          sheet={dropped === file ? (state.sheetUsed ?? undefined) : undefined}
           target={analysis && !stale && !busy ? analysis.target : undefined}
           engineRuns={analysis && !stale && !busy ? analysis.n : null}
           engineInputs={analysis && !stale && !busy ? analysis.features : undefined}

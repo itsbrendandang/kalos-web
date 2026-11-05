@@ -201,5 +201,6 @@ export function replicateSpread(groups: readonly ReplicateGroup[]): ReplicateSpr
   const sds = groups.map((g) => summarize(g.targets)).filter((s): s is Summary => s != null && s.n >= 2).map((s) => s.sd);
   const sorted = [...sds].sort((a, b) => a - b);
   const medianSd = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : null;
-  return { groups: groups.length, runs: groups.reduce((s, g) => s + g.rows.length, 0), medianSd };
+  // Runs counts only the runs that have a target value: a replicate with a blank target is not evidence of spread.
+  return { groups: groups.length, runs: groups.reduce((s, g) => s + g.targets.length, 0), medianSd };
 }

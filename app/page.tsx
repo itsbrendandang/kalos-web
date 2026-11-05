@@ -1,32 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { agentStatus } from "@/lib/agent";
-import { Disclosure } from "@/components/kit/disclosure";
-import { driverLine, trustPlain } from "@/lib/plain";
-
 import { ChartFrame } from "@/components/kit/chart-frame";
+import { Disclosure } from "@/components/kit/disclosure";
 import { KpiCard } from "@/components/kit/kpi-card";
-import { NextCard } from "@/components/kit/next-card";
+import { lazyChart } from "@/components/kit/lazy-chart";
 import { PageHeader } from "@/components/kit/page-header";
-import { Badge, ExampleBadge } from "@/components/ui/badge";
+import { Section } from "@/components/kit/section";
+import { Verdict } from "@/components/kit/verdict";
+import { Badge, ExampleBadge, ModeBadge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
-import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
+import { proposalRecipe, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatNumber, formatRange } from "@/lib/format";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { bestSoFarSeries, topDrivers } from "@/lib/overview";
+import { driverLine, trustPlain, type Trust } from "@/lib/plain";
 import { cn, parseUnit } from "@/lib/utils";
 import { campaignView, type ActiveCampaign } from "@/lib/workbench";
-import { lazyChart } from "@/components/kit/lazy-chart";
 
 /**
- * Campaign Overview, the pinned first tab: where the round is, the one next
- * step, four headline numbers, the best-so-far trend and the top drivers.
+ * Campaign Overview. It answers one question, "what should I run next, and can
+ * I trust it?", in this order: one verdict sentence, one primary action, the
+ * proposed batch, then every number and chart behind a single Disclosure.
  * Everything comes from /api/latest and /api/campaign; demo data appears only
  * when the engine confirms there is no campaign and demo mode is on, labelled.
  */
@@ -40,8 +44,8 @@ export default function OverviewPage() {
 
   if (view.state === "error" || latest.status === "error") {
     return (
-      <div className="flex flex-col gap-6">
-        <PageHeader title="Campaign overview" />
+      <div className="flex flex-col gap-8">
+        <PageHeader title="Overview" />
         <ErrorState
           title="Could not reach the analysis service"
           description="The campaign could not be loaded because the engine did not answer. This is a connection problem, not an empty campaign."
@@ -64,9 +68,9 @@ export default function OverviewPage() {
 
   if (!target) {
     return (
-      <div className="flex flex-col gap-6">
-        <PageHeader title="Start a campaign" description="Upload the runs you already have. Kalos fits a model to them and proposes the first batch to try." />
-        <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
+      <div className="flex flex-col gap-10">
+        <PageHeader title="Start a campaign" />
+        <NextStep tone="accent" sentence={stage.next.reason} action={stage.next.action} href={stage.next.href} />
       </div>
     );
   }
@@ -79,77 +83,61 @@ export default function OverviewPage() {
   const lines = analysis ? topDrivers(analysis.drivers, 5).map((b) => driverLine(analysis.drivers.find((d) => d.name === b.name)!, target, shapes.get(b.name))) : [];
   const best = active?.best ?? analysis?.best ?? null;
   const runs = active?.n_base ?? analysis?.n ?? null;
-  const nProposed = analysis?.proposals?.length ?? 0;
+  const proposals = analysis?.proposals ?? [];
+  // The batch is the next thing to run only while the plan step is the current one.
+  const planning = analysis != null && stage.next.stage === "plan" && proposals.length > 0;
+  const bestLine =
+    best != null
+      ? `Best measured so far: ${formatNumber(best)}${unit ? ` ${unit}` : ""}, from ${formatNumber(runs, "count")} runs. Measured, not predicted.`
+      : "No measured result yet.";
+
+  const sentence = planning ? batchSentence(proposals.length, trust) : stage.next.reason;
+  const tone = !planning ? "accent" : trust?.level === "good" ? "good" : trust?.level === "warn" ? "warn" : "neutral";
+  const detail = trust ? (
+    <div className="flex flex-col gap-2">
+      <p>{trust.sentence}</p>
+      <p>{trust.gloss}</p>
+      {verdict?.rho != null ? (
+        <p>
+          Rank agreement on held-out runs is {formatNumber(verdict.rho, "corr")}
+          {verdict.ci ? ` (95% interval ${formatRange(verdict.ci[0], verdict.ci[1], "corr")})` : ""}. 1 means the model orders every unseen run
+          correctly, 0 means no better than chance.
+        </p>
+      ) : null}
+    </div>
+  ) : (
+    "Appears once the model has been fitted to your data."
+  );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
       <PageHeader
         eyebrow={stage.round ? `Round ${stage.round}` : undefined}
-        title={`Goal: raise ${target}`}
+        title={`Raise ${target}`}
+        description={bestLine}
         meta={demo ? <ExampleBadge /> : null}
       />
 
-      <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
+      <NextStep
+        tone={tone}
+        sentence={sentence}
+        action={stage.next.action}
+        href={stage.next.href}
+        detail={detail}
+        trust={trust}
+      />
 
-      <section aria-label="Where things stand" className="grid gap-4 md:grid-cols-2">
-        <div className="glass flex flex-col gap-1 p-6">
-          <p className="text-label text-fg-muted">Your best result so far</p>
-          <p className="flex items-baseline gap-2">
-            <span className="text-display tabular-nums text-fg">{formatNumber(best)}</span>
-            {unit ? <span className="text-heading font-normal text-fg-muted">{unit}</span> : null}
-          </p>
-          <p className="text-body text-fg-muted">
-            Best measured result among your {formatNumber(runs, "count")} runs, including any history you uploaded. Not a prediction.
-          </p>
-          {active && bestDeltaFromPreviousRound(active) ? <Delta d={bestDeltaFromPreviousRound(active)!} /> : null}
-        </div>
-        <div className="glass flex flex-col gap-2 p-6">
-          <p className="text-label text-fg-muted">Can you trust the suggestions?</p>
-          {trust ? (
-            <>
-              <p className="flex items-center gap-2">
-                <Badge tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"}>{trust.word}</Badge>
-              </p>
-              <p className="text-body text-fg-muted">{trust.sentence}</p>
-              {verdict?.rho != null ? (
-                <Disclosure summary="The numbers behind this">
-                  <p className="pb-3 text-body text-fg-muted">
-                    Rank agreement on held-out runs is {formatNumber(verdict.rho, "corr")}
-                    {verdict.ci ? ` (95% interval ${formatRange(verdict.ci[0], verdict.ci[1], "corr")})` : ""}. 1 means the model orders every unseen run correctly, 0 means no better than chance.
-                  </p>
-                </Disclosure>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-body text-fg-muted">Appears once the model has been fitted to your data.</p>
-          )}
-        </div>
-      </section>
+      {planning && analysis ? <Batch analysis={analysis} target={target} round={stage.round} /> : null}
 
-      {lines.length ? (
-        <Disclosure summary="What seems to move your result" meta={`${lines.length} inputs`}>
-          <p className="pb-2 text-body text-fg-muted">Patterns across your {formatNumber(runs, "count")} runs. These show what goes together, not proof of cause.</p>
-          <ul className="divide-y divide-border pb-2">
-            {lines.map((l) => (
-              <li key={l.name} className="flex items-start gap-3 py-3.5">
-                <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-label", l.clear ? "bg-accent text-accent-fg" : "border border-border-strong text-fg-muted")} aria-hidden>
-                  {l.up ? "↑" : "↓"}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-mono text-code text-fg">{l.name}</span>
-                  <span className="block text-body text-fg-muted">{l.sentence}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Disclosure>
-      ) : null}
-
-      {agentStatus(active).state === "waiting" ? <LabStrip active={active} demo={demo} /> : null}
-
-      <Disclosure summary="Detailed charts and numbers" meta={nProposed ? `${nProposed} proposed recipes` : undefined}>
-        <div className="flex flex-col gap-6 pb-2">
+      <Disclosure summary="Numbers, trend and drivers" meta={runs != null ? `${formatNumber(runs, "count")} runs` : undefined}>
+        <div className="flex flex-col gap-8 pb-2">
           <Kpis active={active} analysis={analysis} target={target} unit={unit} round={stage.round} />
+          <p className="text-body text-fg-muted">
+            {agentStatus(active).headline}.{" "}
+            <Link href="/agent" className="text-accent hover:underline">
+              Open the agent
+            </Link>
+          </p>
           {trendReady ? (
             <div className="grid gap-4 lg:grid-cols-2">
               <BestSoFarChart active={active} target={target} unit={unit} />
@@ -158,37 +146,125 @@ export default function OverviewPage() {
           ) : (
             <DriversChart analysis={analysis} target={target} />
           )}
+          {lines.length ? (
+            <Section title="What seems to move your result" description={`Patterns across your ${formatNumber(runs, "count")} runs. These show what goes together, not proof of cause.`}>
+              <ul className="divide-y divide-border">
+                {lines.map((l) => (
+                  <li key={l.name} className="flex items-start gap-3 py-3">
+                    <span
+                      className={cn(
+                        "mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-label",
+                        l.clear ? "bg-accent text-accent-fg" : "border border-border-strong text-fg-muted",
+                      )}
+                      aria-hidden
+                    >
+                      {l.up ? "↑" : "↓"}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-mono text-code text-fg">{l.name}</span>
+                      <span className="block text-body text-fg-muted">{l.sentence}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
         </div>
       </Disclosure>
-
     </div>
   );
 }
 
-function Delta({ d }: { d: { delta: number; previousRound: number } }) {
-  const up = d.delta > 0;
+/** One verdict sentence about the batch, with the trust level in plain words. */
+function batchSentence(n: number, trust: Trust | null): string {
+  const head = `Run the ${n} proposed ${n === 1 ? "recipe" : "recipes"}`;
+  if (trust?.level === "good") return `${head}: the model ranks unseen runs well enough to trust them.`;
+  if (trust?.level === "warn") return `${head} as a test: the model is not yet reliable enough to lean on.`;
+  return `${head} as a test: there are not enough held-out runs to judge the model yet.`;
+}
+
+/** The one verdict sentence, the one primary action, and the trust level beside it. */
+function NextStep({
+  tone,
+  sentence,
+  action,
+  href,
+  detail,
+  trust,
+}: {
+  tone: "accent" | "good" | "warn" | "neutral";
+  sentence: string;
+  action: string;
+  href: string;
+  detail?: ReactNode;
+  trust?: Trust | null;
+}) {
   return (
-    <p className="text-body text-fg">
-      {d.delta === 0 ? "No change" : `${up ? "Up" : "Down"} ${formatNumber(Math.abs(d.delta))}`}{" "}
-      <span className="text-fg-muted">{d.previousRound === 0 ? "from your uploaded data" : `from round ${d.previousRound}`}</span>
-    </p>
+    <section aria-label="Next step" className="flex flex-col gap-4">
+      <Verdict tone={tone} detail={detail} detailLabel="Why">
+        {sentence}
+      </Verdict>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <Link href={href} className={buttonVariants({ size: "lg" })}>
+          {action}
+          <ArrowRight aria-hidden />
+        </Link>
+        {trust ? (
+          <p className="flex flex-wrap items-center gap-2 text-label text-fg-muted">
+            Can you trust it?
+            <Badge tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"}>{trust.word}</Badge>
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
-function LabStrip({ active, demo }: { active: ActiveCampaign | null; demo: boolean }) {
-  const status = agentStatus(active);
-  const live = status.state === "waiting";
+/** The proposed batch: one row per recipe, the inputs as the lab sets them, the predicted value and the mode. */
+function Batch({ analysis, target, round }: { analysis: PopulatedResult; target: string; round: number | null }) {
+  const features = analysis.proposal_features;
+  const n = analysis.proposals.length;
   return (
-    <Link href="/agent" className="flex items-center gap-3 rounded-2xl glass px-5 py-4 transition-colors hover:bg-subtle">
-      <span className={cn("size-2.5 shrink-0 rounded-full", live ? "bg-accent" : "bg-border-strong")} aria-hidden />
-      <span className="min-w-0 flex-1">
-        <span className="text-heading text-fg">{status.headline}</span>
-        <span className="ml-2 text-body text-fg-muted">{demo ? "Example data" : live ? "In the lab right now" : null}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1 text-label text-accent">
-        Open agent <ArrowRight className="size-4" aria-hidden />
-      </span>
-    </Link>
+    <Section
+      title="Proposed batch"
+      description={`${n} ${n === 1 ? "recipe" : "recipes"} for ${round ? `round ${round}` : "the next round"}. Explore runs test unfamiliar settings; Exploit runs are the model's best bet.`}
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">#</TableHead>
+            {features.map((f) => (
+              <TableHead key={f} numeric className="font-mono text-code">
+                {f}
+              </TableHead>
+            ))}
+            <TableHead numeric>Predicted {target}</TableHead>
+            <TableHead>Mode</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {analysis.proposals.map((p, i) => {
+            const recipe = proposalRecipe(p, features);
+            return (
+              <TableRow key={i}>
+                <TableCell className="text-fg-muted tabular-nums">{i + 1}</TableCell>
+                {features.map((f) => (
+                  <TableCell key={f} numeric className="tabular-nums">
+                    {formatNumber(recipe[f])}
+                  </TableCell>
+                ))}
+                <TableCell numeric className="font-medium text-fg tabular-nums">
+                  {formatNumber(p.pred)}
+                </TableCell>
+                <TableCell>
+                  <ModeBadge mode={p.mode} />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Section>
   );
 }
 
@@ -209,7 +285,7 @@ function Kpis({
   const verdict = analysis ? reliabilityVerdict(analysis) : null;
   const verdictTone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
   return (
-    <section aria-label="Key numbers" className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl glass p-5 lg:grid-cols-4 lg:divide-x lg:divide-border [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">
+    <section aria-label="Key numbers" className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4 lg:divide-x lg:divide-border [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">
       <KpiCard
         bare
         label={`Best ${target}`}
@@ -335,18 +411,17 @@ function DriversChart({ analysis, target }: { analysis: PopulatedResult | null; 
 
 function OverviewSkeleton() {
   return (
-    <div className="flex flex-col gap-6" role="status" aria-label="Loading the campaign">
+    <div className="flex flex-col gap-10" role="status" aria-label="Loading the campaign">
       <div className="space-y-2">
         <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-7 w-72" />
+        <Skeleton className="h-10 w-72" />
         <Skeleton className="h-4 w-96 max-w-full" />
       </div>
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <LoadingSkeleton variant="card" rows={4} className="lg:grid-cols-4" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <LoadingSkeleton variant="chart" />
-        <LoadingSkeleton variant="chart" />
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-6 w-full max-w-2xl" />
+        <Skeleton className="h-10 w-40 rounded-lg" />
       </div>
+      <LoadingSkeleton variant="table" rows={3} />
     </div>
   );
 }

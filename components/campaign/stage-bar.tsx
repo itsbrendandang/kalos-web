@@ -25,7 +25,7 @@ export function StageBar() {
             href={s.href}
             aria-current={here ? "page" : undefined}
             aria-label={`${s.label}, ${s.state === "upcoming" ? "coming up" : s.state === "current" ? "you are here" : "done"}`}
-            className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1 text-label transition-colors", here ? "bg-fg/[0.07] text-fg" : "text-fg-muted hover:bg-fg/[0.05] hover:text-fg")}
+            className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1 text-label transition-colors", here ? "bg-subtle text-fg" : "text-fg-muted hover:bg-subtle hover:text-fg")}
           >
             <StepDot state={s.state} />
             {s.label}

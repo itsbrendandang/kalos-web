@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { Callout } from "@/components/kit/callout";
 import { PageHeader } from "@/components/kit/page-header";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -71,7 +72,7 @@ export function RecordForm({
         eyebrow={`Round ${displayRound(round)}`}
         title="Record results"
         description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
-      action={
+        action={
           <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
             {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
           </Button>
@@ -99,7 +100,7 @@ export function RecordForm({
               const invalid = text.trim() !== "" && parseEntry(text) == null;
               return (
                 <TableRow key={r.id} id={`record-${r.id}`} className="scroll-mt-12">
-                  <TableCell className="font-mono text-code">{shortId(r.id)}</TableCell>
+                  <TableCell className="font-mono text-code text-fg-muted">{shortId(r.id)}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {inlineRecipeKeys(r.recipe, drivers).map((k) => (
                       <span key={k} className="mr-3 text-fg-muted">
@@ -109,7 +110,12 @@ export function RecordForm({
                   </TableCell>
                   <TableCell numeric>
                     <span className="inline-flex items-center justify-end gap-2">
-                      {r.awaiting ? null : <span className="text-caption text-fg-muted">Saved</span>}
+                      {r.awaiting ? null : (
+                        <span className="inline-flex items-center gap-1 text-caption text-fg-muted">
+                          <Check className="size-3.5 text-good" aria-hidden />
+                          Saved
+                        </span>
+                      )}
                       <Input
                         inputMode="decimal"
                         aria-label={`Measured result for run ${shortId(r.id)}`}

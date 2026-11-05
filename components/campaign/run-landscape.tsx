@@ -25,7 +25,7 @@ export function RunLandscape({ embedding, targetName, unit }: { embedding: Embed
   return (
     <div>
       <p className="mb-2 text-caption text-fg-muted">
-        {points.length} runs placed by recipe similarity ({embedding.method.toUpperCase()} projection), coloured by {targetName}
+        <span className="tabular-nums">{points.length}</span> runs placed by recipe similarity, coloured by {targetName}
         {suffix}. Nearby points have similar recipes.
       </p>
       <div role="img" aria-label={`${points.length} runs by recipe similarity, coloured by ${targetName}`} className="h-64 w-full">

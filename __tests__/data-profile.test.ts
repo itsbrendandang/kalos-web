@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { duplicateColumnPairs, histogram, isUniquePerRow, profileSheet, replicateGroups, replicateSpread, summarize, toNumber, untestedGaps } from "@/components/campaign/data/profile";
+import { duplicateColumnPairs, histogram, isRowNumberLike, profileSheet, replicateGroups, replicateSpread, summarize, toNumber, untestedGaps } from "@/components/campaign/data/profile";
 
 const csv = (text: string) => text.trim().split("\n").map((l) => l.split(","));
 
@@ -79,7 +79,7 @@ describe("profileSheet", () => {
 
   it("names a blank header as its position and flags it headerless", () => {
     expect(sheet.columns[0]).toMatchObject({ name: "column 1", headerless: true, kind: "numeric", filled: 4, distinct: 4 });
-    expect(isUniquePerRow(sheet.columns[0], sheet.n)).toBe(true);
+    expect(isRowNumberLike(sheet.columns[0], sheet.n)).toBe(true);
   });
 
   it("classifies numeric, category and text columns and counts blanks", () => {
@@ -119,6 +119,11 @@ describe("replicateGroups", () => {
     const groups = replicateGroups(p, new Set(), "y");
     expect(groups).toEqual([{ rows: [0, 1, 4], targets: [10, 12, 11] }]);
     expect(replicateSpread(groups)).toEqual({ groups: 1, runs: 3, medianSd: 1 });
+  });
+
+  it("keeps a continuous input that differs in every run, so recipes that differ only in it are not grouped", () => {
+    const p = profileSheet(csv(`t,x,y\n36.1,1,5\n36.4,1,6\n36.8,2,7\n37.0,2,8`));
+    expect(replicateGroups(p, new Set(), "y")).toEqual([]);
   });
 
   it("finds no replicates when every recipe is unique, and never uses a row-number column as an input", () => {

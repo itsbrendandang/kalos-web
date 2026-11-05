@@ -107,9 +107,15 @@ export function duplicateColumnPairs(columns: readonly ColumnProfile[]): { a: st
   return out;
 }
 
-/** Columns whose every row holds a different value (for example a row number). Needs at least three filled rows. */
-export function isUniquePerRow(col: ColumnProfile, n: number): boolean {
-  return n >= 3 && col.filled === n && col.distinct === n;
+/**
+ * A row-number-like column: whole numbers, a different value in every run, and no gaps (0..n-1 or 1..n).
+ * Continuous inputs and short integer inputs that merely differ are not row numbers. Needs at least three runs.
+ */
+export function isRowNumberLike(col: ColumnProfile, n: number): boolean {
+  if (n < 3 || col.kind !== "numeric" || col.filled !== n || col.distinct !== n) return false;
+  const v = col.numbers.filter((x): x is number => x != null);
+  if (!v.every(Number.isInteger)) return false;
+  return Math.max(...v) - Math.min(...v) === n - 1;
 }
 
 export type Summary = { n: number; mean: number; sd: number; min: number; max: number; median: number };
@@ -168,10 +174,10 @@ export type ReplicateGroup = { rows: number[]; targets: number[] };
 
 /**
  * Runs that share every input value (numeric and category columns only, minus `exclude`: the target and the
- * unique-per-row columns). Groups of two or more are replicates of one recipe. Rows with a blank input are not grouped.
+ * row-number-like columns). Groups of two or more are replicates of one recipe. Rows with a blank input are not grouped.
  */
 export function replicateGroups(profile: SheetProfile, exclude: ReadonlySet<string>, target?: string): ReplicateGroup[] {
-  const inputs = profile.columns.filter((c) => (c.kind === "numeric" || c.kind === "category") && !exclude.has(c.name) && c.name !== target && !isUniquePerRow(c, profile.n));
+  const inputs = profile.columns.filter((c) => (c.kind === "numeric" || c.kind === "category") && !exclude.has(c.name) && c.name !== target && !isRowNumberLike(c, profile.n));
   if (inputs.length === 0 || !target) return [];
   const tcol = profile.columns.find((c) => c.name === target);
   if (!tcol) return [];

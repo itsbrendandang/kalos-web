@@ -24,7 +24,7 @@ function sentence(report: ValidationReport): string {
   const { status, counts } = report;
   const checks = report.checks_run.length;
   const n = (k: number, one: string) => `${formatNumber(k, "count")} ${one}${k === 1 ? "" : "s"}`;
-  if (status === "fail") return `Fix ${n(counts.error, "problem")} in this run sheet before you rely on it.`;
+  if (status === "fail") return `Fix ${n(counts.error, "problem")} in this run sheet, then upload it again.`;
   if (status === "pass_with_warnings") return `This run sheet is usable, with ${n(counts.warning, "warning")} to review.`;
   return checks > 0 ? `This run sheet passed all ${formatNumber(checks, "count")} checks.` : "This run sheet passed every check.";
 }
@@ -59,18 +59,17 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
         </Button>
       ) : null}
 
-      <div className="flex flex-col gap-1">
-        <h2 className="text-heading text-fg">Unit conversions</h2>
+      <Disclosure summary="Unit conversions" meta={report.conversions.length ? formatNumber(report.conversions.length, "count") : "none needed"}>
         {report.conversions.length === 0 ? (
           <p className="text-body text-fg-muted">No conversions were needed. Every value was already in its expected unit.</p>
         ) : (
-          <ul className="text-body text-fg-muted">
+          <ul className="flex flex-col gap-1 text-body text-fg-muted">
             {report.conversions.map((c, i) => (
               <li key={i}>{conversionSummary(c)}</li>
             ))}
           </ul>
         )}
-      </div>
+      </Disclosure>
 
       <Disclosure summary="Method details" meta={names.length > 0 ? `${formatNumber(names.length, "count")} checks` : undefined}>
         <dl className="flex flex-col gap-3">
@@ -88,7 +87,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
             </div>
           ))}
           <p className="text-caption text-fg-muted">
-            {formatNumber(report.n_rows, "count")} rows, {formatNumber(report.n_columns, "count")} columns, checked in {report.mode === "strict" ? "strict" : "warn"} mode.
+            <span className="tabular-nums">{formatNumber(report.n_rows, "count")}</span> rows, <span className="tabular-nums">{formatNumber(report.n_columns, "count")}</span> columns, checked in {report.mode === "strict" ? "strict" : "warn"} mode.
           </p>
         </dl>
       </Disclosure>

@@ -165,35 +165,36 @@ export default function SetupPage() {
         }}
       />
 
+      {/* The one callout on this screen. A failed attempt is also the stale case (the shown analysis is the previous file's), so it carries both messages. */}
       {failed ? (
-        <Callout tone="bad" title={`${failed.name} could not be analyzed`}>
-          {failed.error}
-        </Callout>
-      ) : null}
-      {picker && failed && !busy ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
-      {stale && notice && !busy ? (
         <Callout
-          tone="warn"
-          title="This is the previous analysis"
+          tone="bad"
+          title={`${failed.name} could not be analyzed`}
           action={
-            file ? (
+            stale && file && analysis ? (
               <Button size="sm" variant="outline" onClick={() => dispatch({ type: "keepPrevious" })}>
-                Keep working with {analysis?.dataset ?? "it"}
+                Keep working with {analysis.dataset}
               </Button>
             ) : undefined
           }
         >
-          {notice} Nothing below belongs to {failed?.name}, and it cannot be confirmed or re-fitted until you upload another file{file ? " or choose to keep working with the previous one" : ""}.
+          <p>{failed.error}</p>
+          {stale && notice && !busy ? (
+            <p className="mt-1 text-fg-muted">
+              {notice} Nothing below belongs to {failed.name}. It cannot be confirmed or re-fitted until you upload another file{file ? " or keep working with the previous one" : ""}.
+            </p>
+          ) : null}
         </Callout>
       ) : null}
+      {picker && failed && !busy ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
       {busy ? <FitProgress elapsed={elapsed} /> : null}
       {latest.status === "loading" ? <LoadingSkeleton variant="rows" rows={3} /> : null}
 
       {analysis && !busy ? (
-        <div className={stale ? "flex flex-col gap-6 opacity-60" : "flex flex-col gap-6"} role={stale ? "group" : undefined} aria-label={stale ? "Previous analysis (not the file you just uploaded)" : undefined}>
+        <div className="flex flex-col gap-8" role={stale ? "group" : undefined} aria-label={stale ? "Previous analysis (not the file you just uploaded)" : undefined}>
           <div className="flex flex-col gap-2">
-            <p className="text-body text-fg-muted">
-              {analysis.dataset}: {formatNumber(analysis.n, "count")} runs, {formatNumber(analysis.d, "count")} inputs.
+            <p className="text-body text-fg">
+              {analysis.dataset}: <span className="tabular-nums">{formatNumber(analysis.n, "count")}</span> runs, <span className="tabular-nums">{formatNumber(analysis.d, "count")}</span> inputs.
             </p>
             <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
               Maximize
@@ -219,48 +220,63 @@ export default function SetupPage() {
             </label>
           </div>
           {picker && !failed ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
-          {canAct && file && !confirmed && columns.length > 0 ? (
-            <ColumnConfirm
-              key={`${analysis.updated}-${analysis.target}`}
-              columns={columns}
-              target={analysis.target}
-              targets={targetChoices}
-              busy={busy}
-              onConfirm={() => dispatch({ type: "confirm" })}
-              onRefit={(roles) => void analyze(file, roles.target, roles)}
-            />
-          ) : (
-            <p className="text-caption text-fg-muted">
-              Inputs used: {analysis.features.join(", ")}.
-              {file ? (confirmed ? " You confirmed these columns." : "") : " From the last analysis; upload the sheet again to change them."}
-            </p>
-          )}
-          {scan?.dataType ? <DataTypeNote counts={scan.dataType} /> : null}
-          {file && scan && !scan.scanned ? (
-            <p className="text-caption text-fg-muted">Row types (a data_type column) could not be checked for this file (legacy .xls and files over 5 MB are not read in the browser). Check the sheet yourself for mixed measured and synthetic rows.</p>
-          ) : null}
-          {report ? (
-            <ValidationSummary report={report} />
-          ) : (
-            <p className="text-body text-fg-muted">This analysis came without a data check, so nothing here should be read as a pass.</p>
-          )}
+          <div className="flex flex-col gap-3">
+            <h2 className="text-heading text-fg">{stale ? "Data check for the previous file" : "Data check"}</h2>
+            {scan?.dataType && isMixedRowTypes(scan.dataType) && !failed ? <MixedRowsCallout counts={scan.dataType} /> : null}
+            {report ? (
+              <ValidationSummary report={report} />
+            ) : (
+              <p className="text-body text-fg-muted">This analysis came without a data check, so nothing here should be read as a pass.</p>
+            )}
+            {scan?.dataType && !isMixedRowTypes(scan.dataType) ? <RowTypeLine counts={scan.dataType} /> : null}
+            {file && scan && !scan.scanned ? (
+              <p className="text-caption text-fg-muted">Row types (a data_type column) could not be checked for this file (legacy .xls and files over 5 MB are not read in the browser). Check the sheet yourself for mixed measured and synthetic rows.</p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col">
+            {canAct && file && columns.length > 0 ? (
+              <ColumnConfirm
+                key={`${analysis.updated}-${analysis.target}`}
+                columns={columns}
+                target={analysis.target}
+                targets={targetChoices}
+                busy={busy}
+                confirmed={confirmed}
+                onConfirm={() => dispatch({ type: "confirm" })}
+                onRefit={(roles) => void analyze(file, roles.target, roles)}
+              />
+            ) : (
+              <p className="text-body text-fg-muted">
+                Inputs used: {analysis.features.join(", ")}.
+                {file ? "" : " From the last analysis; upload the sheet again to change them."}
+              </p>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
   );
 }
 
-/** Surfaces a data_type column so measured and synthetic rows are never silently pooled. */
-function DataTypeNote({ counts }: { counts: DataTypeCounts }) {
-  const list = counts.counts.map((c) => `${c.value} ${formatNumber(c.n, "count")}`).join(", ");
-  const mixed = counts.counts.some((c) => !/^(real|measured)$/i.test(c.value));
-  return mixed ? (
-    <Callout tone="warn" title={`This sheet mixes row types (${counts.column}: ${list})`}>
+/** A data_type column with anything other than real or measured rows: those rows are pooled into the fit. */
+const isMixedRowTypes = (counts: DataTypeCounts): boolean => counts.counts.some((c) => !/^(real|measured)$/i.test(c.value));
+
+const rowTypeList = (counts: DataTypeCounts): string => counts.counts.map((c) => `${c.value} ${formatNumber(c.n, "count")}`).join(", ");
+
+/** Surfaces a data_type column so measured and synthetic rows are never silently pooled. Mixed sheets get the screen's callout. */
+function MixedRowsCallout({ counts }: { counts: DataTypeCounts }) {
+  return (
+    <Callout tone="warn" title={`This sheet mixes row types (${counts.column}: ${rowTypeList(counts)})`}>
       The model is fitted on every row. Rows that are not real measurements can make results look better than the lab would see.
     </Callout>
-  ) : (
+  );
+}
+
+function RowTypeLine({ counts }: { counts: DataTypeCounts }) {
+  return (
     <p className="text-caption text-fg-muted">
-      {counts.column}: {list}.
+      {counts.column}: <span className="tabular-nums">{rowTypeList(counts)}</span>.
     </p>
   );
 }

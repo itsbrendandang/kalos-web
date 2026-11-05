@@ -8,8 +8,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { NextRequest } from "next/server";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
-import { ACTOR, GENESIS, payload, type AuditEntry } from "@/lib/audit";
+import { GENESIS, payload, type AuditEntry } from "@/lib/audit";
 import { isLocalMode } from "@/lib/local-mode";
+import { LOCAL_LABEL } from "@/lib/viewer";
 import { hostAllowed, originAllowed, readTextCapped } from "@/lib/server/local-guard";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     let prev = entries[entries.length - 1] ?? null;
     let text = "";
     for (const e of events) {
-      const base = { seq: (prev?.seq ?? 0) + 1, at: new Date().toISOString(), actor: ACTOR, action: e.action, detail: e.detail, prev: prev?.hash ?? GENESIS };
+      const base = { seq: (prev?.seq ?? 0) + 1, at: new Date().toISOString(), actor: LOCAL_LABEL, action: e.action, detail: e.detail, prev: prev?.hash ?? GENESIS };
       prev = { ...base, hash: sha(payload(base)) };
       text += `${JSON.stringify(prev)}\n`;
     }

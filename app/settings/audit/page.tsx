@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import { PageHeader } from "@/components/kit/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { verifyChain } from "@/lib/audit";
+import { actorCaption, verifyChain } from "@/lib/audit";
 import { sha256, useAudit } from "@/lib/audit-store";
 
 type Check = { state: "idle" } | { state: "ok" } | { state: "bad"; seq: number; why: string };
@@ -52,13 +52,16 @@ export default function AuditPage() {
           {[...entries].reverse().map((e) => (
             <li key={e.seq} className="flex flex-col gap-0.5 py-3 sm:flex-row sm:gap-4">
               <time dateTime={e.at} className="w-44 shrink-0 text-caption tabular-nums text-fg-muted">{new Date(e.at).toLocaleString()}</time>
-              <span className="min-w-0 text-body text-fg">{e.detail}</span>
+              <span className="min-w-0">
+                <span className="block text-body text-fg">{e.detail}</span>
+                <span className="block text-caption text-fg-muted">{actorCaption(e.actor)}</span>
+              </span>
             </li>
           ))}
         </ol>
       )}
       <p className="text-caption text-fg-muted">
-        {where === "file" ? "This history is kept in a file in your Kalos folder (audit-log.jsonl)" : "This history is kept in this browser's storage"} and records changes made as {entries[0]?.actor ?? "this device"}. It is tamper-evident, not tamper-proof: anyone who can open {where === "file" ? "that file" : "this browser's storage"} can rewrite all of it. It is not an electronic-signature or validated GxP record.
+        {where === "file" ? "This history is kept in a file in your Kalos folder (audit-log.jsonl)" : "This history is kept in this browser's storage"} and records each change with who made it (a signed-in name, or Local mode, no sign-in). It is tamper-evident, not tamper-proof: anyone who can open {where === "file" ? "that file" : "this browser's storage"} can rewrite all of it. It is not an electronic-signature or validated GxP record.
       </p>
     </div>
   );

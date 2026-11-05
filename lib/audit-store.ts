@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { coalesce, makeEntry, type AuditEntry, type AuditEvent } from "@/lib/audit";
+import { viewerLabel } from "@/lib/viewer";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 
 /*
@@ -14,6 +15,13 @@ const listeners = new Set<() => void>();
 const EMPTY: AuditEntry[] = [];
 let entries: AuditEntry[] = EMPTY;
 let where: "file" | "browser" | "unknown" = "unknown";
+// Who the browser copy records changes as. The viewer provider sets it from the server-resolved session.
+let actor = viewerLabel({ kind: "unknown" });
+
+/** Set by the viewer provider: the signed-in user's name, or "Local mode, no sign-in". */
+export function setAuditActor(label: string): void {
+  actor = label;
+}
 
 export async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -98,7 +106,7 @@ export function flushAudit(): Promise<void> {
     }
     try {
       const list = [...parseLocal()];
-      for (const ev of batch) list.push(await makeEntry(list[list.length - 1] ?? null, ev, new Date(), sha256));
+      for (const ev of batch) list.push(await makeEntry(list[list.length - 1] ?? null, ev, new Date(), sha256, actor));
       localStorage.setItem(KEY, JSON.stringify(list));
       where = "browser";
       publish(list);

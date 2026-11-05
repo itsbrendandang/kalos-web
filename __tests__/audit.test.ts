@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coalesce, diffMaps, makeEntry, verifyChain, type AuditEntry, type Hasher } from "@/lib/audit";
+import { actorCaption, coalesce, diffMaps, LEGACY_ACTOR, makeEntry, verifyChain, type AuditEntry, type Hasher } from "@/lib/audit";
 import { mabTemplate } from "@/lib/process";
 
 const hash: Hasher = async (t) => {
@@ -47,7 +47,7 @@ describe("coalesce", () => {
 describe("chain", () => {
   const build = async () => {
     const out: AuditEntry[] = [];
-    for (const d of ["one", "two", "three"]) out.push(await makeEntry(out[out.length - 1] ?? null, { action: "x", detail: d }, new Date(2026, 0, 1), hash));
+    for (const d of ["one", "two", "three"]) out.push(await makeEntry(out[out.length - 1] ?? null, { action: "x", detail: d }, new Date(2026, 0, 1), hash, "Ada Lovelace"));
     return out;
   };
   it("verifies an intact chain", async () => expect(await verifyChain(await build(), hash)).toEqual({ ok: true }));
@@ -60,3 +60,18 @@ describe("chain", () => {
     expect(await verifyChain(c, hash)).toMatchObject({ ok: false, seq: 3 });
   });
 });
+
+describe("who a change is recorded as", () => {
+  it("records the actor it is given, never a fixed 'this device'", async () => {
+    const e = await makeEntry(null, { action: "x", detail: "d" }, new Date(2026, 0, 1), hash, "Ada Lovelace");
+    expect(e.actor).toBe("Ada Lovelace");
+    expect(await verifyChain([e], hash)).toEqual({ ok: true });
+  });
+  it("words the line under each change: an older 'this device' entry is not recorded, not a person", () => {
+    expect(actorCaption(LEGACY_ACTOR)).toBe("Who made this change was not recorded (earlier entry)");
+    expect(actorCaption("Ada Lovelace")).toBe("Made by Ada Lovelace");
+    expect(actorCaption("Local mode, no sign-in")).toBe("Made in local mode, no sign-in");
+    expect(actorCaption(LEGACY_ACTOR)).not.toMatch(/this device/);
+  });
+});
+

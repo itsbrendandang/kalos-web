@@ -32,6 +32,8 @@ describe("/api/audit", () => {
     expect((await post({ events: [{ action: "campaign.upload", detail: "three" }] })).status).toBe(200);
     const { entries } = (await (await GET()).json()) as { entries: AuditEntry[] };
     expect(entries.map((e) => e.seq)).toEqual([1, 2, 3]);
+    // Local mode has no sign-in, so the file records that plainly; it never says "this device".
+    expect(entries.map((e) => e.actor)).toEqual(["Local mode, no sign-in", "Local mode, no sign-in", "Local mode, no sign-in"]);
     expect(await verifyChain(entries, sha)).toEqual({ ok: true });
   });
   it("refuses unknown actions, a foreign origin, a null origin, no CSRF header and a foreign host", async () => {

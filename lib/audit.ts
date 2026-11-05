@@ -7,6 +7,7 @@
  * Tested in __tests__/audit.test.ts.
  */
 import type { ProcessMap, Step } from "@/lib/process";
+import { LOCAL_LABEL } from "@/lib/viewer";
 
 export type AuditEvent = {
   action: string;
@@ -28,7 +29,16 @@ export type AuditEntry = {
 };
 
 export const GENESIS = "0".repeat(64);
-export const ACTOR = "this device";
+
+/** Entries written before each change carried a person's name. They say "this device", which was never a person. */
+export const LEGACY_ACTOR = "this device";
+
+/** The line under a change in the activity log. Old entries keep their stored text (their hash covers it); only the wording here differs. */
+export function actorCaption(actor: string): string {
+  if (actor === LEGACY_ACTOR) return "Who made this change was not recorded (earlier entry)";
+  if (actor === LOCAL_LABEL) return "Made in local mode, no sign-in";
+  return `Made by ${actor}`;
+}
 
 const range = (p: { low: number | null; high: number | null; unit: string }) =>
   `${p.low === p.high ? p.low : `${p.low} to ${p.high}`} ${p.unit}`.trim();
@@ -103,8 +113,9 @@ export type Hasher = (text: string) => Promise<string>;
 export const payload = (e: Pick<AuditEntry, "seq" | "at" | "actor" | "action" | "detail" | "prev">) =>
   JSON.stringify([e.seq, e.at, e.actor, e.action, e.detail, e.prev]);
 
-export async function makeEntry(prev: AuditEntry | null, ev: AuditEvent, now: Date, hash: Hasher): Promise<AuditEntry> {
-  const base = { seq: (prev?.seq ?? 0) + 1, at: now.toISOString(), actor: ACTOR, action: ev.action, detail: ev.detail, prev: prev?.hash ?? GENESIS };
+/** `actor` is who made the change: the signed-in user's name, or LOCAL_LABEL in local mode. */
+export async function makeEntry(prev: AuditEntry | null, ev: AuditEvent, now: Date, hash: Hasher, actor: string): Promise<AuditEntry> {
+  const base = { seq: (prev?.seq ?? 0) + 1, at: now.toISOString(), actor, action: ev.action, detail: ev.detail, prev: prev?.hash ?? GENESIS };
   return { ...base, hash: await hash(payload(base)) };
 }
 

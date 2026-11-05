@@ -1,9 +1,9 @@
 "use client";
 
-import type { ReactNode, Ref } from "react";
+import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { MeasuredMark, PredictedMark } from "@/components/campaign/plan/marks";
-import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
+import type { PlanContext, PlanRow } from "@/components/campaign/plan/types";
 import { BAND_CAVEAT, bandLabel, compareRecipes, formatGain, formatInterval, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { ModeBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,13 +24,11 @@ export function Comparison({
   ctx,
   onRemove,
   onClear,
-  headingRef,
 }: {
   rows: PlanRow[];
   ctx: PlanContext;
   onRemove: (rank: number) => void;
   onClear: () => void;
-  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const keys = [...ctx.features, ...ctx.others.filter((k) => rows.some((r) => k in r.recipe))];
   const diff = compareRecipes(
@@ -61,10 +59,10 @@ export function Comparison({
   const removable = rows.length > COMPARE_MIN;
 
   return (
-    <section aria-labelledby="plan-compare-title" className="flex flex-col gap-3 rounded-2xl glass p-3 sm:p-4">
+    <section aria-labelledby="plan-compare-title" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 id="plan-compare-title" ref={headingRef} tabIndex={-1} className="text-heading text-fg outline-none">
+          <h2 id="plan-compare-title" className="text-heading text-fg">
             Compare {rows.map((r) => r.id).join(", ")}
           </h2>
           <p className="text-body text-fg-muted">
@@ -89,7 +87,7 @@ export function Comparison({
             </li>
           ))}
         </ul>
-        <ul className="divide-y divide-border rounded-lg border border-border">
+        <ul className="divide-y divide-border rounded-xl border border-border">
           {diff.map((d) => (
             <li key={d.key} className={cn("flex flex-col gap-1.5 p-3", d.differs && "bg-accent-soft")}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -113,7 +111,7 @@ export function Comparison({
       </div>
 
       {/* Wide: a table. */}
-      <div className="relative hidden overflow-x-auto rounded-lg border border-border @2xl:block" data-scroll-x>
+      <div className="relative hidden overflow-x-auto rounded-xl border border-border @2xl:block" data-scroll-x>
         <table className="w-full text-body">
           <thead>
             <tr className="border-b border-border">

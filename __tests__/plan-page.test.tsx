@@ -79,8 +79,11 @@ async function renderPlan(withUpload = false) {
 
 const isDisabled = (el: HTMLElement) => (el as HTMLButtonElement).disabled || el.getAttribute("aria-disabled") === "true" || el.hasAttribute("data-disabled");
 
-/** The header's Review button (the table and cards both render; the header button is the first). */
-const reviewButton = () => screen.getAllByRole("button", { name: /^Review and start/ })[0];
+/** The header's Approve batch button (the sticky mobile bar repeats it; the header button is the first). */
+const reviewButton = () => screen.getAllByRole("button", { name: /^Approve batch$/ })[0];
+
+/** Opens one of the secondary tabs under the batch (Compare, Response surface, Method). */
+const openTab = (name: string) => fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
 
 async function openDialog() {
   fireEvent.click(reviewButton());
@@ -208,22 +211,21 @@ describe("Plan data notes and provenance", () => {
     expect(screen.getByText(/Strain was read as categorical/)).toBeTruthy();
     expect(screen.getByText(/2 runs with a missing or non-numeric value/)).toBeTruthy();
     expect(screen.getByText(/1 run with a censored value such as <LOD/)).toBeTruthy();
-    const details = screen.getByText("How this batch was made").closest("details") as HTMLDetailsElement;
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
+    openTab("Method");
     expect(await screen.findByText("abcdef012345")).toBeTruthy();
   });
 
   it("says the engine did not report provenance when the run block is absent", async () => {
     await renderPlan();
-    expect(screen.getByText("How this batch was made")).toBeTruthy();
-    expect(screen.getByText("not reported")).toBeTruthy();
+    openTab("Method");
+    expect(await screen.findByText("How this batch was made")).toBeTruthy();
+    expect(screen.getByText(/^Not reported: the engine did not say/)).toBeTruthy();
   });
 
   it("mounts the response surface only when its disclosure is opened, labelled predicted mean only", async () => {
     // The fixture's own surface is empty (the engine sent no grid), so the disclosure must not appear for it.
     await renderPlan();
-    expect(screen.queryByText("How the model responds to two inputs")).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Response surface" })).toBeNull();
     cleanup();
     vi.stubGlobal(
       "fetch",
@@ -235,11 +237,8 @@ describe("Plan data notes and provenance", () => {
       }),
     );
     await renderPlan();
-    const summary = screen.getByText("How the model responds to two inputs");
     expect(screen.queryByText(/Predicted mean only, uncertainty not shown/)).toBeNull();
-    const details = summary.closest("details") as HTMLDetailsElement;
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
+    openTab("Response surface");
     expect(await screen.findByText(/Predicted mean only, uncertainty not shown/)).toBeTruthy();
   });
 });

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { PredictedMark } from "@/components/campaign/plan/marks";
-import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
+import type { PlanContext, PlanRow } from "@/components/campaign/plan/types";
 import { exactSetpoint } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,7 +70,7 @@ export function ApproveDialog({
       <DialogContent initialFocus={titleRef} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
-            Approve {plural(rows.length, "run")} for round {round}
+            Approve batch for round {round}
           </DialogTitle>
           <DialogDescription>
             These are model-generated proposals, not tested recipes. Starting adds them to the campaign as runs in flight; it does not run anything. You run them in the lab, then record each result.

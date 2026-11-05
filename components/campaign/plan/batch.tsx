@@ -202,7 +202,7 @@ export function Batch({
         </div>
       ) : null}
 
-      <ApproveDialog open={approving} onOpenChange={setApproving} rows={chosen} ctx={ctx} round={round} onStart={start} />
+      <ApproveDialog open={approving} onOpenChange={setApproving} rows={chosen} ctx={ctx} d={d} round={round} onStart={start} />
     </PlanFrame>
   );
 }

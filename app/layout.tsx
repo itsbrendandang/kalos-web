@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthFrame } from "@/components/auth/auth-frame";
+import { ViewerProvider } from "@/components/auth/viewer";
 import { isLocalMode } from "@/lib/local-mode";
 import { resolveSession } from "@/lib/server/session";
+import { viewerFrom, type Viewer } from "@/lib/viewer";
 
 export const metadata: Metadata = {
   title: "Kalos",
@@ -19,7 +21,9 @@ const NO_FLASH_THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("theme
 // membership from the member table); AuthFrame then picks the frame or
 // redirects. Pages that read data must still check for themselves.
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { status } = isLocalMode() ? { status: "ok" as const } : await resolveSession();
+  const session = isLocalMode() ? null : await resolveSession();
+  const viewer: Viewer = session ? viewerFrom(session) : { kind: "local" };
+  const status = session ? session.status : ("ok" as const);
   return (
     <html
       lang="en"
@@ -30,7 +34,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
       </head>
       <body>
-        <AuthFrame state={status}>{children}</AuthFrame>
+        <ViewerProvider viewer={viewer}>
+          <AuthFrame state={status}>{children}</AuthFrame>
+        </ViewerProvider>
       </body>
     </html>
   );

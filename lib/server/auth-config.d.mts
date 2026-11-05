@@ -22,7 +22,7 @@ export const roles: Record<string, any>;
 
 export interface BetterAuthSessionLike {
   session: { id: string; token?: string; userId: string; createdAt?: Date | string; expiresAt?: Date | string; mfaVerifiedAt?: Date | string | null; activeOrganizationId?: string | null };
-  user: { id: string; email?: string; twoFactorEnabled?: boolean | null };
+  user: { id: string; email?: string; name?: string | null; twoFactorEnabled?: boolean | null };
 }
 
 export function mfaSatisfied(sessionData: BetterAuthSessionLike | null | undefined): boolean;

@@ -74,3 +74,36 @@ describe("errorMessage: anything thrown", () => {
     expect(errorMessage("not an error").signIn).toBe(false);
   });
 });
+
+describe("fit-row cap (the engine's uncoded refusal over N complete rows)", () => {
+  const CAP_SENTENCE =
+    "The dataset is too large for the surrogate; the optimizer targets the small-sample regime, N<=2000.";
+
+  it("reads the cap from the engine sentence and gives plain copy with the number and a next step", () => {
+    const m = engineMessage({ error: CAP_SENTENCE });
+    expect(m.message).toContain("2,000 complete rows");
+    expect(m.message).toMatch(/upload a smaller sheet/i);
+    expect(m.message).toMatch(/raise the row limit/i);
+    expect(m.message).not.toMatch(/surrogate|N<=|optimizer|small-sample/);
+    expect(m.signIn).toBe(false);
+  });
+
+  it("still gives plain copy when the engine's sentence has no number", () => {
+    const m = engineMessage({ error: "The dataset is too large for the surrogate." });
+    expect(m.message).toMatch(/a fixed number of complete rows/);
+    expect(m.message).not.toMatch(/surrogate/);
+  });
+
+  it("an EngineError that carries the engine sentence gets the same copy", () => {
+    expect(errorMessage(new EngineError(400, "", undefined, CAP_SENTENCE))).toEqual(engineMessage({ error: CAP_SENTENCE }));
+  });
+
+  it("a code wins over the sentence, and an unrelated sentence is still shown as it is", () => {
+    expect(engineMessage({ code: "target_constant", error: CAP_SENTENCE }).message).toMatch(/never changes/);
+    expect(engineMessage({ error: "no target column" }).message).toBe("no target column");
+  });
+
+  it("does not treat prototype names as codes", () => {
+    expect(engineMessage({ code: "constructor" }).message).toMatch(/could not use this file/);
+  });
+});

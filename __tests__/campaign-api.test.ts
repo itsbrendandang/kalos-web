@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { API, getCampaign, logResult, proposalRecipe, reanalyze, startRuns, type Campaign, type Proposal } from "@/lib/api";
+import { EngineError, errorMessage } from "@/lib/engine-error";
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
 function fakeResponse(ok: boolean, status: number, body: unknown): Response {
@@ -45,6 +46,28 @@ describe("campaign client (lib/api.ts)", () => {
     if (result.has_campaign) {
       expect(result.history).toEqual(campaign.history);
     }
+  });
+
+  it("reanalyze keeps the engine's refusal (code or sentence) so the page can say why", async () => {
+    const cap = "The dataset is too large for the surrogate; the optimizer targets the small-sample regime, N<=2000.";
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: cap }));
+    const err = await reanalyze().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EngineError);
+    expect((err as EngineError).status).toBe(400);
+    expect((err as EngineError).detail).toBe(cap);
+    expect(errorMessage(err).message).toContain("2,000 complete rows");
+  });
+
+  it("reanalyze maps a typed engine code in the body to its copy", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "This is constant.", code: "target_constant" }));
+    const err = await reanalyze().catch((e: unknown) => e);
+    expect(errorMessage(err).message).toMatch(/never changes/);
+  });
+
+  it("reanalyze with a 503 and no body is the busy copy", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 503, {}));
+    const err = await reanalyze().catch((e: unknown) => e);
+    expect(errorMessage(err).message).toMatch(/busy/);
   });
 
   it("getCampaign returns {has_campaign:false} before any upload", async () => {

@@ -20,6 +20,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { coveragePct, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
+import { errorMessage, type EngineMessage } from "@/lib/engine-error";
 import { formatNumber, formatRange } from "@/lib/format";
 import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
@@ -42,7 +43,8 @@ export default function LearnPage() {
   const { reanalyze } = useEngineWrites();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // The engine's reason for a failed re-analysis, in plain words (lib/engine-error.ts). Null when nothing failed.
+  const [failure, setFailure] = useState<EngineMessage | null>(null);
 
   const header = (action?: React.ReactNode, title = "Learn") => (
     <PageHeader title={title} description="What the results taught the model, and whether to trust it." action={action} />
@@ -109,12 +111,15 @@ export default function LearnPage() {
 
   async function planNext() {
     setBusy(true);
-    setFailed(false);
+    setFailure(null);
     try {
       await reanalyze();
       router.push("/campaign/plan");
-    } catch {
-      setFailed(true);
+    } catch (err) {
+      const copy = errorMessage(err);
+      // An expired session cannot be fixed on this page: send the user to sign in, back here.
+      if (copy.signIn) router.push(`/sign-in?next=${encodeURIComponent("/campaign/learn")}`);
+      setFailure(copy);
       setBusy(false);
     }
   }
@@ -133,9 +138,10 @@ export default function LearnPage() {
       )}
 
       {/* The one callout on this screen: the only thing here the user must act on right now. */}
-      {failed ? (
+      {failure ? (
         <Callout tone="bad" title="Could not plan the next round">
-          The engine did not accept the re-analysis. Your recorded results are safe; try again.
+          <p>{failure.message}</p>
+          <p className="mt-1 text-fg-muted">Your recorded results are safe.</p>
         </Callout>
       ) : null}
 

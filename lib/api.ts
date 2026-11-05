@@ -1143,7 +1143,13 @@ export async function logResult(id: string, value: number): Promise<void> {
 
 export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
   const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST", headers: mutationHeaders() });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) {
+    // Keep the engine's reason (its code, or its sentence when it sent no code) so the page can say why, e.g. the fit-row cap.
+    const body = await readJsonBody(r);
+    const code = typeof body?.code === "string" ? body.code : r.status === 400 ? "" : codeForStatus(r.status);
+    const detail = typeof body?.error === "string" ? body.error : undefined;
+    throw new EngineError(r.status, code, undefined, detail);
+  }
   recordAudit([{ action: "campaign.reanalyze", detail: "Updated the model with the recorded results." }]);
   return r.json();
 }

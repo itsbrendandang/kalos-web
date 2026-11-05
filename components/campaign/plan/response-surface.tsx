@@ -178,7 +178,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
             const cy = M.top + (ny - 1 - fy + 0.5) * cellH;
             return (
               <g key={p.id}>
-                <PredictedMark x={cx - 6} y={cy - 6} halo className="size-3" />
+                <PredictedMark x={cx - 6} y={cy - 6} halo size={12} />
                 <text x={cx + 7} y={cy - 6} fontSize="10" style={{ fill: "var(--fg)", stroke: "var(--bg)", strokeWidth: 3, paintOrder: "stroke" }}>
                   {p.id}
                 </text>

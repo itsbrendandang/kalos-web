@@ -3,7 +3,7 @@
 import { useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import { ColumnConfirm } from "@/components/campaign/column-confirm";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
 import { ReplaceRunsDialog } from "@/components/campaign/replace-runs-dialog";
@@ -19,6 +19,7 @@ import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { CampaignHasRunsError, type ColumnRolesInput, type ProvenanceEntry } from "@/lib/api";
 import { engineMessage, errorMessage } from "@/lib/engine-error";
 import { campaignStage } from "@/lib/campaign-stage";
+import { directionWarning } from "@/lib/objective";
 import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
@@ -218,6 +219,12 @@ export default function SetupPage() {
                 {stale ? "Unavailable: this is the previous analysis." : file ? "Choosing another column re-fits the model without a new upload." : "Upload the sheet again to change the target."}
               </span>
             </label>
+            {directionWarning(analysis.target) ? (
+              <p className="flex items-start gap-2 text-body text-fg sm:max-w-xl">
+                <TriangleAlert className="mt-1 size-4 shrink-0 text-warn" aria-hidden />
+                <span>{directionWarning(analysis.target)}</span>
+              </p>
+            ) : null}
           </div>
           {picker && !failed ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
           <div className="flex flex-col gap-3">

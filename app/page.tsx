@@ -26,6 +26,7 @@ import { bestSoFarSeries, topDrivers } from "@/lib/overview";
 import { driverLine, trustPlain, type Trust } from "@/lib/plain";
 import { cn, parseUnit } from "@/lib/utils";
 import { campaignView, type ActiveCampaign } from "@/lib/workbench";
+import { aimLine } from "@/lib/objective";
 
 /**
  * Campaign Overview. It answers one question, "what should I run next, and can
@@ -113,7 +114,7 @@ export default function OverviewPage() {
     <div className="flex flex-col gap-10">
       <PageHeader
         eyebrow={stage.round ? `Round ${stage.round}` : undefined}
-        title={`Raise ${target}`}
+        title={aimLine(target)}
         description={bestLine}
         meta={demo ? <ExampleBadge /> : null}
       />

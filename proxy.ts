@@ -25,10 +25,14 @@ export function proxy(request: NextRequest) {
       return new NextResponse(d.status === 421 ? "Wrong host." : "Open Kalos from the desktop app.", { status: d.status, headers: { "cache-control": "no-store" } });
     }
     // First visit with the launch secret: keep it as a cookie and drop it from the address.
+    // Lax, not Strict: the desktop window arrives from its own tauri:// page, and WebKit
+    // treats that redirect as cross-site, so a Strict cookie is withheld on the next
+    // request and the app shows the 403 text. Lax still blocks cross-site POSTs; the
+    // host check in localGate blocks DNS rebinding.
     const clean = request.nextUrl.clone();
     clean.searchParams.delete(LOCAL_QUERY);
     const res = NextResponse.redirect(clean);
-    res.cookies.set(LOCAL_COOKIE, localToken()!, { httpOnly: true, sameSite: "strict", path: "/" });
+    res.cookies.set(LOCAL_COOKIE, localToken()!, { httpOnly: true, sameSite: "lax", path: "/" });
     res.headers.set("cache-control", "no-store");
     return res;
   }

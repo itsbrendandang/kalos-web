@@ -24,7 +24,3 @@ export function KalosMark({ className }: { className?: string }) {
   );
 }
 
-/** The Greek key (meander), as a thin repeating border. Decorative. */
-export function GreekKey({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("greek-key w-full text-border-strong", className)} />;
-}

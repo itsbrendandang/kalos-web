@@ -139,7 +139,7 @@ export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; 
           Settings
         </Link>
         <ViewSwitch mode={mode} />
-        <p className="px-2.5 pb-0.5 text-caption text-fg-muted">Research use only. Suggestions are hypotheses to test, not settings.</p>
+        <p className="px-2.5 pb-0.5 text-caption text-fg-muted">Research use only.</p>
         <div className="flex items-center gap-1 pl-1">
           {status === "offline" ? (
             <button type="button" onClick={retry} className="flex h-8 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fill-hover">

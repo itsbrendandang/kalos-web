@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Menu, Search } from "lucide-react";
-import { MaximFooter } from "@/components/brand/maxim";
+import { ResearchFooter } from "@/components/brand/research-footer";
 import { CommandPalette } from "@/components/workbench/command-palette";
 import { Sidebar } from "@/components/workbench/sidebar";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
@@ -79,7 +79,7 @@ function Frame({ children }: { children: ReactNode }) {
         </aside>
         <main id={MAIN_ID} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none">
           <div className="mx-auto w-full max-w-[1080px] px-5 py-8 md:px-10 md:py-12">{children}
-            <MaximFooter />
+            <ResearchFooter />
           </div>
         </main>
       </div>

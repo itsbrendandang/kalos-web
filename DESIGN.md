@@ -213,7 +213,7 @@ The reader is a lab scientist, not a statistician or a software person. The full
 - **Three honest states.** `ErrorState` means the request to Kalos failed (a fact about the connection: "Could not reach Kalos. This is a connection problem, not a result; nothing you entered is lost."). `EmptyState` means Kalos answered with nothing (a fact about the data). `LoadingSkeleton` means the request is still running. Never show a dropped connection as "no data".
 - **Demo or illustrative content carries a visible "Example data" badge** (`ExampleBadge`).
 - **Never rely on color alone** for state. Pair it with a word or an icon.
-- **Research use only.** Suggestions are hypotheses to test, not validated specifications. The sidebar footer says so.
+- **Research use only.** Suggestions are ideas to test in the lab, not settings. The page footer says so, once per page (`ResearchFooter`); the sidebar says "Research use only."
 
 ## Dark mode
 
@@ -227,4 +227,4 @@ The reader is a lab scientist, not a statistician or a software person. The full
 - **No compatibility aliases.** The old token names (`--card`, `--muted`, `--blue*`, `--explore*`, `--green*`, `--amber*`, `--red`, `--grid`, `--series-*`, `--chart-1-ink`, `--accent-text`, `--font-head`) and the `.tabular` class were removed from `app/globals.css` in the second redesign pass, together with every file that read them. `__tests__/design-guards.test.ts` fails the build if one comes back, and also on `uppercase`, `text-[Npx]`, `opacity-N` on marks or text, and alpha-tinted status borders (`border-bad/30`).
 - **The shadcn semantic names** (`--primary-foreground`, `--secondary` and `--color-background`, `--color-foreground`, `--color-card-foreground`, `--color-popover`, `--color-popover-foreground`, `--color-primary`, `--color-primary-foreground`, `--color-secondary`, `--color-secondary-foreground`, `--color-muted-foreground`, `--color-accent-foreground`, `--color-destructive`, `--color-input`) stay, because they match `components.json` and registry blocks resolve against them. They are not aliases of old Kalos names.
 - **Fixture-only screens are gone, not restyled.** Plate analysis and Vessels (seeded simulations with no engine route), the mock data registry on Data, and the fabricated analysis views on Projects (success percentages, pipelines, linkage trees, reports) were deleted. A screen shows the engine's answer or the user's own file, or an honest empty state.
-- `.surface-cell` and `.greek-key` (in `app/globals.css`) are page-specific utilities for the response surface and the footer maxim.
+- `.surface-cell` (in `app/globals.css`) is a page-specific utility for the response surface. The Greek maxims and the Greek-key rule at the foot of every page are gone: the foot of a page carries one line, "Research use only. Suggestions are ideas to test in the lab, not settings." (`components/brand/research-footer.tsx`), and the sidebar says only "Research use only."

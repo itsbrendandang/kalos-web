@@ -110,41 +110,8 @@
   --chart-band: oklch(0.72 0.11 245 / 0.2);
 }
 
-/*
- * COMPATIBILITY ALIASES - temporary. The old token names below are read by
- * pages that have not been rebuilt yet (app/data, the library tools, the
- * campaign stage pages, components/dashboard, components/projects and
- * app/projects/projects.css). Each maps onto a new token so those pages render
- * in the new palette. Page engineers delete an alias once nothing reads it;
- * DESIGN.md lists them. Do not use them in new code.
- */
 :root {
-  --card: var(--surface);
-  --muted: var(--fg-muted);
-  --accent-text: var(--accent);
-  --blue: var(--accent);
-  --blue-hover: var(--accent-hover);
-  --blue-deep: var(--accent);
-  --blue-soft: var(--subtle);
-  --blue-tint: var(--accent-soft);
-  --blue-border: var(--border-strong);
-  --blue-hover-bg: var(--subtle);
-  --explore: var(--border-strong);
-  --explore-deep: var(--fg-muted);
-  --explore-soft: var(--subtle);
-  --green: var(--good);
-  --green-soft: var(--good-soft);
-  --amber: var(--warn);
-  --amber-soft: var(--warn-soft);
-  --red: var(--bad);
-  --grid: var(--chart-grid);
-  --series-1: var(--chart-1);
-  --series-2: var(--chart-2);
-  --series-3: var(--chart-3);
-  --series-4: var(--chart-4);
-  --series-5: var(--chart-5);
-  --series-6: var(--chart-6);
-  --chart-1-ink: var(--accent);
+  /* shadcn semantic names read by registry blocks (components.json). */
   --primary-foreground: var(--accent-fg);
   --secondary: var(--subtle);
 }
@@ -191,32 +158,7 @@
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* COMPATIBILITY utilities for not-yet-rebuilt pages (see the alias block). */
-  --color-card: var(--surface);
-  --color-muted: var(--fg-muted);
-  --color-accent-text: var(--accent);
-  --color-blue: var(--accent);
-  --color-blue-hover: var(--accent-hover);
-  --color-blue-deep: var(--accent);
-  --color-blue-soft: var(--subtle);
-  --color-blue-tint: var(--accent-soft);
-  --color-blue-border: var(--border-strong);
-  --color-explore: var(--border-strong);
-  --color-explore-deep: var(--fg-muted);
-  --color-explore-soft: var(--subtle);
-  --color-green: var(--good);
-  --color-green-soft: var(--good-soft);
-  --color-amber: var(--warn);
-  --color-amber-soft: var(--warn-soft);
-  --color-red: var(--bad);
-  --color-grid: var(--chart-grid);
-  --color-chart-1-ink: var(--accent);
-  --color-series-1: var(--chart-1);
-  --color-series-2: var(--chart-2);
-  --color-series-3: var(--chart-3);
-  --color-series-4: var(--chart-4);
-  --color-series-5: var(--chart-5);
-  --color-series-6: var(--chart-6);
+  /* shadcn semantic names, so registry blocks keep resolving (components.json). */
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --color-card-foreground: var(--fg);
@@ -230,7 +172,6 @@
   --color-accent-foreground: var(--accent-fg);
   --color-destructive: var(--bad);
   --color-input: var(--border-strong);
-  --font-head: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Type scale: role tokens, one per job. `text-metric` numbers also take
@@ -306,11 +247,6 @@ body {
 ::selection {
   background: var(--accent-soft);
   color: var(--fg);
-}
-
-/* COMPATIBILITY: old pages use `.tabular`; new code uses `tabular-nums`. */
-.tabular {
-  font-variant-numeric: tabular-nums;
 }
 
 /* One focus ring everywhere, visible in both themes (accent clears 3:1 on

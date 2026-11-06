@@ -13,6 +13,14 @@ import type { StageStep } from "@/lib/campaign-stage";
 import { CAMPAIGN_STAGES, RAIL_GROUPS, navItem, navKeyFor, type NavKey } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+/** Set at build time by desktop/prepare-web.sh: the engine is a local process on this Mac, not a service. */
+const LOCAL = process.env.NEXT_PUBLIC_KALOS_LOCAL === "1";
+const ENGINE_LINE = {
+  connected: LOCAL ? "Engine running on this Mac" : "Connected to the engine",
+  connecting: LOCAL ? "Starting the engine" : "Connecting to the engine",
+  offline: LOCAL ? "Engine stopped. Retry" : "Engine unreachable. Retry",
+} as const;
+
 const ICON: Record<NavKey, LucideIcon> = {
   campaign: LayoutDashboard,
   agent: Bot,
@@ -117,12 +125,12 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
           {status === "offline" ? (
             <button type="button" onClick={retry} className="flex h-9 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fill-hover">
               <span className="size-2 rounded-full bg-bad" aria-hidden />
-              Engine offline. Retry
+              {ENGINE_LINE.offline}
             </button>
           ) : (
             <p className="flex h-9 flex-1 items-center gap-2 px-1.5 text-caption text-fg-muted">
               <span className={cn("size-2 rounded-full", status === "connected" ? "bg-good" : "animate-pulse bg-fg-muted")} aria-hidden />
-              {status === "connected" ? "Engine running on this device" : "Starting engine"}
+              {ENGINE_LINE[status]}
             </p>
           )}
           <WorkspaceMenu side="right" className="size-8" />

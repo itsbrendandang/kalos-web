@@ -40,3 +40,61 @@ describe("no side-stripe borders", () => {
     }
   });
 });
+
+// Second redesign pass: the compatibility aliases are gone from app/globals.css,
+// and the patterns the old pages leaned on (uppercase labels, arbitrary pixel
+// sizes, opacity-dimmed text, alpha-tinted status borders) stay out.
+const ALIAS_NAMES = ["card", "muted", "accent-text", "blue", "blue-hover", "blue-deep", "blue-soft", "blue-tint", "blue-border", "blue-hover-bg", "explore", "explore-deep", "explore-soft", "green", "green-soft", "amber", "amber-soft", "red", "grid", "chart-1-ink", "series-1", "series-2", "series-3", "series-4", "series-5", "series-6"];
+
+function offenders(re: RegExp, exts = /\.(tsx?|css)$/, skip: (file: string) => boolean = () => false): string[] {
+  return sources(exts)
+    .filter(({ file }) => !skip(file))
+    .flatMap(({ file, text }) => text.split("\n").map((line, i) => ({ file, line, i })))
+    .filter(({ line }) => re.test(line))
+    .map(({ file, i, line }) => `${file}:${i + 1}: ${line.trim().slice(0, 120)}`);
+}
+
+describe("no compatibility aliases", () => {
+  it("app/globals.css defines none of the old token names", () => {
+    const css = readFileSync(path.join(root, "app/globals.css"), "utf8");
+    for (const name of ALIAS_NAMES) {
+      expect(css, `--${name}`).not.toMatch(new RegExp(`^\\s*--${name}:`, "m"));
+      expect(css, `--color-${name}`).not.toMatch(new RegExp(`^\\s*--color-${name}:`, "m"));
+    }
+    expect(css).not.toMatch(/--font-head|^\.tabular\b/m);
+  });
+
+  it("no page or component reads an old token name or the .tabular class", () => {
+    const utility = new RegExp(`\\b(?:bg|text|border|fill|stroke|ring|divide|from|to)-(?:${ALIAS_NAMES.join("|")})(?![\\w-])`);
+    const variable = new RegExp(`var\\(--(?:${ALIAS_NAMES.join("|")}|font-head)\\)`);
+    const tabular = /\btabular\b(?!-nums)/;
+    const skipComments = (line: string) => /^\s*(\/\/|\*|\/\*)/.test(line);
+    const hits = sources(/\.(tsx?|css)$/)
+      .filter(({ file }) => file !== path.join("app", "globals.css"))
+      .flatMap(({ file, text }) => text.split("\n").map((line, i) => ({ file, line, i })))
+      .filter(({ line }) => !skipComments(line) && (utility.test(line) || variable.test(line) || tabular.test(line)))
+      .map(({ file, i, line }) => `${file}:${i + 1}: ${line.trim().slice(0, 120)}`);
+    expect(hits).toEqual([]);
+  });
+});
+
+describe("old patterns stay out", () => {
+  it("no uppercase labels", () => {
+    expect(offenders(/\buppercase\b/, /\.(tsx|css)$/)).toEqual([]);
+  });
+
+  it("no arbitrary pixel font sizes (use the type roles)", () => {
+    expect(offenders(/\btext-\[\d+(?:\.\d+)?px\]/, /\.tsx$/)).toEqual([]);
+  });
+
+  it("no opacity-dimmed text or marks (use text-fg-muted; data-state transitions and hidden inputs are fine)", () => {
+    const dim = /(?<![\w:-])opacity-(?:[1-9]\d?)(?![\w-])/;
+    const hits = offenders(dim, /\.tsx$/).filter((h) => !/opacity-0\b/.test(h));
+    expect(hits).toEqual([]);
+  });
+
+  it("no alpha-tinted status borders or fills (bg-black/NN backdrops are fine)", () => {
+    const alpha = /\b(?:border|bg|text|fill|stroke)-(?:good|warn|bad|accent|fg|fg-muted|border|border-strong)\/\d+/;
+    expect(offenders(alpha, /\.tsx$/)).toEqual([]);
+  });
+});

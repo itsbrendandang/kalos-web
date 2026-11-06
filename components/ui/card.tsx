@@ -23,15 +23,22 @@ import { cn } from "@/lib/utils";
  * never defines - a silent no-op. It is replaced with `font-head` (the kalos
  * Satoshi heading utility from app/globals.css), which is what it was for.
  */
+const CARD_PADDING = {
+  inset: "p-inset", // 24px - an open Card
+  panel: "p-panel", // 20px - a bordered surface
+  none: "", //        caller supplies its own
+} as const;
+
 export function Card({
   className,
   bordered = false,
+  padding = "inset",
   ...props
-}: React.ComponentProps<"div"> & { bordered?: boolean }) {
+}: React.ComponentProps<"div"> & { bordered?: boolean; padding?: keyof typeof CARD_PADDING }) {
   return (
     <div
       data-slot="card"
-      className={cn("rounded-xl p-6", bordered && "border border-border", className)}
+      className={cn("rounded-xl", CARD_PADDING[padding], bordered && "border border-border", className)}
       {...props}
     />
   );

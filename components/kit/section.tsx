@@ -42,5 +42,5 @@ export function Section({
  *  rounded-xl / border-border / bg-surface / p-5) so the app has a single
  *  bordered surface, not three. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {
-  return <Card bordered className={cn("p-5", className)} {...props} />;
+  return <Card bordered padding="panel" className={className} {...props} />;
 }

@@ -225,3 +225,32 @@ export function nextSort(sort: SortState, column: number, targetColumn: number):
   if (sort.direction === first) return { column, direction: first === "ascending" ? "descending" : "ascending" };
   return null;
 }
+
+// --- The round page (/data/round/[round]) ---------------------------------------------------------------
+
+/**
+ * The runs of one human round (1-based, as the campaign pages show it; the engine's `pending[].round` is the
+ * 0-based round a run was started in). A run without a round is counted in the campaign's current round.
+ */
+export function runsOfRound<T extends { round?: number }>(pending: readonly T[], engineRound: number, round: number): T[] {
+  return pending.filter((r) => (r.round ?? engineRound) + 1 === round);
+}
+
+export type RoundState = "runs" | "folded" | "unknown";
+
+/** Whether a round still lists its runs, was folded into the campaign's data (history has it, pending does not), or is not recorded at all. */
+export function roundState(runs: readonly unknown[], history: readonly { round: number }[], round: number): RoundState {
+  if (runs.length) return "runs";
+  if (history.some((h) => h.round === round)) return "folded";
+  return "unknown";
+}
+
+/** The round page's one sentence: the best measured value against the sheet's own best (round 0 of the history). */
+export function roundVerdict(runs: readonly { result: number | null }[], sheetBest: number | null, format: (v: number) => string): string {
+  const measured = runs.map((r) => r.result).filter((v): v is number => v != null && Number.isFinite(v));
+  if (measured.length === 0) return "No results recorded yet.";
+  const best = Math.max(...measured);
+  if (sheetBest == null || !Number.isFinite(sheetBest)) return `Best measured in this round: ${format(best)}.`;
+  const rel = best > sheetBest ? "above" : best < sheetBest ? "below" : "level with";
+  return `Best measured in this round: ${format(best)}, ${rel} the sheet's best ${format(sheetBest)}.`;
+}

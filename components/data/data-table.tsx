@@ -139,8 +139,9 @@ export function DataTable({ columns, rows, target, pageSize = DEFAULT_PAGE_SIZE 
             <TableHead numeric className="bg-surface">
               Row
             </TableHead>
+            {/* The sort arrow sits beside the name: the primitive's numeric layout would float it left of the two-line header. */}
             {shown.map((c) => (
-              <SortableHead key={c.name} direction={direction(c.i)} numeric={c.kind === "numeric"} onSort={() => setSort(nextSort(sort, c.i, targetColumn))} className="h-auto bg-surface py-2">
+              <SortableHead key={c.name} direction={direction(c.i)} onSort={() => setSort(nextSort(sort, c.i, targetColumn))} className={cn("h-auto bg-surface py-2 align-top", c.kind === "numeric" && "text-right")}>
                 <span className={cn("flex flex-col gap-1", c.kind === "numeric" ? "items-end" : "items-start")}>
                   <span className="font-mono text-code text-fg">{c.name}</span>
                   <Badge tone={c.role === "target" ? "accent" : "neutral"} variant={c.role === "input" || c.role === "target" ? "soft" : "outline"}>

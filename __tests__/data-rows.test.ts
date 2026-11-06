@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { profileSheet } from "@/components/campaign/data/profile";
 import { parseDelimited } from "@/lib/sheet-columns";
-import { bestIndex, columnRoles, filterRows, groupSizes, isMeasuredOrigin, nextSort, originFromDataType, originWords, replicateGroupIndex, sortRows, tableRows } from "@/components/data/rows";
+import { bestIndex, columnRoles, filterRows, groupSizes, isMeasuredOrigin, nextSort, originFromDataType, originWords, replicateGroupIndex, roundState, roundVerdict, runsOfRound, sortRows, tableRows } from "@/components/data/rows";
 
 const csv = (text: string) => text.trim().split("\n").map((l) => l.split(","));
 
@@ -197,5 +197,36 @@ describe("on the sample sheets", () => {
       seen.push(r.group);
     }
     expect(groupSizes(t.rows).size).toBe(10);
+  });
+});
+
+describe("the round page", () => {
+  const pending = [
+    { id: "a", round: 0, result: 50, awaiting: false },
+    { id: "b", round: 0, result: null, awaiting: true },
+    { id: "c", round: 1, result: 70, awaiting: false },
+    { id: "d", result: 1, awaiting: false },
+  ];
+
+  it("reads a human round as the engine's 0-based round plus one, and counts runs without a round in the current one", () => {
+    expect(runsOfRound(pending, 1, 1).map((r) => r.id)).toEqual(["a", "b"]);
+    expect(runsOfRound(pending, 1, 2).map((r) => r.id)).toEqual(["c", "d"]);
+    expect(runsOfRound(pending, 1, 3)).toEqual([]);
+  });
+
+  it("tells a round with runs from a folded one and from one never recorded", () => {
+    const history = [{ round: 0 }, { round: 1 }];
+    expect(roundState([{}], history, 1)).toBe("runs");
+    expect(roundState([], history, 1)).toBe("folded");
+    expect(roundState([], history, 2)).toBe("unknown");
+  });
+
+  it("says the best measured value against the sheet's best, or that nothing is recorded", () => {
+    const f = (v: number) => v.toFixed(1);
+    expect(roundVerdict([{ result: null }], 63.3, f)).toBe("No results recorded yet.");
+    expect(roundVerdict([{ result: 50 }, { result: 70 }, { result: null }], 63.3, f)).toBe("Best measured in this round: 70.0, above the sheet's best 63.3.");
+    expect(roundVerdict([{ result: 50 }], 63.3, f)).toBe("Best measured in this round: 50.0, below the sheet's best 63.3.");
+    expect(roundVerdict([{ result: 63.3 }], 63.3, f)).toBe("Best measured in this round: 63.3, level with the sheet's best 63.3.");
+    expect(roundVerdict([{ result: 50 }], null, f)).toBe("Best measured in this round: 50.0.");
   });
 });

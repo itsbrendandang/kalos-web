@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataTable } from "@/components/data/data-table";
 import { tableRows } from "@/components/data/rows";
 import { profileSheet } from "@/components/campaign/data/profile";
@@ -118,5 +118,77 @@ describe("DataTable", () => {
     const t = tableRows(profileSheet([["SP", "Titer"]]), "Titer");
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
     expect(screen.getByText("This sheet has no run rows.")).toBeTruthy();
+  });
+});
+
+// --- The round page, with the engine hooks and the route param stubbed --------------------------------------
+
+const engine = vi.hoisted(() => ({ campaign: { data: null as unknown, error: false, status: "loading", refreshing: false, refresh: async () => {}, set: () => {} }, latest: { data: null as unknown, error: false, status: "loading", refreshing: false, refresh: async () => {}, set: () => {} }, round: "1" }));
+vi.mock("@/hooks/use-engine", () => ({ useCampaign: () => engine.campaign, useLatest: () => engine.latest }));
+vi.mock("next/navigation", () => ({ useParams: () => ({ round: engine.round }) }));
+
+const { default: DataRoundPage } = await import("@/app/data/round/[round]/page");
+
+const campaign = {
+  has_campaign: true,
+  target: "Titer",
+  features: ["SP", "Gly"],
+  n_base: 10,
+  best: 63.3,
+  round: 0,
+  history: [{ round: 0, best: 63.3, n_base: 10 }],
+  pending: [
+    { id: "abcdef0123", recipe: { SP: 5.1, Gly: 2 }, pred: 60, std: 3, mode: "exploit", reason: "", result: 70.2, awaiting: false, round: 0 },
+    { id: "0123456789", recipe: { SP: 4.1, Gly: 1 }, pred: 55, std: 3, mode: "explore", reason: "", result: null, awaiting: true, round: 0 },
+  ],
+  n_awaiting: 1,
+  n_measured: 1,
+};
+const latest = { has_data: true, n: 10, d: 2, target: "Titer", features: ["SP", "Gly"], dataset: "pichia.csv", updated: 0, conformal_q: 7.05, conformal_coverage: 0.9, run: { input_sha256: "abc" } };
+
+describe("DataRoundPage", () => {
+  it("lists the round's runs with recipe, prediction and band, measurement, status and origin, under one verdict", () => {
+    engine.campaign = { ...engine.campaign, data: campaign, status: "data" };
+    engine.latest = { ...engine.latest, data: latest, status: "data" };
+    engine.round = "1";
+    render(<DataRoundPage />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Round 1");
+    expect(screen.getByText("1 run measured, 1 awaiting. Started from pichia.csv.")).toBeTruthy();
+    expect(screen.getByText("Best measured in this round: 70.20, above the sheet's best 63.30.")).toBeTruthy();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Run", "SP", "Gly", "Predicted", "Measured", "Status", "Origin"]);
+    const rows = bodyRows();
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText("abcdef0")).toBeTruthy();
+    expect(within(rows[0]).getByText("± 7.05 (90% band)")).toBeTruthy();
+    expect(within(rows[0]).getByText("Measured")).toBeTruthy();
+    expect(within(rows[1]).getByText("not yet")).toBeTruthy();
+    expect(within(rows[1]).getByText("Awaiting")).toBeTruthy();
+    expect(screen.getAllByText("Round 1")).toHaveLength(3); // the title and one origin badge per run
+  });
+
+  it("says when the engine folded the round and no longer lists its runs", () => {
+    engine.campaign = { ...engine.campaign, data: { ...campaign, round: 1, pending: [], history: [...campaign.history, { round: 1, best: 70.2, n_base: 12 }] }, status: "data" };
+    engine.round = "1";
+    render(<DataRoundPage />);
+    expect(screen.getByText("The engine folded round 1 into the campaign's data and no longer lists its runs")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("says when a round was never recorded, and when the address is not a round", () => {
+    engine.campaign = { ...engine.campaign, data: campaign, status: "data" };
+    engine.round = "4";
+    const { unmount } = render(<DataRoundPage />);
+    expect(screen.getByText("Round 4 has not been recorded")).toBeTruthy();
+    unmount();
+    engine.round = "x";
+    render(<DataRoundPage />);
+    expect(screen.getByText("No such round")).toBeTruthy();
+  });
+
+  it("shows a connection failure as an error, never as an empty round", () => {
+    engine.campaign = { ...engine.campaign, data: null, error: true, status: "error" };
+    engine.round = "1";
+    render(<DataRoundPage />);
+    expect(screen.getByRole("alert").textContent).toMatch(/Could not reach the engine/);
   });
 });

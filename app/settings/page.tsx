@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleCheck, Circle, LoaderCircle, Unplug } from "lucide-react";
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
+import { Verdict } from "@/components/kit/verdict";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -75,7 +75,15 @@ function EngineConnection() {
     <Section
       title="Engine connection"
       description="Kalos reaches the analysis engine through this app's server, so no engine credentials ever reach your browser."
-      actions={
+    >
+      {loading || busy ? (
+        <LoadingSkeleton rows={1} label="Checking the engine" />
+      ) : failed ? (
+        <Verdict tone="bad">The engine did not answer. Check that it is running, then check the connection again.</Verdict>
+      ) : (
+        <Verdict tone="good">Connected to the engine{version ? `, version ${version}` : ""}.</Verdict>
+      )}
+      <div>
         <Button
           variant="outline"
           size="sm"
@@ -85,23 +93,21 @@ function EngineConnection() {
             void campaign.refresh();
           }}
         >
-          {busy ? "Checking..." : "Check again"}
+          {busy ? "Checking..." : "Check the connection"}
         </Button>
-      }
-    >
-      <p className="flex items-center gap-2 text-body text-fg">
-        {loading || busy ? (
-          <LoaderCircle className="size-4 animate-spin text-fg-muted" aria-hidden />
-        ) : failed ? (
-          <Unplug className="size-4 text-bad" aria-hidden />
-        ) : (
-          <CircleCheck className="size-4 text-good" aria-hidden />
-        )}
-        {loading || busy ? "Checking the engine" : failed ? "The engine is not reachable right now." : "Connected to the engine."}
-        {!failed && !loading && version ? <span className="text-fg-muted">Version {version}</span> : null}
-      </p>
+      </div>
     </Section>
   );
+}
+
+/** Plain names for the engine's optional providers; the raw name stays in the row's disclosure. */
+const PROVIDER_LABEL: Record<string, string> = {
+  anthropic: "Column and unit matching",
+  bionemo: "Protein-sequence embeddings",
+};
+
+function providerLabel(name: string): string {
+  return PROVIDER_LABEL[name] ?? name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 function Integrations() {
@@ -130,35 +136,36 @@ function Integrations() {
       ) : providers.length === 0 ? (
         <p className="text-body text-fg-muted">This engine offers no optional integrations.</p>
       ) : (
-        <>
-          <ul className="divide-y divide-border border-y border-border">
-            {providers.map((p) => (
-              <li key={p.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                <div className="min-w-0">
-                  <p className="text-label text-fg">{p.capability}</p>
-                  {!p.available ? <p className="text-body text-fg-muted">Without it, a built-in check is used instead.</p> : null}
-                </div>
-                <Badge tone={p.available ? "good" : "neutral"} variant={p.available ? "soft" : "outline"} className="shrink-0">
-                  {p.available ? <CircleCheck aria-hidden /> : <Circle aria-hidden />}
-                  {p.available ? "Set up" : "Not set up"}
+        <ul className="divide-y divide-border border-y border-border">
+          {providers.map((p) => (
+            <li key={p.name} className="py-3">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-label text-fg">{providerLabel(p.name)}</p>
+                <Badge tone={p.available ? "good" : "neutral"} className="shrink-0">
+                  {p.available ? "Set up" : "Built-in fallback"}
                 </Badge>
-              </li>
-            ))}
-          </ul>
-          <Disclosure summary="Details for administrators">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-body">
-              {providers.map((p) => (
-                <div key={p.name} className="contents">
-                  <dt className="text-fg-muted">Provider {p.name}</dt>
-                  <dd className="text-fg">
-                    {p.available ? "configured" : `set ${p.missing_env.join(", ") || p.required_env.join(", ")} on the engine to enable`}
-                    <span className="block text-fg-muted">Fallback: {p.fallback}</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </Disclosure>
-        </>
+              </div>
+              <Disclosure summary="What it needs" className="border-t-0">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-body">
+                  <dt className="text-fg-muted">Provider</dt>
+                  <dd className="font-mono text-code text-fg">{p.name}</dd>
+                  <dt className="text-fg-muted">What it adds</dt>
+                  <dd className="text-fg">{p.capability}</dd>
+                  <dt className="text-fg-muted">Without it</dt>
+                  <dd className="text-fg">{p.fallback}</dd>
+                  {!p.available ? (
+                    <>
+                      <dt className="text-fg-muted">To enable</dt>
+                      <dd className="text-fg">
+                        Set <span className="font-mono text-code">{(p.missing_env.length ? p.missing_env : p.required_env).join(", ")}</span> on the engine.
+                      </dd>
+                    </>
+                  ) : null}
+                </dl>
+              </Disclosure>
+            </li>
+          ))}
+        </ul>
       )}
     </Section>
   );

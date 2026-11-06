@@ -21,7 +21,7 @@ export const NAV_ITEMS = [
   { key: "review", href: "/review", label: "Review", description: "See where an experiment went differently and ask what happened." },
   { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
   { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },
-  { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
+  { key: "data", href: "/data", label: "Data", description: "Every run sheet loaded here, and the rounds recorded in the campaign." },
   { key: "library", href: "/library", label: "Library", description: "Tools that use the engine outside the campaign: scale-up readout, benchmark." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
   { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },

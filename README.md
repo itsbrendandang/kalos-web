@@ -97,7 +97,7 @@ It moves through five stages, each with one primary action:
 
 The rest of the app:
 
-- **Data** (`/data`): the run sheet the engine is working from, and how it read each column.
+- **Data** (`/data`): every run sheet this browser has loaded (kept in the browser, joined to the engine's analysis by the sha256 of the bytes) and the rounds recorded in the campaign; each sheet has its own page (`/data/sheet/[sha]`) with the rows, the charts and how each column was read, and each round its own (`/data/round/[round]`).
 - **Library** (`/library`): the Scale-up readout and the optimizer benchmark, the two tools that use the engine without touching the campaign.
 - **Projects** (`/projects`): a list of client projects and the stage each is at, on illustrative seed data; one project links to the live campaign.
 - **Settings** (`/settings`): theme, engine connection, and optional integrations.

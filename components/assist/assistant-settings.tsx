@@ -11,6 +11,30 @@ import { useAssistIndexStatus } from "@/hooks/use-assist";
 import { rebuildAssistIndex } from "@/lib/api";
 import { indexLine, isCloudProvider, providerName, whereItRuns } from "@/lib/assist";
 
+/** Set at build time by desktop/prepare-web.sh: Kalos is a local process on this Mac and picked its own assistant at launch. */
+const LOCAL = process.env.NEXT_PUBLIC_KALOS_LOCAL === "1";
+
+/** How the assistant came to be what it is, in plain words. */
+export function pickedLine(provider: string, local: boolean = LOCAL): string {
+  if (local) {
+    if (provider === "ollama") return "Picked when the app started: Ollama was running on this Mac, so answers stay here.";
+    if (provider === "none") return "Picked when the app started: no Ollama was found on this Mac, so the assistant is off.";
+    return "Picked when the app started.";
+  }
+  return "Set by whoever started Kalos. It cannot be changed here.";
+}
+
+/** What to do when the assistant is off. The desktop app picks Ollama up on its next launch; a server needs the setting changed. */
+function TurnOn({ local = LOCAL }: { local?: boolean }) {
+  return local ? (
+    <p className="text-body text-fg-muted">
+      To turn it on, install Ollama from ollama.com, open Terminal and run <span className="font-mono text-code">ollama pull qwen2.5:7b</span>, then quit and reopen Kalos. The next-step guide works without it.
+    </p>
+  ) : (
+    <p className="text-body text-fg-muted">To turn it on, install Ollama on this Mac and start Kalos with the assistant set to Ollama. The next-step guide works without it.</p>
+  );
+}
+
 /**
  * Settings, "Assistant": which model answers (read-only, set when Kalos is
  * started), what is indexed with a Rebuild button, and, only when answers
@@ -43,7 +67,10 @@ export function AssistantSettings() {
         <div className="flex flex-col gap-2">
           <Verdict tone="neutral">{reason === "absent" ? "This version of Kalos has no assistant." : "The assistant is off."}</Verdict>
           {reason !== "absent" ? (
-            <p className="text-body text-fg-muted">To turn it on, install Ollama on this Mac and start Kalos with the assistant set to Ollama. The next-step guide works without it.</p>
+            <>
+              <p className="text-body text-fg">{pickedLine("none")}</p>
+              <TurnOn />
+            </>
           ) : null}
         </div>
       ) : (
@@ -57,6 +84,8 @@ export function AssistantSettings() {
             </dd>
             <dt className="text-fg-muted">Where it runs</dt>
             <dd className="text-fg">{whereItRuns(status)}</dd>
+            <dt className="text-fg-muted">How it was picked</dt>
+            <dd className="text-fg">{pickedLine(status.provider)}</dd>
             <dt className="text-fg-muted">What is indexed</dt>
             <dd className="text-fg">{indexLine(status)}</dd>
           </dl>
@@ -82,7 +111,15 @@ export function AssistantSettings() {
               <dd className="font-mono text-code text-fg">{status.provider}</dd>
               <dt className="text-fg-muted">Set by</dt>
               <dd className="text-fg">
-                The app, when Kalos is started (<span className="font-mono text-code">KALOS_LLM_PROVIDER</span>). It cannot be changed here.
+                {LOCAL ? (
+                  <>
+                    The app leaves <span className="font-mono text-code">KALOS_LLM_PROVIDER</span> unset, so Kalos picks Ollama when it answers on this Mac and none otherwise.
+                  </>
+                ) : (
+                  <>
+                    When Kalos is started (<span className="font-mono text-code">KALOS_LLM_PROVIDER</span>). It cannot be changed here.
+                  </>
+                )}
               </dd>
               {status.retriever ? (
                 <>

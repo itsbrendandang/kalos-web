@@ -61,7 +61,7 @@ open src-tauri/target/release/bundle/macos/Kalos.app
 
 **Where data lives.** `~/Library/Application Support/Kalos` (set `KALOS_STATE_DIR` to use another folder), readable by your user only: campaigns, uploaded sheets, fits and the activity record (`audit-log.jsonl`, one line per change, each chained to the one before; the app only appends). Logs are in `~/Library/Logs/Kalos/`. To back up, quit and copy the data folder.
 
-**Nothing leaves the Mac.** Both programs listen on `127.0.0.1` only, on ports picked at each launch. Each launch makes two new secrets: the web server answers only requests that carry the first (kept as a cookie after the first page) from a `127.0.0.1` or `localhost` address, so a page in your browser, a site that points its name at `127.0.0.1`, or a tunnel is refused; the engine answers only calls that carry the second as a bearer secret, which the engine holds as a hash and this server holds in `KALOS_ENGINE_TOKEN`. The engine is started with `KALOS_LLM_PROVIDER=none` and any `ANTHROPIC_API_KEY` removed, so it calls no outside service. The Review chat talks only to a model running on this Mac (Ollama at `127.0.0.1:11434`), if you run one. There is no sign-in, no account and no usage tracking. Data would go to a cloud model provider only if you changed that setting on the engine yourself.
+**Nothing leaves the Mac.** Both programs listen on `127.0.0.1` only, on ports picked at each launch. Each launch makes two new secrets: the web server answers only requests that carry the first (kept as a cookie after the first page) from a `127.0.0.1` or `localhost` address, so a page in your browser, a site that points its name at `127.0.0.1`, or a tunnel is refused; the engine answers only calls that carry the second as a bearer secret, which the engine holds as a hash and this server holds in `KALOS_ENGINE_TOKEN`. The engine is started with `KALOS_LLM_PROVIDER` unset and any `ANTHROPIC_API_KEY` removed, so it calls no outside service: its desktop default is Ollama when one answers at `127.0.0.1:11434` and otherwise no assistant at all. The Review chat talks only to that same local Ollama, if you run one. There is no sign-in, no account and no usage tracking. Data would go to a cloud model provider only if you changed that setting on the engine yourself.
 
 **Known gaps.** The app still uses the engine checkout and the Node on your Mac (a single-file engine is built on engine branch `desktop-engine`, not yet merged, and not yet wired in). It is not signed or notarised. Campaigns from an earlier build that kept data in `~/.kalos` do not show; nothing was deleted, and a copy command is planned. Mac only.
 
@@ -141,7 +141,7 @@ Every setting is an environment variable read by the server, never shipped to th
 | `KALOS_START_PATH` | `/` | The page the window opens on. |
 | `KALOS_WEB_REF` | `HEAD` | Which commit `prepare-web.sh` packs. |
 
-The shell passes the engine its own settings (`KALOS_DESKTOP`, `KALOS_HOST`, `KALOS_PORT`, `KALOS_AUTH_TOKENS`, `KALOS_CORS_ORIGINS`, `KALOS_LLM_PROVIDER`); those are documented in the engine README.
+The shell passes the engine its own settings (`KALOS_DESKTOP`, `KALOS_HOST`, `KALOS_PORT`, `KALOS_AUTH_TOKENS`, `KALOS_CORS_ORIGINS`; `KALOS_LLM_PROVIDER` is deliberately left unset); those are documented in the engine README.
 
 ## Development
 

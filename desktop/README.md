@@ -51,10 +51,12 @@ quit the app and move that folder aside.
 
 - Both programs listen on `127.0.0.1` only, on ports picked at each launch.
   Nothing is reachable from the network.
-- The engine is started with no language-model provider
-  (`KALOS_LLM_PROVIDER=none`, and any `ANTHROPIC_API_KEY` is removed), so it
-  does not send anything to an outside service. The optional review chat talks
-  only to a model running on this Mac (Ollama on `127.0.0.1`), if you run one.
+- The engine is started with no cloud model (`KALOS_LLM_PROVIDER` is left
+  unset and any `ANTHROPIC_API_KEY` is removed), so it does not send anything
+  to an outside service. When the app starts, the engine looks for Ollama on
+  `127.0.0.1:11434`: if it answers, the assistant uses it and nothing leaves
+  the Mac; if not, the assistant is off and Settings › Assistant says how to
+  install Ollama. The optional review chat uses the same local Ollama.
 - There is no sign-in, no account and no usage tracking.
 
 ## How the app keeps other programs and web pages out

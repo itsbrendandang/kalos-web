@@ -249,8 +249,9 @@ fn start(children: &Children, resources: Option<PathBuf>) -> Result<(u16, String
         .env("KALOS_AUTH_TOKENS", engine_auth_config(&engine_secret))
         // Only the app's own origin may read engine answers from a browser.
         .env("KALOS_CORS_ORIGINS", format!("http://127.0.0.1:{web_port}"))
-        // Nothing leaves the machine: no language-model provider, even if a key is in the environment.
-        .env("KALOS_LLM_PROVIDER", "none")
+        // Nothing leaves the machine. KALOS_LLM_PROVIDER is left unset so the engine's desktop default
+        // applies: Ollama when it answers on 127.0.0.1:11434, otherwise none. A cloud key is never passed on.
+        .env_remove("KALOS_LLM_PROVIDER")
         .env_remove("ANTHROPIC_API_KEY")
         .env_remove("KALOS_AUTH_TOKENS_FILE")
         .env_remove("KALOS_ALLOW_OPEN_ACCESS")

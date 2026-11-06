@@ -216,17 +216,39 @@ export function isRowListTruncated(finding: ValidationFinding): boolean {
   return affectedRowCount(finding) > safeRows(finding).length;
 }
 
-/** The honest row-list caption: "showing 20 of 143 runs affected" when the
- *  engine capped the list, otherwise a plain count. Never implies the shown
- *  list is complete when it isn't. Returns "" when there are no rows to caption. */
+/** The honest row-list caption: a plain count of the runs affected, and, when Kalos capped the list it
+ *  sent, how many of them it named ("43 runs affected, 20 of them named"). The named rows are shown under
+ *  it (`listedRows`), so the caption never speaks of rows that are not on the page. "" without rows. */
 export function rowListCaption(finding: ValidationFinding): string {
   const rows = safeRows(finding);
   if (rows.length === 0) return "";
   const total = affectedRowCount(finding);
   if (isRowListTruncated(finding)) {
-    return `showing ${rows.length} of ${total} runs affected`;
+    return `${total} runs affected, ${rows.length} of them named`;
   }
   return rows.length === 1 ? "1 run affected" : `${rows.length} runs affected`;
+}
+
+export type ListedRow = { /** The row as people count it (the first run is row 1). */ row: number; /** The cell's value in the finding's column, when the sheet is held in the browser. */ value: string | null };
+
+/**
+ * The rows a finding names, as people count them (the engine's 0-based data-row index plus one), each
+ * with its value in the finding's column when `valueAt` can read the sheet. Sorted. Empty without rows.
+ */
+export function listedRows(finding: ValidationFinding, valueAt?: (column: string, index: number) => string | null): ListedRow[] {
+  return [...safeRows(finding)]
+    .filter((i) => Number.isInteger(i) && i >= 0)
+    .sort((a, b) => a - b)
+    .map((i) => ({ row: i + 1, value: finding.column && valueAt ? valueAt(finding.column, i) : null }));
+}
+
+/** "Rows 3, 8 and 15" / "Rows 3, 8, 15 and 2 more": the rows named, as people count them, for a sentence. */
+export function listedRowsSentence(rows: readonly ListedRow[], max = 20): string {
+  const shown = rows.slice(0, max).map((r) => String(r.row));
+  const rest = rows.length - shown.length;
+  if (shown.length === 0) return "";
+  const head = shown.length === 1 ? `Row ${shown[0]}` : `Rows ${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+  return rest > 0 ? `${head} and ${rest} more` : head;
 }
 
 // --- headline --------------------------------------------------------------------

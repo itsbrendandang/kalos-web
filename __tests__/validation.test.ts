@@ -9,6 +9,8 @@ import {
   getCheckLabel,
   groupFindingsByCheck,
   isRowListTruncated,
+  listedRows,
+  listedRowsSentence,
   rowListCaption,
   severityRank,
   sortFindings,
@@ -160,7 +162,26 @@ describe("affectedRowCount / isRowListTruncated / rowListCaption", () => {
     const rows = Array.from({ length: 20 }, (_, i) => i);
     const f = finding({ rows, detail: { n_rows_affected: 143 } });
     expect(isRowListTruncated(f)).toBe(true);
-    expect(rowListCaption(f)).toBe("showing 20 of 143 runs affected");
+    expect(rowListCaption(f)).toBe("143 runs affected, 20 of them named");
+  });
+
+  it("lists the rows a finding names as people count them, with the cell's value when the sheet is held (first-time study F13)", () => {
+    const f = finding({ column: "SP", rows: [23, 4, 41], detail: { n_rows_affected: 43 } });
+    const sheet: Record<string, string[]> = { SP: Array.from({ length: 50 }, (_, i) => String(i * 0.5)) };
+    expect(listedRows(f, (c, i) => sheet[c]?.[i] ?? null)).toEqual([
+      { row: 5, value: "2" },
+      { row: 24, value: "11.5" },
+      { row: 42, value: "20.5" },
+    ]);
+    expect(listedRows(f)).toEqual([
+      { row: 5, value: null },
+      { row: 24, value: null },
+      { row: 42, value: null },
+    ]);
+    expect(listedRowsSentence(listedRows(f))).toBe("Rows 5, 24 and 42");
+    expect(listedRowsSentence(listedRows(f), 2)).toBe("Rows 5 and 24 and 1 more");
+    expect(listedRowsSentence(listedRows(finding({ rows: [0] })))).toBe("Row 1");
+    expect(listedRows(finding({ rows: [] }))).toEqual([]);
   });
 
   it("does not claim truncation when the list is complete", () => {

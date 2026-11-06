@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { ColumnChoicePanel } from "@/components/campaign/column-choice";
 import { TheModel } from "@/components/campaign/data/the-model";
+import type { SheetProfile } from "@/components/campaign/data/profile";
 import { useSheetProfile } from "@/components/campaign/data/use-sheet-profile";
 import { YourDataView } from "@/components/campaign/data/your-data";
 import { FitProgress, useElapsedSeconds } from "@/components/campaign/fit-progress";
@@ -240,7 +241,7 @@ export default function SetupPage() {
             <h2 className="text-heading text-fg">{stale ? "Sheet check for the previous sheet" : "Sheet check"}</h2>
             {scan?.dataType && isMixedRowTypes(scan.dataType) && !failed ? <MixedRowsCallout counts={scan.dataType} /> : null}
             {report ? (
-              <ValidationSummary report={report} />
+              <ValidationSummary report={report} valueAt={profile?.status === "ready" && dropped === file && !stale ? valueReader(profile.profile) : undefined} />
             ) : (
               <div className="flex flex-col gap-1">
                 <p className="text-body text-fg-muted">Kalos read this sheet without checking it, so nothing here should be read as a pass.</p>
@@ -258,6 +259,16 @@ export default function SetupPage() {
       ) : null}
     </div>
   );
+}
+
+/** Reads one cell of the held sheet by column name and 0-based data row, for the sheet check's row lists. Null when the column is not in the sheet. */
+function valueReader(profile: SheetProfile): (column: string, index: number) => string | null {
+  return (column, index) => {
+    const col = profile.columns.find((c) => c.name === column);
+    if (!col) return null;
+    const v = col.raw[index];
+    return v == null ? null : v === "" ? "(blank)" : v;
+  };
 }
 
 /** A data_type column with anything other than real or measured rows: those rows are pooled into the model. */

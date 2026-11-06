@@ -196,7 +196,7 @@ export default function SetupPage() {
         </Callout>
       ) : null}
       {picker && failed && !busy ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
-      {busy ? <FitProgress elapsed={elapsed} /> : null}
+      {busy ? <FitProgress elapsed={elapsed} rows={profile?.status === "ready" ? profile.profile.n : null} /> : null}
       {latest.status === "loading" ? <LoadingSkeleton variant="rows" rows={3} /> : null}
 
       {/* The decision, above the fold: read from the held file in the browser, sent to Kalos only on Build. */}

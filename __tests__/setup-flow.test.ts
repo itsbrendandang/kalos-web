@@ -45,3 +45,14 @@ describe("edge-of-range flag", () => {
     expect(batchExceptions(items, { incumbent: 5, band: null, nonNegative: false }).shown).toEqual([]);
   });
 });
+
+describe("fit progress step (first-time study F12)", () => {
+  it("names the step from the clock and says so, with a note for small sheets", async () => {
+    const { fitStep } = await import("@/components/campaign/fit-progress");
+    expect(fitStep(0).step).toBe("Reading and checking the sheet");
+    expect(fitStep(10).step).toBe("Building the model");
+    expect(fitStep(45, 18).step).toBe("Testing the model on runs it has not seen");
+    expect(fitStep(45, 18).detail).toMatch(/A small sheet is tested more times/);
+    expect(fitStep(45, 235).detail).not.toMatch(/small sheet/);
+  });
+});

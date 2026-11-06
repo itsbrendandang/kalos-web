@@ -102,7 +102,10 @@ describe("Setup: the decision comes first and the fit waits for it", () => {
     });
     await waitFor(() => expect(runs).toHaveLength(1));
     expect(runs[0]).toEqual({ target: "Titer", roles: { target: "Titer", features: ["Strain", "Glucose_gL"], categoricals: ["Strain"] } });
-    expect(screen.getByText("Learning from your runs")).toBeTruthy();
+    // While Kalos works the page names the step and shows one clock; never "0 seconds so far" beside it (F12).
+    expect(screen.getByRole("status").textContent).toBe("Reading and checking the sheet");
+    expect(screen.queryByText(/seconds so far/)).toBeNull();
+    expect(screen.queryByText(/Still learning/)).toBeNull();
     act(() => resolveRun?.(json({ has_data: false, error: "Not enough runs", code: "too_few_rows" })));
     await screen.findByText(/Kalos could not read my_messy_sheet.csv/);
   });

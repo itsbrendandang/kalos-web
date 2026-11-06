@@ -20,28 +20,37 @@ export function useElapsedSeconds(active: boolean): number {
   return active ? s : 0;
 }
 
+/** What Kalos is doing, by how long it has been at it. Kalos reports no step of its own yet, so the step is read from the clock and says so. */
+export function fitStep(elapsed: number, rows?: number | null): { step: string; detail: string } {
+  if (elapsed < 4) return { step: "Reading and checking the sheet", detail: "The checks run first; the model is built after them." };
+  if (elapsed < 20) return { step: "Building the model", detail: "Kalos learns from your runs." };
+  return {
+    step: "Testing the model on runs it has not seen",
+    detail: `${rows != null && rows < 60 ? "A small sheet is tested more times, so this can take longer than a large one. " : ""}This can take up to 2 minutes; keep this tab open.`,
+  };
+}
+
 /**
- * Shown while the engine reads the sheet and fits the model, which takes about
- * a minute and a half on a first run. The ticking clock is visual only; the
- * live-region text changes every 15 s, so a screen reader is not read a number
- * every second.
+ * Shown while Kalos reads the sheet and builds the model. One clock, and the
+ * step it is most likely on (Kalos does not report its step yet, so the step is
+ * worked out from the time and labelled as such). The live-region text names
+ * the step and changes only when the step does, so a screen reader is not read
+ * a number every second.
  */
-export function FitProgress({ elapsed }: { elapsed: number }) {
-  const announced = Math.floor(elapsed / 15) * 15;
+export function FitProgress({ elapsed, rows }: { elapsed: number; rows?: number | null }) {
+  const { step, detail } = fitStep(elapsed, rows);
   return (
     <div className="flex items-center gap-3 rounded-2xl glass px-4 py-3.5">
       <Loader2 className="size-4 shrink-0 animate-spin text-accent" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-label text-fg">Learning from your runs</p>
-        <p className="text-caption text-fg-muted">
-          Checking the sheet, then building the model and checking it on runs it has not seen. This can take up to 2 minutes on a large sheet; keep this tab open.
-        </p>
+        <p className="text-label text-fg">{step}</p>
+        <p className="text-caption text-fg-muted">{detail} The step is worked out from the time, not reported by Kalos.</p>
       </div>
-      <span className="text-label tabular-nums text-fg" aria-hidden>
+      <span className="text-label tabular-nums text-fg" aria-label={`${formatElapsed(elapsed)} so far`}>
         {formatElapsed(elapsed)}
       </span>
       <span role="status" className="sr-only">
-        Still learning, {announced} seconds so far
+        {step}
       </span>
     </div>
   );

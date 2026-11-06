@@ -1,7 +1,6 @@
 /*
  * Pure rules for the Agent page, tested in __tests__/agent.test.ts. Nothing
- * here invents data: every number comes from the campaign the engine returned
- * or from a simulation the user ran.
+ * here invents data: every number comes from the campaign the engine returned.
  */
 import type { CampaignRun } from "@/lib/api";
 import type { ActiveCampaign } from "@/lib/workbench";
@@ -14,7 +13,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 /** What the agent is doing, in one sentence, from the campaign alone. */
 export function agentStatus(c: ActiveCampaign | null): AgentStatus {
-  if (!c) return { state: "idle", headline: "No campaign yet", detail: "Upload a run sheet in Setup and the agent will start watching it." };
+  if (!c) return { state: "idle", headline: "No campaign yet", detail: "Upload a run sheet in Setup and this page starts watching the lab." };
   if (c.n_awaiting > 0) {
     return {
       state: "waiting",
@@ -28,7 +27,7 @@ export function agentStatus(c: ActiveCampaign | null): AgentStatus {
 export const awaitingRuns = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((r) => r.awaiting);
 export const measuredRuns = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((r) => !r.awaiting && r.result != null);
 
-export type TwinCheck = {
+export type ForecastCheck = {
   n: number;
   /** Mean of |measured - predicted|. */
   meanAbsError: number;
@@ -37,7 +36,7 @@ export type TwinCheck = {
 };
 
 /** How well the model's forecast matched what the lab measured, or null with nothing measured. */
-export function twinCheck(runs: readonly CampaignRun[]): TwinCheck | null {
+export function forecastCheck(runs: readonly CampaignRun[]): ForecastCheck | null {
   const done = runs.filter((r) => r.result != null && Number.isFinite(r.pred));
   if (!done.length) return null;
   const errs = done.map((r) => Math.abs((r.result as number) - r.pred));
@@ -46,17 +45,4 @@ export function twinCheck(runs: readonly CampaignRun[]): TwinCheck | null {
     meanAbsError: errs.reduce((a, b) => a + b, 0) / done.length,
     withinOneSd: done.filter((r, i) => errs[i] <= r.std).length,
   };
-}
-
-/** Straight-line distance between two recipes in the benchmark's unit cube. */
-export function recipeDistance(a: readonly number[], b: readonly number[]): number {
-  return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
-}
-
-/** A plain-English result for a finished simulation, for people new to the method. */
-export function simSummary(experiments: number, distance: number): string {
-  const n = `${experiments} ${experiments === 1 ? "experiment" : "experiments"}`;
-  if (distance < 0.05) return `In ${n}, the agent found almost exactly the best possible recipe.`;
-  if (distance < 0.2) return `In ${n}, the agent got close to the best possible recipe.`;
-  return `In ${n}, the agent was still some way from the best recipe. More experiments would close the gap.`;
 }

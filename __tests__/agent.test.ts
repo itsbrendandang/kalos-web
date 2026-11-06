@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentStatus, recipeDistance, twinCheck } from "@/lib/agent";
+import { agentStatus, forecastCheck } from "@/lib/agent";
 import type { CampaignRun } from "@/lib/api";
 import type { ActiveCampaign } from "@/lib/workbench";
 
@@ -15,25 +15,12 @@ describe("agentStatus", () => {
   it("is idle with nothing in flight", () => expect(agentStatus(campaign({})).headline).toBe("Nothing running"));
 });
 
-describe("twinCheck", () => {
-  it("is null when nothing is measured", () => expect(twinCheck([run({})])).toBeNull());
+describe("forecastCheck", () => {
+  it("is null when nothing is measured", () => expect(forecastCheck([run({})])).toBeNull());
   it("averages error and counts hits inside one sd", () => {
-    const t = twinCheck([run({ pred: 5, std: 0.3, result: 5.2, awaiting: false }), run({ pred: 5, std: 0.3, result: 4.0, awaiting: false })])!;
+    const t = forecastCheck([run({ pred: 5, std: 0.3, result: 5.2, awaiting: false }), run({ pred: 5, std: 0.3, result: 4.0, awaiting: false })])!;
     expect(t.n).toBe(2);
     expect(t.meanAbsError).toBeCloseTo(0.6);
     expect(t.withinOneSd).toBe(1);
-  });
-});
-
-describe("recipeDistance", () => {
-  it("is euclidean", () => expect(recipeDistance([0, 0], [3, 4])).toBe(5));
-});
-
-import { simSummary } from "@/lib/agent";
-describe("simSummary", () => {
-  it("speaks plainly at each distance", () => {
-    expect(simSummary(12, 0.01)).toMatch(/almost exactly/);
-    expect(simSummary(1, 0.1)).toBe("In 1 experiment, the agent got close to the best possible recipe.");
-    expect(simSummary(8, 0.5)).toMatch(/some way/);
   });
 });

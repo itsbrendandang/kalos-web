@@ -38,7 +38,7 @@ To check that the engine refuses callers without the app's secret:
 
 | What | Where |
 | --- | --- |
-| Your campaigns, uploaded sheets, fits, the activity log | `~/Library/Application Support/Kalos` (set `KALOS_STATE_DIR` to use another folder) |
+| Your campaigns, uploaded sheets, fits, the activity log | `~/Library/Application Support/Kalos`, readable by your user only (set `KALOS_STATE_DIR` to use another folder) |
 | Logs from the engine and the web app | `~/Library/Logs/Kalos/` (`engine.log`, `engine-err.log`, `web.log`, `web-err.log`) |
 | The engine program | `~/GitHub/kalos-engine`, else `~/GitHub/kalos` (set `KALOS_ENGINE_DIR`) |
 | The web app | inside `Kalos.app` (set `KALOS_WEB_DIR` to run another build) |
@@ -75,6 +75,24 @@ Each launch makes two new random secrets.
 This does not protect against programs already running under your own user
 account: they can read the app's memory and files, as they can for any app.
 
+## Upgrading from an earlier build: your old campaigns will not show
+
+Earlier builds kept data in `~/.kalos` and ran the engine without a secret.
+This build changes two things at once:
+
+- the data folder is now `~/Library/Application Support/Kalos`;
+- the engine now files records under the workspace `local` instead of the
+  open-mode workspace `default`.
+
+So an earlier build's campaigns, results and activity log do not appear in this
+version. Nothing was deleted or changed: they are still in `~/.kalos`, and the
+app never moves them on its own. Today the only way to bring work across is to
+upload the same run sheets again on Setup (recorded results come with them only
+if they are in the sheet). An engine command to copy old records across, with a
+backup first and a log entry, is planned; until then keep `~/.kalos` as it is.
+Pointing `KALOS_STATE_DIR` at `~/.kalos` does not help, because of the workspace
+change.
+
 ## Known gaps
 
 - Python and Node are not inside the app yet: it uses the engine checkout and
@@ -83,6 +101,3 @@ account: they can read the app's memory and files, as they can for any app.
 - The app is not signed or notarised, so macOS will warn on first open on
   another Mac (right-click, Open). There is no automatic update.
 - Mac only. Windows and Linux builds have not been tried.
-- Records made by an older version of the app in `~/.kalos` with no secret are
-  stored under the engine's open-mode workspace and do not show up in this
-  version. Moving them needs an engine command that does not exist yet.

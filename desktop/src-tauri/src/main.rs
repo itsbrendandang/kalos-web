@@ -224,7 +224,15 @@ fn start(children: &Children, resources: Option<PathBuf>) -> Result<(u16, String
     let node = find_node();
     // The app's own folder, not ~/.kalos: that one belongs to engines run by hand.
     let state = std::env::var("KALOS_STATE_DIR").unwrap_or_else(|_| home().join("Library/Application Support/Kalos").to_string_lossy().into());
-    std::fs::create_dir_all(&state).map_err(|e| format!("could not create the data folder {state}: {e}"))?;
+    // Owner-only (0700) when the app creates it: the records name who did what.
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&state)
+            .map_err(|e| format!("could not create the data folder {state}: {e}"))?;
+    }
     let token = launch_token()?;
     let engine_secret = launch_token()?;
 

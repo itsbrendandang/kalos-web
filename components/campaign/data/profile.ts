@@ -151,8 +151,9 @@ export function summarize(values: readonly number[]): Summary | null {
   if (v.length === 0) return null;
   const n = v.length;
   const mean = v.reduce((s, x) => s + x, 0) / n;
-  const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0;
   const sorted = [...v].sort((a, b) => a - b);
+  // Identical values have no spread; the subtraction above would otherwise leave floating-point dust (1e-14) that prints as a number.
+  const sd = n > 1 && sorted[0] !== sorted[n - 1] ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0;
   const median = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
   return { n, mean, sd, min: sorted[0], max: sorted[n - 1], median };
 }
@@ -216,28 +217,41 @@ export function untestedGaps(values: readonly number[]): { min: number; max: num
   return { min: v[0], max: v[v.length - 1], gaps };
 }
 
-export type ReplicateGroup = { rows: number[]; targets: number[] };
+export type ReplicateGroup = {
+  rows: number[];
+  targets: number[];
+  /** Columns the engine did not use in which these rows differ (empty when they agree on every column). */
+  differsIn: string[];
+};
 
 /**
- * Runs that share every input value (numeric and category columns only, minus `exclude`: the target and the
- * row-number-like columns). Groups of two or more are replicates of one recipe. Rows with a blank input are not grouped.
+ * Runs that share every input value. With `inputs` (the engine's own input list) replicates are judged on those
+ * columns only, as the engine sees them: rows that agree on every used input but differ in an unused column are
+ * still one group, and `differsIn` names the unused columns they differ in. Without `inputs` every numeric and
+ * category column counts (minus `exclude`, the target and the row-number-like columns). Groups of two or more
+ * rows are replicates of one recipe. Rows with a blank input are not grouped.
  */
-export function replicateGroups(profile: SheetProfile, exclude: ReadonlySet<string>, target?: string): ReplicateGroup[] {
-  const inputs = profile.columns.filter((c) => (c.kind === "numeric" || c.kind === "category") && !exclude.has(c.name) && c.name !== target && !isRowNumberLike(c, profile.n));
-  if (inputs.length === 0 || !target) return [];
+export function replicateGroups(profile: SheetProfile, exclude: ReadonlySet<string>, target?: string, inputs?: readonly string[]): ReplicateGroup[] {
+  const candidates = profile.columns.filter((c) => (c.kind === "numeric" || c.kind === "category") && !exclude.has(c.name) && c.name !== target && !isRowNumberLike(c, profile.n));
+  const used = inputs ? candidates.filter((c) => inputs.includes(c.name)) : candidates;
+  // Any filled column the engine did not use can tell the rows of a group apart, text columns included.
+  const unused = inputs ? profile.columns.filter((c) => c.kind !== "empty" && !exclude.has(c.name) && c.name !== target && !inputs.includes(c.name) && !isRowNumberLike(c, profile.n)) : [];
+  if (used.length === 0 || !target) return [];
   const tcol = profile.columns.find((c) => c.name === target);
   if (!tcol) return [];
   const groups = new Map<string, ReplicateGroup>();
   for (let r = 0; r < profile.n; r++) {
-    if (inputs.some((c) => c.raw[r] === "")) continue;
-    const key = JSON.stringify(inputs.map((c) => c.raw[r]));
-    const g = groups.get(key) ?? { rows: [], targets: [] };
+    if (used.some((c) => c.raw[r] === "")) continue;
+    const key = JSON.stringify(used.map((c) => c.raw[r]));
+    const g = groups.get(key) ?? { rows: [], targets: [], differsIn: [] };
     g.rows.push(r);
     const t = tcol.numbers[r];
     if (t != null) g.targets.push(t);
     groups.set(key, g);
   }
-  return [...groups.values()].filter((g) => g.rows.length >= 2);
+  const out = [...groups.values()].filter((g) => g.rows.length >= 2);
+  for (const g of out) g.differsIn = unused.filter((c) => new Set(g.rows.map((r) => c.raw[r])).size > 1).map((c) => c.name);
+  return out;
 }
 
 export type ReplicateSpread = { groups: number; runs: number; medianSd: number | null };

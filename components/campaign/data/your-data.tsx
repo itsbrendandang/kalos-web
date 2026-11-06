@@ -157,7 +157,7 @@ export function YourDataView({
   );
   const targetBlock = (
     <Section title={target ? `Target: ${target}` : "Target"} description={target ? undefined : "The target-against-input and run-order figures appear once the engine has read the sheet and named the target."}>
-      {targetCol ? <TargetBlock profile={charted} col={targetCol} ordered={ordered} leftOut={leftOut} origins={origins} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
+      {targetCol ? <TargetBlock profile={charted} col={targetCol} ordered={ordered} leftOut={leftOut} origins={origins} usedInputs={engineInputs} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
     </Section>
   );
   return (
@@ -176,7 +176,7 @@ export function YourDataView({
             Inputs are ordered by how strongly they moved with the target in these runs: Spearman&apos;s rank correlation for numbers, the correlation ratio for categories. An input whose range is under 1% of its
             median, or that takes at most two values, is nearly constant and cannot show an association. These are associations in this sheet, not causes.
           </p>
-          <p>Replicates are runs that have the same value in every input column. Row-number-like columns are not used to tell runs apart.</p>
+          <p>Replicates are runs that have the same value in every input the engine uses (every numeric or category column until the engine has named its inputs). Rows that agree on the used inputs and differ only in a column the engine did not use are still replicates, and the sentence names that column. Row-number-like columns are not used to tell runs apart.</p>
           <p>Run order is the order of the rows in the sheet. It is not proven to be the order the runs were made.</p>
           {split ? <p>Rows whose {split.column} is not real or measured stay out of every chart, so measured runs are never mixed with simulated or synthetic ones.</p> : null}
         </div>
@@ -257,6 +257,7 @@ function TargetBlock({
   ordered,
   leftOut = [],
   origins,
+  usedInputs,
 }: {
   profile: SheetProfile;
   col: ColumnProfile;
@@ -264,6 +265,8 @@ function TargetBlock({
   /** Columns the engine did not use, charted one click down and captioned as such. */
   leftOut?: { col: ColumnProfile; rank: InputRank | null }[];
   origins?: (string | null)[];
+  /** The engine's input list: replicates are judged on these columns only, as the engine sees them. */
+  usedInputs?: readonly string[];
 }) {
   if (col.kind !== "numeric") {
     return <p className="text-body text-fg-muted">{col.name} is not numeric in this sheet, so target figures are not drawn.</p>;
@@ -271,7 +274,7 @@ function TargetBlock({
   const values = col.numbers.filter((v): v is number => v != null);
   const s = summarize(values);
   const hist = histogram(values);
-  const groups = replicateGroups(profile, new Set(), col.name);
+  const groups = replicateGroups(profile, new Set(), col.name, usedInputs);
   const spread = replicateSpread(groups);
   const { top, rest } = splitTop(ordered);
   const constant = rest.filter((o) => o.rank?.nearlyConstant);
@@ -325,7 +328,7 @@ function TargetBlock({
           </div>
         </Disclosure>
       ) : null}
-      <Figure caption={`Replicate spread${groups.length ? `, ${formatNumber(groups.length, "count")} ${groups.length === 1 ? "recipe" : "recipes"}` : ""}`} sentence={meaning.replicate(spread, s?.sd ?? null)}>
+      <Figure caption={`Replicate spread${groups.length ? `, ${formatNumber(groups.length, "count")} ${groups.length === 1 ? "recipe" : "recipes"}` : ""}`} sentence={meaning.replicate(spread, s?.sd ?? null, groups)}>
         {groups.length ? <ReplicateFigure yName={col.name} groups={groups} /> : null}
       </Figure>
     </div>

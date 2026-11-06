@@ -68,10 +68,10 @@ export function originFromDataType(profile: SheetProfile): (string | null)[] | n
 }
 
 /** Which replicate group each row belongs to (groups of two or more rows sharing every input), or null. */
-export function replicateGroupIndex(profile: SheetProfile, target: string | undefined): (number | null)[] {
+export function replicateGroupIndex(profile: SheetProfile, target: string | undefined, engineInputs?: readonly string[]): (number | null)[] {
   const out = new Array<number | null>(profile.n).fill(null);
   if (!target) return out;
-  replicateGroups(profile, new Set(), target).forEach((g, gi) => g.rows.forEach((r) => (out[r] = gi)));
+  replicateGroups(profile, new Set(), target, engineInputs).forEach((g, gi) => g.rows.forEach((r) => (out[r] = gi)));
   return out;
 }
 
@@ -110,7 +110,7 @@ export function tableRows(
 ): RowsTable {
   const columns = columnRoles(profile, target, opts.engineInputs);
   const fromDataType = originFromDataType(profile);
-  const groups = replicateGroupIndex(profile, target);
+  const groups = replicateGroupIndex(profile, target, opts.engineInputs);
   const rows: TableRow[] = [];
   for (let r = 0; r < profile.n; r++) {
     const cells = profile.columns.map((c) => {

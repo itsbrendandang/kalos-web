@@ -64,7 +64,7 @@ describe("YourDataView", () => {
     expect(more.textContent).toBe(`${4 - shown} more ${4 - shown === 1 ? "input" : "inputs"} with weaker association`);
     open(more);
     expect(container.querySelectorAll('svg[aria-label^="Titer against"]').length).toBe(4);
-    expect(screen.getByText("No replicates: no two runs share every input value, so run-to-run spread cannot be measured from this sheet.")).toBeTruthy();
+    expect(screen.getByText("No replicates: no two runs share every input the engine used, so run-to-run spread cannot be measured from this sheet.")).toBeTruthy();
     // One sentence of meaning under every target figure.
     expect(screen.getByText(/^Best run: row \d+ at /)).toBeTruthy();
     expect(screen.getAllByText(/the fullest bin;/).length).toBeGreaterThanOrEqual(1);

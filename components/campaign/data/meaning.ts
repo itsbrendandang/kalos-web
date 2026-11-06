@@ -37,7 +37,7 @@ export function sheetOrder(values: readonly (number | null)[], groups: readonly 
   const best = present.reduce((a, p) => (p.v > a.v ? p : a));
   const own = groups.find((g) => g.rows.includes(best.i));
   const bestPart = `Best run: row ${formatNumber(best.i + 1, "count")} at ${dataNumber(best.v)}${
-    own ? `; it is one of ${runs(own.rows.length)} of the same recipe` : "; no other run repeats its recipe"
+    own ? `; it is one of ${runs(own.rows.length)} ${own.differsIn.length ? "with the same used inputs" : "of the same recipe"}` : "; no other run repeats its recipe"
   }.`;
   const blocks = consecutiveBlocks(groups);
   let blockPart: string;
@@ -45,9 +45,11 @@ export function sheetOrder(values: readonly (number | null)[], groups: readonly 
   else {
     const [first] = blocks;
     const more = blocks.length - 1;
-    blockPart = `Rows ${formatNumber(first.rows[0] + 1, "count")} to ${formatNumber(first.rows[first.rows.length - 1] + 1, "count")} repeat one recipe ${formatNumber(first.rows.length, "count")} times${
-      more === 0 ? "" : more === 1 ? ", and 1 more block does the same" : `, and ${formatNumber(more, "count")} more blocks do the same`
-    }.`;
+    const span = `Rows ${formatNumber(first.rows[0] + 1, "count")} to ${formatNumber(first.rows[first.rows.length - 1] + 1, "count")}`;
+    const tail = more === 0 ? "" : more === 1 ? ", and 1 more block does the same" : `, and ${formatNumber(more, "count")} more blocks do the same`;
+    blockPart = first.differsIn.length
+      ? `${span} (${formatNumber(first.rows.length, "count")} consecutive rows) share the same used inputs; they differ only in ${list(first.differsIn)}, which the engine did not use${tail}.`
+      : `${span} repeat one recipe ${formatNumber(first.rows.length, "count")} times${tail}.`;
   }
   const parts = [bestPart, blockPart];
   const round = latestRound(values, origins);
@@ -128,11 +130,24 @@ export function histogram(hist: Histogram, n: number, max: number): string | nul
 }
 
 /** A5. Replicate spread, and how it compares with the spread across all runs (`allSd`, the sd of every target value). */
-export function replicate(spread: ReplicateSpread, allSd: number | null): string {
-  if (spread.groups === 0) return "No replicates: no two runs share every input value, so run-to-run spread cannot be measured from this sheet.";
+export function replicate(spread: ReplicateSpread, allSd: number | null, groups: readonly ReplicateGroup[] = []): string {
+  if (spread.groups === 0) return "No replicates: no two runs share every input the engine used, so run-to-run spread cannot be measured from this sheet.";
   const head = `${formatNumber(spread.groups, "count")} ${spread.groups === 1 ? "recipe" : "recipes"} run more than once (${runs(spread.runs)}). Median spread within a recipe: ${dataNumber(spread.medianSd)}`;
-  if (spread.medianSd == null || allSd == null || !(allSd > 0)) return `${head}.`;
-  return `${head}, which is ${formatNumber(spread.medianSd / allSd, "pct")} of the spread across all runs.`;
+  const body = spread.medianSd == null || allSd == null || !(allSd > 0) ? `${head}.` : `${head}, which is ${formatNumber(spread.medianSd / allSd, "pct")} of the spread across all runs.`;
+  return `${body}${differsNote(groups)}`;
+}
+
+/** Replicates are judged on the inputs the engine used; this names the unused columns some groups differ in. */
+export function differsNote(groups: readonly ReplicateGroup[]): string {
+  const differing = groups.filter((g) => g.differsIn.length);
+  if (differing.length === 0) return "";
+  const columns = [...new Set(differing.flatMap((g) => g.differsIn))];
+  const which = differing.length === groups.length ? (groups.length === 1 ? "it differs" : "they differ") : `${formatNumber(differing.length, "count")} of them ${differing.length === 1 ? "differs" : "differ"}`;
+  return ` Replicates are judged on the inputs the engine used; ${which} only in ${list(columns)}, which the engine did not use.`;
+}
+
+function list(names: readonly string[]): string {
+  return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 /** A3. Why a nearly constant input has no scatter. */

@@ -195,7 +195,7 @@ describe("replicateGroups", () => {
   it("groups runs that share every input value and keeps their targets", () => {
     const p = profileSheet(csv(`x,c,y\n1,A,10\n1,A,12\n2,A,20\n2,B,30\n1,A,11`));
     const groups = replicateGroups(p, new Set(), "y");
-    expect(groups).toEqual([{ rows: [0, 1, 4], targets: [10, 12, 11] }]);
+    expect(groups).toEqual([{ rows: [0, 1, 4], targets: [10, 12, 11], differsIn: [] }]);
     expect(replicateSpread(groups)).toEqual({ groups: 1, runs: 3, medianSd: 1 });
   });
 
@@ -218,5 +218,13 @@ describe("replicateGroups", () => {
   it("does not group a row with a blank input", () => {
     const p = profileSheet(csv(`x,y\n,5\n,6`));
     expect(replicateGroups(p, new Set(), "y")).toEqual([]);
+  });
+});
+
+describe("summarize on identical values", () => {
+  it("reports a spread of exactly zero, not floating-point dust", () => {
+    const s = summarize(new Array(19).fill(55.62))!;
+    expect(s.sd).toBe(0);
+    expect(replicateSpread([{ rows: [0, 1, 2], targets: [55.62, 55.62, 55.62], differsIn: [] }]).medianSd).toBe(0);
   });
 });

@@ -122,7 +122,7 @@ describe("replicate sentence", () => {
     const s = meaning.replicate(replicateSpread(groups), all);
     expect(s).toMatch(/^3 recipes run more than once \(6 runs\)\. Median spread within a recipe: \S+, which is \d+% of the spread across all runs\.$/);
     expect(meaning.replicate(replicateSpread(groups), null)).toMatch(/Median spread within a recipe: \S+\.$/);
-    expect(meaning.replicate({ groups: 0, runs: 0, medianSd: null }, all)).toBe("No replicates: no two runs share every input value, so run-to-run spread cannot be measured from this sheet.");
+    expect(meaning.replicate({ groups: 0, runs: 0, medianSd: null }, all)).toBe("No replicates: no two runs share every input the engine used, so run-to-run spread cannot be measured from this sheet.");
   });
 });
 
@@ -165,5 +165,56 @@ describe("other sentences", () => {
       expect(s).toBeTruthy();
       expect(s).not.toMatch(BANNED);
     }
+  });
+});
+
+describe("replicates judged on the inputs the engine used (pichia_HSA rows 54 to 72)", () => {
+  // Rows 54-72 of pichia_HSA.csv share Gly 4, Met 1.5, SP 5.139 and Carbon_conc 0 and differ only in CarbonSource,
+  // which the engine did not use. Judged on the used inputs they are one block of 19 replicates.
+  const header = "CarbonSource,Carbon_conc,Gly,Met,SP,Titer";
+  const before = ["src_14,49.28,9.65,3.23,2.21,25.89", "src_10,36.67,0.43,0.83,2.62,31.14", "src_11,46.42,1.33,6.93,4.5,48.32"];
+  const block = Array.from({ length: 19 }, (_, i) => `src_${String(i).padStart(2, "0")},0,4,1.5,5.139,55.62`);
+  const after = ["src_12,2.15,0.64,4.933,4.683,55.41", "src_03,2.6,2.187,3,4.043,55.23"];
+  const p = profileSheet(csv([header, ...before, ...block, ...after].join("\n")));
+  const used = ["Gly", "Met", "SP"];
+  const y = p.columns.find((c) => c.name === "Titer")!;
+
+  it("groups the block on the used inputs and names the unused column the rows differ in", () => {
+    const groups = replicateGroups(p, new Set(), "Titer", used);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rows).toEqual(Array.from({ length: 19 }, (_, i) => 3 + i));
+    expect(groups[0].differsIn).toEqual(["CarbonSource"]);
+    expect(consecutiveBlocks(groups)).toHaveLength(1);
+  });
+
+  it("says so in the sheet-order sentence and brackets the block", () => {
+    const groups = replicateGroups(p, new Set(), "Titer", used);
+    expect(meaning.sheetOrder(y.numbers, groups)).toBe(
+      "Best run: row 4 at 55.62; it is one of 19 runs with the same used inputs. Rows 4 to 22 (19 consecutive rows) share the same used inputs; they differ only in CarbonSource, which the engine did not use.",
+    );
+  });
+
+  it("counts the block as replicates in the spread sentence and names the unused column", () => {
+    const groups = replicateGroups(p, new Set(), "Titer", used);
+    const all = summarize(y.numbers.filter((v): v is number => v != null))!.sd;
+    expect(meaning.replicate(replicateSpread(groups), all, groups)).toBe(
+      "1 recipe run more than once (19 runs). Median spread within a recipe: 0, which is 0% of the spread across all runs. Replicates are judged on the inputs the engine used; it differs only in CarbonSource, which the engine did not use.",
+    );
+  });
+
+  const sample = `${homedir()}/Desktop/kalos-samples/pichia_HSA.csv`;
+  it.skipIf(!existsSync(sample))("finds the block in the real pichia_HSA sheet, and no such block when CarbonSource counts as an input", () => {
+    const real = profileSheet(csv(readFileSync(sample, "utf8")));
+    const groups = replicateGroups(real, new Set(), "Titer", used);
+    const blocks = consecutiveBlocks(groups);
+    const big = blocks.find((g) => g.rows[0] === 53);
+    expect(big?.rows.length).toBe(19);
+    expect(big?.differsIn).toEqual(["CarbonSource"]);
+    expect(blocks.length).toBe(7);
+    expect(meaning.sheetOrder(real.columns.find((c) => c.name === "Titer")!.numbers, groups)).toBe(
+      "Best run: row 160 at 63.29; no other run repeats its recipe. Rows 24 to 42 (19 consecutive rows) share the same used inputs; they differ only in CarbonSource, which the engine did not use, and 6 more blocks do the same.",
+    );
+    // Judged on every column (before the engine has named its inputs) CarbonSource tells the rows apart.
+    expect(consecutiveBlocks(replicateGroups(real, new Set(), "Titer")).find((g) => g.rows[0] === 53)).toBeUndefined();
   });
 });

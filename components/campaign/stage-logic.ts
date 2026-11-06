@@ -29,12 +29,12 @@ export function nextSort(sort: RunSort, key: RunSortKey): RunSort {
   return sort.direction === "ascending" ? { key, direction: "descending" } : null;
 }
 
-/** A missing measurement sorts last in both directions, never as zero. */
+/** A missing measurement sorts last in both directions, never as zero. "id" is the run's place in the round (its P-number), not the engine's hex id. */
 export function sortRuns(runs: CampaignRun[], sort: RunSort): CampaignRun[] {
   if (!sort) return runs;
   const sign = sort.direction === "ascending" ? 1 : -1;
   const value = (r: CampaignRun): number | string | null =>
-    sort.key === "id" ? r.id : sort.key === "pred" ? r.pred : sort.key === "result" ? r.result : r.awaiting ? 0 : 1;
+    sort.key === "id" ? runs.indexOf(r) : sort.key === "pred" ? r.pred : sort.key === "result" ? r.result : r.awaiting ? 0 : 1;
   return [...runs].sort((a, b) => {
     const [x, y] = [value(a), value(b)];
     if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
@@ -47,11 +47,6 @@ export function clampPage(page: number, total: number, pageSize = RUN_PAGE_SIZE)
   return Math.min(Math.max(0, page), Math.max(0, Math.ceil(total / pageSize) - 1));
 }
 
-/** The recipe columns to show inline: the analysis' top drivers present in the recipe, else the first few inputs. */
-export function inlineRecipeKeys(recipe: Record<string, number>, drivers: readonly string[], limit = 3): string[] {
-  const ranked = drivers.filter((d) => d in recipe);
-  return (ranked.length > 0 ? ranked : Object.keys(recipe)).slice(0, limit);
-}
 
 // --- Record ------------------------------------------------------------------
 

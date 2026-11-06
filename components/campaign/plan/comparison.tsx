@@ -30,7 +30,7 @@ export function Comparison({
   onRemove: (rank: number) => void;
   onClear: () => void;
 }) {
-  const keys = [...ctx.features, ...ctx.others.filter((k) => rows.some((r) => k in r.recipe))];
+  const keys = ctx.features.filter((k) => rows.some((r) => k in r.recipe));
   const diff = compareRecipes(
     rows.map((r) => r.recipe),
     keys,

@@ -100,7 +100,7 @@ export function ApproveDialog({
                   </span>
                 </div>
                 <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-fg-muted">
-                  {[...ctx.features, ...ctx.others]
+                  {ctx.features
                     .filter((k) => k in r.recipe)
                     .map((k) => (
                       <span key={k} className="min-w-0 break-all">

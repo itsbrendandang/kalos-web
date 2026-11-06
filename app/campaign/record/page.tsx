@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { parseUnit } from "@/lib/utils";
+import { recipeColumns, runLabels } from "@/lib/recipe-identity";
 
 /** Record: enter or change measured results for this round. Reads and writes the live campaign only, never demo data. */
 export default function RecordPage() {
@@ -52,7 +53,9 @@ export default function RecordPage() {
       round={c.round}
       best={c.best}
       unit={parseUnit(c.target)}
-      drivers={latest.data?.has_data ? latest.data.drivers.map((d) => d.name) : []}
+      columns={recipeColumns(c.pending.map((r) => r.recipe), latest.data?.has_data ? latest.data.features : c.features, c.features)}
+      labels={runLabels(c.pending)}
+      target={c.target}
     />
   );
 }

@@ -22,6 +22,8 @@ import { BatchSummary } from "@/components/campaign/plan/summary";
 import { useBatchModel } from "@/components/campaign/plan/use-batch-model";
 import { MarkLegend } from "@/components/campaign/plan/marks";
 import { Term } from "@/components/kit/term";
+import { RecipeActions } from "@/components/campaign/recipe-actions";
+import { recipesAsText } from "@/lib/recipe-identity";
 import type { PlanRow, RowState } from "@/components/campaign/plan/types";
 
 /**
@@ -146,6 +148,16 @@ export function Batch({
             Recipes the model proposed to raise {m.name}, highest predicted value first. Untick any you will not run. Compare {COMPARE_MIN} to {COMPARE_MAX} to see them side by side.
           </p>
           <MarkLegend className="mt-1" />
+          {rows.length ? (
+            <RecipeActions
+              text={recipesAsText(
+                rows.map((r) => ({ label: r.id, recipe: r.recipe, predicted: r.item.proposal.pred })),
+                ctx.features,
+                d.target,
+                { round },
+              )}
+            />
+          ) : null}
         </div>
 
         {rows.length === 0 ? (

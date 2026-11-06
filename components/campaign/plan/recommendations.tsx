@@ -18,7 +18,7 @@ import type { PlanContext, PlanRow, SetRowState } from "@/components/campaign/pl
  * range sits under the prediction in caption type.
  */
 export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ctx: PlanContext; state: SetRowState }) {
-  const cols = 6 + ctx.features.length + (ctx.others.length ? 1 : 0);
+  const cols = 6 + ctx.features.length;
   return (
     <div className="relative max-h-[min(70vh,640px)] overflow-auto rounded-xl border border-border" data-scroll-x>
       <table className="w-full border-separate border-spacing-0 text-body">
@@ -36,11 +36,6 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
                 {f}
               </th>
             ))}
-            {ctx.others.length ? (
-              <th scope="col" className="sticky top-0 z-10 h-10 border-b border-border bg-surface px-2 text-right font-medium whitespace-nowrap">
-                Other inputs
-              </th>
-            ) : null}
             <th scope="col" className="sticky top-0 z-10 h-10 border-b border-border bg-surface px-2 text-right font-medium whitespace-nowrap">
               <span className="inline-flex items-center gap-1.5">
                 <PredictedMark />
@@ -85,11 +80,6 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
                       <SetpointText row={row} input={f} ctx={ctx} />
                     </td>
                   ))}
-                  {ctx.others.length ? (
-                    <td className="border-b border-border px-2 py-2.5 text-right text-caption whitespace-nowrap text-fg-muted tabular-nums">
-                      {ctx.others.filter((k) => k in row.recipe).length} in details
-                    </td>
-                  ) : null}
                   <td className="border-b border-border px-2 py-2 text-right">
                     <PredictionCell row={row} ctx={ctx} />
                   </td>

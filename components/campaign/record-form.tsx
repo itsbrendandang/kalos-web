@@ -13,29 +13,37 @@ import { useEngineWrites } from "@/hooks/use-engine";
 import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
-import { shortId } from "@/lib/workbench";
 import { WhyLine } from "@/components/kit/why-line";
-import { changedRows, inlineRecipeKeys, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
+import { changedRows, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
 
 type Row = { id: string; value: number };
 
 /**
- * One input per run, awaiting ones first. A logged value stays editable (the
- * engine overwrites on re-log until the next re-analysis). Saving writes only
- * changed rows, one at a time, so a failure leaves the earlier rows saved.
+ * One input per run, in the order the runs were started (the same P1..Pn as on
+ * Plan and Run, with every input as a column in the same order), so a saved row
+ * never jumps. A logged value stays editable (the engine overwrites on re-log
+ * until the next re-analysis). Saving writes only changed rows, one at a time,
+ * so a failure leaves the earlier rows saved.
  */
 export function RecordForm({
   runs,
   round,
   best,
   unit,
-  drivers,
+  columns,
+  labels,
+  target,
 }: {
   runs: CampaignRun[];
   round: number;
   best: number | null;
   unit: string;
-  drivers: readonly string[];
+  /** The recipe columns, in order (recipeColumns). */
+  columns: readonly string[];
+  /** The P1..Pn label of each run by id (runLabels). */
+  labels: ReadonlyMap<string, string>;
+  /** The target's name, so the result column says what is measured. */
+  target: string;
 }) {
   const { logResult } = useEngineWrites();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -43,7 +51,7 @@ export function RecordForm({
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Row[] | null>(null);
 
-  const ordered = [...runs].sort((a, b) => Number(b.awaiting) - Number(a.awaiting));
+  const label = (id: string) => labels.get(id) ?? id;
   const changed = changedRows(runs, drafts);
   const logged = runs.filter((r) => !r.awaiting).length;
   const shownValue = (r: CampaignRun) => drafts[r.id] ?? (r.result == null ? "" : String(r.result));
@@ -58,7 +66,7 @@ export function RecordForm({
         await logResult(id, value);
         setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
       } catch (e) {
-        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "Kalos did not answer"}. Earlier runs were saved.`);
+        setError(`${label(id)} could not be saved: ${e instanceof Error ? e.message : "Kalos did not answer"}. Earlier runs were saved.`);
         break;
       }
     }
@@ -92,28 +100,31 @@ export function RecordForm({
           if (changed.length > 0 && !saving) submit();
         }}
       >
+        <div data-scroll-x className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Run</TableHead>
-              <TableHead className="hidden sm:table-cell">Recipe</TableHead>
-              <TableHead numeric>Measured result</TableHead>
+              <TableHead>Recipe</TableHead>
+              {columns.map((c) => (
+                <TableHead key={c} numeric className="hidden font-mono text-code whitespace-nowrap sm:table-cell">
+                  {c}
+                </TableHead>
+              ))}
+              <TableHead numeric>Measured {target}{unit ? ` (${unit})` : ""}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ordered.map((r) => {
+            {runs.map((r) => {
               const text = shownValue(r);
               const invalid = text.trim() !== "" && parseEntry(text) == null;
               return (
                 <TableRow key={r.id} id={`record-${r.id}`} className="scroll-mt-12">
-                  <TableCell className="font-mono text-code text-fg-muted">{shortId(r.id)}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {inlineRecipeKeys(r.recipe, drivers).map((k) => (
-                      <span key={k} className="mr-3 text-fg-muted">
-                        {k} <span className="text-fg tabular-nums">{formatNumber(r.recipe[k])}</span>
-                      </span>
-                    ))}
-                  </TableCell>
+                  <TableCell className="font-mono text-code text-fg">{label(r.id)}</TableCell>
+                  {columns.map((c) => (
+                    <TableCell key={c} numeric className="hidden tabular-nums whitespace-nowrap sm:table-cell">
+                      {c in r.recipe ? formatNumber(r.recipe[c]) : <span className="text-fg-muted">n/a</span>}
+                    </TableCell>
+                  ))}
                   <TableCell numeric>
                     <span className="inline-flex items-center justify-end gap-2">
                       {r.awaiting ? null : (
@@ -124,7 +135,7 @@ export function RecordForm({
                       )}
                       <Input
                         inputMode="decimal"
-                        aria-label={`Measured result for run ${shortId(r.id)}`}
+                        aria-label={`Measured ${target} for ${label(r.id)}`}
                         aria-invalid={invalid}
                         value={text}
                         disabled={saving}
@@ -140,6 +151,7 @@ export function RecordForm({
             })}
           </TableBody>
         </Table>
+        </div>
       </form>
       {logged > 0 ? (
         <Link href="/campaign/learn" className={buttonVariants({ variant: "outline", className: "self-start" })}>
@@ -156,7 +168,7 @@ export function RecordForm({
           <ul className="flex flex-col gap-1 text-body text-fg">
             {flagged(confirm ?? []).map((r) => (
               <li key={r.id}>
-                Run <span className="font-mono text-code">{shortId(r.id)}</span>: {formatNumber(r.value)} {unit} {sanityReason(r.value, best)}.
+                <span className="font-mono text-code">{label(r.id)}</span>: {formatNumber(r.value)} {unit} {sanityReason(r.value, best)}.
               </li>
             ))}
           </ul>

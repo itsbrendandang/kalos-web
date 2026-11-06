@@ -9,7 +9,6 @@ import {
   groupFlags,
   observedRanges,
   recipeFlags,
-  recipeKeys,
   stripDomain,
   type PlanAnalysis,
   type SetpointValue,
@@ -17,6 +16,7 @@ import {
 import { targetName } from "@/components/campaign/target";
 import { constraintNote, designBoxExclusionsNote, incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict } from "@/lib/api";
 import { parseUnit } from "@/lib/utils";
+import { recipeColumns } from "@/lib/recipe-identity";
 import { parseSurface } from "@/components/campaign/plan/surface-model";
 import { spreadSentences, uncheckedSentence, edgeSourcesSentence, searchLimitSentence } from "@/components/campaign/plan/copy";
 import type { PlanContext, PlanRow } from "@/components/campaign/plan/types";
@@ -49,14 +49,14 @@ export function useBatchModel(d: PlanAnalysis) {
     });
   }, [d, incumbent, band, ranges]);
 
-  const others = useMemo(() => [...new Set(rows.flatMap((r) => recipeKeys(d.proposal_features, r.recipe).other))].sort((a, b) => a.localeCompare(b)), [rows, d.proposal_features]);
+  // Every input any recipe sets, in the sheet's order (the analysis' `features`), so Plan, Run, Record and Learn show the same columns (lib/recipe-identity.ts).
+  const features = useMemo(() => recipeColumns(rows.map((r) => r.recipe), d.features, d.proposal_features), [rows, d.features, d.proposal_features]);
 
   const ctx: PlanContext = useMemo(
     () => ({
       target: name,
       unit,
-      features: d.proposal_features,
-      others,
+      features,
       ranges,
       band,
       coverage: d.conformal_coverage,
@@ -69,14 +69,14 @@ export function useBatchModel(d: PlanAnalysis) {
       ),
       constraint: d.constraint,
     }),
-    [name, unit, d, others, ranges, band, incumbent, rows],
+    [name, unit, d, features, ranges, band, incumbent, rows],
   );
 
   const grouped = useMemo(() => groupFlags(rows.map((r) => ({ rank: r.item.rank, flags: r.flags }))), [rows]);
   const checkedInputs = useMemo(() => Object.keys(ranges).filter((k) => rows.some((r) => k in r.recipe)), [ranges, rows]);
   const uncheckedInputs = useMemo(
-    () => [...d.proposal_features, ...others].filter((k) => !ranges[k] && rows.some((r) => typeof r.recipe[k] === "number")),
-    [d.proposal_features, others, ranges, rows],
+    () => features.filter((k) => !ranges[k] && rows.some((r) => typeof r.recipe[k] === "number")),
+    [features, ranges, rows],
   );
 
   const surface = useMemo(() => parseSurface(d.response_surface), [d.response_surface]);
@@ -113,7 +113,6 @@ export function useBatchModel(d: PlanAnalysis) {
     ],
     spread,
     rows,
-    others,
     ctx,
     grouped,
     checkedInputs,

@@ -24,7 +24,7 @@ const WHERE_TEXT: Record<BoundaryCheck["where"], string> = {
  */
 export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
   const p = row.item.proposal;
-  const keys = [...ctx.features.filter((f) => f in row.recipe), ...ctx.others.filter((k) => k in row.recipe)];
+  const keys = ctx.features.filter((f) => f in row.recipe);
   const missing = keys.filter((k) => !ctx.ranges[k] && typeof row.recipe[k] === "number");
   const interval = formatInterval(p.pred, ctx.band);
   const c = constraintPrediction(p, ctx.constraint);

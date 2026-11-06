@@ -17,10 +17,8 @@ export type PlanRow = {
 export type PlanContext = {
   target: string;
   unit: string;
-  /** The engine's `proposal_features`: one column each. */
+  /** Every input any recipe sets, one column each, in the sheet's order (lib/recipe-identity.ts). */
   features: string[];
-  /** Every other input any recipe sets, A-Z: shown in Details. */
-  others: string[];
   ranges: Record<string, ObservedRange>;
   band: number | null;
   coverage: number | undefined;

@@ -21,7 +21,6 @@ import {
   observedRanges,
   predictionInterval,
   recipeFlags,
-  recipeKeys,
   rejectionCopy,
   stripDomain,
   toggleCompare,
@@ -202,9 +201,6 @@ describe("formatSetpoint", () => {
     expect(exactSetpoint(29.968)).toBe("29.968");
     expect(exactSetpoint("glucose")).toBe("glucose");
     expect(exactSetpoint(Number.NaN)).toBe("n/a");
-  });
-  it("orders inputs: proposal_features first, then the rest A-Z", () => {
-    expect(recipeKeys(["pH", "Temp_C"], { Temp_C: 1, zeta: 2, pH: 3, alpha: 4 })).toEqual({ main: ["pH", "Temp_C"], other: ["alpha", "zeta"] });
   });
 });
 

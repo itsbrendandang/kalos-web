@@ -327,15 +327,6 @@ export function formatSetpoint(v: SetpointValue | null | undefined, decimals?: n
   return Number(s.replace(/,/g, "")) === 0 ? s : `${v < 0 ? "-" : ""}${s}`;
 }
 
-/** Inputs in display order: the engine's `proposal_features` first, then the recipe's other inputs A-Z. */
-export function recipeKeys(features: string[], recipe: Record<string, SetpointValue>): { main: string[]; other: string[] } {
-  const main = features.filter((f) => f in recipe);
-  const other = Object.keys(recipe)
-    .filter((k) => !features.includes(k))
-    .sort((a, b) => a.localeCompare(b));
-  return { main, other };
-}
-
 // --- Comparison --------------------------------------------------------------------
 
 /** The comparison view's candidate limits. */

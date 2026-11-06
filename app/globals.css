@@ -287,3 +287,24 @@ body {
     background-color: var(--bg);
   }
 }
+
+/* Print (Copy and Print on Plan and Run): the page alone, no sidebar, top bar, buttons or sticky bars, and
+ * tables unclipped so every recipe is on paper. */
+@media print {
+  aside,
+  header.md\:hidden,
+  .print\:hidden,
+  button,
+  [role="dialog"] {
+    display: none !important;
+  }
+  main,
+  .canvas {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  [data-scroll-x] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}

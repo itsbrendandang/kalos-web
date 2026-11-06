@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CampaignRun } from "@/lib/api";
 import type { ValidationFinding } from "@/lib/validation";
-import { capFindings, changedRows, clampPage, inlineRecipeKeys, nextSort, sanityReason, sortRuns } from "@/components/campaign/stage-logic";
+import { capFindings, changedRows, clampPage, nextSort, sanityReason, sortRuns } from "@/components/campaign/stage-logic";
 import { runVerdict } from "@/lib/run-stage";
 
 const finding = (severity: ValidationFinding["severity"], message: string): ValidationFinding => ({ check: "outliers", severity, message, column: null, rows: [] });
@@ -68,10 +68,6 @@ describe("Run table helpers", () => {
     expect(clampPage(5, 25)).toBe(2);
     expect(clampPage(1, 0)).toBe(0);
     expect(clampPage(-1, 25)).toBe(0);
-  });
-  it("shows top drivers present in the recipe, else the first inputs", () => {
-    expect(inlineRecipeKeys({ a: 1, b: 2, c: 3, d: 4 }, ["z", "c", "a"])).toEqual(["c", "a"]);
-    expect(inlineRecipeKeys({ a: 1, b: 2, c: 3, d: 4 }, [])).toEqual(["a", "b", "c"]);
   });
 });
 

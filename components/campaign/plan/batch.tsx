@@ -21,6 +21,7 @@ import { SelectionBar } from "@/components/campaign/plan/selection-bar";
 import { BatchSummary } from "@/components/campaign/plan/summary";
 import { useBatchModel } from "@/components/campaign/plan/use-batch-model";
 import { MarkLegend } from "@/components/campaign/plan/marks";
+import { Term } from "@/components/kit/term";
 import type { PlanRow, RowState } from "@/components/campaign/plan/types";
 
 /**
@@ -139,7 +140,7 @@ export function Batch({
       <section aria-labelledby="plan-batch-title" className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <h2 id="plan-batch-title" className="text-heading text-fg">
-            Proposed recipes for round {round}
+            Proposed <Term word="recipe">recipes</Term> for <Term word="round">round</Term> {round}
           </h2>
           <p className="max-w-[72ch] text-body text-fg-muted">
             Recipes the model proposed to raise {m.name}, highest predicted value first. Untick any you will not run. Compare {COMPARE_MIN} to {COMPARE_MAX} to see them side by side.

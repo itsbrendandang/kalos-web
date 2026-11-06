@@ -16,6 +16,7 @@ import { ValidationSummary } from "@/components/campaign/validation-summary";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
+import { Term, WordsLine } from "@/components/kit/term";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
@@ -139,7 +140,12 @@ export default function SetupPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Set up the campaign"
-        description="Upload the runs you already have, choose what to raise and what Kalos may change, then build the model."
+        description={
+          <>
+            Upload the <Term word="run sheet">run sheet</Term> of runs you already have, choose what to <Term word="raise">raise</Term> and what Kalos may change, then build{" "}
+            <Term word="model">the model</Term>.
+          </>
+        }
         action={
           action.visible ? (
             <Link href={next.href} className={buttonVariants()}>
@@ -149,6 +155,8 @@ export default function SetupPage() {
           ) : null
         }
       />
+
+      <WordsLine />
 
       <UploadZone onFile={(f) => { setDropped(f); setChosenTarget(null); }} disabled={busy} compact={!!dropped || !!analysis} />
 

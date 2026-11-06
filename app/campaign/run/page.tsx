@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { RunsTable } from "@/components/campaign/runs-table";
 import { PageHeader } from "@/components/kit/page-header";
+import { Term } from "@/components/kit/term";
 import { Verdict } from "@/components/kit/verdict";
 import { buttonVariants } from "@/components/ui/button";
 import { ExampleBadge } from "@/components/ui/badge";
@@ -33,7 +34,11 @@ export default function RunPage() {
         eyebrow={active ? `Round ${displayRound(active.round)}` : undefined}
         title="Runs in the lab"
         meta={demo ? <ExampleBadge /> : null}
-        description="This round's runs, their recipes and what the model expects of them. Results are entered on Record."
+        description={
+          <>
+            This <Term word="round">round</Term>&apos;s runs, their <Term word="recipe">recipes</Term> and what <Term word="model">the model</Term> expects of them. Results are entered on Record.
+          </>
+        }
         action={
           awaiting > 0 ? (
             <Link href="/campaign/record" className={buttonVariants()}>

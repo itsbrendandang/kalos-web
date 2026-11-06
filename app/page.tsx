@@ -15,6 +15,7 @@ import { Disclosure } from "@/components/kit/disclosure";
 import { KpiCard } from "@/components/kit/kpi-card";
 import { lazyChart } from "@/components/kit/lazy-chart";
 import { PageHeader } from "@/components/kit/page-header";
+import { WordsLine } from "@/components/kit/term";
 import { Section } from "@/components/kit/section";
 import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
@@ -86,6 +87,7 @@ function FullOverview() {
     return (
       <div className="flex flex-col gap-10">
         <PageHeader title="Start a campaign" />
+        <WordsLine />
         <NextStep tone="accent" sentence={stage.next.reason} why={stage.next.why} action={stage.next.action} href={stage.next.href} next={engineNext} />
       </div>
     );
@@ -132,6 +134,7 @@ function FullOverview() {
         description={bestLine}
         meta={demo ? <ExampleBadge /> : null}
       />
+      <WordsLine />
 
       <NextStep
         tone={tone}

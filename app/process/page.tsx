@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, FileText, Plus, Table2, Trash2, Upload, X } from "lucide-react";
 import { PageHeader } from "@/components/kit/page-header";
+import { Verdict } from "@/components/kit/verdict";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,8 @@ const select = "h-9 rounded-lg border border-border-strong bg-surface px-2.5 tex
  * Process: the whole workflow as a chain of steps. Each step holds its SOP, the
  * parameters read from it (confirmed by you), and data from whoever ran it,
  * in-house, a CRO or a CDMO. Today it is a place to record and check them;
- * the optimizer does not read this map yet.
+ * the optimizer does not read this map yet. The verdict is data coverage:
+ * how many steps have a sheet behind them.
  * Stored on this device only; nothing here is sent anywhere.
  */
 export default function ProcessPage() {
@@ -62,21 +64,29 @@ export default function ProcessPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
+        className="max-sm:flex-col"
         title={map.name}
-        description={`${sum.steps} steps, ${sum.params} parameters, data on ${sum.withData} of ${sum.steps} steps${sum.partners.length ? `. Partners: ${sum.partners.join(", ")}` : ""}.`}
+        description={`${sum.steps} ${sum.steps === 1 ? "step" : "steps"}, ${sum.params} ${sum.params === 1 ? "parameter" : "parameters"}${sum.partners.length ? `. Partners: ${sum.partners.join(", ")}` : ""}. The optimizer does not read this map yet.`}
         action={
           <Button
-            variant="outline"
             onClick={() => {
               const id = uid("s");
               update({ ...map, steps: [...map.steps, { id, name: "New step", kind: "other", owner: "in-house", partner: "", params: [], sop: null, data: [] }] });
               setSelected(id);
             }}
           >
-            <Plus /> Add step
+            <Plus /> Add a step
           </Button>
         }
       />
+
+      {sum.steps === 0 ? (
+        <Verdict tone="neutral">No steps yet. Add the first one.</Verdict>
+      ) : (
+        <Verdict tone={sum.withData === sum.steps ? "good" : "warn"} detail={sum.withData === sum.steps ? "Every step has at least one data sheet." : "Pick a step without data and add a sheet from whoever ran it."}>
+          Data on {sum.withData} of {sum.steps} {sum.steps === 1 ? "step" : "steps"}.
+        </Verdict>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <ol className="flex flex-col">
@@ -86,7 +96,7 @@ export default function ProcessPage() {
             return (
               <li key={s.id} className="relative flex gap-4 pb-3">
                 {i < map.steps.length - 1 ? <span className="absolute top-9 bottom-0 left-[15px] w-px bg-border-strong" aria-hidden /> : null}
-                <span className={cn("z-10 mt-2.5 grid size-8 shrink-0 place-items-center rounded-full text-label tabular-nums", h.state === "ready" ? "bg-good text-bg" : "border border-border-strong bg-surface text-fg-muted")} aria-hidden>
+                <span className="z-10 mt-2.5 grid size-8 shrink-0 place-items-center rounded-full border border-border-strong bg-surface text-label tabular-nums text-fg-muted" aria-hidden>
                   {i + 1}
                 </span>
                 <button
@@ -102,13 +112,11 @@ export default function ProcessPage() {
                     </span>
                   </span>
                   {s.sop ? <FileText className="size-4 text-fg-muted" role="img" aria-label="Has an SOP" /> : null}
-                  <span className="text-caption tabular-nums text-fg-muted">{s.params.length} {s.params.length === 1 ? "param" : "params"}</span>
-                  <Badge tone={h.state === "ready" ? "good" : "neutral"}>{h.label}</Badge>
+                  <span className="text-caption tabular-nums text-fg-muted">{h.state === "ready" ? h.label : "No data yet"}</span>
                 </button>
               </li>
             );
           })}
-          {map.steps.length === 0 ? <li className="text-body text-fg-muted">No steps yet. Add the first one.</li> : null}
         </ol>
 
         <aside aria-label="Step details" className="h-fit lg:sticky lg:top-6">
@@ -117,7 +125,7 @@ export default function ProcessPage() {
           ) : (
             <div className="glass p-5">
               <p className="text-heading text-fg">Pick a step</p>
-              <p className="mt-1 text-body text-fg-muted">Add its SOP and the data from whoever ran it. (The optimizer does not read this map yet.)</p>
+              <p className="mt-1 text-body text-fg-muted">Add its SOP and the data from whoever ran it.</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="ghost" onClick={() => { if (window.confirm("Remove the whole process map from this device?")) clearMap(); }}>Reset</Button>
               </div>
@@ -227,6 +235,7 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
               ))}
             </ul>
             <Button
+              variant="outline"
               disabled={!chosen.length}
               onClick={() => {
                 onChange((s) => ({ ...s, params: [...s.params, ...chosen.map((c) => ({ id: uid("p"), name: c.name, unit: c.unit, low: c.low, high: c.high, source: "sop" as const }))] }));

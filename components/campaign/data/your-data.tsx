@@ -301,8 +301,9 @@ function ScatterFor({ x, y }: { x: ColumnProfile; y: ColumnProfile }) {
     ) : (
       <CategoryStripFigure xName={x.name} yName={y.name} points={(xs as string[]).map((xv, i) => ({ x: xv, y: ys[i], row: rows[i] }))} />
     );
+  // A strip figure with many levels is wider than one column, so it takes the whole row instead of scrolling.
   return (
-    <Figure caption={`${y.name} against ${x.name}`} sentence={meaning.inputSentence(x, y)}>
+    <Figure caption={`${y.name} against ${x.name}`} sentence={meaning.inputSentence(x, y)} className={x.kind === "category" && x.levels.length > 4 ? "md:col-span-2" : undefined}>
       {chart}
     </Figure>
   );

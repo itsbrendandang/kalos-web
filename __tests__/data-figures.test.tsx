@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { CategoryFigure, CategoryStripFigure, CoverageFigure, DistributionFigure, ReplicateFigure, RunOrderFigure, TargetScatterFigure, jitter, shortLabel } from "@/components/campaign/data/figures";
+import { CategoryFigure, CategoryStripFigure, CoverageFigure, DistributionFigure, ReplicateFigure, RunOrderFigure, TargetScatterFigure, jitter, shortLabel, yScale } from "@/components/campaign/data/figures";
 import { histogram, replicateGroups, profileSheet, untestedGaps } from "@/components/campaign/data/profile";
 
 afterEach(cleanup);
@@ -9,6 +9,18 @@ afterEach(cleanup);
 const label = (c: HTMLElement) => c.querySelector("svg[aria-label]")?.getAttribute("aria-label") ?? "";
 const texts = (c: HTMLElement) => Array.from(c.querySelectorAll("text")).map((t) => t.textContent?.trim() ?? "");
 const bestOf = (c: HTMLElement) => c.querySelector("[data-best]");
+
+describe("yScale", () => {
+  it("encloses the values in round ticks so the top and bottom of the plot are labelled", () => {
+    const { ticks, y } = yScale([89, 2618], [100, 0]);
+    expect(ticks[0]).toBe(0);
+    expect(ticks[ticks.length - 1]).toBe(3000);
+    expect(y(0)).toBe(100);
+    expect(y(3000)).toBe(0);
+    expect(yScale([5, 5], [100, 0]).ticks).toEqual([5]);
+    expect(yScale([21.86, 57.34], [100, 0]).ticks).toEqual([20, 40, 60]);
+  });
+});
 
 describe("Your data figures", () => {
   it("draws one bar per histogram bin with its count above it, a runs axis and a tick at every edge", () => {

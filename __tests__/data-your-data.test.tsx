@@ -167,6 +167,9 @@ describe("gapSentence", () => {
     expect(gapSentence([gap(1, 2), gap(3, 4)], { min: 0, max: 10 })).toBe("Untested: no runs between 1 to 2, 3 to 4.");
     expect(gapSentence([gap(1, 2), gap(3, 4), gap(5, 6), gap(7, 8)], { min: 0, max: 10 })).toBe("Untested: no runs between 1 to 2, 3 to 4, 5 to 6, and 1 more.");
   });
+  it("shows more digits when both ends of a stretch would otherwise read the same", () => {
+    expect(gapSentence([{ from: 36.995, to: 37.004, width: 0.009, share: 0.3 }], { min: 36.98, max: 37.01 })).toBe("Untested: no runs between 36.995 to 37.004.");
+  });
   it("says there is no range to test for a single value", () => {
     expect(gapSentence([], null)).toBe("Only one value in this sheet, so no range to test.");
   });

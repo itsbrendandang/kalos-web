@@ -3,7 +3,6 @@
 // number on the Your data view is unit-tested (__tests__/data-profile.test.ts).
 //
 // Only facts from the sheet itself. Nothing is inferred about the process.
-import { niceTicks } from "@/components/campaign/data/svg";
 
 /** A cell that parses as a finite number (blank cells are handled separately). */
 export function toNumber(raw: string): number | undefined {
@@ -160,6 +159,14 @@ export function summarize(values: readonly number[]): Summary | null {
 
 export type Histogram = { edges: number[]; counts: number[] };
 
+/** The round step (1, 2, 2.5 or 5 times a power of ten) that `niceTicks` uses to cover [lo, hi] with about `count` ticks. */
+export function niceStep(lo: number, hi: number, count: number): number {
+  const raw = (hi - lo) / Math.max(1, count);
+  if (!(raw > 0) || !Number.isFinite(raw)) return 1;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= raw * (1 - 1e-9)) ?? 10 * pow;
+}
+
 /** Sturges' bin count, `ceil(log2(n) + 1)`, clamped to 4..15. */
 export function sturgesBins(n: number): number {
   return Math.min(15, Math.max(4, Math.ceil(Math.log2(Math.max(1, n)) + 1)));
@@ -177,8 +184,7 @@ export function histogram(values: readonly number[], bins?: number): Histogram |
   const hi = Math.max(...v);
   if (lo === hi) return { edges: [lo, lo + 1], counts: [v.length] };
   const k = Math.max(1, bins ?? sturgesBins(v.length));
-  const ticks = niceTicks(lo, hi, k);
-  const step = ticks.length >= 2 ? ticks[1] - ticks[0] : (hi - lo) / k;
+  const step = niceStep(lo, hi, k);
   const round = (x: number) => Number(x.toPrecision(12));
   const first = round(Math.floor(lo / step + 1e-9) * step);
   const edges: number[] = [first];

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { duplicateColumnPairs, histogram, isCategory, isNearlyConstant, isRowNumberLike, measuredOnly, profileSheet, replicateGroups, replicateSpread, rowsOf, sturgesBins, summarize, toNumber, untestedGaps } from "@/components/campaign/data/profile";
+import { duplicateColumnPairs, histogram, isCategory, isNearlyConstant, isRowNumberLike, measuredOnly, niceStep, profileSheet, replicateGroups, replicateSpread, rowsOf, sturgesBins, summarize, toNumber, untestedGaps } from "@/components/campaign/data/profile";
 
 const csv = (text: string) => text.trim().split("\n").map((l) => l.split(","));
 const sample = (name: string) => `${homedir()}/Desktop/kalos-samples/${name}`;
@@ -51,6 +51,13 @@ describe("histogram", () => {
     const h = histogram(Array.from({ length: 213 }, (_, i) => i))!;
     expect(h.counts.length).toBeGreaterThanOrEqual(8);
     expect(h.counts.length).toBeLessThanOrEqual(11);
+  });
+  it("picks the round step even when only one nice tick falls inside the range", () => {
+    expect(niceStep(21.86, 57.34, 3)).toBe(20);
+    expect(niceStep(0, 10, 5)).toBe(2);
+    expect(niceStep(0.9, 1.1, 4)).toBe(0.05);
+    const h = histogram([21.86, 30, 45, 57.34], 3)!;
+    expect(h.edges).toEqual([20, 40, 60]);
   });
   it("snaps the edges to round numbers that cover the range, and still counts every value once", () => {
     const h = histogram([7.3, 12.1, 25.9, 31.1, 28, 12.4, 40, 33.3])!;

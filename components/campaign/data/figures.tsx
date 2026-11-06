@@ -7,9 +7,10 @@
 
 import type { ReactNode } from "react";
 import { levelsByMedian } from "@/components/campaign/data/meaning";
-import { consecutiveBlocks, summarize, type Histogram, type ReplicateGroup, type Gap } from "@/components/campaign/data/profile";
+import { consecutiveBlocks, niceStep, summarize, type Histogram, type ReplicateGroup, type Gap } from "@/components/campaign/data/profile";
 import { dataNumber, linear, niceTicks } from "@/components/campaign/data/svg";
 import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const W = 320;
 const TICK = "fill-fg-muted text-caption";
@@ -20,6 +21,8 @@ const AXIS = "stroke-border-strong";
 const DOT = "fill-chart-measured";
 const DOT_R = 2.75;
 const BEST_R = 6;
+/** Width per level of a strip or bar figure once it is wider than the column: room for an 8-character label. */
+const SLOT = 60;
 
 /** Deterministic jitter in [-0.25, 0.25] from a row index, so a strip's dots spread the same way on every render. */
 export function jitter(row: number): number {
@@ -66,12 +69,22 @@ function YAxis({ ticks, y, x0, x1, name }: { ticks: number[]; y: (v: number) => 
   );
 }
 
-/** A y scale over the values padded to the nice ticks that cover them. */
-function yScale(values: readonly number[], range: [number, number], count = 3) {
+/** A y scale whose domain is the round ticks that enclose the values, so the top and bottom of the plot are both labelled. */
+export function yScale(values: readonly number[], range: [number, number], count = 3): { ticks: number[]; y: (v: number) => number } {
   const lo = Math.min(...values);
   const hi = Math.max(...values);
-  const ticks = niceTicks(lo, hi, count);
-  return { ticks, y: linear([Math.min(...ticks, lo), Math.max(...ticks, hi)], range) };
+  if (lo === hi) return { ticks: [lo], y: linear([lo - 1, lo + 1], range) };
+  const step = niceStep(lo, hi, count);
+  const round = (v: number) => Number(v.toPrecision(12));
+  const first = round(Math.floor(lo / step + 1e-9) * step);
+  const ticks: number[] = [first];
+  while (ticks[ticks.length - 1] < hi - step * 1e-9) ticks.push(round(first + ticks.length * step));
+  return { ticks, y: linear([ticks[0], ticks[ticks.length - 1]], range) };
+}
+
+/** Which of `count` evenly spaced x labels to draw so that none overlap: the last always, then every `every`-th counted back from it. */
+function labelled(count: number, every: number): (i: number) => boolean {
+  return (i) => (count - 1 - i) % every === 0;
 }
 
 /**
@@ -79,14 +92,16 @@ function yScale(values: readonly number[], range: [number, number], count = 3) {
  * every edge (every other when there are more than 8). Bins are Sturges' count on round edges (profile.ts).
  */
 export function DistributionFigure({ name, hist, n }: { name: string; hist: Histogram; n: number }) {
-  const H = 120;
-  const pad = { l: 30, r: 8, t: 18, b: 20 };
+  const H = 124;
+  const pad = { l: 30, r: 20, t: 26, b: 20 };
   const max = Math.max(1, ...hist.counts);
   const yTicks = niceTicks(0, max, 2).filter((t) => t <= max);
   const y = linear([0, Math.max(max, ...yTicks)], [H - pad.b, pad.t]);
   const x = linear([hist.edges[0], hist.edges[hist.edges.length - 1]], [pad.l, W - pad.r]);
   const bins = hist.counts.map((c, i) => ({ c, x0: x(hist.edges[i]), x1: x(hist.edges[i + 1]) }));
-  const every = hist.edges.length > 8 ? 2 : 1;
+  const widest = Math.max(...hist.edges.map((e) => dataNumber(e).length)) * 7 + 6;
+  const every = Math.max(hist.edges.length > 8 ? 2 : 1, Math.ceil((widest * hist.edges.length) / (W - pad.l - pad.r)));
+  const show = labelled(hist.edges.length, every);
   const label = `Histogram of ${name}: ${n} runs in ${hist.counts.length} ${hist.counts.length === 1 ? "bin" : "bins"} of equal width from ${dataNumber(hist.edges[0])} to ${dataNumber(hist.edges[hist.edges.length - 1])}, most runs in one bin: ${max}. Bin count by Sturges' rule, edges on round numbers.`;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full max-w-sm overflow-visible">
@@ -114,8 +129,8 @@ export function DistributionFigure({ name, hist, n }: { name: string; hist: Hist
       ))}
       <line x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} className={AXIS} strokeWidth={1} />
       {hist.edges.map((e, i) =>
-        i % every === 0 || i === hist.edges.length - 1 ? (
-          <text key={`e${i}`} x={x(e)} y={H - 6} textAnchor={i === 0 ? "start" : i === hist.edges.length - 1 ? "end" : "middle"} className={TICK}>
+        show(i) ? (
+          <text key={`e${i}`} x={x(e)} y={H - 6} textAnchor="middle" className={TICK}>
             {dataNumber(e)}
           </text>
         ) : null,
@@ -126,9 +141,9 @@ export function DistributionFigure({ name, hist, n }: { name: string; hist: Hist
 
 /** One bar per category level, most common first, the count at the end of each bar and a "runs" axis. */
 export function CategoryFigure({ name, levels }: { name: string; levels: { value: string; n: number }[] }) {
-  const H = 120;
-  const pad = { l: 30, r: 8, t: 18, b: 20 };
-  const slot = 40;
+  const H = 124;
+  const pad = { l: 36, r: 20, t: 26, b: 20 };
+  const slot = SLOT;
   const width = Math.max(W, slot * levels.length + pad.l + pad.r);
   const max = Math.max(1, ...levels.map((l) => l.n));
   const yTicks = niceTicks(0, max, 2).filter((t) => t <= max);
@@ -194,8 +209,8 @@ export function CoverageFigure({ name, min, max, values, gaps }: { name: string;
 
 /** Target (y) against one numeric input (x): dots, the best run ringed, ticks on both axes and the axis names. */
 export function TargetScatterFigure({ xName, yName, points }: { xName: string; yName: string; points: { x: number; y: number }[] }) {
-  const H = 220;
-  const pad = { l: 44, r: 12, t: 16, b: 40 };
+  const H = 224;
+  const pad = { l: 44, r: 16, t: 24, b: 40 };
   const ys = points.map((p) => p.y);
   const { ticks: yTicks, y } = yScale(ys, [H - pad.b, pad.t]);
   const xs = points.map((p) => p.x);
@@ -236,10 +251,10 @@ export function TargetScatterFigure({ xName, yName, points }: { xName: string; y
  * Wider than the column when there are many levels: it scrolls inside the figure. The aria-label lists every level.
  */
 export function CategoryStripFigure({ xName, yName, points }: { xName: string; yName: string; points: { x: string; y: number; row: number }[] }) {
-  const H = 232;
-  const pad = { l: 44, r: 12, t: 16, b: 52 };
+  const H = 236;
+  const pad = { l: 44, r: 16, t: 24, b: 52 };
   const levels = levelsByMedian(points);
-  const slot = 44;
+  const slot = SLOT;
   const width = Math.max(W, slot * levels.length + pad.l + pad.r);
   const ys = points.map((p) => p.y);
   const { ticks: yTicks, y } = yScale(ys, [H - pad.b, pad.t]);
@@ -366,8 +381,8 @@ function RunOrderPanel({
  * one panel per origin, side by side on a shared y axis. Sheet order is not proven run order; the caption says so.
  */
 export function RunOrderFigure({ yName, values, groups = [], origins }: { yName: string; values: (number | null)[]; groups?: ReplicateGroup[]; origins?: (string | null)[] }) {
-  const H = 200;
-  const pad = { t: 16, b: 44 };
+  const H = 204;
+  const pad = { t: 24, b: 44 };
   const present = values.map((v, i) => ({ row: i, v })).filter((p): p is { row: number; v: number } => p.v != null);
   const { ticks: yTicks, y } = yScale(present.length ? present.map((p) => p.v) : [0], [H - pad.b, pad.t]);
   const best = present.length ? present.reduce((a, p) => (p.v > a.v ? p : a)) : null;
@@ -421,8 +436,8 @@ export function ReplicateFigure({ yName, groups, limit = 40 }: { yName: string; 
     .sort((a, b) => b.median - a.median)
     .map((s) => s.g);
   const shown = sorted.slice(0, limit);
-  const H = 200;
-  const pad = { l: 44, r: 12, t: 16, b: 36 };
+  const H = 204;
+  const pad = { l: 44, r: 16, t: 24, b: 36 };
   const all = shown.flatMap((g) => g.targets);
   const { ticks: yTicks, y } = yScale(all.length ? all : [0], [H - pad.b, pad.t]);
   const x = linear([-0.5, shown.length - 0.5], [pad.l, W - pad.r]);
@@ -454,9 +469,9 @@ export function ReplicateFigure({ yName, groups, limit = 40 }: { yName: string; 
 }
 
 /** A figure with its caption above and its one sentence of meaning below. */
-export function Figure({ caption, sentence, note, children }: { caption: string; sentence?: string | null; note?: ReactNode; children: ReactNode }) {
+export function Figure({ caption, sentence, note, className, children }: { caption: string; sentence?: string | null; note?: ReactNode; className?: string; children: ReactNode }) {
   return (
-    <figure className="flex min-w-0 flex-col gap-2">
+    <figure className={cn("flex min-w-0 flex-col gap-2", className)}>
       <figcaption className="text-label text-fg">{caption}</figcaption>
       {children}
       {sentence ? <p className="text-body text-fg">{sentence}</p> : null}

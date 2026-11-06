@@ -89,7 +89,7 @@ export function categoryStrips(xName: string, yName: string, points: readonly { 
   const top = levels[0];
   if (levels.length === 1) return `${xName} is ${top.value} in every one of these ${runs(points.length)}, so it cannot show an association with ${yName}.`;
   const bottom = levels[levels.length - 1];
-  return `${top.value} had the highest median ${yName} (${dataNumber(top.median)}, n = ${formatNumber(top.ys.length, "count")}) and ${bottom.value} the lowest (${dataNumber(bottom.median)}, n = ${formatNumber(bottom.ys.length, "count")}); the best ${formatNumber(b, "count")} runs came from ${formatNumber(bestLevels.size, "count")} different ${xName} ${bestLevels.size === 1 ? "value" : "values"}.`;
+  return `${top.value} had the highest median ${yName} (${dataNumber(top.median)}, n = ${formatNumber(top.ys.length, "count")}) and ${bottom.value} the lowest (${dataNumber(bottom.median)}, n = ${formatNumber(bottom.ys.length, "count")}); the best ${formatNumber(b, "count")} runs ${bestLevels.size === 1 ? `all came from one ${xName} value` : `came from ${formatNumber(bestLevels.size, "count")} different ${xName} values`}.`;
 }
 
 /** A3. The direction and looseness of the trend by |rho|, then where the best runs sat on the input. */

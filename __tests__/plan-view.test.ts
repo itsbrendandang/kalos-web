@@ -396,13 +396,28 @@ describe("runFacts", () => {
     const get = (label: string) => facts.find((f) => f.label === label)?.value;
     expect(get("Sheet fingerprint (SHA-256)")).toBe("abcdef012345");
     expect(get("Sheet")).toBeUndefined();
-    expect(get("Threads")).toBe("not pinned");
+    expect(get("Processor threads")).toBe("not pinned");
     expect(get("Engine build")).toBe("1234567890ab");
     expect(get("Source")).toBe("Run sheet upload");
+  });
+
+  it("a development build's 'unknown' reads as not recorded, never as broken (first-time study F16)", () => {
+    const facts = runFacts({ build_sha: "unknown", seed: 1234 });
+    expect(facts.find((f) => f.label === "Engine build")?.value).toBe("Not recorded (a development build)");
+    expect(facts.find((f) => f.label.startsWith("Fit seed"))?.value).toBe("1234");
   });
 
   it("shows the sheet when the upload was not anonymized", () => {
     const facts = runFacts({ sheet: "Runs", anonymize: false });
     expect(facts).toEqual([{ label: "Sheet", value: "Runs" }]);
+  });
+});
+
+describe("correlation grid labels", () => {
+  it("names the target's column after the target, never target_mean (first-time study F16)", async () => {
+    const { isTargetLabel } = await import("@/components/campaign/correlation-heatmap");
+    expect(isTargetLabel("target_mean")).toBe(true);
+    expect(isTargetLabel("target")).toBe(true);
+    expect(isTargetLabel("Titer")).toBe(false);
   });
 });

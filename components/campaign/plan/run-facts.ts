@@ -26,14 +26,18 @@ export function runFacts(run: RunRecord | null | undefined): { label: string; va
   if (typeof run.n_rows === "number") add("Runs fitted", run.n_rows.toLocaleString("en-US"));
   if (typeof run.n_features === "number") add("Inputs modeled", run.n_features.toLocaleString("en-US"));
   if (typeof run.pending_runs === "number") add("Runs in the lab when proposed", run.pending_runs.toLocaleString("en-US"));
-  if (typeof run.seed === "number") add("Fit seed", String(run.seed));
-  if (run.torch_threads !== undefined) add("Threads", run.torch_threads === null ? "not pinned" : String(run.torch_threads));
+  if (typeof run.seed === "number") add("Fit seed (so the same fit can be repeated)", String(run.seed));
+  if (run.torch_threads !== undefined) add("Processor threads", run.torch_threads === null ? "not pinned" : String(run.torch_threads));
   if (run.library_versions) {
     const v = Object.entries(run.library_versions)
       .filter(([, ver]) => typeof ver === "string")
       .map(([name, ver]) => `${name} ${ver}`);
     add("Libraries", v.length ? v.join(", ") : null);
   }
-  if (run.build_sha) add("Engine build", run.build_sha.slice(0, 12));
+  // A development build reports "unknown"; that is a fact about the build, not a fault.
+  if (run.build_sha) add("Engine build", isUnknownBuild(run.build_sha) ? "Not recorded (a development build)" : run.build_sha.slice(0, 12));
   return rows;
 }
+
+/** The engine writes "unknown" when it was not built from a tagged release. */
+export const isUnknownBuild = (sha: string | null | undefined): boolean => !sha || /^(unknown|none|null|dev)$/i.test(sha.trim());

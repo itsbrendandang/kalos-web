@@ -318,7 +318,7 @@ export default function LearnPage() {
         ) : null}
         {d.correlation && d.correlation.labels.length > 1 ? (
           <Disclosure summary="How the inputs go together" meta="each pair of inputs">
-            <CorrelationHeatmap labels={d.correlation.labels} matrix={d.correlation.matrix} />
+            <CorrelationHeatmap labels={d.correlation.labels} matrix={d.correlation.matrix} target={d.target} />
           </Disclosure>
         ) : null}
       </div>

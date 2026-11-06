@@ -18,6 +18,8 @@ import {
   formatInterval,
   formatSetpoint,
   groupFlags,
+  listNames,
+  sharedKinds,
   observedRanges,
   predictionInterval,
   recipeFlags,
@@ -132,16 +134,38 @@ describe("recipeFlags", () => {
     expect(constraintPrediction(pr, applied)).toEqual({ mean: 0.8, std: 0.05 });
     expect(constraintPrediction(p(45), applied)).toBeNull();
   });
-  it("groups the batch's flags by kind with the recipes that carry them", () => {
+  it("groups the batch's flags by kind with the recipes that carry them, naming the inputs", () => {
     const g = groupFlags([
       { rank: 1, flags: recipeFlags(p(51), { pH: 6 }, ctx) },
       { rank: 2, flags: recipeFlags(p(52), { pH: 5 }, ctx) },
       { rank: 3, flags: [] },
     ]);
-    expect(g.map((x) => [x.kind, x.ranks])).toEqual([
-      ["at-edge", [2]],
-      ["gain-within-band", [1, 2]],
+    expect(g.map((x) => [x.kind, x.ranks, x.all])).toEqual([
+      ["at-edge", [2], false],
+      ["gain-within-band", [1, 2], false],
     ]);
+    expect(g[0].sentence).toBe("P2: an input at the edge of what you have tried so far (pH).");
+    expect(sharedKinds(g).size).toBe(0);
+  });
+  it("a flag every recipe carries is one sentence for the round, naming every input, and is left off the rows (first-time study F10)", () => {
+    const ranges = { pH: obs(5, 7, 10), temperature_C: obs(36.98, 37.01, 10), DO_pct_air: obs(20, 60, 10) };
+    const rows = [
+      { rank: 1, flags: recipeFlags(p(45), { pH: 5.0, temperature_C: 37.01, DO_pct_air: 40 }, { ...ctx, ranges }) },
+      { rank: 2, flags: recipeFlags(p(45), { pH: 7.0, DO_pct_air: 20 }, { ...ctx, ranges }) },
+      { rank: 3, flags: recipeFlags(p(45), { pH: 6, temperature_C: 36.98 }, { ...ctx, ranges }) },
+    ];
+    const g = groupFlags(rows);
+    expect(g).toHaveLength(1);
+    expect(g[0]).toMatchObject({ kind: "at-edge", all: true, inputs: ["pH", "temperature_C", "DO_pct_air"] });
+    expect(g[0].sentence).toBe("Every recipe sets an input at the edge of what you have tried so far: pH, temperature_C and DO_pct_air.");
+    expect([...sharedKinds(g)]).toEqual(["at-edge"]);
+    // The row's own flag names every input, never "and 1 more".
+    expect(rows[0].flags[0].label).toBe("pH and temperature_C at the edge of what you have tried");
+    expect(rows[0].flags[0].inputs).toEqual(["pH", "temperature_C"]);
+    expect(listNames(["a", "b", "c", "d"])).toBe("a, b, c and d");
+    expect(listNames(["a"])).toBe("a");
+    // One recipe alone is never "every recipe".
+    expect(groupFlags(rows.slice(0, 1))[0].all).toBe(false);
   });
 });
 

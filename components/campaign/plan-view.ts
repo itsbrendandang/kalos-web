@@ -148,10 +148,12 @@ export type FlagKind = "negative" | "low-feasibility" | "constraint" | "outside-
 
 export type RecipeFlag = {
   kind: FlagKind;
-  /** Short chip text. */
+  /** The flag in a few words, naming every input it concerns (never "and 3 more"). */
   label: string;
   /** One plain sentence. */
   detail: string;
+  /** The inputs the flag concerns (edge and outside-range flags), in recipe order. */
+  inputs?: string[];
 };
 
 /** Most serious first. */
@@ -165,7 +167,8 @@ export type FlagContext = {
   constraint?: ConstraintReport | null;
 };
 
-const listNames = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`);
+/** "pH", "pH and temperature_C", "pH, temperature_C and DO_pct_air": every name, never a count of the rest. */
+export const listNames = (names: readonly string[]): string => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
 /** Predicted value of the requested constraint column for one proposal, when the engine sent it. */
 export function constraintPrediction(p: Proposal, constraint: ConstraintReport | null | undefined): { mean: number; std: number | null } | null {
@@ -198,10 +201,20 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   const outside = bounds.filter((b) => b.where === "below" || b.where === "above").map((b) => b.input);
   const edge = bounds.filter((b) => b.where === "at-min" || b.where === "at-max").map((b) => b.input);
   if (outside.length) {
-    flags.push({ kind: "outside-range", label: `Outside tried range: ${listNames(outside)}`, detail: `${listNames(outside)} ${outside.length === 1 ? "is" : "are"} outside what you have tried so far, so the model has no runs to go on there.` });
+    flags.push({
+      kind: "outside-range",
+      label: `${listNames(outside)} outside what you have tried`,
+      detail: `${listNames(outside)} ${outside.length === 1 ? "is" : "are"} outside what you have tried so far, so the model has no runs to go on there.`,
+      inputs: outside,
+    });
   }
   if (edge.length) {
-    flags.push({ kind: "at-edge", label: `At edge: ${listNames(edge)}`, detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of what you have tried so far, where the model has runs on one side only.` });
+    flags.push({
+      kind: "at-edge",
+      label: `${listNames(edge)} at the edge of what you have tried`,
+      detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of what you have tried so far, where the model has runs on one side only.`,
+      inputs: edge,
+    });
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
@@ -210,11 +223,32 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
 
-/** The round's checks grouped by kind, for the summary: "P1, P2: predicted gain smaller than the likely range". */
-export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kind: FlagKind; ranks: number[]; label: string }[] {
-  const by = new Map<FlagKind, number[]>();
-  for (const { rank, flags } of rows) for (const f of flags) by.set(f.kind, [...(by.get(f.kind) ?? []), rank]);
-  const label: Record<FlagKind, string> = {
+export type FlagGroup = {
+  kind: FlagKind;
+  ranks: number[];
+  /** True when every recipe of the round carries the flag: it is then said once, above the table, not per row. */
+  all: boolean;
+  /** The inputs the flag concerns across the round (edge and outside-range), in first-seen order. */
+  inputs: string[];
+  /** One sentence for the round: "Every recipe sets an input at the edge of what you have tried so far: pH and temperature_C." or "P2, P4: ...". */
+  sentence: string;
+};
+
+/**
+ * The round's checks grouped by kind, for "Before you start". A flag every recipe carries is one sentence
+ * for the round, naming the inputs; a flag some carry names those recipes. Tested in plan-view.test.ts.
+ */
+export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): FlagGroup[] {
+  const by = new Map<FlagKind, { ranks: number[]; inputs: string[] }>();
+  for (const { rank, flags } of rows) {
+    for (const f of flags) {
+      const g = by.get(f.kind) ?? { ranks: [], inputs: [] };
+      g.ranks.push(rank);
+      for (const i of f.inputs ?? []) if (!g.inputs.includes(i)) g.inputs.push(i);
+      by.set(f.kind, g);
+    }
+  }
+  const some: Record<FlagKind, string> = {
     negative: "predicted below zero for a target that is never negative",
     "low-feasibility": `the model gives it under a ${formatNumber(LOW_FEASIBILITY, "pct")} chance of producing a result`,
     constraint: "predicted below the limit you asked for",
@@ -222,8 +256,29 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
     "at-edge": "an input at the edge of what you have tried so far",
     "gain-within-band": "predicted gain smaller than the likely range",
   };
-  return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => ({ kind, ranks: by.get(kind)!, label: label[kind] }));
+  const every: Record<FlagKind, string> = {
+    negative: "Every recipe is predicted below zero, for a target that is never negative.",
+    "low-feasibility": `Every recipe is given under a ${formatNumber(LOW_FEASIBILITY, "pct")} chance of producing a result.`,
+    constraint: "Every recipe is predicted below the limit you asked for.",
+    "outside-range": "Every recipe sets an input outside what you have tried so far",
+    "at-edge": "Every recipe sets an input at the edge of what you have tried so far",
+    "gain-within-band": "Every recipe's predicted gain is smaller than the likely range, so any of them can land below your best.",
+  };
+  return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => {
+    const g = by.get(kind)!;
+    const all = rows.length > 1 && g.ranks.length === rows.length;
+    const named = g.inputs.length ? `: ${listNames(g.inputs)}.` : ".";
+    const sentence = all
+      ? kind === "at-edge" || kind === "outside-range"
+        ? `${every[kind]}${named}`
+        : every[kind]
+      : `${g.ranks.map((r) => `P${r}`).join(", ")}: ${some[kind]}${kind === "at-edge" || kind === "outside-range" ? ` (${listNames(g.inputs)})` : ""}.`;
+    return { kind, ranks: g.ranks, all, inputs: g.inputs, sentence };
+  });
 }
+
+/** The kinds every recipe of the round carries: said once above the table, left off the rows. */
+export const sharedKinds = (groups: readonly FlagGroup[]): Set<FlagKind> => new Set(groups.filter((g) => g.all).map((g) => g.kind));
 
 // --- Uncertainty -----------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 import type { BatchItem } from "@/components/campaign/plan-batch";
-import type { BoundaryCheck, ObservedRange, RecipeFlag, SetpointValue } from "@/components/campaign/plan-view";
+import type { BoundaryCheck, FlagKind, ObservedRange, RecipeFlag, SetpointValue } from "@/components/campaign/plan-view";
 import type { ConstraintReport } from "@/lib/api";
 
 /** One proposed experiment, with everything the page derived for it. */
@@ -26,6 +26,8 @@ export type PlanContext = {
   incumbentLabel: string;
   domain: [number, number] | null;
   constraint: ConstraintReport | null | undefined;
+  /** Flag kinds every recipe carries: said once in "Before you start", not on each row. */
+  shared: ReadonlySet<FlagKind>;
 };
 
 /** Per-row state the page owns and the row components render. */

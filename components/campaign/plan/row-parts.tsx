@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronRight, Columns2, TriangleAlert } from "lucide-react";
-import type { RecipeFlag } from "@/components/campaign/plan-view";
+import type { FlagKind, RecipeFlag } from "@/components/campaign/plan-view";
 import { formatSetpoint } from "@/components/campaign/plan-view";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -10,15 +10,21 @@ import type { PlanContext, PlanRow, RowState } from "@/components/campaign/plan/
 /** What each kind of bet means, in plain words, for the card layout. */
 export const MODE_HINT = { exploit: "the model expects a high value", explore: "run to learn from" } as const;
 
-/** The warnings for one recipe. Each is a warn badge with its explanation on hover and in Details. */
-export function Flags({ flags, compact = false }: { flags: RecipeFlag[]; compact?: boolean }) {
+/**
+ * The warnings for one recipe, as plain words naming every input they concern. A flag every recipe of the
+ * round carries (`shared`) is said once above the table and not repeated here. The full sentence is the
+ * title and in Details.
+ */
+export function Flags({ flags, compact = false, shared }: { flags: RecipeFlag[]; compact?: boolean; shared?: ReadonlySet<FlagKind> }) {
+  const own = flags.filter((f) => !shared?.has(f.kind));
   if (flags.length === 0) return <span className="text-caption text-fg-muted">None</span>;
+  if (own.length === 0) return <span className="text-caption text-fg-muted">As every recipe (see Before you start)</span>;
   return (
-    <ul className={cn("flex flex-wrap gap-1", compact && "flex-col items-start")}>
-      {flags.map((f) => (
+    <ul className={cn("flex flex-col gap-1", compact && "items-start")}>
+      {own.map((f) => (
         <li key={f.kind}>
-          <Badge tone="warn" className={cn("h-auto min-h-6 py-0.5", compact ? "whitespace-normal" : "whitespace-nowrap")} title={f.detail}>
-            <TriangleAlert aria-hidden />
+          <Badge tone="warn" className="h-auto min-h-6 whitespace-normal py-0.5 text-left" title={f.detail}>
+            <TriangleAlert aria-hidden className="shrink-0" />
             {f.label}
           </Badge>
         </li>

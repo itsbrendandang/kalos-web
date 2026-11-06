@@ -28,7 +28,8 @@ export function BeforeStart({ m, notes, diversity }: { m: BatchModel; notes: Dat
         ))}
         {m.grouped.map((g) => (
           <Note key={g.kind} tone="warn" why={g.kind}>
-            <span className="font-medium">{g.ranks.map((r) => `P${r}`).join(", ")}</span>: {g.label}.
+            {g.sentence}
+            {g.all ? <span className="block text-caption text-fg-muted">Said once here, not on every row.</span> : null}
           </Note>
         ))}
         {m.grouped.length === 0 && rowCount > 0 ? <Note tone="good">No recipe was flagged by the checks that could run.</Note> : null}

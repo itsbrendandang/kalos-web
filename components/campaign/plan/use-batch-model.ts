@@ -8,6 +8,7 @@ import {
   diversitySummary,
   groupFlags,
   observedRanges,
+  sharedKinds,
   recipeFlags,
   stripDomain,
   type PlanAnalysis,
@@ -52,6 +53,9 @@ export function useBatchModel(d: PlanAnalysis) {
   // Every input any recipe sets, in the sheet's order (the analysis' `features`), so Plan, Run, Record and Learn show the same columns (lib/recipe-identity.ts).
   const features = useMemo(() => recipeColumns(rows.map((r) => r.recipe), d.features, d.proposal_features), [rows, d.features, d.proposal_features]);
 
+  const grouped = useMemo(() => groupFlags(rows.map((r) => ({ rank: r.item.rank, flags: r.flags }))), [rows]);
+  const shared = useMemo(() => sharedKinds(grouped), [grouped]);
+
   const ctx: PlanContext = useMemo(
     () => ({
       target: name,
@@ -68,11 +72,10 @@ export function useBatchModel(d: PlanAnalysis) {
         incumbent,
       ),
       constraint: d.constraint,
+      shared,
     }),
-    [name, unit, d, features, ranges, band, incumbent, rows],
+    [name, unit, d, features, ranges, band, incumbent, rows, shared],
   );
-
-  const grouped = useMemo(() => groupFlags(rows.map((r) => ({ rank: r.item.rank, flags: r.flags }))), [rows]);
   const checkedInputs = useMemo(() => Object.keys(ranges).filter((k) => rows.some((r) => k in r.recipe)), [ranges, rows]);
   const uncheckedInputs = useMemo(
     () => features.filter((k) => !ranges[k] && rows.some((r) => typeof r.recipe[k] === "number")),

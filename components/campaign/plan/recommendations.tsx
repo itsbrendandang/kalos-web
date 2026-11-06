@@ -87,7 +87,7 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
                     <GainCell row={row} />
                   </td>
                   <td className="border-b border-border px-2 py-2">
-                    <Flags flags={row.flags} />
+                    <Flags flags={row.flags} shared={ctx.shared} />
                   </td>
                   <td className="border-b border-border px-2 py-2 text-right">
                     <CompareToggle row={row} state={s} />

@@ -52,7 +52,7 @@ export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx
                   </p>
                 ) : null}
               </div>
-              {row.flags.length ? <Flags flags={row.flags} compact /> : null}
+              {row.flags.length ? <Flags flags={row.flags} compact shared={ctx.shared} /> : null}
               <button
                 type="button"
                 aria-expanded={s.expanded}

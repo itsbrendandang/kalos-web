@@ -23,6 +23,8 @@ const DOT_R = 2.75;
 const BEST_R = 6;
 /** Width per level of a strip or bar figure once it is wider than the column: room for an 8-character label. */
 const SLOT = 60;
+/** The narrowest a level may get when a wide strip is scaled to fit its column; narrower than this and it scrolls instead. */
+const MIN_SLOT = 40;
 
 /** Deterministic jitter in [-0.25, 0.25] from a row index, so a strip's dots spread the same way on every render. */
 export function jitter(row: number): number {
@@ -153,7 +155,8 @@ export function CategoryFigure({ name, levels }: { name: string; levels: { value
   const scroll = width > W;
   return (
     <div className={scroll ? "max-w-full overflow-x-auto" : "max-w-sm"}>
-      <svg viewBox={`0 0 ${width} ${H}`} width={scroll ? width : undefined} height={scroll ? H : undefined} role="img" aria-label={label} className={scroll ? "block" : "block h-auto w-full overflow-visible"}>
+      {/* A wide strip scales down to fit its column (every level stays readable at 40px or more) and only scrolls when it cannot. */}
+      <svg viewBox={`0 0 ${width} ${H}`} style={scroll ? { minWidth: MIN_SLOT * levels.length + pad.l + pad.r } : undefined} role="img" aria-label={label} className="block h-auto w-full overflow-visible">
         {yTicks.map((t) => (
           <g key={`y${t}`}>
             <line x1={pad.l} x2={width - pad.r} y1={y(t)} y2={y(t)} className={GRID} strokeWidth={1} />
@@ -268,7 +271,8 @@ export function CategoryStripFigure({ xName, yName, points }: { xName: string; y
   const cx = (p: { x: string; row: number }) => x(index.get(p.x) ?? 0) + jitter(p.row) * slotW;
   return (
     <div className={scroll ? "max-w-full overflow-x-auto" : "max-w-sm"}>
-      <svg viewBox={`0 0 ${width} ${H}`} width={scroll ? width : undefined} height={scroll ? H : undefined} role="img" aria-label={label} className={scroll ? "block" : "block h-auto w-full overflow-visible"}>
+      {/* A wide strip scales down to fit its column (every level stays readable at 40px or more) and only scrolls when it cannot. */}
+      <svg viewBox={`0 0 ${width} ${H}`} style={scroll ? { minWidth: MIN_SLOT * levels.length + pad.l + pad.r } : undefined} role="img" aria-label={label} className="block h-auto w-full overflow-visible">
         <YAxis ticks={yTicks} y={y} x0={pad.l} x1={width - pad.r} name={yName} />
         <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} className={AXIS} strokeWidth={1} />
         <line x1={pad.l} x2={width - pad.r} y1={H - pad.b} y2={H - pad.b} className={AXIS} strokeWidth={1} />

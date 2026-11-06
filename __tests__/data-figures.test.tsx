@@ -96,11 +96,12 @@ describe("Your data figures", () => {
     expect(shortLabel("D-161646 pH 4")).toBe("D-16164…");
   });
 
-  it("grows the strip figure with the levels and lets it scroll inside the figure", () => {
+  it("grows the strip figure with the levels, scales it to fit its column and lets it scroll only when a level would get too narrow", () => {
     const points = Array.from({ length: 19 }, (_, i) => ({ x: `src_${i}`, y: i, row: i }));
     const { container } = render(<CategoryStripFigure xName="CarbonSource" yName="Titer" points={points} />);
     const svg = container.querySelector("svg")!;
-    expect(Number(svg.getAttribute("width"))).toBeGreaterThan(320);
+    expect(Number(svg.getAttribute("viewBox")!.split(" ")[2])).toBeGreaterThan(320);
+    expect(svg.style.minWidth).toBe(`${40 * 19 + 44 + 16}px`);
     expect(container.firstElementChild?.className).toContain("overflow-x-auto");
     expect(label(container)).toContain("src_18 (median 18, n = 1)");
   });

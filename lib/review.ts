@@ -1,5 +1,5 @@
 /*
- * Experiment review: read a time course and say what the numbers support, what
+ * Run review: read a time course and say what the numbers support, what
  * they do not, and how to tell the explanations apart. Pure rules, tested in
  * __tests__/review.test.ts. No model, no guessing: every finding cites the
  * measurement it came from, and a cause is only "supported" when the data
@@ -92,10 +92,13 @@ export type Context = { plate: "96" | "24" | "6" | "flask" | "other"; volumeUl: 
 export type Verdict = "supported" | "possible" | "unlikely" | "cannot-say";
 export type Finding = { id: string; title: string; verdict: Verdict; for: string[]; against: string[]; test: string };
 
+/** The why-line code (lib/why.ts) for the "was it you?" verdict, or null when the verdict has none. */
+export type MineWhy = "divergence_handling" | "divergence_unknown" | null;
+
 export type Review = {
   facts: string[];
   findings: Finding[];
-  mine: { verdict: Verdict; text: string };
+  mine: { verdict: Verdict; text: string; why: MineWhy };
   caveat: string;
 };
 
@@ -121,8 +124,8 @@ export function review(p: Parsed, ctx: Context): Review {
   const cvPeak = mean(peaks) !== 0 ? sd(peaks) / Math.abs(mean(peaks)) : 0;
 
   facts.push(`${n} series, ${p.series[0].t.length} time points each, over ${f2(Math.max(...p.series.map((s) => s.t[s.t.length - 1])) - Math.min(...p.series.map((s) => s.t[0])))} ${unit}.`);
-  facts.push(`Median peak at about ${f2(medPeakT)} ${unit}; ${pct(rfShare)} of series rose and then fell by more than 25% from their peak.`);
-  facts.push(`Spread between series at the end: ${pct(cvFinal)} (coefficient of variation); at the peak: ${pct(cvPeak)}.`);
+  facts.push(`Typical peak at about ${f2(medPeakT)} ${unit}; ${pct(rfShare)} of series rose and then fell by more than 25% from their peak.`);
+  facts.push(`Spread between series at the end: ${pct(cvFinal)} of the average; at the peak: ${pct(cvPeak)}.`);
 
   // Edge effect, only when names are plate wells.
   const wells = st.map((s) => ({ s, m: s.name.match(WELL) })).filter((x) => x.m);
@@ -162,7 +165,7 @@ export function review(p: Parsed, ctx: Context): Review {
     title: "Variation in how individual wells were set up",
     verdict: scatter ? (cvPeak > 0.4 ? "supported" : "possible") : cvPeak < 0.12 && cvFinal < 0.2 ? "unlikely" : "cannot-say",
     for: scatter ? [`Wells differ by ${pct(cvPeak)} at the peak${outliers.length ? ` and ${outliers.length} ended far from the rest (${outliers.slice(0, 4).map((o) => o.name).join(", ")})` : ""}.`] : [],
-    against: !scatter && cvPeak < 0.12 ? [`Wells agree closely (${pct(cvPeak)} spread at the peak). Careless pipetting usually makes replicates disagree.`] : [],
+    against: !scatter && cvPeak < 0.12 ? [`Wells agree closely (${pct(cvPeak)} spread at the peak). Careless pipetting usually makes repeated wells disagree.`] : [],
     test: "Re-read your volumes against the plate map and look at whether the odd wells share a row, a tip box or a time of day. If wells that were filled the same way behave the same way, handling is a poor explanation.",
   });
 
@@ -193,10 +196,10 @@ export function review(p: Parsed, ctx: Context): Review {
   const sharedF = findings[0];
   const mine: Review["mine"] =
     handling.verdict === "supported" || handling.verdict === "possible"
-      ? { verdict: "possible", text: `Possibly. Replicates disagree more than they should, which is what uneven handling looks like. Check ${outliers.length ? outliers.slice(0, 3).map((o) => o.name).join(", ") : "the odd wells"} against your plate map first. This does not rule out a shared cause as well.` }
+      ? { verdict: "possible", why: "divergence_handling", text: `Possibly. Repeated wells disagree more than they should, which is what uneven handling looks like. Check ${outliers.length ? outliers.slice(0, 3).map((o) => o.name).join(", ") : "the odd wells"} against your plate map first. This does not rule out a shared cause as well.` }
       : sharedF.verdict === "supported"
-        ? { verdict: "unlikely", text: `Probably not the pipetting. Your wells agree with each other and turned together around ${f2(medPeakT)} ${unit}, which points to something that affected the whole plate: the medium running down, the environment, or a change you made at that point. Check what you did around then, because a step that touched every well is still possible.` }
-        : { verdict: "cannot-say", text: "The data does not separate your handling from other causes. It would take replicate wells of the same condition and a record of what was done when." };
+        ? { verdict: "unlikely", why: null, text: `Probably not the pipetting. Your wells agree with each other and turned together around ${f2(medPeakT)} ${unit}, which points to something that affected the whole plate: the medium running down, the environment, or a change you made at that point. Check what you did around then, because a step that touched every well is still possible.` }
+        : { verdict: "cannot-say", why: "divergence_unknown", text: "The readings do not separate your handling from other causes. It would take replicate wells of the same recipe and a record of what was done when." };
 
   return {
     facts,

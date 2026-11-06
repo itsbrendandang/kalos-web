@@ -1,10 +1,10 @@
 /*
  * Seed data for the Projects surface.
  *
- * Illustrative content: the engine does not expose a customers/projects API,
- * so these screens render from this module and from what the viewer adds in
- * the browser. Types are shaped so a real API can drop in without touching the
- * views. Nothing here is an engine output.
+ * Illustrative content: Kalos has no customers/projects API, so these screens
+ * render from this module and from what the viewer adds in the browser. Types
+ * are shaped so a real API can drop in without touching the views. Nothing
+ * here comes from Kalos.
  */
 
 export type ProjectStatus = "drafting" | "in_progress" | "completed" | "terminated";
@@ -29,7 +29,7 @@ export interface Project {
   objective: string;
   status: ProjectStatus;
   stage: ProjectStage;
-  /** When true, the project is the campaign the engine is scoring; its workspace links to the Overview. */
+  /** When true, the project is the campaign Kalos is working on; its workspace links to the Overview. */
   live?: boolean;
   experiments: DbExperiment[];
   notes?: string;
@@ -57,9 +57,9 @@ export function stageLabel(stage: ProjectStage): string {
 }
 
 const CHO_EXPERIMENTS: DbExperiment[] = [
-  { name: "Experiment 1", id: "ID 1" },
-  { name: "Experiment 2", id: "ID 2" },
-  { name: "Experiment 3", id: "ID 3" },
+  { name: "Run 1", id: "ID 1" },
+  { name: "Run 2", id: "ID 2" },
+  { name: "Run 3", id: "ID 3" },
 ];
 
 const P_CHO: Project = {
@@ -67,11 +67,11 @@ const P_CHO: Project = {
   customerId: "c1",
   customerName: "Customer 1",
   name: "CHO Cell Yield Optimization",
-  objective: "Optimize IgG titer yield across scale-up conditions",
+  objective: "Raise IgG titer across scale-up recipes",
   status: "in_progress",
   stage: { kind: "phase2", label: "Scaling up" },
   experiments: CHO_EXPERIMENTS,
-  notes: "Three experiments recorded at bench scale. The next step is a pilot-scale run on the two best recipes.",
+  notes: "Three runs recorded at bench scale. The next step is a pilot-scale run on the two best recipes.",
 };
 
 const P_MAB: Project = {
@@ -79,7 +79,7 @@ const P_MAB: Project = {
   customerId: "c1",
   customerName: "Customer 1",
   name: "mAb Purification Process",
-  objective: "Maximize antibody yield through chromatography conditions",
+  objective: "Raise antibody yield through the chromatography recipe",
   status: "in_progress",
   stage: { kind: "phase1", iteration: 2, totalIterations: 4 },
   experiments: [],
@@ -101,7 +101,7 @@ const P_LNP: Project = {
   customerId: "c2",
   customerName: "Customer 2",
   name: "Lipid Nanoparticle Formulation",
-  objective: "Optimize LNP encapsulation efficiency for mRNA delivery",
+  objective: "Raise LNP encapsulation efficiency for mRNA delivery",
   status: "drafting",
   stage: { kind: "drafting" },
   experiments: [],
@@ -112,7 +112,7 @@ const P_LIVE: Project = {
   customerId: "c3",
   customerName: "In-house R&D",
   name: "Media DoE",
-  objective: "Recommend the next media experiments from the uploaded run sheet",
+  objective: "Propose the next media runs from the uploaded run sheet",
   status: "in_progress",
   stage: { kind: "phase2", label: "In the loop" },
   live: true,

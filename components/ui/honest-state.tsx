@@ -4,15 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { WHY_PREFIX, whyLine } from "@/lib/why";
 
 /**
  * The shared "did the request work" vocabulary. Every surface that talks to
- * the analysis service picks one of these three, and none of them may be
- * substituted for another:
+ * Kalos picks one of these three, and none of them may be substituted for
+ * another:
  *
- *  - ErrorState  - the request to the analysis service failed. This is a
- *                  fact about the NETWORK/SERVICE, not the lab. Copy must
- *                  say so explicitly (never "no data").
+ *  - ErrorState  - the request to Kalos failed. This is a fact about the
+ *                  NETWORK/SERVICE, not the lab. Copy must say so explicitly
+ *                  (never "no data"). Its default copy is the connection
+ *                  error with its why-line; a page that names another
+ *                  failure passes its own title and, when the code has one,
+ *                  its why-line.
  *  - EmptyState  - the service answered and the answer was nothing. A
  *                  confirmed-empty result is a fact about the DATA.
  *  - LoadingSkeleton - the request is in flight. Shaped like the content it
@@ -25,9 +29,13 @@ import { cn } from "@/lib/utils";
  * once a request has answered, never while it is still in flight.
  */
 
+export const UNREACHABLE_TITLE = "Could not reach Kalos";
+export const UNREACHABLE_DESCRIPTION = "This is a connection problem, not a result; nothing you entered is lost.";
+
 export function ErrorState({
-  title = "Could not reach the analysis service",
-  description = "The request failed before the engine could respond. This is a connection problem, not a result: your data is unaffected.",
+  title = UNREACHABLE_TITLE,
+  description = UNREACHABLE_DESCRIPTION,
+  why = title === UNREACHABLE_TITLE ? whyLine("engine_unreachable") : null,
   onRetry,
   retryLabel = "Try again",
   busy = false,
@@ -35,6 +43,8 @@ export function ErrorState({
 }: {
   title?: string;
   description?: ReactNode;
+  /** The "Why this matters" line (lib/why.ts) under the description; on by default for the connection error. */
+  why?: string | null;
   onRetry?: () => void;
   retryLabel?: string;
   busy?: boolean;
@@ -46,6 +56,11 @@ export function ErrorState({
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">{title}</p>
         <div className="mt-1 text-body text-fg-muted">{description}</div>
+        {why ? (
+          <p className="mt-1 text-body text-fg-muted">
+            {WHY_PREFIX} {why}
+          </p>
+        ) : null}
         {onRetry ? (
           <Button variant="outline" size="sm" onClick={onRetry} disabled={busy} className="mt-3">
             {busy ? "Trying again..." : retryLabel}

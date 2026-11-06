@@ -13,6 +13,7 @@ import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
 import { getProviders, type Provider } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { whyLine } from "@/lib/why";
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: "light", label: "Light" },
@@ -27,8 +28,8 @@ export default function SettingsPage() {
       <Appearance />
       <EngineConnection />
       <Integrations />
-      <Section title="Activity log" description="A local log of changes you made to your process map. It is not an audit trail for regulated records.">
-        <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>View activity log</Link>
+      <Section title="Activity record" description="What was done to your process map on this device, by whom and when. It is not an audit trail for regulated records.">
+        <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>See the activity record</Link>
       </Section>
     </div>
   );
@@ -73,15 +74,15 @@ function EngineConnection() {
   const version = latest.data?.has_data ? latest.data.engine_version : undefined;
   return (
     <Section
-      title="Engine connection"
-      description="Kalos reaches the analysis engine through this app's server, so no engine credentials ever reach your browser."
+      title="Connection"
+      description="Kalos is reached through this app's own server, so no sign-in details reach your browser."
     >
       {loading || busy ? (
-        <LoadingSkeleton rows={1} label="Checking the engine" />
+        <LoadingSkeleton rows={1} label="Checking the connection" />
       ) : failed ? (
-        <Verdict tone="bad">The engine did not answer. Check that it is running, then check the connection again.</Verdict>
+        <Verdict tone="bad" why={whyLine("engine_unreachable")}>Kalos did not answer. Check that it is running, then check the connection again.</Verdict>
       ) : (
-        <Verdict tone="good">Connected to the engine{version ? `, version ${version}` : ""}.</Verdict>
+        <Verdict tone="good">Connected to Kalos{version ? `, version ${version}` : ""}.</Verdict>
       )}
       <div>
         <Button
@@ -100,10 +101,10 @@ function EngineConnection() {
   );
 }
 
-/** Plain names for the engine's optional providers; the raw name stays in the row's disclosure. */
+/** Plain names for the optional providers Kalos can use; the raw name stays in the row's disclosure. */
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Column and unit matching",
-  bionemo: "Protein-sequence embeddings",
+  bionemo: "Protein sequence comparison",
 };
 
 function providerLabel(name: string): string {
@@ -127,14 +128,14 @@ function Integrations() {
   return (
     <Section
       title="Optional integrations"
-      description="Some data checks can use an AI assistant when one is set up. None are needed: every check has a built-in fallback."
+      description="Some sheet checks can use an AI assistant when one is set up. None are needed: every check has a built-in way of working without one."
     >
       {failed ? (
-        <p className="text-body text-fg-muted">Could not ask the engine which integrations are set up.</p>
+        <p className="text-body text-fg-muted">Could not ask Kalos which integrations are set up.</p>
       ) : !providers ? (
         <LoadingSkeleton rows={2} label="Checking integrations" />
       ) : providers.length === 0 ? (
-        <p className="text-body text-fg-muted">This engine offers no optional integrations.</p>
+        <p className="text-body text-fg-muted">This copy of Kalos offers no optional integrations.</p>
       ) : (
         <ul className="divide-y divide-border border-y border-border">
           {providers.map((p) => (
@@ -142,7 +143,7 @@ function Integrations() {
               <div className="flex items-center justify-between gap-4">
                 <p className="text-label text-fg">{providerLabel(p.name)}</p>
                 <Badge tone={p.available ? "good" : "neutral"} className="shrink-0">
-                  {p.available ? "Set up" : "Built-in fallback"}
+                  {p.available ? "Set up" : "Built-in method"}
                 </Badge>
               </div>
               <Disclosure summary="What it needs" className="border-t-0">
@@ -157,7 +158,7 @@ function Integrations() {
                     <>
                       <dt className="text-fg-muted">To enable</dt>
                       <dd className="text-fg">
-                        Set <span className="font-mono text-code">{(p.missing_env.length ? p.missing_env : p.required_env).join(", ")}</span> on the engine.
+                        Set <span className="font-mono text-code">{(p.missing_env.length ? p.missing_env : p.required_env).join(", ")}</span> where Kalos runs.
                       </dd>
                     </>
                   ) : null}

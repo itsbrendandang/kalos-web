@@ -9,7 +9,7 @@ describe("benchmark page sentences", () => {
 
   it("states the single-objective result in one sentence", () => {
     const run = { best_recipe: [0.685, 0.289, 0.533], optimum: [0.7, 0.3, 0.5], trajectory: [{ round: 0, best: 1, n: 6 }, { round: 1, best: 2, n: 18 }] };
-    expect(singleVerdict(run)).toBe("Found a recipe within 0.04 of the known optimum after 18 experiments.");
+    expect(singleVerdict(run)).toBe("Found a recipe within 0.04 of the known best after 18 runs.");
   });
 
   it("states the multi-objective result without naming a winner", () => {

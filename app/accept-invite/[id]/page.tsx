@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic";
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 
+/** "Invited as an admin": the access level in plain words. */
+const invitedAs = (role: string) => (role === "admin" ? "Invited as an admin" : role === "owner" ? "Invited as an owner" : role === "viewer" ? "Invited as a viewer" : "Invited as a member");
+
 export default async function AcceptInvitePage({
   params,
   searchParams,
@@ -52,7 +55,7 @@ export default async function AcceptInvitePage({
   }
 
   return (
-    <AuthCard title={`Join ${inv.organizationName}`} description={`You were invited as ${inv.role}. Signed in as ${st.email}.`}>
+    <AuthCard title={`Join ${inv.organizationName}`} description={`${invitedAs(inv.role)}. Signed in as ${st.email}.`}>
       {sp.error ? (
         <Callout tone="bad" title="Could not accept the invitation">
           Try again. If it keeps failing, ask your admin for a new link.

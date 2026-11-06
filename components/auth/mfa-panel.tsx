@@ -51,7 +51,7 @@ function CodeForm({ label, onSubmit, busy, backup }: { label: string; onSubmit: 
         onChange={(e) => setCode(e.target.value)}
       />
       <Button type="submit" disabled={busy || code.trim().length === 0}>
-        {busy ? "Checking…" : "Verify"}
+        {busy ? "Checking…" : "Check the code"}
       </Button>
     </form>
   );
@@ -141,8 +141,8 @@ export function MfaEnrol({ next }: { next: string }) {
       <div className="grid gap-4">
         {error ? <Callout tone="bad" title={error} /> : null}
         <p className="text-body text-fg-muted">
-          Kalos requires a second factor for every account. You need an authenticator app such as Google Authenticator,
-          1Password, Bitwarden or Authy.
+          Kalos asks every account for a code from an authenticator app after each Google sign-in. You need an app such as Google
+          Authenticator, 1Password, Bitwarden or Authy.
         </p>
         <Button onClick={begin} disabled={busy}>
           {busy ? "Preparing…" : "Set up authenticator app"}

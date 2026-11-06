@@ -25,9 +25,9 @@ type Mode = "single" | "multi";
 type Outcome<T> = { status: "idle" } | { status: "running" } | { status: "error" } | { status: "done"; data: T };
 
 /**
- * The engine's optimizer on a made-up surface whose best answer is known
- * (a smooth bump over a three-dimensional unit cube, not a bioprocess). It
- * shows how the method behaves; it says nothing about any real process.
+ * Kalos searching a made-up problem whose best answer is known (a smooth
+ * bump over a three-dimensional unit cube, not a bioprocess). It shows how
+ * the search behaves; it says nothing about any real process.
  */
 export default function BenchmarkPage() {
   const [mode, setMode] = useState<Mode>("single");
@@ -39,7 +39,7 @@ export default function BenchmarkPage() {
   async function run() {
     setSingle({ status: "running" });
     setMulti({ status: "running" });
-    // One at a time: the engine answers busy to a second request while the first is running.
+    // One at a time: Kalos answers busy to a second request while the first is running.
     const [s] = await Promise.allSettled([runSingle()]);
     setSingle(s.status === "fulfilled" ? { status: "done", data: s.value } : { status: "error" });
     const [m] = await Promise.allSettled([runMulti()]);
@@ -50,8 +50,8 @@ export default function BenchmarkPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         eyebrow="Library"
-        title="Benchmark the optimizer"
-        description="Run the engine's search on a made-up surface whose best answer is known. It shows how the method behaves, not what your process will do."
+        title="Watch Kalos search a practice problem"
+        description="Kalos searches a made-up problem with one known best recipe. It shows how the search behaves, not what your process will do."
         action={
           <Button onClick={() => void run()} disabled={running}>
             {running ? "Running..." : hasRun ? "Run again" : "Run the benchmark"}
@@ -61,23 +61,24 @@ export default function BenchmarkPage() {
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="gap-0">
         <TabsList variant="line">
-          <TabsTrigger value="single">One objective</TabsTrigger>
-          <TabsTrigger value="multi">Two objectives</TabsTrigger>
+          <TabsTrigger value="single">One target</TabsTrigger>
+          <TabsTrigger value="multi">Two targets</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {mode === "single" ? <SingleView outcome={single} onRetry={run} /> : <MultiView outcome={multi} onRetry={run} />}
 
-      <Disclosure summary="About this benchmark">
+      <Disclosure summary="About this practice problem">
         <div className="flex max-w-[68ch] flex-col gap-2 text-body text-fg-muted">
           <p>
-            The surface is a deterministic function with one known best recipe, written into the engine for this purpose. The optimizer
-            starts from a handful of random points and asks for two more recipes per round, exactly as it does on a run sheet.
+            The problem is a made-up one with one known best recipe, written into Kalos for this purpose. The search starts from a
+            handful of random recipes and asks for two more per round, exactly as it does on a run sheet.
           </p>
           <p>
-            Because the answer is known, the distance between the recipe found and the true optimum is an honest score for the search.
-            Nothing here is a prediction about a real bioprocess, and the recipes are not settings to run.
+            Because the answer is known, how far the recipe found is from the true best is an honest score for the search. Nothing here
+            is a prediction about a real bioprocess, and the recipes are not settings to run.
           </p>
+          <p>For the record: the problem is a deterministic function over a three-dimensional unit cube; the search is the same model and acquisition as the campaign.</p>
         </div>
       </Disclosure>
     </div>
@@ -89,7 +90,7 @@ function NotRunYet() {
     <EmptyState
       icon={FlaskConical}
       title="Nothing has run yet"
-      description="Run the benchmark to watch the optimizer search the surface. A run takes a few seconds."
+      description="Run the benchmark to watch Kalos search the problem. A run takes a few seconds."
     />
   );
 }
@@ -97,8 +98,7 @@ function NotRunYet() {
 function Failed({ onRetry }: { onRetry: () => void }) {
   return (
     <ErrorState
-      title="Could not reach the engine"
-      description="The benchmark request failed before the engine could answer. This is a connection problem, not a result."
+      description="The benchmark request failed before Kalos could answer. This is a connection problem, not a result; nothing you entered is lost."
       onRetry={onRetry}
     />
   );
@@ -118,15 +118,15 @@ function SingleView({ outcome, onRetry }: { outcome: Outcome<SingleRun>; onRetry
       <Verdict tone="good">{singleVerdict(data)}</Verdict>
 
       <ChartFrame
-        title="Best value found, by experiments run"
+        title="Best value found, by runs made"
         n={last?.n ?? null}
-        method="After each batch of two experiments the engine records the best value seen so far. The line steps up when a batch beats the previous best and stays flat when it does not."
+        method="After each round of two runs Kalos records the best value seen so far. The line steps up when a round beats the previous best and stays flat when it does not."
         state={points.length < 2 ? "insufficient" : "ready"}
       >
         <ConvergenceChart data={points} />
       </ChartFrame>
 
-      <Section title="Best recipe found against the known optimum" description="Each input runs from 0 to 1 on the benchmark surface.">
+      <Section title="Best recipe found against the known best" description="Each input runs from 0 to 1 in this made-up problem.">
         <Table className="min-w-[24rem]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -150,7 +150,7 @@ function SingleView({ outcome, onRetry }: { outcome: Outcome<SingleRun>; onRetry
               <TableCell numeric>{formatNumber(data.best_value)}</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell className="text-fg-muted">Known optimum</TableCell>
+              <TableCell className="text-fg-muted">Known best</TableCell>
               {data.optimum.map((v, i) => (
                 <TableCell key={i} numeric className="text-fg-muted">
                   {formatNumber(v)}
@@ -164,7 +164,7 @@ function SingleView({ outcome, onRetry }: { outcome: Outcome<SingleRun>; onRetry
         </Table>
       </Section>
 
-      <Disclosure summary="Next proposed batch" meta={`${formatNumber(data.proposals.length, "count")} recipes`}>
+      <Disclosure summary="Next proposed recipes" meta={`${formatNumber(data.proposals.length, "count")} recipes`}>
         <ProposalsTable cols={cols} rows={data.proposals} predHead="Predicted value" predFn={(r) => `${formatNumber(r.pred)} ± ${formatNumber(r.std)}`} />
       </Disclosure>
     </div>
@@ -186,7 +186,7 @@ function MultiView({ outcome, onRetry }: { outcome: Outcome<MultiRun>; onRetry: 
       <ChartFrame
         title="Titer against purity, every run"
         n={data.all.length}
-        method="Each dot is one simulated run. A run is on the trade-off front when no other run beats it on both titer and purity at once; those are joined by a line."
+        method="Each dot is one made-up run. A run is on the trade-off front when no other run beats it on both titer and purity at once; those are joined by a line."
         state={data.all.length < 2 ? "insufficient" : "ready"}
         height={300}
       >
@@ -200,7 +200,7 @@ function MultiView({ outcome, onRetry }: { outcome: Outcome<MultiRun>; onRetry: 
         <Metric label="Rounds run" value={Math.max(0, data.trajectory.length - 1)} quantity="count" />
       </div>
 
-      <Disclosure summary="Next proposed batch" meta={`${formatNumber(data.proposals.length, "count")} recipes`}>
+      <Disclosure summary="Next proposed recipes" meta={`${formatNumber(data.proposals.length, "count")} recipes`}>
         <ProposalsTable
           cols={cols}
           rows={data.proposals}
@@ -212,7 +212,7 @@ function MultiView({ outcome, onRetry }: { outcome: Outcome<MultiRun>; onRetry: 
   );
 }
 
-/** The proposed batch: one row per recipe, the inputs, the prediction and the reason the engine gave. */
+/** The proposed recipes: one row per recipe, the inputs, the prediction and the reason Kalos gave. */
 function ProposalsTable<T extends Proposal | MultiProposal>({
   cols,
   rows,
@@ -224,7 +224,7 @@ function ProposalsTable<T extends Proposal | MultiProposal>({
   predHead: string;
   predFn: (r: T) => string;
 }) {
-  if (!rows.length) return <p className="text-body text-fg-muted">The engine proposed nothing for the next batch.</p>;
+  if (!rows.length) return <p className="text-body text-fg-muted">Kalos proposed nothing for the next round.</p>;
   return (
     <Table className="min-w-[36rem]">
       <TableHeader>

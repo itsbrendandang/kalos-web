@@ -317,7 +317,7 @@ describe("rejectionCopy", () => {
   });
   it("gives a known code its plain sentence and never shows the raw code", () => {
     const c = rejectionCopy({ name: "tiny.csv", forDataset: null, code: "too_few_rows", error: "need at least 6 rows" });
-    expect(c.body).toBe("The engine did not accept tiny.csv. This sheet has too few rows to fit a model. Add more measured runs.");
+    expect(c.body).toBe("The engine did not accept tiny.csv. This sheet has too few runs to build a model from. Add more measured runs.");
     expect(c.body).not.toContain("too_few_rows");
     expect(c.suggestion).toBeNull();
   });

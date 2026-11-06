@@ -1,6 +1,6 @@
 /*
  * Pure rules for the Agent page, tested in __tests__/agent.test.ts. Nothing
- * here invents data: every number comes from the campaign the engine returned.
+ * here invents data: every number comes from the campaign Kalos returned.
  */
 import type { CampaignRun } from "@/lib/api";
 import type { ActiveCampaign } from "@/lib/workbench";
@@ -21,7 +21,7 @@ export function agentStatus(c: ActiveCampaign | null): AgentStatus {
       detail: `${plural(c.n_awaiting, "run")} started in round ${c.round} and not yet recorded. This page checks again every 20 seconds while it is open.`,
     };
   }
-  return { state: "idle", headline: "Nothing running", detail: "No runs are in flight. Plan the next batch when you are ready." };
+  return { state: "idle", headline: "Nothing in the lab", detail: "Plan the next round when you are ready; once its runs start, this page watches them." };
 }
 
 export const awaitingRuns = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((r) => r.awaiting);
@@ -29,13 +29,13 @@ export const measuredRuns = (c: ActiveCampaign): CampaignRun[] => c.pending.filt
 
 export type ForecastCheck = {
   n: number;
-  /** Mean of |measured - predicted|. */
+  /** Average of |measured - predicted|: how far a prediction usually was from its result. */
   meanAbsError: number;
-  /** How many measured results landed inside predicted ± 1 standard deviation. */
+  /** How many measured results landed inside the model's likely range for that run (predicted ± its spread). */
   withinOneSd: number;
 };
 
-/** How well the model's forecast matched what the lab measured, or null with nothing measured. */
+/** How well the model's predictions matched what the lab measured, or null with nothing measured. */
 export function forecastCheck(runs: readonly CampaignRun[]): ForecastCheck | null {
   const done = runs.filter((r) => r.result != null && Number.isFinite(r.pred));
   if (!done.length) return null;

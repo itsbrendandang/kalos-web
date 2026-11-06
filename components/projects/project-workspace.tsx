@@ -13,9 +13,9 @@ import { ProjectsModal, type ModalState } from "./modals";
 import { useProjectsStore } from "./store-context";
 
 /**
- * One project: its name, objective and stage in the header, then the
- * experiments recorded under it and any notes. The live project is the
- * campaign the engine is scoring, so its one action opens the Overview.
+ * One project: its name, objective and stage in the header, then the runs
+ * recorded under it and any notes. The live project is the campaign Kalos is
+ * working on, so its one action opens the Overview.
  */
 export function ProjectWorkspace({ projectId }: { projectId: string }) {
   const store = useProjectsStore();
@@ -63,12 +63,12 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
         }
       />
 
-      <Section title="Experiments" description={n === 0 ? undefined : `${n} recorded under this project.`}>
+      <Section title="Runs" description={n === 0 ? undefined : `${n} recorded under this project.`}>
         {n === 0 ? (
           <EmptyState
             icon={FlaskConical}
-            title="No experiments recorded"
-            description={project.live ? "This project's runs are in the campaign. Open it to see them." : "Experiments appear here once they are recorded under this project."}
+            title="No runs recorded"
+            description={project.live ? "This project's runs are in the campaign. Open it to see them." : "Runs appear here once they are recorded under this project."}
           />
         ) : (
           <ul className="divide-y divide-border border-y border-border">

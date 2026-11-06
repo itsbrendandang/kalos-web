@@ -14,10 +14,14 @@ export const dynamic = "force-dynamic";
 
 const ERRORS: Record<string, string> = {
   forbidden: "Only organization owners and admins can manage members.",
-  invalid: "Enter a valid email address and pick a role.",
+  invalid: "Enter a valid email address and pick an access level.",
   invite_failed: "Could not create the invitation. The person may already be a member.",
   remove_failed: "Could not remove that member (an organization needs at least one owner).",
 };
+
+/** Access levels in plain words; the stored value (viewer, member, admin, owner) stays out of sight. */
+const ACCESS_LABEL: Record<string, string> = { viewer: "Viewer", member: "Member", admin: "Admin", owner: "Owner" };
+const accessLabel = (role: string) => ACCESS_LABEL[role] ?? role;
 
 export default async function OrganizationPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -53,11 +57,11 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
               <Input name="email" type="email" required autoComplete="off" />
             </label>
             <label className="grid gap-1 text-label text-fg">
-              Role
+              Access
               <select name="role" defaultValue="member" className="h-9 rounded-lg border border-border-strong bg-surface px-3 text-body text-fg">
-                <option value="viewer">Viewer (read)</option>
-                <option value="member">Member (read and write)</option>
-                <option value="admin">Admin (also manages members, archives)</option>
+                <option value="viewer">Viewer (can look)</option>
+                <option value="member">Member (can look and change)</option>
+                <option value="admin">Admin (also invites and removes members)</option>
                 {isOwner ? <option value="owner">Owner</option> : null}
               </select>
             </label>
@@ -73,7 +77,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
               <li key={p.id} className="grid gap-2 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-body text-fg">
-                    {p.email} <span className="text-caption text-fg-muted">· {p.role}</span>
+                    {p.email} <span className="text-caption text-fg-muted">· {accessLabel(p.role)}</span>
                   </p>
                   <form action={cancelInvitationAction}>
                     <input type="hidden" name="invitationId" value={p.id} />
@@ -96,7 +100,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
           {members.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <p className="min-w-0 text-body text-fg">
-                {m.name || m.email} <span className="text-caption text-fg-muted">· {m.email} · {m.role}</span>
+                {m.name || m.email} <span className="text-caption text-fg-muted">· {m.email} · {accessLabel(m.role)}</span>
               </p>
               {isAdmin && m.userId !== st.context.userId ? (
                 <form action={removeMemberAction}>

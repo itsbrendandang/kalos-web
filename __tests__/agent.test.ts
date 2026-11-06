@@ -12,7 +12,7 @@ describe("agentStatus", () => {
     expect(agentStatus(campaign({ n_awaiting: 1 })).headline).toBe("Waiting on 1 lab result");
     expect(agentStatus(campaign({ n_awaiting: 3 })).headline).toBe("Waiting on 3 lab results");
   });
-  it("is idle with nothing in flight", () => expect(agentStatus(campaign({})).headline).toBe("Nothing running"));
+  it("is idle with nothing in the lab", () => expect(agentStatus(campaign({})).headline).toBe("Nothing in the lab"));
 });
 
 describe("forecastCheck", () => {

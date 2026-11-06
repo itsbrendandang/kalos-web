@@ -13,12 +13,12 @@ import type { StageStep } from "@/lib/campaign-stage";
 import { CAMPAIGN_STAGES, RAIL_GROUPS, navItem, navKeyFor, type NavKey } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
-/** Set at build time by desktop/prepare-web.sh: the engine is a local process on this Mac, not a service. */
+/** Set at build time by desktop/prepare-web.sh: Kalos is a local process on this Mac, not a service. */
 const LOCAL = process.env.NEXT_PUBLIC_KALOS_LOCAL === "1";
-const ENGINE_LINE = {
-  connected: LOCAL ? "Engine running on this Mac" : "Connected to the engine",
-  connecting: LOCAL ? "Starting the engine" : "Connecting to the engine",
-  offline: LOCAL ? "Engine stopped. Retry" : "Engine unreachable. Retry",
+export const ENGINE_LINE = {
+  connected: LOCAL ? "Kalos running on this Mac" : "Connected",
+  connecting: LOCAL ? "Starting Kalos" : "Connecting",
+  offline: LOCAL ? "Kalos stopped. Try again" : "Not connected. Try again",
 } as const;
 
 const ICON: Record<NavKey, LucideIcon> = {
@@ -45,7 +45,7 @@ function useShortcutLabel(): string {
  * The one sidebar: search, then every section always visible. Overview comes
  * first with the five stages listed under it (a StepDot says which are done,
  * which is current), then Tools and Workspace, then Settings, the research-use
- * line, the engine status and the workspace menu at the foot. Groups come from
+ * line, whether Kalos is connected, and the workspace menu at the foot. Groups come from
  * RAIL_GROUPS in lib/routes.ts, which the command palette reads too.
  */
 export function Sidebar({ onSearch, className }: { onSearch: () => void; className?: string }) {
@@ -142,7 +142,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
 
 /**
  * The five stages, indented under Overview. The current stage carries the
- * active fill (so does the page being viewed). Before the engine answers, the
+ * active fill (so does the page being viewed). Before Kalos answers, the
  * rows still link but carry an "upcoming" mark, so the list never jumps in.
  */
 function StageRows({ pathname, steps }: { pathname: string; steps: StageStep[] | null }) {

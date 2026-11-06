@@ -8,7 +8,7 @@ import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 /*
  * Where the history lives: in a file in the Kalos state folder when the app runs
  * on this device (/api/audit), otherwise in this browser's storage. Both use the
- * same hash chain. The file is the record; the browser copy is only the fallback.
+ * same chain of fingerprints. The file is the record; the browser copy is only the fallback.
  */
 const KEY = "kalos.audit.v1";
 const listeners = new Set<() => void>();
@@ -24,7 +24,7 @@ export function setAuditActor(label: string): void {
 }
 
 export async function sha256(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  const buf = await crypto.subtle.digest({ name: "SHA-256" }, new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 

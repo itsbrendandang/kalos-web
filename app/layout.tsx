@@ -8,7 +8,7 @@ import { viewerFrom, type Viewer } from "@/lib/viewer";
 
 export const metadata: Metadata = {
   title: "Kalos",
-  description: "Bayesian optimization for bioprocess development",
+  description: "Kalos plans the next runs for your bioprocess from the runs you have measured",
 };
 
 // Sets `dark` on <html> before first paint, based on a saved preference or

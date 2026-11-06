@@ -9,15 +9,16 @@ import { Verdict } from "@/components/kit/verdict";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useLatest } from "@/hooks/use-engine";
-import { buildGraph, GRAPH_H, GRAPH_W, graphSentence, inputSentence, type Graph, type GraphNode } from "@/lib/graph";
+import { Disclosure } from "@/components/kit/disclosure";
+import { buildGraph, GRAPH_H, GRAPH_W, graphSentence, inputSentence, linkLine, type Graph, type GraphNode } from "@/lib/graph";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
  * Graph: the campaign as a map. The result sits in the middle, the inputs
- * around it (closer = moves more closely with it; dashed = not statistically
- * solid), and each proposed recipe links to the inputs it changes. Every node
- * is the same size. It restates the engine's analysis; it adds nothing to it.
+ * around it (closer = went more closely with it; dashed = could be chance),
+ * and each proposed recipe links to the inputs it changes. Every node is the
+ * same size. It restates what Kalos found; it adds nothing to it.
  */
 export default function GraphPage() {
   const latest = useLatest();
@@ -28,14 +29,14 @@ export default function GraphPage() {
     <div className="flex flex-col gap-8">
       <PageHeader title="How it all connects" description="Your result in the middle, the inputs around it, and the recipes the model suggests on the outside. Tap anything to see why." />
       {latest.status === "error" ? (
-        <ErrorState title="Could not reach the engine" description="This is a connection problem, not an empty graph." onRetry={() => void latest.refresh()} busy={latest.refreshing} />
+        <ErrorState description="This is a connection problem, not an empty graph; nothing you entered is lost." onRetry={() => void latest.refresh()} busy={latest.refreshing} />
       ) : !latest.data ? (
         <LoadingSkeleton variant="chart" label="Loading the graph" />
       ) : !graph || !analysis ? (
         <EmptyState icon={Network} title="Nothing to connect yet" description="Upload a run sheet in Setup and the map builds itself." action={<Link href="/campaign/setup" className={buttonVariants({})}>Go to Setup <ArrowRight /></Link>} />
       ) : (
         <>
-          <Verdict tone="neutral" detail={<RankedInputs graph={graph} />}>
+          <Verdict tone="neutral" detail={<RankedInputs graph={graph} target={analysis.target} />}>
             {graphSentence(analysis, graph)}
           </Verdict>
           <GraphView graph={graph} target={analysis.target} />
@@ -45,21 +46,33 @@ export default function GraphPage() {
   );
 }
 
-/** The inputs in the order they are drawn (nearest the result first), with the correlation the engine reported. */
-function RankedInputs({ graph }: { graph: Graph }) {
+/** The inputs in the order they are drawn (nearest the result first), each with how it went with the target; the numbers Kalos reported sit one more click down. */
+function RankedInputs({ graph, target }: { graph: Graph; target: string }) {
   const inputs = graph.nodes.filter((n): n is Extract<GraphNode, { kind: "input" }> => n.kind === "input");
   return (
-    <ol className="flex flex-col gap-1">
-      {inputs.map((n, i) => (
-        <li key={n.id} className="flex flex-wrap items-baseline gap-x-2">
-          <span className="w-4 tabular-nums">{i + 1}</span>
-          <span className="font-mono text-code text-fg">{n.label}</span>
-          <span className="tabular-nums">
-            {n.rho != null ? `correlation ${formatNumber(n.rho, "value", { sign: true })}${n.significant ? ", statistically solid" : ", not statistically solid"}` : "no correlation reported"}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="flex flex-col gap-2">
+      <ol className="flex flex-col gap-1">
+        {inputs.map((n, i) => (
+          <li key={n.id} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="w-4 tabular-nums">{i + 1}</span>
+            <span className="font-mono text-code text-fg">{n.label}</span>
+            <span>{linkLine(n, target)}</span>
+          </li>
+        ))}
+      </ol>
+      <Disclosure summary="The numbers behind this" className="border-t-0">
+        <ul className="flex flex-col gap-1 text-caption">
+          {inputs.map((n) => (
+            <li key={n.id} className="flex flex-wrap gap-x-2">
+              <span className="font-mono text-code text-fg">{n.label}</span>
+              <span className="tabular-nums">
+                {n.rho != null ? `rank correlation ${formatNumber(n.rho, "value", { sign: true })}${n.significant ? ", significant after correcting for many inputs" : ", not significant"}` : "no correlation reported"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Disclosure>
+    </div>
   );
 }
 
@@ -106,7 +119,7 @@ function GraphView({ graph, target }: { graph: Graph; target: string }) {
           ))}
         </svg>
         <p className="px-3 pt-1 pb-2 text-caption text-fg-muted">
-          Closer to the result means it moves more closely with it; a dashed link is not statistically solid. Filled recipes exploit, hollow ones explore. These are patterns in your runs, not proof of cause.
+          Closer to the result means it went more closely with it; a dashed link could be chance. Filled recipes are the model&apos;s best bets; hollow ones try new ground. These are patterns in your runs, not proof of cause.
         </p>
       </Panel>
 
@@ -166,7 +179,7 @@ function Detail({ node, target }: { node: GraphNode; target: string }) {
         <h2 className="text-title text-fg break-words">{target}</h2>
         <p className="mt-2 text-body text-fg-muted">
           {node.best != null ? `Best measured so far is ${formatNumber(node.best)}, from ${formatNumber(node.n, "count")} runs. ` : ""}
-          Each input sits nearer the result the more closely it moves with this number.
+          Each input sits nearer the result the more closely it went with this number.
         </p>
       </>
     );
@@ -191,13 +204,18 @@ function Detail({ node, target }: { node: GraphNode; target: string }) {
     );
   return (
     <>
-      <p className="text-label text-fg-muted">{node.mode === "explore" ? "Recipe to explore" : "Recipe to exploit"}</p>
+      <p className="text-label text-fg-muted">{node.mode === "explore" ? "New ground" : "Best bet"}</p>
       <h2 className="text-title text-fg">{node.label}</h2>
       <p className="mt-1 flex items-baseline gap-1.5 text-body text-fg-muted">
-        The model expects <span className="text-heading tabular-nums text-fg">{formatNumber(node.pred)}</span>
-        <span className="text-caption tabular-nums">± {formatNumber(node.std)}</span>
+        Predicted <span className="text-heading tabular-nums text-fg">{formatNumber(node.pred)}</span>
       </p>
-      <p className="mt-2 text-body text-fg-muted">{node.reason}. It changes the inputs it is linked to.</p>
+      <p className="mt-2 text-body text-fg-muted">
+        {node.mode === "explore" ? "The model is unsure here, so one run would teach it a lot." : "The model expects a high value here."} It changes the inputs it is linked to.
+      </p>
+      <Disclosure summary="The numbers behind this" className="mt-2 border-t-0">
+        <p className="text-caption">As Kalos wrote it: <span className="font-mono text-code">{node.reason}</span></p>
+        <p className="mt-1 text-caption tabular-nums">Posterior mean {formatNumber(node.pred)}, ± 1 posterior SD {formatNumber(node.std)}.</p>
+      </Disclosure>
       <Link href="/campaign/plan" className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>
         Review in Plan <ArrowRight />
       </Link>

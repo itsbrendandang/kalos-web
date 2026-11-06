@@ -23,6 +23,7 @@ import {
   type ReadoutResult,
   type ReadoutTarget,
 } from "@/lib/scale-readout";
+import { whyLine } from "@/lib/why";
 import { isKnownCheck, readoutVerdict } from "./readout-copy";
 
 /** Columns the pickers never offer as a process input: the scale itself and the physics columns handled separately. */
@@ -141,7 +142,7 @@ export default function ScaleReadoutPage() {
     [manualProcessRaw, targetColumn],
   );
 
-  // The sheet's columns as the engine will see them, used only to decide whether it records both physics columns.
+  // The sheet's columns as Kalos will see them, used only to decide whether it records both physics columns.
   const effectiveHeader: string[] = useMemo(() => {
     if (mode.kind === "csv") return mode.header;
     if (mode.kind === "manual") {
@@ -237,8 +238,8 @@ export default function ScaleReadoutPage() {
         title="Scale-up readout"
         description={
           result && result.kind !== "gate"
-            ? "The engine's answer for the run sheet and target scale you gave it."
-            : "Ask what a recipe would do at a larger scale. The engine answers from your run sheet, or says what it would need."
+            ? "Kalos's answer for the run sheet and the scale you gave it."
+            : "Ask what a recipe would do at a larger scale. Kalos answers from your run sheet, or says what it would need."
         }
         action={
           result ? (
@@ -260,8 +261,8 @@ export default function ScaleReadoutPage() {
       {DEMO_MODE ? (
         <EmptyState
           icon={PlugZap}
-          title="The readout needs the live engine"
-          description="A readout is built from your own run sheet, so there is nothing honest to show with example data. Connect the engine to run one."
+          title="The readout needs a connection to Kalos"
+          description="A readout is built from your own run sheet, so there is nothing honest to show with example data. Connect to Kalos to run one."
         />
       ) : null}
 
@@ -287,8 +288,8 @@ export default function ScaleReadoutPage() {
             {mode.kind === "manual" ? (
               <Disclosure summary="Why this sheet asks you to type its columns">
                 <p className="max-w-[68ch] text-body text-fg-muted">
-                  The browser cannot read an Excel file&apos;s header without a parser this app does not ship, so name the target and process
-                  columns exactly as they appear in the sheet. The engine reads the file itself once it is sent.
+                  The browser cannot read an Excel file&apos;s first row on its own, so name the result and process columns exactly as they
+                  appear in the sheet. Kalos reads the file itself once it is sent.
                 </p>
               </Disclosure>
             ) : null}
@@ -408,7 +409,7 @@ export default function ScaleReadoutPage() {
                   </div>
                 ) : (
                   <p className="text-body text-fg-muted">
-                    This sheet does not record agitation and airflow, so the engine predicts from scale alone.
+                    This sheet does not record agitation and airflow, so Kalos predicts from scale alone.
                   </p>
                 )}
 
@@ -456,11 +457,13 @@ function ReadoutOutcome({ result, scaleL, onRetry, busy }: { result: ReadoutResu
       return (
         <Verdict
           tone="warn"
+          why={whyLine("generic")}
           detail={
             <div className="flex flex-col gap-1">
+              <p className="text-caption">As Kalos wrote it</p>
               <p>{result.detail}</p>
               <p className="text-caption">
-                Check the engine named: <span className="font-mono text-code">{result.failedCheck}</span>
+                The check Kalos named: <span className="font-mono text-code">{result.failedCheck}</span>
                 {isKnownCheck(result.failedCheck) ? null : " (this page has no plain words for it yet)"}
               </p>
             </div>
@@ -472,7 +475,7 @@ function ReadoutOutcome({ result, scaleL, onRetry, busy }: { result: ReadoutResu
     case "busy":
       return (
         <div className="flex flex-col gap-4">
-          <Verdict tone="neutral">{sentence}</Verdict>
+          <Verdict tone="neutral" why={whyLine("engine_busy")}>{sentence}</Verdict>
           <div>
             <Button variant="outline" onClick={onRetry} disabled={busy}>
               Try again
@@ -483,8 +486,9 @@ function ReadoutOutcome({ result, scaleL, onRetry, busy }: { result: ReadoutResu
     case "auth":
       return (
         <ErrorState
-          title="The engine refused the request"
-          description="It answered that this request was not authorized. Check the engine connection in Settings and try again."
+          title="Kalos could not confirm who you are"
+          description="It did not answer. Check the connection in Settings and try again."
+          why={whyLine("engine_auth_failed")}
           onRetry={onRetry}
           busy={busy}
         />
@@ -492,22 +496,19 @@ function ReadoutOutcome({ result, scaleL, onRetry, busy }: { result: ReadoutResu
     case "upload":
       return (
         <ErrorState
-          title="The engine rejected the upload"
+          title="Kalos could not read the file as a run sheet"
           description={
-            <>
-              <p>It could not read the file as a run sheet.</p>
-              <p className="mt-1 text-caption">
-                Engine detail: <span className="font-mono text-code">{result.message}</span>
-              </p>
-            </>
+            <Disclosure summary="As Kalos wrote it" className="border-t-0">
+              <p className="font-mono text-code">{result.message}</p>
+            </Disclosure>
           }
+          why={whyLine("parse_error")}
         />
       );
     case "unavailable":
       return (
         <ErrorState
-          title="Could not reach the engine"
-          description="The readout request failed before the engine could answer. This is a connection problem, not a result."
+          description="The readout request failed before Kalos could answer. This is a connection problem, not a result; nothing you entered is lost."
           onRetry={onRetry}
           busy={busy}
         />

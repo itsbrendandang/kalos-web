@@ -113,10 +113,10 @@ export function buildReadoutTarget(input: BuildReadoutTargetInput): ReadoutTarge
   const { header, targetColumn, scaleL, processParams } = input;
 
   if (!targetColumn.trim()) {
-    throw new ReadoutTargetError("Choose a target column.");
+    throw new ReadoutTargetError("Choose a result column.");
   }
   if (!Number.isFinite(scaleL) || scaleL <= 0) {
-    throw new ReadoutTargetError("Target scale (L) must be a positive number.");
+    throw new ReadoutTargetError("The scale to predict at (L) must be a number above zero.");
   }
 
   const processEntries = Object.entries(processParams);
@@ -125,7 +125,7 @@ export function buildReadoutTarget(input: BuildReadoutTargetInput): ReadoutTarge
   }
   for (const [column, value] of processEntries) {
     if (!Number.isFinite(value)) {
-      throw new ReadoutTargetError(`"${column}" needs a numeric planned value.`);
+      throw new ReadoutTargetError(`"${column}" needs a planned value, as a number.`);
     }
   }
 
@@ -185,7 +185,7 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
   try {
     r = await fetch(`${API}/api/scale/readout`, { method: "POST", body: fd, headers: mutationHeaders() });
   } catch {
-    return { kind: "unavailable", message: "The scale-up readout service is unreachable. Try again in a moment." };
+    return { kind: "unavailable", message: "Could not reach Kalos. Try again in a moment." };
   }
 
   if (r.status === 200) {
@@ -196,7 +196,7 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
     return {
       kind: "gate",
       failedCheck: body?.failed_check ?? "invalid_target",
-      detail: body?.detail ?? "The engine rejected this sheet or target.",
+      detail: body?.detail ?? "Kalos could not use this sheet or the scale you asked for.",
     };
   }
   if (r.status === 503) {
@@ -211,5 +211,5 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
     const body = await readJsonSafely<{ error?: string }>(r);
     return { kind: "upload", message: body?.error ?? "The upload was rejected." };
   }
-  return { kind: "unavailable", message: `The engine responded ${r.status}.` };
+  return { kind: "unavailable", message: `Kalos answered with an error (HTTP ${r.status}).` };
 }

@@ -7,8 +7,8 @@ import SettingsPage from "@/app/settings/page";
 import { EngineDataProvider } from "@/hooks/use-engine";
 
 /*
- * The change history is labelled as a local activity log, not an audit trail for regulated
- * records. The storage details sit behind a disclosure; the page never claims to be
+ * The change history is labelled as an activity record (what was done, by whom, when), not an
+ * audit trail for regulated records. The storage details sit behind a disclosure; the page never claims to be
  * tamper-evident or a validated record.
  */
 
@@ -23,11 +23,12 @@ afterEach(() => {
 });
 
 describe("activity log page", () => {
-  it("is titled and described as a local activity log, with the regulated-records limit one click down", async () => {
+  it("is titled and described as an activity record, with the regulated-records limit and the fingerprint one click down", async () => {
     render(<AuditPage />);
-    expect(await screen.findByRole("heading", { level: 1, name: "Local activity log" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: "Activity record" })).toBeTruthy();
     const text = document.body.textContent ?? "";
-    expect(text).toMatch(/A local log, not an audit trail/);
+    expect(text).toMatch(/A record kept here, not an audit trail/);
+    expect(text).toMatch(/by whom and when/);
     expect(text).toMatch(/No entries yet/);
     expect(text).not.toMatch(/Change history/);
     expect(text).not.toMatch(/tamper|GxP|validated/i);
@@ -37,17 +38,18 @@ describe("activity log page", () => {
     details!.open = true;
     details!.dispatchEvent(new Event("toggle"));
     expect(await screen.findByText(/not an audit trail for regulated records and has no electronic signatures/)).toBeTruthy();
+    expect(details?.textContent).toMatch(/fingerprint \(SHA-256\)/);
   });
 
-  it("the settings card links to it as an activity log", () => {
+  it("the settings card links to it as the activity record", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
     render(
       <EngineDataProvider>
         <SettingsPage />
       </EngineDataProvider>,
     );
-    expect(screen.getByRole("heading", { name: "Activity log" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "View activity log" }).getAttribute("href")).toBe("/settings/audit");
+    expect(screen.getByRole("heading", { name: "Activity record" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "See the activity record" }).getAttribute("href")).toBe("/settings/audit");
     expect(document.body.textContent ?? "").not.toMatch(/Change history/);
   });
 });

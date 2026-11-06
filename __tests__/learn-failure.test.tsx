@@ -59,14 +59,14 @@ describe("Learn failure state", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: /^Plan round/ }));
     await screen.findByText("Could not plan the next round");
-    expect(screen.getByText(/2,000 complete rows/)).toBeTruthy();
+    expect(screen.getByText(/2,000 complete runs/)).toBeTruthy();
     expect(screen.getByText("Your recorded results are safe.")).toBeTruthy();
     // The engine's sentence is not visible until the disclosure is opened.
     expect(screen.queryByText(/surrogate/)).toBeNull();
     fireEvent.click(screen.getByText("Engine message"));
     await waitFor(() => expect(screen.getByText(/surrogate/)).toBeTruthy());
     // Plain copy comes before the engine line in reading order.
-    const plain = screen.getByText(/2,000 complete rows/);
+    const plain = screen.getByText(/2,000 complete runs/);
     const engine = screen.getByText("Engine message");
     expect(plain.compareDocumentPosition(engine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

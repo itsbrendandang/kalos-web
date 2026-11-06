@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { EngineError, engineMessage, errorMessage, LEARN_FALLBACK, learnFailure } from "@/lib/engine-error";
+import { whyLine } from "@/lib/why";
+
+const UNREACHABLE = "Could not reach Kalos. This is a connection problem, not a result; nothing you entered is lost. Try again in a moment.";
 
 const CODES = [
   "payload_too_large",
@@ -25,6 +28,10 @@ describe("engineMessage: plain copy for every known code", () => {
       expect(m.message.length).toBeGreaterThan(20);
       expect(m.message).not.toContain(code);
       expect(m.message).not.toMatch(/_/);
+      expect(m.message).not.toMatch(/\bengine\b|analysis service/i);
+    });
+    it(`${code} carries its why-line`, () => {
+      expect(engineMessage({ code }).why).toBe(whyLine(code));
     });
   }
 
@@ -69,8 +76,9 @@ describe("errorMessage: anything thrown", () => {
     expect(errorMessage(new EngineError(401, "unauthenticated")).signIn).toBe(true);
   });
 
-  it("an unexpected failure (a bug, a dropped connection) gets the service-did-not-respond sentence", () => {
-    expect(errorMessage(new TypeError("boom")).message).toBe("The analysis service did not respond. Try again in a moment.");
+  it("an unexpected failure (a bug, a dropped connection) gets the could-not-reach-Kalos sentence and its why-line", () => {
+    expect(errorMessage(new TypeError("boom")).message).toBe(UNREACHABLE);
+    expect(errorMessage(new TypeError("boom")).why).toBe(whyLine("engine_unreachable"));
     expect(errorMessage("not an error").signIn).toBe(false);
   });
 });
@@ -81,16 +89,16 @@ describe("fit-row cap (the engine's uncoded refusal over N complete rows)", () =
 
   it("reads the cap from the engine sentence and gives plain copy with the number and a next step", () => {
     const m = engineMessage({ error: CAP_SENTENCE });
-    expect(m.message).toContain("2,000 complete rows");
+    expect(m.message).toContain("2,000 complete runs");
     expect(m.message).toMatch(/upload a smaller sheet/i);
-    expect(m.message).toMatch(/raise the row limit/i);
+    expect(m.message).toMatch(/raise the limit/i);
     expect(m.message).not.toMatch(/surrogate|N<=|optimizer|small-sample/);
     expect(m.signIn).toBe(false);
   });
 
   it("still gives plain copy when the engine's sentence has no number", () => {
     const m = engineMessage({ error: "The dataset is too large for the surrogate." });
-    expect(m.message).toMatch(/a fixed number of complete rows/);
+    expect(m.message).toMatch(/a fixed number of complete runs/);
     expect(m.message).not.toMatch(/surrogate/);
   });
 
@@ -116,7 +124,7 @@ describe("learnFailure: plain reason first, engine words kept aside", () => {
   const CAP = "The dataset is too large for the surrogate; the optimizer targets the small-sample regime, N<=2000.";
   it("maps the row-cap sentence to plain copy and keeps the sentence for the disclosure", () => {
     const m = learnFailure(new EngineError(400, "", undefined, CAP));
-    expect(m.message).toContain("2,000 complete rows");
+    expect(m.message).toContain("2,000 complete runs");
     expect(m.message).not.toMatch(/surrogate|N<=|optimizer|small-sample/);
     expect(m.engineText).toBe(CAP);
   });
@@ -129,7 +137,7 @@ describe("learnFailure: plain reason first, engine words kept aside", () => {
   });
   it("with no sentence at all, uses the Learn fallback, not the upload wording", () => {
     const m = learnFailure(new EngineError(500, "some_new_thing"));
-    expect(m).toEqual({ message: LEARN_FALLBACK, signIn: false, engineText: null });
+    expect(m).toEqual({ message: LEARN_FALLBACK, signIn: false, engineText: null, why: whyLine("engine_error") });
     expect(m.message).not.toMatch(/use this file/);
   });
   it("never shows a bare machine code in either line", () => {
@@ -143,7 +151,7 @@ describe("learnFailure: plain reason first, engine words kept aside", () => {
     expect(m.engineText ?? "").not.toMatch(/engine_busy/);
   });
   it("an unexpected failure (network, bug) gets the did-not-respond copy", () => {
-    expect(learnFailure(new TypeError("boom"))).toEqual({ message: "The analysis service did not respond. Try again in a moment.", signIn: false, engineText: null });
+    expect(learnFailure(new TypeError("boom"))).toEqual({ message: UNREACHABLE, signIn: false, engineText: null, why: whyLine("engine_unreachable") });
   });
   it("an expired session still asks for sign-in", () => {
     expect(learnFailure(new EngineError(401, "unauthenticated")).signIn).toBe(true);

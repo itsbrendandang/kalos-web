@@ -31,10 +31,10 @@ function countMatches(re: RegExp): number {
 
 describe("design-language burn-down (count may only decrease)", () => {
   const CEILINGS: Array<{ what: string; re: RegExp; ceiling: number }> = [
-    { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 180 },
-    { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 21 },
-    { what: "rounded-2xl", re: /\brounded-2xl\b/g, ceiling: 1 },
-    { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 10 },
+    { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 175 },
+    { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 19 },
+    { what: "rounded-2xl", re: /\brounded-2xl\b/g, ceiling: 0 },
+    { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
   ];
   for (const { what, re, ceiling } of CEILINGS) {
     it(`${what}: at most ${ceiling} (lower the ceiling when you remove some; never raise it)`, () => {

@@ -48,7 +48,7 @@ export function StatTile({
         </span>
       ) : null}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-[10.5px] font-semibold tracking-wide text-muted uppercase">
+        <div className="flex items-center gap-1 text-caption font-semibold text-fg-muted">
           <span className="truncate">{label}</span>
           {tooltip ? (
             <Tooltip>
@@ -62,10 +62,10 @@ export function StatTile({
             </Tooltip>
           ) : null}
         </div>
-        <div className="tabular truncate font-mono text-[19px] leading-tight font-semibold text-fg">
+        <div className="tabular-nums truncate text-title leading-tight font-semibold text-fg">
           {value}
         </div>
-        {hint ? <div className="truncate text-[10.5px] leading-tight text-muted">{hint}</div> : null}
+        {hint ? <div className="truncate text-caption leading-tight text-fg-muted">{hint}</div> : null}
       </div>
     </Card>
   );

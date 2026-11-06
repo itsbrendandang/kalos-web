@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // trace then copies only prebuilds/<platform>-<arch>.node of the BUILD host,
   // so the image must be built on the production platform (see Dockerfile).
   serverExternalPackages: ["better-sqlite3"],
+  // The dev-server badge sits over the sidebar foot in screenshots. It is
+  // not part of the app and never ships; hide it so dev matches the build.
+  devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders(process.env.NODE_ENV !== "production") }];
   },

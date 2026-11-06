@@ -1,9 +1,9 @@
 "use client";
 
-import type { ReactNode, Ref } from "react";
+import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { MeasuredMark, PredictedMark } from "@/components/campaign/plan/marks";
-import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
+import type { PlanContext, PlanRow } from "@/components/campaign/plan/types";
 import { BAND_CAVEAT, bandLabel, compareRecipes, formatGain, formatInterval, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { ModeBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 type Line = { key: string; label: ReactNode; values: string[]; tone?: (i: number) => string | undefined; note?: string };
 
 /**
- * 2-5 proposals side by side. Setpoint rows where the proposals differ at the
+ * 2-5 recipes side by side. Rows where the recipes differ at the
  * sheet's precision are marked "differs" (word + tint, never tint alone), with
  * the highest and lowest value marked, and the spread as a share of the range
  * tried when that range is known. Wide containers get a table; narrow ones a
@@ -24,15 +24,13 @@ export function Comparison({
   ctx,
   onRemove,
   onClear,
-  headingRef,
 }: {
   rows: PlanRow[];
   ctx: PlanContext;
   onRemove: (rank: number) => void;
   onClear: () => void;
-  headingRef?: Ref<HTMLHeadingElement>;
 }) {
-  const keys = [...ctx.features, ...ctx.others.filter((k) => rows.some((r) => k in r.recipe))];
+  const keys = ctx.features.filter((k) => rows.some((r) => k in r.recipe));
   const diff = compareRecipes(
     rows.map((r) => r.recipe),
     keys,
@@ -41,7 +39,7 @@ export function Comparison({
   const nDiff = diff.filter((d) => d.differs).length;
   const outcome: Line[] = [
     { key: "pred", label: <><PredictedMark /> Predicted {ctx.target}</>, values: rows.map((r) => formatNumber(r.item.proposal.pred)), note: "model estimate, not a measurement" },
-    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => formatInterval(r.item.proposal.pred, ctx.band) ?? "not reported"), note: ctx.band != null ? `Same width for every proposal. ${BAND_CAVEAT}` : undefined },
+    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => formatInterval(r.item.proposal.pred, ctx.band) ?? "not reported"), note: ctx.band != null ? `Same width for every recipe. ${BAND_CAVEAT}` : undefined },
     ...(ctx.incumbent != null
       ? [
           {
@@ -61,15 +59,15 @@ export function Comparison({
   const removable = rows.length > COMPARE_MIN;
 
   return (
-    <section aria-labelledby="plan-compare-title" className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4">
+    <section aria-labelledby="plan-compare-title" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 id="plan-compare-title" ref={headingRef} tabIndex={-1} className="text-heading text-fg outline-none">
+          <h2 id="plan-compare-title" className="text-heading text-fg">
             Compare {rows.map((r) => r.id).join(", ")}
           </h2>
           <p className="text-body text-fg-muted">
             {nDiff === 0
-              ? "These proposals set every input to the same value at the sheet's precision."
+              ? "These recipes set every input to the same value at the sheet's precision."
               : `${formatNumber(nDiff, "count")} of ${formatNumber(diff.length, "count")} inputs differ at the sheet's precision. \u2191 marks the highest and \u2193 the lowest of those compared.`}
           </p>
         </div>
@@ -80,7 +78,7 @@ export function Comparison({
 
       {/* Narrow: one block per input. */}
       <div className="flex flex-col gap-2 @2xl:hidden">
-        <ul className="flex flex-wrap gap-2" aria-label="Proposals in the comparison">
+        <ul className="flex flex-wrap gap-2" aria-label="Recipes in the comparison">
           {rows.map((r) => (
             <li key={r.id} className="inline-flex items-center gap-1.5 rounded-lg border border-border py-0.5 pr-0.5 pl-2">
               <span className="font-mono text-code text-fg">{r.id}</span>
@@ -89,7 +87,7 @@ export function Comparison({
             </li>
           ))}
         </ul>
-        <ul className="divide-y divide-border rounded-lg border border-border">
+        <ul className="divide-y divide-border rounded-xl border border-border">
           {diff.map((d) => (
             <li key={d.key} className={cn("flex flex-col gap-1.5 p-3", d.differs && "bg-accent-soft")}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -113,7 +111,7 @@ export function Comparison({
       </div>
 
       {/* Wide: a table. */}
-      <div className="relative hidden overflow-x-auto rounded-lg border border-border @2xl:block" data-scroll-x>
+      <div className="relative hidden overflow-x-auto rounded-xl border border-border @2xl:block" data-scroll-x>
         <table className="w-full text-body">
           <thead>
             <tr className="border-b border-border">
@@ -226,5 +224,5 @@ function rangeText(range: ObservedRange | null, prefix = true): string {
   if (!range) return prefix ? "range not reported" : "not reported";
   return range.source === "observed"
     ? `${prefix ? "tried " : ""}${formatSetpoint(range.min, range.decimals)} to ${formatSetpoint(range.max, range.decimals)}`
-    : `${prefix ? "engine range " : ""}${formatNumber(range.min)} to ${formatNumber(range.max)}${prefix ? "" : " (engine)"}`;
+    : `${prefix ? "allowed range " : ""}${formatNumber(range.min)} to ${formatNumber(range.max)}${prefix ? "" : " (allowed)"}`;
 }

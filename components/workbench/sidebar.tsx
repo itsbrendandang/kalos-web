@@ -1,0 +1,213 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
+import { MessageCircleQuestion, FileText, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
+import { KalosMark } from "@/components/brand/kalos-mark";
+import { StepDot } from "@/components/campaign/step-dot";
+import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
+import { ExampleBadge } from "@/components/ui/badge";
+import { useCampaignStage } from "@/hooks/use-campaign-stage";
+import { setViewMode, useViewMode, VIEW_MODES } from "@/hooks/use-view-mode";
+import type { StageStep } from "@/lib/campaign-stage";
+import { CAMPAIGN_STAGES, RAIL_GROUPS, SIMPLE_RAIL_GROUPS, navItem, navKeyFor, type NavKey } from "@/lib/routes";
+import { cn } from "@/lib/utils";
+
+/** Set at build time by desktop/prepare-web.sh: Kalos is a local process on this Mac, not a service. */
+const LOCAL = process.env.NEXT_PUBLIC_KALOS_LOCAL === "1";
+export const ENGINE_LINE = {
+  connected: LOCAL ? "Kalos running on this Mac" : "Connected",
+  connecting: LOCAL ? "Starting Kalos" : "Connecting",
+  offline: LOCAL ? "Kalos stopped. Try again" : "Not connected. Try again",
+} as const;
+
+const ICON: Record<NavKey, LucideIcon> = {
+  campaign: LayoutDashboard,
+  agent: MessageCircleQuestion,
+  review: FlaskRound,
+  process: Workflow,
+  graph: Network,
+  data: Database,
+  library: Library,
+  projects: FolderKanban,
+  documents: FileText,
+  settings: Settings,
+};
+
+function useShortcutLabel(key = "K"): string {
+  return useSyncExternalStore(
+    () => () => {},
+    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl ${key}`),
+    () => `⌘${key}`,
+  );
+}
+
+/**
+ * The one sidebar: search, then every section always visible. Overview comes
+ * first with the five stages listed under it (a StepDot says which are done,
+ * which is current), then Tools and Workspace, then Settings, the research-use
+ * line, whether Kalos is connected, and the workspace menu at the foot. Groups come from
+ * RAIL_GROUPS in lib/routes.ts, which the command palette reads too.
+ */
+export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; onAsk: () => void; className?: string }) {
+  const pathname = usePathname();
+  const section = navKeyFor(pathname);
+  const shortcut = useShortcutLabel();
+  const askShortcut = useShortcutLabel("J");
+  const { stage, status, demo, retry } = useCampaignStage();
+  // Simple view: a short rail (Overview, Ask Kalos, Data, Documents) and no stage rows; the full pages are one link away.
+  const mode = useViewMode();
+  const groups = mode === "simple" ? SIMPLE_RAIL_GROUPS : RAIL_GROUPS;
+  const current = stage?.steps.find((x) => x.state === "current") ?? null;
+  const doneCount = stage?.steps.filter((x) => x.state === "done").length ?? 0;
+
+  const row = (active: boolean) =>
+    cn(
+      "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-body transition-colors",
+      active ? "bg-fill-active font-medium text-fg" : "text-fg-muted hover:bg-fill-hover hover:text-fg",
+    );
+
+  return (
+    <div className={cn("flex h-full flex-col gap-2 p-3", className)}>
+      <div className="flex items-center gap-2.5 px-1.5 pt-1">
+        <Link href="/" aria-label="Kalos, campaign overview" className="flex items-center gap-2 text-fg">
+          <KalosMark className="size-8" />
+          <span className="text-heading tracking-wide">Kalos</span>
+        </Link>
+        {demo ? <ExampleBadge className="ml-auto h-5" /> : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onSearch}
+        aria-label={`Search pages and actions (${shortcut})`}
+        className="flex h-9 items-center gap-2 rounded-lg bg-fill-hover px-2.5 text-body text-fg-muted hover:bg-fill-active"
+      >
+        <Search className="size-4" aria-hidden />
+        <span className="flex-1 text-left">Search</span>
+        <kbd className="font-sans text-caption">{shortcut}</kbd>
+      </button>
+
+      <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1">
+        {groups.map((group) => (
+          <div key={group.label ?? "overview"} className="flex flex-col gap-0.5">
+            {group.label ? <p className="px-2.5 pb-0.5 text-caption text-fg-muted">{group.label}</p> : null}
+            <ul className="flex flex-col gap-0.5">
+              {group.keys.map((k) => {
+                const n = navItem(k);
+                const Icon = ICON[k];
+                const isOverview = k === "campaign";
+                // Overview's row lights up on the campaign section only when no stage row claims the path.
+                const active = isOverview ? section === "campaign" && !pathname.startsWith("/campaign/") : section === k;
+                if (k === "agent") {
+                  // Ask Kalos opens the panel over the current page; the full page (/agent) is one click inside it.
+                  return (
+                    <li key={k}>
+                      <button type="button" onClick={onAsk} aria-label={`${n.label} (${askShortcut})`} className={cn(row(active), "w-full")}>
+                        <Icon className="size-[18px] shrink-0" aria-hidden />
+                        <span className="flex-1 text-left">{n.label}</span>
+                        <kbd className="font-sans text-caption font-normal text-fg-muted">{askShortcut}</kbd>
+                      </button>
+                    </li>
+                  );
+                }
+                return (
+                  <li key={k}>
+                    <Link
+                      href={n.href}
+                      aria-current={pathname === n.href ? "page" : undefined}
+                      aria-label={isOverview && stage ? `Overview, ${doneCount} of ${stage.steps.length} stages done${current ? `, now ${current.label}` : ""}` : undefined}
+                      className={row(active)}
+                    >
+                      <Icon className="size-[18px] shrink-0" aria-hidden />
+                      <span className="flex-1">{n.label}</span>
+                      {isOverview && current && mode === "full" ? <span className="text-caption font-normal text-fg-muted">{current.label}</span> : null}
+                    </Link>
+                    {isOverview && mode === "full" ? <StageRows pathname={pathname} steps={stage?.steps ?? null} /> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+
+      <div className="flex flex-col gap-0.5 border-t border-border pt-2">
+        <Link href="/settings" aria-current={section === "settings" ? "page" : undefined} className={row(section === "settings")}>
+          <Settings className="size-[18px]" aria-hidden />
+          Settings
+        </Link>
+        <ViewSwitch mode={mode} />
+        <p className="px-2.5 pb-0.5 text-caption text-fg-muted">Research use only.</p>
+        <div className="flex items-center gap-1 pl-1">
+          {status === "offline" ? (
+            <button type="button" onClick={retry} className="flex h-8 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fill-hover">
+              <span className="size-2 rounded-full bg-bad" aria-hidden />
+              {ENGINE_LINE.offline}
+            </button>
+          ) : (
+            <p className="flex h-8 flex-1 items-center gap-2 px-1.5 text-caption text-fg-muted">
+              <span className={cn("size-2 rounded-full", status === "connected" ? "bg-good" : "animate-pulse bg-fg-muted")} aria-hidden />
+              {ENGINE_LINE[status]}
+            </p>
+          )}
+          <WorkspaceMenu side="right" className="size-8" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Simple or Full view, saved on this device; Settings has the same choice with a sentence on each. */
+function ViewSwitch({ mode }: { mode: "simple" | "full" }) {
+  return (
+    <div role="group" aria-label="View" className="mx-1.5 my-1 grid grid-cols-2 rounded-lg bg-fill-hover p-0.5">
+      {VIEW_MODES.map((m) => (
+        <button
+          key={m.value}
+          type="button"
+          aria-pressed={mode === m.value}
+          onClick={() => setViewMode(m.value)}
+          className={cn("h-7 rounded-md text-caption transition-colors", mode === m.value ? "bg-surface font-medium text-fg shadow-card" : "text-fg-muted hover:text-fg")}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The five stages, indented under Overview. The current stage carries the
+ * active fill (so does the page being viewed). Before Kalos answers, the
+ * rows still link but carry an "upcoming" mark, so the list never jumps in.
+ */
+function StageRows({ pathname, steps }: { pathname: string; steps: StageStep[] | null }) {
+  return (
+    <ul aria-label="Campaign stages" className="mt-0.5 flex flex-col gap-px">
+      {CAMPAIGN_STAGES.map((s) => {
+        const step = steps?.find((x) => x.key === s.key) ?? null;
+        const state = step?.state ?? "upcoming";
+        const here = pathname === s.href;
+        return (
+          <li key={s.key}>
+            <Link
+              href={s.href}
+              aria-current={here ? "page" : undefined}
+              aria-label={step ? `${s.label}, ${state === "done" ? "done" : state === "current" ? "current stage" : "upcoming"}: ${step.detail}` : s.label}
+              className={cn(
+                "flex h-7 items-center gap-2.5 rounded-lg py-0 pr-2.5 pl-[30px] text-label font-normal transition-colors",
+                here || state === "current" ? "bg-fill-active text-fg" : "text-fg-muted hover:bg-fill-hover hover:text-fg",
+                here && "font-medium",
+              )}
+            >
+              <StepDot state={state} />
+              {s.label}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

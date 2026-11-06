@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { CampaignRun } from "@/lib/api";
 import type { ValidationFinding } from "@/lib/validation";
-import { capFindings, changedRows, clampPage, inlineRecipeKeys, nextSort, sanityReason, sortRuns } from "@/components/campaign/stage-logic";
+import { capFindings, changedRows, clampPage, nextSort, sanityReason, sortRuns } from "@/components/campaign/stage-logic";
+import { runVerdict } from "@/lib/run-stage";
 
 const finding = (severity: ValidationFinding["severity"], message: string): ValidationFinding => ({ check: "outliers", severity, message, column: null, rows: [] });
 const run = (id: string, over: Partial<CampaignRun> = {}): CampaignRun => ({
@@ -68,8 +69,14 @@ describe("Run table helpers", () => {
     expect(clampPage(1, 0)).toBe(0);
     expect(clampPage(-1, 25)).toBe(0);
   });
-  it("shows top drivers present in the recipe, else the first inputs", () => {
-    expect(inlineRecipeKeys({ a: 1, b: 2, c: 3, d: 4 }, ["z", "c", "a"])).toEqual(["c", "a"]);
-    expect(inlineRecipeKeys({ a: 1, b: 2, c: 3, d: 4 }, [])).toEqual(["a", "b", "c"]);
+});
+
+describe("Run verdict", () => {
+  const runs = [run("a", { pred: 60 }), run("b", { pred: 62, result: 61, awaiting: false })];
+  it("counts what is still out and says what the model expects, with the band", () => {
+    expect(runVerdict(runs, 1, "Titer", { halfWidth: 3.5, coverage: 0.9 })).toBe("1 of 2 runs is still in the lab; the model predicts Titer around 61.00, likely range ± 3.50.");
+  });
+  it("drops the band when the analysis has none and says when all are back", () => {
+    expect(runVerdict(runs, 0, "Titer", null)).toBe("All 2 runs are back; the model predicts Titer around 61.00.");
   });
 });

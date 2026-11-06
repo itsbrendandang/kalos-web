@@ -13,7 +13,6 @@ describe("classifyRoute", () => {
     ["/api/auth/sign-in/social", "public"],
     ["/api/auth", "public"],
     ["/api/health", "public"],
-    ["/file.svg", "public"],
     ["/favicon.ico", "public"],
     ["/_next/static/chunks/a.js", "public"],
     ["/_next/image", "public"],
@@ -39,7 +38,9 @@ describe("classifyRoute", () => {
   ])("tightened: %s -> %s", (p, kind) => expect(classifyRoute(p)).toBe(kind));
 
   it("PUBLIC_FILES is exactly public/ plus the favicon", () => {
-    const files = readdirSync(new URL("../public", import.meta.url)).map((f) => `/${f}`);
+    const files = readdirSync(new URL("../public", import.meta.url))
+      .filter((f) => !f.startsWith("."))
+      .map((f) => `/${f}`);
     expect([...PUBLIC_FILES].sort()).toEqual([...files, "/favicon.ico"].sort());
   });
 

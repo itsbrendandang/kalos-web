@@ -21,11 +21,8 @@ import { cn } from "@/lib/utils";
 
 const SHORTCUTS: [keys: string, what: string][] = [
   ["⌘K or Ctrl+K", "Search pages and actions"],
-  ["Up / Down", "Move through the explorer tree"],
-  ["Left / Right", "Close or open a tree group"],
+  ["Up / Down", "Move through the palette's results"],
   ["Enter", "Open the focused page or run the highlighted action"],
-  ["Left / Right on a tab", "Switch between open pages"],
-  ["Delete on a tab", "Close that page's tab"],
   ["Esc", "Close the palette, menus and dialogs"],
 ];
 
@@ -33,6 +30,8 @@ const SHORTCUTS: [keys: string, what: string][] = [
  * The workspace menu: Theme, Settings, Security (two-step sign-in, sessions),
  * Members (invitations), Keyboard shortcuts and Sign out (a POST server action, never a GET link).
  */
+const LOCAL = process.env.NEXT_PUBLIC_KALOS_LOCAL === "1";
+
 export function WorkspaceMenu({ side = "right", className }: { side?: "right" | "bottom"; className?: string }) {
   const router = useRouter();
   const theme = useThemePreference();
@@ -61,6 +60,8 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
             <Settings aria-hidden />
             Settings
           </DropdownMenuItem>
+          {LOCAL ? null : (
+            <>
           <DropdownMenuItem onClick={() => router.push("/settings/security")}>
             <ShieldCheck aria-hidden />
             Security
@@ -69,15 +70,21 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
             <Users aria-hidden />
             Members
           </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem onClick={() => setShortcuts(true)}>
             <Keyboard aria-hidden />
             Keyboard shortcuts
           </DropdownMenuItem>
+          {LOCAL ? null : (
+            <>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={signingOut} onClick={() => startSignOut(() => signOutAction())}>
             <LogOut aria-hidden />
             Sign out
           </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={shortcuts} onOpenChange={setShortcuts}>

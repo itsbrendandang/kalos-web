@@ -13,8 +13,6 @@ import fs from "node:fs";
 import path from "node:path";
 import type BetterSqlite3 from "better-sqlite3";
 
-export const BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
-
 export function authDbPath(env: Readonly<Record<string, string | undefined>> = process.env): string {
   if (env.NEXT_PHASE === "phase-production-build") return ":memory:";
   return env.AUTH_DB_PATH?.trim() || path.join(process.cwd(), "data", "auth.db");

@@ -19,10 +19,11 @@ const PUBLIC_API = new Set(["/api/health"]);
 // /accept-invite is not public.
 const ACCEPT_INVITE = /^\/accept-invite\/[A-Za-z0-9_-]{1,128}$/;
 /**
- * Exactly the files in public/ (kept in sync by __tests__/auth-routes.test.ts)
- * plus Next's favicon. No pattern: "/api.svg" or "/x.txt" are NOT public.
+ * Exactly the files in public/ (kept in sync by __tests__/auth-routes.test.ts;
+ * dotfiles such as .gitkeep are not served) plus Next's favicon. No pattern:
+ * "/api.svg" or "/x.txt" are NOT public.
  */
-export const PUBLIC_FILES: ReadonlySet<string> = new Set(["/favicon.ico", "/file.svg", "/globe.svg", "/next.svg", "/vercel.svg", "/window.svg"]);
+export const PUBLIC_FILES: ReadonlySet<string> = new Set(["/favicon.ico"]);
 // Dot segments, encoded slashes/dots/backslashes, raw backslashes, doubled
 // slashes: Next normalises real requests before the proxy runs, so a path
 // that still carries any of these is never granted a public classification.

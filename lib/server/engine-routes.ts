@@ -72,6 +72,17 @@ export const ENGINE_ROUTES: readonly EngineRoute[] = Object.freeze([
   route("POST", "api/campaigns/:id/runs", "json"),
   route("POST", "api/campaigns/:id/runs/:id/result", "json"),
   route("POST", "api/campaigns/:id/reanalyze", "json"),
+  // The assistant (kalos-engine docs/ASSISTANT.md): the guide, the question panel, the index and procedure drafts.
+  route("GET", "api/assist/next", "none"),
+  route("POST", "api/assist/ask", "json"),
+  route("GET", "api/assist/index/status", "none"),
+  route("POST", "api/assist/index/rebuild", "json"),
+  route("GET", "api/assist/sop", "none"),
+  route("POST", "api/assist/sop/draft", "json"),
+  route("GET", "api/assist/sop/:id", "none"),
+  route("POST", "api/assist/sop/:id/revise", "json"),
+  route("POST", "api/assist/sop/:id/fill", "json"),
+  route("GET", "api/assist/sop/:id/export", "none"),
 ]);
 
 /** Opaque id segments (campaign ids `cmp_<hex>`, run ids `<hex>`). The engine validates the exact format. */

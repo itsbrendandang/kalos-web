@@ -1,8 +1,20 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
+import { recordAudit } from "@/lib/audit-store";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
+import {
+  AssistUnavailableError,
+  assistUnavailableReason,
+  isAssistAnswer,
+  isAssistIndexStatus,
+  isAssistNext,
+  type AssistAnswer,
+  type AssistIndexStatus,
+  type AssistNext,
+} from "@/lib/assist";
+import type { SopDraft, SopSource, SopSummary, SopTemplate } from "@/lib/sop";
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -242,6 +254,12 @@ export type Promotion = {
   metrics: Record<string, number>;
   summary: string;
   meaning: string;
+  /** The engine's own verdict word (newer engines): `failed` = a measured check missed, `not_measurable` = every blocking check could not be measured on this data. */
+  status?: "passed" | "failed" | "not_measurable";
+  /** The checks that blocked only because their metric was missing (newer engines). */
+  unmeasured?: string[];
+  /** Checks neither passed nor failed, with the reason (newer engines). */
+  not_judged?: string[];
 };
 
 /**
@@ -565,18 +583,18 @@ export type AnalyzeResult = Partial<Diagnostics> & {
 
 export const runSingle = (): Promise<SingleRun> =>
   fetch(`${API}/api/single`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
 export const runMulti = (): Promise<MultiRun> =>
   fetch(`${API}/api/multi`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
-export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
+export type ColumnRolesInput = { target: string; features: string[]; ids?: string[]; /** Inputs whose values are labels, not numbers (the engine's `categoricals`). */ categoricals?: string[] };
 
 /**
  * The engine refused an upload because the campaign still has awaiting or
@@ -644,7 +662,10 @@ export async function runFile(
   const d = await readJsonBody(r);
   const refusal = campaignHasRunsRefusal(r.status, d);
   if (refusal) throw refusal;
-  if (r.ok && d) return d as AnalyzeResult;
+  if (r.ok && d) {
+    recordAudit([{ action: "campaign.upload", detail: `Uploaded "${file.name}" as the campaign data${target ? ` (target ${target})` : ""}${opts.replace ? ", replacing the previous campaign" : ""}.` }]);
+    return d as AnalyzeResult;
+  }
   // A 400 with the documented { error } body is an expected "bad upload" the caller renders inline
   // (see setup/page.tsx); it is returned, not thrown.
   if (r.status === 400 && d && typeof d.error === "string") return d as AnalyzeResult;
@@ -687,129 +708,148 @@ export function incumbentLabel(d: Pick<AnalyzeResult, "noise">): string {
   return d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run";
 }
 
+export { calibrationNote, cvLogoNote, cvTopKNote, designBoxExclusionsNote, driverSelectionNote, groupMeanBaselineVerdict, proposalAuditNote, proposalGatingNote, reliabilityReason, repeatSpreadNote } from "@/lib/api-notes";
+
 export const getLatest = (): Promise<LatestResult> =>
   fetch(`${API}/api/latest`).then((r) => {
     // fetch only rejects on network failure; treat a non-2xx engine response as an
     // error too, so callers show the offline state instead of a fake "no data".
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
 /** The populated (has-data) shape of the latest analysis. */
 export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
 
-/**
- * The single canonical "is this model trustworthy" verdict. Every place the UI
- * claims reliability (the dataset pill, the KPI sub-copy) must use this so the
- * page never contradicts itself: the model is reliable only when the held-out
- * correlation clears the floor AND its 95% CI excludes zero.
- */
-/**
- * Why a dataset is or is not reliable, in one short phrase, using the engine's
- * OWN floor rather than a hardcoded number.
- *
- * This exists because `/results` used to render
- * `reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"`, which was wrong
- * in two ways at once. It hardcoded a floor the engine owns and reports as
- * `reliability.spearman_floor`, and - worse - `reliable` is `isReliable()`,
- * which is `clears_floor AND ci_excludes_zero`. So a model that genuinely
- * CLEARED the floor but whose 95% CI still included zero was told "Below the
- * 0.20 floor": a false statement about its own score, and the wrong reason for
- * the right verdict. A scientist debugging why their run was not trusted would
- * have gone looking at the wrong number.
- *
- * The two failure modes are distinguished, because the fix for them differs: a
- * rho below the floor needs a better model or better data, while a CI spanning
- * zero at an adequate rho usually just needs more runs.
- */
-export function reliabilityReason(
-  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
-): string {
-  const rel = d.reliability;
-  if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
-  const floor = rel.spearman_floor.toFixed(2);
-  if (!rel.clears_floor) return `Below the ${floor} floor`;
-  if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
-  return `Clears the ${floor} floor`;
-}
-
-export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
-  const rel = d.reliability;
-  if (rel) return rel.clears_floor && rel.ci_excludes_zero;
-  const ci = d.cv_ci95 ?? null;
-  return d.cv_spearman != null && ci != null && ci[0] > 0;
-}
-
 export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
 
 export type ReliabilityVerdict = {
   state: ReliabilityState;
-  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough data". */
-  label: "Reliable" | "Not yet reliable" | "Not enough data";
-  /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
+  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough runs to tell". */
+  label: "Reliable" | "Not yet reliable" | "Not enough runs to tell";
+  /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. For the disclosure only; it does not decide the verdict. */
   rho: number | null;
   /** Its 95% interval, when the engine reported one. */
   ci: [number, number] | null;
   /** The engine's trust floor for `rho`, when reported. */
   floor: number | null;
-  /** One plain sentence saying why. Never says "clears" while the interval reaches below the floor. */
+  /** The why-line code (lib/why.ts) for a caveat on the score itself, e.g. cv_ci_unavailable when no interval was reported; null when there is none. */
+  caveat: "cv_ci_unavailable" | null;
+  /** One plain sentence saying why, with no numbers in it: the Spearman, interval and floor are for a disclosure (see trustNumbers). */
   reason: string;
+  /** The why-line code for the verdict (lib/why.ts): reliable, not-yet, insufficient, or unmeasured when a check could not be run. */
+  why: "reliable" | "not-yet" | "insufficient" | "unmeasured";
+  /**
+   * "kalos": the engine's own verdict word (`promotion.status`). "derived": an older engine sent only
+   * `promotion.passed` and its failures, and the verdict was read from those; the surface says so.
+   * "none": the engine sent no checks at all, so nothing is confirmed.
+   */
+  source: "kalos" | "derived" | "none";
+  /** The checks that did not pass, in plain words, first one first. Empty when every check passed. */
+  failed: string[];
 };
 
+/** The engine's model checks (its promotion gate), each in the lab's words. The key is the start of the engine's failure line. */
+export const GATE_WORDS: Record<string, { reason: string; fix: string }> = {
+  surrogate_spearman: { reason: "it does not yet put the runs it was tested on in the right order", fix: "Add more measured runs." },
+  group_mean_margin: { reason: "it does no better than the average of each group of runs", fix: "Add runs that change the recipe within a group." },
+  feasibility_auc: { reason: "it cannot yet tell which recipes will fail outright", fix: "If some runs produce nothing, record them too: the model needs failed runs to learn what fails." },
+  ece: { reason: "its likely range is wrong about how often it is right", fix: "Add more measured runs." },
+  brier: { reason: "its confidence that a recipe will work is not reliable yet", fix: "If some runs produce nothing, record them too: the model needs failed runs to learn what fails." },
+};
+
+/** The key of a failure line ("ece=0.31 > max 0.2", "surrogate does not beat the group-mean floor: ..."). */
+export function gateKey(failure: string): string {
+  if (failure.startsWith("surrogate does not beat the group-mean floor")) return "group_mean_margin";
+  return failure.split(/[=\s]/)[0];
+}
+
+/** A failure line that blocked only because its metric could not be measured on this sheet. */
+export const isUnmeasuredFailure = (failure: string): boolean => /unmeasured|missing|NaN|could not be measured/i.test(failure);
+
+/** What each check looks at, as a noun phrase, for the unmeasured case. */
+const GATE_SUBJECT: Record<string, string> = {
+  surrogate_spearman: "the order of past runs",
+  group_mean_margin: "whether it beats the average of each group",
+  feasibility_auc: "which recipes fail outright",
+  ece: "how often its likely range is right",
+  brier: "how sure it is that a recipe works",
+};
+
+/** A failure line in the lab's words: the check's reason, or the unmeasured case. */
+export function gateWords(failure: string): string {
+  if (isUnmeasuredFailure(failure)) return `the check of ${GATE_SUBJECT[gateKey(failure)] ?? "one of the things it needs"} could not be run on this sheet`;
+  return GATE_WORDS[gateKey(failure)]?.reason ?? "it has not met one of its checks";
+}
+
 /**
- * The one reliability verdict app-wide (redesign brief, rule 1). `state` is
- * `isReliable()` - the same predicate as before - plus the honest third case
- * where the engine could not score rank agreement at all. Promotion gates are
- * a separate question with their own line; nothing here reads `promotion`.
+ * The one model verdict, app-wide: the badge, the sentence and the why-line on every page read it, so
+ * no page shows a green check beside a "not yet" sentence. Kalos owns the verdict: it is
+ * `promotion.status` when the engine sends it; an older engine's `promotion.passed` and failure lines
+ * are read into the same three states and marked `derived`; with no checks at all nothing is confirmed.
+ * The rank score, its interval and the floor are carried only for the "How the model was scored"
+ * disclosure; they never decide the state.
  */
-export function reliabilityVerdict(
-  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
-): ReliabilityVerdict {
+export function modelVerdict(d: Partial<Pick<AnalyzeResult, "promotion" | "reliability" | "cv_ci95" | "cv_spearman">>): ReliabilityVerdict {
   const rel = d.reliability;
   const rho = rel?.spearman ?? d.cv_spearman ?? null;
   const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
   const floor = rel?.spearman_floor ?? null;
-  const floorText = floor != null ? ` (${floor.toFixed(2)})` : "";
-  if (rho == null) {
+  const caveat: ReliabilityVerdict["caveat"] = rho != null && !ci ? "cv_ci_unavailable" : null;
+  const p = d.promotion;
+  const numbers = { rho, ci, floor, caveat };
+  if (!p) {
     return {
+      ...numbers,
       state: "insufficient",
-      label: "Not enough data",
-      rho,
-      ci,
-      floor,
-      reason: "There are not enough held-out runs to measure how well the model ranks recipes.",
+      label: "Not enough runs to tell",
+      why: "insufficient",
+      source: "none",
+      failed: [],
+      reason: "Kalos did not report its checks of the model, so nothing about it is confirmed.",
     };
   }
-  if (isReliable(d)) {
-    const reachesBelow = floor != null && ci != null && ci[0] < floor;
+  // A check that was measured and missed comes before one that could not be run, so the reason leads with the firmer fact.
+  const failures = [...(p.failures ?? []).filter((f): f is string => typeof f === "string")].sort((x, y) => Number(isUnmeasuredFailure(x)) - Number(isUnmeasuredFailure(y)));
+  const failed = failures.map(gateWords);
+  const status = p.status ?? (p.passed ? "passed" : failures.length > 0 && failures.every(isUnmeasuredFailure) ? "not_measurable" : "failed");
+  const source: ReliabilityVerdict["source"] = p.status ? "kalos" : "derived";
+  if (status === "passed") {
     return {
+      ...numbers,
       state: "reliable",
       label: "Reliable",
-      rho,
-      ci,
-      floor,
-      reason: reachesBelow
-        ? `The model ranks held-out runs above the trust floor${floorText} on average, but its 95% interval still reaches below it.`
-        : `The model ranks held-out runs above the trust floor${floorText}, and its 95% interval stays above it.`,
+      why: "reliable",
+      source,
+      failed,
+      reason: "The model passed every one of Kalos's checks: it put your past runs in the right order and its likely range held up, so its suggestions are worth running.",
     };
   }
-  // Without a `reliability` object there is no floor to compare against: the only known cause is the interval.
-  const belowFloor = rel ? !rel.clears_floor : false;
+  const more = failed.length > 1 ? ` (${failed.length - 1} more ${failed.length === 2 ? "check" : "checks"} also fell short)` : "";
+  if (status === "not_measurable") {
+    return {
+      ...numbers,
+      state: "insufficient",
+      label: "Not enough runs to tell",
+      why: "unmeasured",
+      source,
+      failed,
+      reason: `Kalos could not finish checking the model: ${failed[0] ?? "a check it needs could not be run on this sheet"}${more}. Its suggestions have not been tested that way.`,
+    };
+  }
   return {
+    ...numbers,
     state: "not-yet",
     label: "Not yet reliable",
-    rho,
-    ci,
-    floor,
-    reason: belowFloor
-      ? `The model's ranking of held-out runs is below the trust floor${floorText}.`
-      : rel
-        ? "The model's ranking of held-out runs is above the trust floor on average, but its 95% interval still includes zero, so it is not confirmed yet."
-        : ci
-          ? "The model's ranking of held-out runs has a 95% interval that includes zero, so it is not confirmed yet."
-          : "The engine did not report a 95% interval for the model's ranking of held-out runs, so it is not confirmed yet.",
+    why: "not-yet",
+    source,
+    failed,
+    reason: `The model did not pass every one of Kalos's checks: ${failed[0] ?? "it has not met one of its checks"}${more}. Its suggestions are closer to guesses.`,
   };
 }
+
+/** @deprecated The verdict is the engine's (`modelVerdict`); kept as an alias for one release so callers and tests move over. */
+export const reliabilityVerdict = modelVerdict;
 
 /**
  * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
@@ -823,152 +863,10 @@ export function coveragePct(conformalCoverage: number | null | undefined): strin
 }
 
 /**
- * One-line disclosure of how the engine selected which drivers to report -
- * how many candidate features were tested and how many survived to the
- * displayed top slice. Returns `null` when the engine didn't report
- * `driver_selection` (an older engine build) - render nothing rather than
- * imply a selection process that wasn't disclosed.
+ * A constraint's status in plain words (`plain`), with the engine's own reason kept apart (`raw`) for a
+ * disclosure. `raw` is null when the engine gave no reason to show (the constraint applied).
  */
-export function driverSelectionNote(sel: DriverSelection | null | undefined): string | null {
-  if (!sel) return null;
-  const base = `${sel.n_tested} feature${sel.n_tested === 1 ? "" : "s"} tested - showing the top ${sel.n_reported}, ranked by ${sel.ranked_by} (${sel.fdr_method} FDR, q=${sel.fdr_q}).`;
-  if (sel.unit == null || sel.n_units == null || sel.n_rows == null) return base;
-  return `${base} Tested per ${sel.unit} (${sel.n_units} ${sel.unit}${sel.n_units === 1 ? "" : "s"}, ${sel.n_rows} row${sel.n_rows === 1 ? "" : "s"}).`;
-}
-
-// --- Honesty-parity helpers -------------------------------------------------
-// Pure formatters for the engine's newer response fields, following the same
-// contract every helper above already does: absent field -> null (render
-// nothing); present-but-unmeasured -> the engine's own stated reason, never a
-// fabricated number. Kept here rather than inline in components so the
-// render-or-explain logic is unit-testable without a DOM.
-
-/**
- * Held-out prediction-interval calibration (`reliability.calibration`): is
- * the stated +/- band honest, not just the ranking. `null` when the field is
- * absent (older engine build) - render nothing. When the engine could not
- * measure it on this sheet (`available: false`), returns the engine's own
- * reason rather than a fabricated ECE.
- */
-export function calibrationNote(cal: Calibration | null | undefined): string | null {
-  if (!cal) return null;
-  if (!cal.available) return `Not scored - ${cal.reason ?? "not enough held-out points"}.`;
-  const parts = [`ECE ${cal.ece != null ? cal.ece.toFixed(2) : "n/a"}`];
-  if (cal.z_std != null) {
-    const shape = cal.z_std > 1 ? "bands read narrow, overconfident" : cal.z_std < 1 ? "bands read wide" : "well-calibrated";
-    parts.push(`z_std ${cal.z_std.toFixed(2)} (${shape})`);
-  }
-  return `${parts.join(" - ")}, n=${cal.n}.`;
-}
-
-/**
- * Per-repeat pooled Spearman spread (`cv_n_repeats`/`cv_spearman_per_repeat`) -
- * `cv_ci95` already reflects this partition-to-partition variance in its
- * width; this surfaces the spread itself, subtly, beside the point estimate.
- * `null` when there is nothing to add: fewer than 2 finite repeats, or the
- * fields are absent (older engine build).
- */
-export function repeatSpreadNote(
-  nRepeats: number | null | undefined,
-  perRepeat: (number | null)[] | null | undefined,
-): string | null {
-  const finite = (perRepeat ?? []).filter((v): v is number => v != null);
-  if (finite.length < 2) return null;
-  const lo = Math.min(...finite).toFixed(2);
-  const hi = Math.max(...finite).toFixed(2);
-  return `${nRepeats ?? finite.length} repeats: ${lo} to ${hi}`;
-}
-
-/**
- * Leave-one-group-out generalization (`cv_logo`) - the harder question of
- * generalizing to the NEXT group the model has seen nothing like. `null`
- * when the field is absent (older engine build); the engine's own `reason`
- * when it could not be computed on this sheet (no group column, or too many
- * groups to afford it) rather than silence.
- */
-export function cvLogoNote(logo: CvLogo | null | undefined): string | null {
-  if (!logo) return null;
-  if (logo.spearman == null) return logo.reason ?? "Not scored.";
-  return `rho ${logo.spearman.toFixed(2)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
-}
-
-/**
- * "Of the true top-k recipes, how many did the model's top-k catch"
- * (`cv_topk`). `null` when the field is absent (older engine build);
- * `evaluable: false` renders the engine's stated reason rather than a number
- * that looks measured.
- */
-export function cvTopKNote(topk: CvTopK | null | undefined): string | null {
-  if (!topk) return null;
-  if (!topk.evaluable || topk.overlap == null) return topk.reason ?? "Not scored.";
-  const hits = Math.round(topk.overlap * topk.k);
-  return `${hits} of the true top ${topk.k} caught (n=${topk.n}).`;
-}
-
-/**
- * The group-mean baseline floor (`cv_group_mean_baseline`): how much of the
- * apparent CV signal is just the model recognizing which recipe a row
- * belongs to. `null` when the field is absent (older engine build).
- * Otherwise always returns text - the engine's stated `reason` when the
- * baseline itself could not be computed, or a line built from `spearman` and
- * `interpretation` when it could - plus `prominent`, true when the caller
- * should surface this as a loud callout rather than a quiet mention: the
- * model's own `cv_spearman` does not clearly beat the floor (does not
- * strictly exceed it), which is the honest moment this field exists for.
- */
-export function groupMeanBaselineVerdict(
-  cvSpearman: number | null | undefined,
-  baseline: CvGroupMeanBaseline | null | undefined,
-): { text: string; prominent: boolean } | null {
-  if (!baseline) return null;
-  if (baseline.spearman == null) {
-    return { text: baseline.reason ?? "Not scored.", prominent: false };
-  }
-  const beats = cvSpearman != null && cvSpearman > baseline.spearman;
-  const text = `Group-mean baseline rho ${baseline.spearman.toFixed(2)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
-    baseline.interpretation ? ` - ${baseline.interpretation}` : ""
-  }`;
-  return { text, prominent: !beats };
-}
-
-/**
- * Which region of the recipe space was actually searched, when narrowed
- * because some observed cells were physically impossible
- * (`design_box_exclusions`) - so a consumer never assumes the search box is
- * the full data range. `null` when nothing was excluded, or the field is
- * absent (older engine build).
- */
-export function designBoxExclusionsNote(exclusions: DesignBoxExclusion[] | null | undefined): string | null {
-  if (!exclusions || exclusions.length === 0) return null;
-  const parts = exclusions.map(
-    (e) => `${e.column} (${e.lower.toFixed(2)} to ${e.upper.toFixed(2)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
-  );
-  return `Search box narrowed for ${exclusions.length} feature${exclusions.length === 1 ? "" : "s"}: ${parts.join("; ")}.`;
-}
-
-/**
- * How this batch was actually computed (`proposal_optimizer`/
- * `n_pending_considered`) - mirrors the seed/timestamp/engine_version audit
- * trail: a large categorical space silently switches optimizers, and
- * in-flight recipes change what the acquisition already knew about. `null`
- * only when the engine reported neither (older engine build).
- */
-export function proposalAuditNote(optimizer: string | null | undefined, nPending: number | null | undefined): string | null {
-  const parts: string[] = [];
-  if (optimizer) parts.push(`${optimizer} optimizer`);
-  if (nPending != null) parts.push(`${nPending} in-flight recipe${nPending === 1 ? "" : "s"} considered`);
-  return parts.length ? parts.join(" - ") : null;
-}
-
-/**
- * Whether/why the proposal acquisition was gated by predicted feasibility
- * (`proposal_gating`). `null` when the field is absent (older engine build,
- * or an engine build before this NEW optimistic field shipped).
- */
-export function proposalGatingNote(gating: ProposalGating | null | undefined): string | null {
-  if (!gating) return null;
-  return gating.reason;
-}
+export type ConstraintNote = { plain: string; raw: string | null };
 
 /**
  * Whether/why a requested constraint was applied to this batch
@@ -977,25 +875,22 @@ export function proposalGatingNote(gating: ProposalGating | null | undefined): s
  * for that case even though the field itself is present, since there is
  * nothing to disclose.
  */
-export function constraintNote(constraint: ConstraintReport | null | undefined): string | null {
+export function constraintNote(constraint: ConstraintReport | null | undefined): ConstraintNote | null {
   if (!constraint) return null;
   if (constraint.reason === "no constraint requested") return null;
   if (constraint.applied) {
-    return `Constrained by ${constraint.column} >= ${constraint.floor} (fit on ${constraint.n_rows_with_value} rows).`;
+    return { plain: `Every proposed recipe keeps ${constraint.column} at or above ${constraint.floor}, using the ${constraint.n_rows_with_value} runs that report it.`, raw: null };
   }
-  return `Constraint on ${constraint.column ?? "the requested column"} not applied - ${constraint.reason ?? "unknown reason"}.`;
+  const column = constraint.column ?? "the requested column";
+  // The engine's reason names the count; the sentence says it in plain words and keeps the reason verbatim.
+  const few = constraint.reason != null && /numeric value/.test(constraint.reason);
+  const n = constraint.n_rows_with_value;
+  const plain = few
+    ? `The limit on ${column} was not applied: only ${n} ${n === 1 ? "run reports" : "runs report"} a number for it.`
+    : `The limit on ${column} was not applied to this round.`;
+  return { plain, raw: constraint.reason };
 }
 
-/**
- * Whether a promotion-gate failure line (`promotion.failures[]`) names an
- * unmeasured metric rather than one that was measured and fell short - so
- * the UI can render the unmeasured case as a neutral disclosure instead of a
- * scarier miss (see `check_gates` in the engine: a missing/NaN required
- * metric fails closed and reads exactly like a rejection unless explained).
- */
-export function isUnmeasuredFailure(failure: string): boolean {
-  return failure.includes("unmeasured");
-}
 
 // --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------
 // The closed optimization loop behind /decide: propose -> run -> log outcome
@@ -1091,7 +986,7 @@ export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>
 
 export const getCampaign = (): Promise<Campaign> =>
   fetch(`${API}/api/campaign`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
@@ -1110,7 +1005,8 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
     headers: mutationHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ recipes }),
   });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
+  recordAudit([{ action: "campaign.start", detail: `Started ${recipes.length} run${recipes.length === 1 ? "" : "s"}: ${recipes.map((x) => x.mode).join(", ")}.` }]);
 }
 
 export async function logResult(id: string, value: number): Promise<void> {
@@ -1122,7 +1018,7 @@ export async function logResult(id: string, value: number): Promise<void> {
   if (!r.ok) {
     // The documented 400 body is { error }; fall back to a status-based
     // message for anything else (network hiccup, unexpected 5xx shape).
-    let message = `engine responded ${r.status}`;
+    let message = `Kalos answered with an error (${r.status})`;
     try {
       const body: unknown = await r.json();
       if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
@@ -1133,13 +1029,62 @@ export async function logResult(id: string, value: number): Promise<void> {
     }
     throw new Error(message);
   }
+  recordAudit([{ action: "campaign.result", detail: `Recorded result ${value} for run ${id}.` }]);
 }
 
 export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
   const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST", headers: mutationHeaders() });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) {
+    // Keep the engine's reason (its code, or its sentence when it sent no code) so the page can say why, e.g. the fit-row cap.
+    const body = await readJsonBody(r);
+    const code = typeof body?.code === "string" ? body.code : r.status === 400 ? "" : codeForStatus(r.status);
+    const detail = typeof body?.error === "string" ? body.error : undefined;
+    throw new EngineError(r.status, code, undefined, detail);
+  }
+  recordAudit([{ action: "campaign.reanalyze", detail: "Updated the model with the recorded results." }]);
   return r.json();
 }
+
+// --- Multi-campaign reads (kalos-engine docs/CAMPAIGNS_API.md) -------------
+// Read-only: the Data index joins every campaign's analysis to the run sheets
+// this browser holds (lib/data-index.ts). Writes still go through the legacy
+// single-campaign routes above.
+
+/** One campaign's info record, as `GET /api/campaigns` lists it (`kalos/portal/campaigns_api.py`). */
+export type CampaignInfo = {
+  id: string;
+  name: string;
+  created_at: number;
+  updated_at: number;
+  archived: boolean;
+  is_default: boolean;
+  /** Absent on older engines. */
+  created_by?: string;
+  archived_at?: number | null;
+  seeded?: boolean;
+};
+
+/** The tenant's campaigns, newest first (the engine wraps the list as `{ campaigns }`). */
+export const listCampaigns = (): Promise<CampaignInfo[]> =>
+  fetch(`${API}/api/campaigns`).then(async (r) => {
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
+    const body = (await r.json()) as { campaigns?: CampaignInfo[] } | CampaignInfo[];
+    return Array.isArray(body) ? body : (body.campaigns ?? []);
+  });
+
+/** `GET /api/campaigns/{id}`: the info record plus the loop summary in the `GET /api/campaign` shape. */
+export const getCampaignById = (id: string): Promise<{ campaign: CampaignInfo; summary: Campaign }> =>
+  fetch(`${API}/api/campaigns/${encodeURIComponent(id)}`).then((r) => {
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
+    return r.json();
+  });
+
+/** `GET /api/campaigns/{id}/analysis`: that campaign's own analysis in the `GET /api/latest` shape. */
+export const getCampaignAnalysis = (id: string): Promise<LatestResult> =>
+  fetch(`${API}/api/campaigns/${encodeURIComponent(id)}/analysis`).then((r) => {
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
+    return r.json();
+  });
 
 // --- Optional AI providers (GET /api/providers) -----------------------------
 // Documented optional upgrades some validation checks can use when a key is
@@ -1160,8 +1105,135 @@ export type ProvidersResponse = { providers: Provider[] };
 
 export const getProviders = (): Promise<ProvidersResponse> =>
   fetch(`${API}/api/providers`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
+
+// --- The assistant (GET/POST /api/assist/*) ---------------------------------
+// The guide (next step) and the question panel. The shapes live in
+// lib/assist.ts. A 404 means an older engine without the routes ("absent")
+// or, with code assist_disabled, an engine whose assistant is turned off;
+// callers fall back to lib/agent.ts for the guide and show how to turn the
+// assistant on for the panel.
+
+async function assistFailure(r: Response): Promise<never> {
+  const d = await readJsonBody(r);
+  const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" ? d.error : null;
+  const reason = assistUnavailableReason(r.status, code);
+  if (reason) throw new AssistUnavailableError(reason);
+  const err = new EngineError(r.status, code ?? codeForStatus(r.status));
+  // 429 carries Retry-After in seconds; kept on the error so the panel can say how long to wait.
+  const retry = Number(r.headers.get("retry-after"));
+  if (r.status === 429 && Number.isFinite(retry) && retry > 0) (err as EngineError & { retryAfter?: number }).retryAfter = Math.ceil(retry);
+  throw err;
+}
+
+/** GET /api/assist/next: the one next step for the tenant's campaign. */
+export const getAssistNext = async (): Promise<AssistNext> => {
+  const r = await fetch(`${API}/api/assist/next`);
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistNext(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** POST /api/assist/ask: a question answered only from your own data and the guide. */
+export const askAssist = async (question: string): Promise<AssistAnswer> => {
+  const r = await fetch(`${API}/api/assist/ask`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ question }),
+  });
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistAnswer(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** GET /api/assist/index/status: which model answers, where it runs, and what is indexed. */
+export const getAssistIndexStatus = async (): Promise<AssistIndexStatus> => {
+  const r = await fetch(`${API}/api/assist/index/status`);
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** POST /api/assist/index/rebuild: index your sheets, rounds and results again. Answers with the new status. */
+export const rebuildAssistIndex = async (): Promise<AssistIndexStatus> => {
+  const r = await fetch(`${API}/api/assist/index/rebuild`, { method: "POST", headers: mutationHeaders() });
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+// --- Procedure drafts (/api/assist/sop/*) ----------------------------------
+// Written by the engine from campaign records; the model only rewords. A
+// revision the model got wrong (a changed number, a filled placeholder, a
+// touched header) comes back as RevisionRefusedError with the plain reasons.
+
+export class RevisionRefusedError extends Error {
+  constructor(public readonly reasons: string[]) {
+    super("revision refused");
+    this.name = "RevisionRefusedError";
+  }
+}
+
+async function readDraft(r: Response): Promise<SopDraft> {
+  if (!r.ok) return assistFailure(r);
+  const v = (await r.json()) as SopDraft;
+  if (!v || typeof v.draft_id !== "string" || typeof v.markdown !== "string" || !Array.isArray(v.placeholders) || !Array.isArray(v.fields_from_record)) throw new EngineError(r.status, "engine_error");
+  return v;
+}
+
+/** POST /api/assist/sop/draft: a new draft (version 1) from a run, a proposal or a round. No model is used. */
+export const draftSop = async (body: { campaign_id?: string; source: SopSource; template: SopTemplate; title?: string }): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/draft`, { method: "POST", headers: mutationHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body) });
+  return readDraft(r);
+};
+
+/** POST /api/assist/sop/{id}/revise: the model rewords the prose; a changed record is refused. */
+export const reviseSop = async (draftId: string, instruction: string): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}/revise`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ instruction }),
+  });
+  if (r.status === 422) {
+    const d = await readJsonBody(r);
+    const reasons = Array.isArray(d?.reasons) ? (d!.reasons as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    throw new RevisionRefusedError(reasons);
+  }
+  return readDraft(r);
+};
+
+/** POST /api/assist/sop/{id}/fill: the lab's own values for the placeholders, saved as a new version. */
+export const fillSop = async (draftId: string, values: Record<string, string>): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}/fill`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ values }),
+  });
+  return readDraft(r);
+};
+
+/** GET /api/assist/sop: every draft, newest first. */
+export const listSops = async (): Promise<SopSummary[]> => {
+  const r = await fetch(`${API}/api/assist/sop`);
+  if (!r.ok) return assistFailure(r);
+  const body = (await r.json()) as { drafts?: SopSummary[] };
+  return Array.isArray(body?.drafts) ? body.drafts : [];
+};
+
+/** GET /api/assist/sop/{id}?version=N: one version, the latest when omitted. */
+export const getSop = async (draftId: string, version?: number): Promise<SopDraft> => {
+  const q = version != null ? `?version=${encodeURIComponent(String(version))}` : "";
+  return readDraft(await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}${q}`));
+};
+
+/** The download link for a draft (a plain GET the browser follows). */
+export const sopExportHref = (draftId: string, format: "md" | "docx", version?: number): string =>
+  `${API}/api/assist/sop/${encodeURIComponent(draftId)}/export?format=${format}${version != null ? `&version=${encodeURIComponent(String(version))}` : ""}`;
 
 export { API };

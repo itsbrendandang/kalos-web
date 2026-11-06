@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic";
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 
+/** "Invited as an admin": the access level in plain words. */
+const invitedAs = (role: string) => (role === "admin" ? "Invited as an admin" : role === "owner" ? "Invited as an owner" : role === "viewer" ? "Invited as a viewer" : "Invited as a member");
+
 export default async function AcceptInvitePage({
   params,
   searchParams,
@@ -31,10 +34,7 @@ export default async function AcceptInvitePage({
     // Nothing about the invitation is shown before sign-in: the link alone
     // does not reveal the organization or the invited address.
     return (
-      <AuthCard
-        title="You have been invited to Kalos"
-        description="Sign in with the Google account this invitation was sent to. You will then set up an authenticator app and join the organization."
-      >
+      <AuthCard title="You have been invited to Kalos" description="Sign in with the Google account this invitation was sent to.">
         <GoogleSignInButton callbackURL={self} label="Continue with Google" />
       </AuthCard>
     );
@@ -55,7 +55,7 @@ export default async function AcceptInvitePage({
   }
 
   return (
-    <AuthCard title={`Join ${inv.organizationName}`} description={`You were invited as ${inv.role}. Signed in as ${st.email}.`}>
+    <AuthCard title={`Join ${inv.organizationName}`} description={`${invitedAs(inv.role)}. Signed in as ${st.email}.`}>
       {sp.error ? (
         <Callout tone="bad" title="Could not accept the invitation">
           Try again. If it keeps failing, ask your admin for a new link.
@@ -63,14 +63,14 @@ export default async function AcceptInvitePage({
       ) : null}
       <form action={acceptInvitationAction}>
         <input type="hidden" name="invitationId" value={inv.id} />
-        <Button type="submit" className="w-full">
-          Accept invitation
+        <Button type="submit" size="lg" className="w-full">
+          Accept the invitation
         </Button>
       </form>
       <form action={declineInvitationAction}>
         <input type="hidden" name="invitationId" value={inv.id} />
         <Button type="submit" variant="ghost" className="w-full">
-          Decline
+          Decline the invitation
         </Button>
       </form>
     </AuthCard>

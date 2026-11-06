@@ -47,9 +47,14 @@ export interface AuthBackend {
 
 export type SessionState =
   | { status: "anonymous" }
-  | { status: "mfa_required"; userId: string; sessionId: string; email: string | null; enrolled: boolean }
-  | { status: "no_org"; context: SessionContext; email: string | null; membershipCount: number }
-  | { status: "ok"; context: SessionContext & { orgId: string }; email: string | null };
+  | { status: "mfa_required"; userId: string; sessionId: string; name: string | null; email: string | null; enrolled: boolean }
+  | { status: "no_org"; context: SessionContext; name: string | null; email: string | null; membershipCount: number }
+  | { status: "ok"; context: SessionContext & { orgId: string }; name: string | null; email: string | null };
+
+/** The profile name the user entered, trimmed; null when there is none. Pure. */
+export function profileName(raw: unknown): string | null {
+  return typeof raw === "string" && raw.trim() !== "" ? raw.trim() : null;
+}
 
 /** Build the neutral context from a verified session and a member row. Pure. */
 export function sessionContextFrom(session: BetterAuthSessionLike, membership: Membership | null): SessionContext {
@@ -85,6 +90,7 @@ export function createSessionResolver(backend: AuthBackend, now: () => number = 
         status: "mfa_required",
         userId: s.user.id,
         sessionId: s.session.id,
+        name: profileName(s.user.name),
         email: s.user.email ?? null,
         enrolled: s.user.twoFactorEnabled === true,
       };
@@ -105,8 +111,9 @@ export function createSessionResolver(backend: AuthBackend, now: () => number = 
     if (membership && parseRoles(membership.role).length === 0) membership = null; // unknown role = no access
     const context = sessionContextFrom(s, membership);
     const email = s.user.email ?? null;
-    if (!membership || !context.orgId) return { status: "no_org", context, email, membershipCount };
-    return { status: "ok", context: { ...context, orgId: context.orgId }, email };
+    const name = profileName(s.user.name);
+    if (!membership || !context.orgId) return { status: "no_org", context, name, email, membershipCount };
+    return { status: "ok", context: { ...context, orgId: context.orgId }, name, email };
   };
 }
 

@@ -1,8 +1,8 @@
 /*
- * Pure state for the Experiments hub's Live view: a VS Code-style workbench
- * (explorer tree, editor tabs, status bar) over the campaign the /decide loop
- * runs (kalos/docs/CAMPAIGN_LOOP.md). No React and no framework imports, so
- * every rule here is unit tested directly in __tests__/workbench.test.ts.
+ * Pure state for the campaign views: what each fetch may claim, and the split
+ * of pending runs into in-flight and measured (kalos/docs/CAMPAIGN_LOOP.md).
+ * No React and no framework imports, so every rule here is unit tested
+ * directly in __tests__/workbench.test.ts.
  */
 
 import type { Campaign, CampaignRun, LatestResult } from "@/lib/api";
@@ -46,7 +46,7 @@ export function queueState(data: LatestResult | null, err: boolean): QueueState 
   return "data";
 }
 
-// --- Explorer ----------------------------------------------------------------
+// --- Pending runs --------------------------------------------------------------
 
 /** Started runs still waiting for a measured outcome. */
 export const inFlight = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((r) => r.awaiting);
@@ -54,51 +54,6 @@ export const inFlight = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((
 /** Runs with a logged outcome, waiting to be folded in by the next re-analyze. */
 export const measured = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((r) => !r.awaiting);
 
-/** Run ids are opaque engine ids (UUID-like); the explorer and tab titles
- *  show a short, stable prefix the way VS Code shows short commit hashes. */
+/** Run ids are opaque engine ids (UUID-like); run lists show a short, stable
+ *  prefix the way git shows short commit hashes. */
 export const shortId = (id: string): string => id.slice(0, 7);
-
-export type SectionKey = "in-flight" | "measured" | "rounds";
-
-// --- Editor tabs -------------------------------------------------------------
-
-export type WorkbenchTab = { kind: "batch" } | { kind: "progress" } | { kind: "run"; runId: string };
-
-export const tabKey = (t: WorkbenchTab): string => (t.kind === "run" ? `run:${t.runId}` : t.kind);
-
-export type TabsState = { open: WorkbenchTab[]; active: string | null };
-
-export const INITIAL_TABS: TabsState = { open: [{ kind: "batch" }, { kind: "progress" }], active: "batch" };
-
-/** Focus the tab if it is already open, otherwise open it to the right of the
- *  active tab and focus it - VS Code's behavior. */
-export function openTab(s: TabsState, tab: WorkbenchTab): TabsState {
-  const key = tabKey(tab);
-  if (s.open.some((t) => tabKey(t) === key)) return { ...s, active: key };
-  const at = s.open.findIndex((t) => tabKey(t) === s.active);
-  const open = [...s.open];
-  open.splice(at === -1 ? open.length : at + 1, 0, tab);
-  return { open, active: key };
-}
-
-/** Close a tab. Closing the active one focuses its right neighbor, else its
- *  left one, else nothing (the editor shows its empty state). */
-export function closeTab(s: TabsState, key: string): TabsState {
-  const at = s.open.findIndex((t) => tabKey(t) === key);
-  if (at === -1) return s;
-  const open = s.open.filter((_, i) => i !== at);
-  if (s.active !== key) return { ...s, open };
-  const next = open[at] ?? open[at - 1];
-  return { open, active: next ? tabKey(next) : null };
-}
-
-/** Drop run tabs whose run no longer exists (folded into the base by a
- *  re-analyze, or gone with a fresh upload), so a tab never shows a run the
- *  campaign no longer has. */
-export function pruneRunTabs(s: TabsState, runIds: ReadonlySet<string>): TabsState {
-  let next = s;
-  for (const t of s.open) {
-    if (t.kind === "run" && !runIds.has(t.runId)) next = closeTab(next, tabKey(t));
-  }
-  return next;
-}

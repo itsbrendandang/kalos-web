@@ -6,6 +6,7 @@ import {
   runFacts,
   BAND_CAVEAT,
   bandLabel,
+  bandSentence,
   exactSetpoint,
   formatGain,
   toRejection,
@@ -17,10 +18,11 @@ import {
   formatInterval,
   formatSetpoint,
   groupFlags,
+  listNames,
+  sharedKinds,
   observedRanges,
   predictionInterval,
   recipeFlags,
-  recipeKeys,
   rejectionCopy,
   stripDomain,
   toggleCompare,
@@ -96,10 +98,10 @@ describe("recipeFlags", () => {
   it("is empty for an unremarkable recipe", () => {
     expect(kinds(p(45))).toEqual([]);
   });
-  it("says the band is compared by its half-width, the same measure as the gain", () => {
+  it("compares the gain with the likely range's ± width, the same measure as the gain, in plain words", () => {
     const flag = recipeFlags(p(51), { pH: 6 }, ctx).find((f) => f.kind === "gain-within-band");
-    expect(flag?.detail).toContain("half-width of ±3");
-    expect(flag?.detail).not.toContain("prediction band of");
+    expect(flag?.detail).toContain("likely range of ± 3");
+    expect(flag?.detail).not.toMatch(/half-width|prediction band|interval/);
   });
   it("flags a gain smaller than the band, but not a gain larger than it or no gain", () => {
     expect(kinds(p(51))).toEqual(["gain-within-band"]);
@@ -132,16 +134,38 @@ describe("recipeFlags", () => {
     expect(constraintPrediction(pr, applied)).toEqual({ mean: 0.8, std: 0.05 });
     expect(constraintPrediction(p(45), applied)).toBeNull();
   });
-  it("groups the batch's flags by kind with the recipes that carry them", () => {
+  it("groups the batch's flags by kind with the recipes that carry them, naming the inputs", () => {
     const g = groupFlags([
       { rank: 1, flags: recipeFlags(p(51), { pH: 6 }, ctx) },
       { rank: 2, flags: recipeFlags(p(52), { pH: 5 }, ctx) },
       { rank: 3, flags: [] },
     ]);
-    expect(g.map((x) => [x.kind, x.ranks])).toEqual([
-      ["at-edge", [2]],
-      ["gain-within-band", [1, 2]],
+    expect(g.map((x) => [x.kind, x.ranks, x.all])).toEqual([
+      ["at-edge", [2], false],
+      ["gain-within-band", [1, 2], false],
     ]);
+    expect(g[0].sentence).toBe("P2: an input at the edge of what you have tried so far (pH).");
+    expect(sharedKinds(g).size).toBe(0);
+  });
+  it("a flag every recipe carries is one sentence for the round, naming every input, and is left off the rows (first-time study F10)", () => {
+    const ranges = { pH: obs(5, 7, 10), temperature_C: obs(36.98, 37.01, 10), DO_pct_air: obs(20, 60, 10) };
+    const rows = [
+      { rank: 1, flags: recipeFlags(p(45), { pH: 5.0, temperature_C: 37.01, DO_pct_air: 40 }, { ...ctx, ranges }) },
+      { rank: 2, flags: recipeFlags(p(45), { pH: 7.0, DO_pct_air: 20 }, { ...ctx, ranges }) },
+      { rank: 3, flags: recipeFlags(p(45), { pH: 6, temperature_C: 36.98 }, { ...ctx, ranges }) },
+    ];
+    const g = groupFlags(rows);
+    expect(g).toHaveLength(1);
+    expect(g[0]).toMatchObject({ kind: "at-edge", all: true, inputs: ["pH", "temperature_C", "DO_pct_air"] });
+    expect(g[0].sentence).toBe("Every recipe sets an input at the edge of what you have tried so far: pH, temperature_C and DO_pct_air.");
+    expect([...sharedKinds(g)]).toEqual(["at-edge"]);
+    // The row's own flag names every input, never "and 1 more".
+    expect(rows[0].flags[0].label).toBe("pH and temperature_C at the edge of what you have tried");
+    expect(rows[0].flags[0].inputs).toEqual(["pH", "temperature_C"]);
+    expect(listNames(["a", "b", "c", "d"])).toBe("a, b, c and d");
+    expect(listNames(["a"])).toBe("a");
+    // One recipe alone is never "every recipe".
+    expect(groupFlags(rows.slice(0, 1))[0].all).toBe(false);
   });
 });
 
@@ -155,11 +179,17 @@ describe("uncertainty display", () => {
     expect(formatInterval(51.205, 3.8329)).toBe("47.37 to 55.04");
     expect(formatInterval(51.205, null)).toBeNull();
   });
-  it("names the coverage only when the engine reported it", () => {
-    expect(bandLabel(0.9)).toBe("90% held-out band");
-    expect(bandLabel(undefined)).toBe("held-out band");
-    expect(bandLabel(null)).toBe("held-out band");
-    expect(BAND_CAVEAT).toMatch(/not guaranteed for proposals/);
+  it("labels the likely range the same everywhere and says the coverage as a count of past runs, only when the engine reported it", () => {
+    expect(bandLabel(0.9)).toBe("Likely range");
+    expect(bandLabel(undefined)).toBe("Likely range");
+    expect(bandSentence(0.9)).toBe("9 of 10 past runs landed this close to their prediction.");
+    expect(bandSentence(0.95)).toBe("19 of 20 past runs landed this close to their prediction.");
+    expect(bandSentence(0.8)).toBe("8 of 10 past runs landed this close to their prediction.");
+    expect(bandSentence(0.874)).toBe("About 87% of past runs landed this close to their prediction.");
+    expect(bandSentence(undefined)).toBeNull();
+    expect(bandSentence(null)).toBeNull();
+    expect(BAND_CAVEAT).toMatch(/not a promise about new recipes/);
+    expect(`${bandLabel(0.9)} ${bandSentence(0.9)} ${BAND_CAVEAT}`).not.toMatch(/held-out|coverage|conformal|interval|band/i);
   });
   it("builds one padded axis for the batch strips that holds every interval and the best", () => {
     const [lo, hi] = stripDomain([50, 45], 2, 49)!;
@@ -195,9 +225,6 @@ describe("formatSetpoint", () => {
     expect(exactSetpoint(29.968)).toBe("29.968");
     expect(exactSetpoint("glucose")).toBe("glucose");
     expect(exactSetpoint(Number.NaN)).toBe("n/a");
-  });
-  it("orders inputs: proposal_features first, then the rest A-Z", () => {
-    expect(recipeKeys(["pH", "Temp_C"], { Temp_C: 1, zeta: 2, pH: 3, alpha: 4 })).toEqual({ main: ["pH", "Temp_C"], other: ["alpha", "zeta"] });
   });
 });
 
@@ -244,15 +271,13 @@ describe("diversitySummary", () => {
     expect(diversitySummary(undefined, undefined)).toBeNull();
     expect(diversitySummary(null, null)).toBeNull();
   });
-  it("describes a full batch from the engine's numbers, quoting its metric, without claims it did not make", () => {
+  it("describes a full batch in plain words, and keeps the engine's metric text apart from them", () => {
     const s = diversitySummary({ requested: 5, returned: 5, near_duplicates_replaced: 1, min_separation: 0.05, metric: "max over continuous factors of |difference| / factor range" }, null)!;
     expect(s.short).toBe(false);
-    expect(s.headline).toBe("The engine returned all 5 proposals requested.");
-    expect(s.notes).toEqual([
-      'Minimum separation it enforces: 5%, measured as "max over continuous factors of |difference| / factor range".',
-      "It replaced 1 near-duplicate proposal.",
-    ]);
-    expect(JSON.stringify(s)).not.toMatch(/distinct|in flight/);
+    expect(s.headline).toBe("Kalos proposed all 5 recipes asked for.");
+    expect(s.notes).toEqual(["Proposed recipes are kept at least 5% apart on the input ranges.", "Kalos replaced 1 near-duplicate recipe."]);
+    expect(s.notes.join(" ")).not.toMatch(/max over|factor range|engine|distinct|in flight/);
+    expect(s.rawNotes).toEqual(['Separation measured as "max over continuous factors of |difference| / factor range".']);
   });
   it("says when the batch came back short", () => {
     const s = diversitySummary(
@@ -260,8 +285,10 @@ describe("diversitySummary", () => {
       { code: "fewer_distinct_candidates", requested: 5, returned: 3, min_separation: 0.05, message: "..." },
     )!;
     expect(s.short).toBe(true);
-    expect(s.headline).toBe("The engine returned 3 of the 5 proposals requested.");
-    expect(s.notes.at(-1)).toMatch(/no further candidate.*fewer_distinct_candidates/);
+    expect(s.headline).toBe("Kalos proposed 3 of the 5 recipes asked for.");
+    expect(s.notes.at(-1)).toBe("No further recipe was far enough from the others, so this round has fewer than asked for.");
+    expect(s.notes.join(" ")).not.toMatch(/fewer_distinct_candidates|code/);
+    expect(s.rawNotes).toEqual(["Notice code: fewer_distinct_candidates."]);
   });
 });
 
@@ -311,19 +338,19 @@ describe("rejectionCopy", () => {
       targetSummary: { n_numeric: 40, n_distinct: 1, min: 5, max: 5 },
       availableTargets: ["biomass_gL"],
     });
-    expect(c.title).toBe("No proposals: the target never changes");
-    expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5) in every one of its 40 rows, so there is nothing for the model to learn from and the engine proposed no experiments.");
+    expect(c.title).toBe("No proposed recipes: the target never changes");
+    expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5) in every one of its 40 rows, so there is nothing for the model to learn from and Kalos proposed no runs.");
     expect(c.suggestion).toBe("Columns that do vary and could be the target: biomass_gL.");
   });
   it("gives a known code its plain sentence and never shows the raw code", () => {
     const c = rejectionCopy({ name: "tiny.csv", forDataset: null, code: "too_few_rows", error: "need at least 6 rows" });
-    expect(c.body).toBe("The engine did not accept tiny.csv. This sheet has too few rows to fit a model. Add more measured runs.");
+    expect(c.body).toMatch(/^Kalos did not accept tiny\.csv\. /);
     expect(c.body).not.toContain("too_few_rows");
     expect(c.suggestion).toBeNull();
   });
   it("falls back to the engine's own sentence for an unknown code, still without the code", () => {
     const c = rejectionCopy({ name: "x.csv", forDataset: null, code: "novel_code", error: "Column 'pH' is not numeric" });
-    expect(c.body).toBe("The engine did not accept x.csv. Column 'pH' is not numeric");
+    expect(c.body).toBe("Kalos did not accept x.csv. Column 'pH' is not numeric");
     expect(c.body).not.toContain("novel_code");
   });
 });
@@ -337,22 +364,24 @@ describe("dataNotes", () => {
   it("names auto-detected categoricals and asks for the declaration on Setup", () => {
     const [n] = dataNotes({ auto_categorical: ["Strain"] });
     expect(n.tone).toBe("neutral");
-    expect(n.text).toContain("Strain was read as categorical");
-    expect(n.text).toContain("Declare the columns on Setup");
+    expect(n.why).toBe("auto_categorical");
+    expect(n.text).toContain("Strain was read as a choice between its text values");
+    expect(n.text).toContain("Change how the columns are used on Setup");
   });
 
   it("counts missing and censored exclusions separately and says nothing was imputed", () => {
     const [n] = dataNotes({ n_dropped_incomplete: 2, n_censored_excluded: 1 });
     expect(n.tone).toBe("warn");
+    expect(n.why).toBe("dropped_rows");
     expect(n.text).toContain("2 runs with a missing or non-numeric value");
-    expect(n.text).toContain("1 run with a censored value such as <LOD");
-    expect(n.text).toContain("Nothing was imputed");
+    expect(n.text).toContain("1 run with a value below the detection limit, such as <LOD");
+    expect(n.text).toContain("Nothing was filled in");
   });
 
   it("falls back to data_drops when the top-level counts are absent", () => {
     const [n] = dataNotes({ data_drops: { rows_dropped: 3, censored_rows_excluded: 0 } });
     expect(n.text).toContain("3 runs with a missing or non-numeric value");
-    expect(n.text).not.toContain("censored");
+    expect(n.text).not.toContain("detection limit");
   });
 });
 
@@ -365,15 +394,30 @@ describe("runFacts", () => {
   it("shows the fingerprint and build, and never the sheet name under anonymize", () => {
     const facts = runFacts({ kind: "upload", profile: "bioprocess", input_sha256: "abcdef0123456789ff", sheet: "Runs", anonymize: true, torch_threads: null, build_sha: "1234567890abcdef" });
     const get = (label: string) => facts.find((f) => f.label === label)?.value;
-    expect(get("Input fingerprint")).toBe("abcdef012345");
+    expect(get("Sheet fingerprint (SHA-256)")).toBe("abcdef012345");
     expect(get("Sheet")).toBeUndefined();
-    expect(get("Threads")).toBe("not pinned");
+    expect(get("Processor threads")).toBe("not pinned");
     expect(get("Engine build")).toBe("1234567890ab");
     expect(get("Source")).toBe("Run sheet upload");
+  });
+
+  it("a development build's 'unknown' reads as not recorded, never as broken (first-time study F16)", () => {
+    const facts = runFacts({ build_sha: "unknown", seed: 1234 });
+    expect(facts.find((f) => f.label === "Engine build")?.value).toBe("Not recorded (a development build)");
+    expect(facts.find((f) => f.label.startsWith("Fit seed"))?.value).toBe("1234");
   });
 
   it("shows the sheet when the upload was not anonymized", () => {
     const facts = runFacts({ sheet: "Runs", anonymize: false });
     expect(facts).toEqual([{ label: "Sheet", value: "Runs" }]);
+  });
+});
+
+describe("correlation grid labels", () => {
+  it("names the target's column after the target, never target_mean (first-time study F16)", async () => {
+    const { isTargetLabel } = await import("@/components/campaign/correlation-heatmap");
+    expect(isTargetLabel("target_mean")).toBe(true);
+    expect(isTargetLabel("target")).toBe(true);
+    expect(isTargetLabel("Titer")).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { API, getCampaign, logResult, proposalRecipe, reanalyze, startRuns, type Campaign, type Proposal } from "@/lib/api";
+import { EngineError, errorMessage } from "@/lib/engine-error";
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
 function fakeResponse(ok: boolean, status: number, body: unknown): Response {
@@ -47,6 +48,28 @@ describe("campaign client (lib/api.ts)", () => {
     }
   });
 
+  it("reanalyze keeps the engine's refusal (code or sentence) so the page can say why", async () => {
+    const cap = "The dataset is too large for the surrogate; the optimizer targets the small-sample regime, N<=2000.";
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: cap }));
+    const err = await reanalyze().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EngineError);
+    expect((err as EngineError).status).toBe(400);
+    expect((err as EngineError).detail).toBe(cap);
+    expect(errorMessage(err).message).toContain("2,000 complete runs");
+  });
+
+  it("reanalyze maps a typed engine code in the body to its copy", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "This is constant.", code: "target_constant" }));
+    const err = await reanalyze().catch((e: unknown) => e);
+    expect(errorMessage(err).message).toMatch(/never changes/);
+  });
+
+  it("reanalyze with a 503 and no body is the busy copy", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 503, {}));
+    const err = await reanalyze().catch((e: unknown) => e);
+    expect(errorMessage(err).message).toMatch(/busy/);
+  });
+
   it("getCampaign returns {has_campaign:false} before any upload", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { has_campaign: false }));
 
@@ -58,7 +81,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("getCampaign throws a status-based message on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
 
-    await expect(getCampaign()).rejects.toThrow("engine responded 500");
+    await expect(getCampaign()).rejects.toThrow("Kalos answered with an error (500)");
   });
 
   it("startRuns POSTs {recipes} as JSON to /api/campaign/start", async () => {
@@ -78,7 +101,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("startRuns throws a status-based message on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "bad recipe" }));
 
-    await expect(startRuns([])).rejects.toThrow("engine responded 400");
+    await expect(startRuns([])).rejects.toThrow("Kalos answered with an error (400)");
   });
 
   it("logResult POSTs {id, value} as JSON to /api/campaign/result", async () => {
@@ -105,7 +128,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("logResult falls back to a status-based message when the error body isn't the documented shape", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, { detail: "internal error" }));
 
-    await expect(logResult("b1e2", 1)).rejects.toThrow("engine responded 500");
+    await expect(logResult("b1e2", 1)).rejects.toThrow("Kalos answered with an error (500)");
   });
 
   it("logResult falls back to a status-based message when the error body isn't valid JSON", async () => {
@@ -117,7 +140,7 @@ describe("campaign client (lib/api.ts)", () => {
       },
     } as unknown as Response);
 
-    await expect(logResult("b1e2", 1)).rejects.toThrow("engine responded 502");
+    await expect(logResult("b1e2", 1)).rejects.toThrow("Kalos answered with an error (502)");
   });
 
   it("reanalyze POSTs to /api/campaign/reanalyze and returns {analysis, campaign}", async () => {
@@ -153,7 +176,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("reanalyze throws a status-based message on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
 
-    await expect(reanalyze()).rejects.toThrow("engine responded 500");
+    await expect(reanalyze()).rejects.toThrow("Kalos answered 500");
   });
 });
 

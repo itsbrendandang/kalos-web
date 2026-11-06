@@ -1,109 +1,91 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil, FileText, GitBranch, Activity } from "lucide-react";
-import type { Project } from "@/app/projects/data";
-import { Phase1View } from "./phase1-view";
-import { Phase2View } from "./phase2-view";
-import { LinkageTree } from "./linkage-tree";
-import { IllustrativeBanner } from "./illustrative-banner";
+import { FlaskConical } from "lucide-react";
+import { SEED_PROJECT_IDS, stageLabel } from "@/app/projects/data";
+import { PageHeader } from "@/components/kit/page-header";
+import { Section } from "@/components/kit/section";
+import { ExampleBadge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/honest-state";
 import { ProjectsModal, type ModalState } from "./modals";
 import { useProjectsStore } from "./store-context";
 
-type Tab = "phase1" | "phase2" | "tree";
-
-function subtitle(p: Project): string {
-  switch (p.stage.kind) {
-    case "phase1":
-      return `${p.objective} · iteration ${p.stage.iteration} of ${p.stage.totalIterations}`;
-    case "phase2":
-      return `${p.objective} · ${p.experiments.length} experiments in DB`;
-    case "completed":
-      return `${p.objective} · completed ${p.stage.completedOn}`;
-    case "drafting":
-      return `${p.objective} · drafting`;
-  }
-}
-
+/**
+ * One project: its name, objective and stage in the header, then the runs
+ * recorded under it and any notes. The live project is the campaign Kalos is
+ * working on, so its one action opens the Overview.
+ */
 export function ProjectWorkspace({ projectId }: { projectId: string }) {
-  const router = useRouter();
   const store = useProjectsStore();
   const project = store.getProject(projectId);
-  // Tab defaults from the project's own defaultTab; falls back to "phase1"
-  // for the render before the project resolves (see the guard below).
-  const [tab, setTab] = useState<Tab>(project?.defaultTab ?? "phase1");
   const [modal, setModal] = useState<ModalState>(null);
 
   if (!project) {
     return (
-      <div>
-        <button className="bb" onClick={() => router.push("/projects")}>
-          <ArrowLeft className="size-3" /> All projects
-        </button>
-        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
-          Project not found.
+      <div className="flex flex-col gap-8">
+        <PageHeader eyebrow="Projects" title="Project not found" description="This project is not in the list. It may have been added in another browser session." />
+        <div>
+          <Link href="/projects" className={buttonVariants({ variant: "outline" })}>
+            Back to Projects
+          </Link>
         </div>
       </div>
     );
   }
 
+  const seed = SEED_PROJECT_IDS.has(project.id);
+  const n = project.experiments.length;
+
   return (
-    <div>
-      <button className="bb" onClick={() => router.push("/projects")}>
-        <ArrowLeft className="size-3" /> All projects
-      </button>
-
-      <div className="hdr2">
-        <div>
-          <div className="v-eyebrow mb-0.5">{project.customerName}</div>
-          <div className="flex items-center gap-2">
-            <h1 className="v-title">{project.name}</h1>
-            {project.live ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--v-blue-tint)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--v-blue-7-text)]">
-                <Activity className="size-2.5" /> Live · engine
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-0.5 text-[12px] text-[color:var(--v-muted)]">{subtitle(project)}</div>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <button className="gbtn" onClick={() => setModal({ kind: "edit-project", project })}>
-            <Pencil className="size-[11px]" /> Edit
-          </button>
-          {project.report ? (
-            <Link className="gbtn" href={`/projects/${project.id}/report`}>
-              <FileText className="size-[11px]" /> View report
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        className="max-sm:flex-col max-sm:items-start"
+        eyebrow={
+          <Link href="/projects" className="hover:text-accent">
+            {project.customerName}
+          </Link>
+        }
+        title={project.name}
+        description={`${project.objective}. ${stageLabel(project.stage)}.`}
+        meta={seed ? <ExampleBadge /> : null}
+        action={
+          project.live ? (
+            <Link href="/" className={buttonVariants()}>
+              Open the campaign
             </Link>
-          ) : null}
-          <div className="ph-tabs">
-            <button className={`phtab ${tab === "phase1" ? "on" : ""}`} onClick={() => setTab("phase1")}>
-              Phase 1
-            </button>
-            <button className={`phtab ${tab === "phase2" ? "on" : ""}`} onClick={() => setTab("phase2")}>
-              Phase 2
-            </button>
-            {project.hasTree ? (
-              <button className={`phtab ${tab === "tree" ? "on" : ""}`} onClick={() => setTab("tree")}>
-                <GitBranch className="mr-1 inline size-[11px] align-[-2px]" />
-                Linkage tree
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
+          ) : (
+            <Button variant="outline" onClick={() => setModal({ kind: "edit-project", project })}>
+              Edit the project
+            </Button>
+          )
+        }
+      />
 
-      {tab === "phase1" ? <Phase1View project={project} /> : null}
-      {tab === "phase2" ? <Phase2View project={project} /> : null}
-      {tab === "tree" && project.hasTree ? (
-        <>
-          {/* The lineage tree is always fixed seed data (see linkage-tree.tsx),
-              never engine output, so it carries the same disclaimer as the
-              Phase 1/2 tabs whenever the project itself isn't live. */}
-          {!project.live ? <IllustrativeBanner /> : null}
-          <LinkageTree variant={project.hasTree} />
-        </>
+      <Section title="Runs" description={n === 0 ? undefined : `${n} recorded under this project.`}>
+        {n === 0 ? (
+          <EmptyState
+            icon={FlaskConical}
+            title="No runs recorded"
+            description={project.live ? "This project's runs are in the campaign. Open it to see them." : "Runs appear here once they are recorded under this project."}
+          />
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {project.experiments.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-4 py-3">
+                <span className="text-body text-fg">{e.name}</span>
+                <span className="font-mono text-code text-fg-muted">{e.id}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {project.notes ? (
+        <Section title="Notes">
+          <p className="max-w-[68ch] text-body text-fg">{project.notes}</p>
+        </Section>
       ) : null}
 
       <ProjectsModal state={modal} onClose={() => setModal(null)} />

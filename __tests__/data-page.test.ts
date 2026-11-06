@@ -1,30 +1,40 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { DATASET_COUNT, DATASETS, TOTAL_RUNS } from "@/lib/mock/registry";
+import { roleLabel, runSheetSentence, unknownStatuses, UNKNOWN_ROLE } from "@/app/data/roles";
 
-// Regression guard: the KPI ("Runs tracked") and the registry caption below the
-// table must always agree, because both are derived from the same DATASETS
-// array instead of one being a hand-typed literal.
-describe("data-room dataset counts", () => {
-  it("TOTAL_RUNS is the sum of DATASETS runs", () => {
-    expect(TOTAL_RUNS).toBe(DATASETS.reduce((sum, d) => sum + d.runs, 0));
+const prov = (name: string, status: string) => ({ name, status, coerced_cells: 0, non_null: 10 });
+
+describe("data page column roles", () => {
+  it("names every status the engine emits in plain words", () => {
+    for (const s of ["kept_feature", "target", "dropped_id", "dropped_output", "dropped_constant", "dropped_constant_on_fitted_rows", "dropped_all_blank", "dropped_non_numeric", "dropped_sparse"]) {
+      expect(roleLabel(s)).not.toBe(UNKNOWN_ROLE);
+      expect(roleLabel(s)).not.toMatch(/_/);
+    }
   });
 
-  it("DATASET_COUNT is the length of DATASETS", () => {
-    expect(DATASET_COUNT).toBe(DATASETS.length);
+  it("never rewrites an unknown status into prose", () => {
+    expect(roleLabel("dropped_something_new")).toBe(UNKNOWN_ROLE);
+    expect(unknownStatuses([prov("a", "kept_feature"), prov("b", "dropped_something_new")]).map((c) => c.name)).toEqual(["b"]);
   });
 
-  it("no stray hardcoded totals remain in the page source", () => {
-    const src = readFileSync(path.resolve(__dirname, "../app/data/page.tsx"), "utf8");
-    expect(src).not.toMatch(/\b166\b/);
-    expect(src).not.toMatch(/\b192\b/);
+  it("writes the run-sheet sentence with counts and the target", () => {
+    expect(runSheetSentence({ dataset: "pichia_HSA.csv", n: 213, features: ["a", "b", "c", "d"], target: "Titer" })).toBe(
+      "The model is working from pichia_HSA.csv: 213 runs, 4 inputs, raising Titer.",
+    );
+    expect(runSheetSentence({ dataset: "x.csv", n: 1, features: ["a"], target: "y" })).toBe("The model is working from x.csv: 1 run, 1 input, raising y.");
   });
+});
 
-  it("no real internal dataset names leak into the demo registry", () => {
-    const names = DATASETS.map((d) => d.name);
-    expect(names).not.toContain("APR07");
-    expect(names).not.toContain("APR29");
-    expect(names).not.toContain("combined_APR");
+describe("roleWhy", () => {
+  it("gives dropped_sparse its 'mostly blank' line only when the column really is sparse, else the unknown-status line", async () => {
+    const { isSparse, roleWhy } = await import("@/app/data/roles");
+    const full = prov("CarbonSource", "dropped_sparse");
+    const thin = { ...prov("notes", "dropped_sparse"), non_null: 2 };
+    expect(isSparse(full, [full, thin])).toBe(false);
+    expect(isSparse(thin, [full, thin])).toBe(true);
+    expect(roleWhy("dropped_sparse", false)).toBe("unknown_role");
+    expect(roleWhy("dropped_sparse", true)).toBe("dropped_sparse");
+    expect(roleWhy("kept_feature")).toBe("kept_feature");
+    expect(roleWhy("dropped_something_new")).toBe("unknown_role");
+    expect(roleWhy("row_number_like")).toBe("row_number_like"); // a status the glossary has words for keeps its own line
   });
 });

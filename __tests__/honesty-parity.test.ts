@@ -203,16 +203,26 @@ describe("constraintNote", () => {
     expect(constraintNote(c)).toBeNull();
   });
 
-  it("discloses an applied constraint", () => {
+  it("discloses an applied constraint in plain words, with no raw reason", () => {
     const c: ConstraintReport = { column: "purity", floor: 0.9, n_rows_with_value: 12, applied: true, reason: null };
     const note = constraintNote(c);
-    expect(note).toContain("purity");
-    expect(note).toContain("0.9");
+    expect(note?.plain).toBe("Every proposed recipe keeps purity at or above 0.9, using the 12 runs that report it.");
+    expect(note?.raw).toBeNull();
   });
 
-  it("explains why a requested constraint was not applied", () => {
+  it("explains why a requested constraint was not applied in plain words, and keeps the engine's reason in raw", () => {
     const c: ConstraintReport = { column: "purity", floor: 0.9, n_rows_with_value: 2, applied: false, reason: "only 2 rows have a numeric value" };
-    expect(constraintNote(c)).toContain("only 2 rows have a numeric value");
+    const note = constraintNote(c);
+    expect(note?.plain).toBe("The limit on purity was not applied: only 2 runs report a number for it.");
+    expect(note?.plain).not.toContain("rows have");
+    expect(note?.raw).toBe("only 2 rows have a numeric value");
+  });
+
+  it("does not echo an unrecognized engine reason in the plain sentence", () => {
+    const c: ConstraintReport = { column: null, floor: 0.9, n_rows_with_value: 0, applied: false, reason: "column 'x' not in the feature list" };
+    const note = constraintNote(c);
+    expect(note?.plain).toBe("The limit on the requested column was not applied to this round.");
+    expect(note?.raw).toBe("column 'x' not in the feature list");
   });
 });
 

@@ -42,9 +42,9 @@ export function ChartFrame({
   children: ReactNode;
   className?: string;
 }) {
-  const sub = [unit, n != null ? `n = ${formatNumber(n, "count")}` : null].filter(Boolean);
+  const sub = [unit, n != null ? `${formatNumber(n, "count")} ${n === 1 ? "run" : "runs"}` : null].filter(Boolean);
   return (
-    <figure className={cn("flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5", className)}>
+    <figure className={cn("flex min-w-0 flex-col gap-3 rounded-2xl glass p-6", className)}>
       <figcaption className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="flex items-center gap-1.5 text-heading text-fg">

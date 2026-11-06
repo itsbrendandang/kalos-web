@@ -1,0 +1,47 @@
+import type { BatchItem } from "@/components/campaign/plan-batch";
+import type { BoundaryCheck, FlagKind, ObservedRange, RecipeFlag, SetpointValue } from "@/components/campaign/plan-view";
+import type { ConstraintReport } from "@/lib/api";
+
+/** One proposed experiment, with everything the page derived for it. */
+export type PlanRow = {
+  item: BatchItem;
+  /** "P1": the displayed id, by rank. */
+  id: string;
+  recipe: Record<string, SetpointValue>;
+  flags: RecipeFlag[];
+  checks: BoundaryCheck[];
+  gain: number | null;
+};
+
+/** What every row shares. */
+export type PlanContext = {
+  target: string;
+  unit: string;
+  /** Every input any recipe sets, one column each, in the sheet's order (lib/recipe-identity.ts). */
+  features: string[];
+  ranges: Record<string, ObservedRange>;
+  band: number | null;
+  coverage: number | undefined;
+  incumbent: number | null;
+  incumbentLabel: string;
+  domain: [number, number] | null;
+  constraint: ConstraintReport | null | undefined;
+  /** Flag kinds every recipe carries: said once in "Before you start", not on each row. */
+  shared: ReadonlySet<FlagKind>;
+};
+
+/** Per-row state the page owns and the row components render. */
+export type RowState = {
+  included: boolean;
+  onInclude: () => void;
+  compared: boolean;
+  /** Disabled when five are already selected for comparison. */
+  compareDisabled: boolean;
+  onCompare: () => void;
+  expanded: boolean;
+  onExpand: () => void;
+};
+
+export type SetRowState = (row: PlanRow) => RowState;
+
+export type { BoundaryCheck, ObservedRange, RecipeFlag, SetpointValue };

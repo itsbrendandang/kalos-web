@@ -13,6 +13,8 @@ import type { NextRequest } from "next/server";
 import { resolveSession } from "@/lib/server/session";
 import { resolveTenant } from "@/lib/server/tenants";
 import { loadEngineSigner } from "@/lib/server/engine-token";
+import { isLocalMode } from "@/lib/local-mode";
+import { forwardToLocalEngine } from "@/lib/server/local-engine";
 import { createEngineProxy, defaultRateLimiter } from "@/lib/server/engine-proxy";
 
 // Request-scoped, never cached.
@@ -32,6 +34,7 @@ type RouteParams = { params: Promise<{ path?: string[] }> };
 
 async function serve(req: NextRequest, { params }: RouteParams): Promise<Response> {
   const { path } = await params;
+  if (isLocalMode()) return forwardToLocalEngine(req, path ?? []);
   return handle(req, path ?? []);
 }
 

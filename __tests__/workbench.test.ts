@@ -1,20 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CampaignRun, LatestResult } from "@/lib/api";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
-import {
-  campaignView,
-  closeTab,
-  inFlight,
-  INITIAL_TABS,
-  measured,
-  openTab,
-  pruneRunTabs,
-  queueState,
-  shortId,
-  tabKey,
-  type ActiveCampaign,
-  type TabsState,
-} from "@/lib/workbench";
+import { campaignView, inFlight, measured, queueState, shortId, type ActiveCampaign } from "@/lib/workbench";
 
 const run = (id: string, result: number | null): CampaignRun => ({
   id,
@@ -81,7 +68,7 @@ describe("queueState", () => {
   });
 });
 
-describe("explorer helpers", () => {
+describe("pending run helpers", () => {
   it("splits pending runs into in flight (awaiting) and measured, keeping order", () => {
     expect(inFlight(real).map((r) => r.id)).toEqual(["aaaaaaaa1", "cccccccc3"]);
     expect(measured(real).map((r) => r.id)).toEqual(["bbbbbbbb2"]);
@@ -95,55 +82,5 @@ describe("explorer helpers", () => {
   it("the demo fixture's counts agree with its pending runs", () => {
     expect(inFlight(DEMO_CAMPAIGN)).toHaveLength(DEMO_CAMPAIGN.n_awaiting);
     expect(measured(DEMO_CAMPAIGN)).toHaveLength(DEMO_CAMPAIGN.n_measured);
-  });
-});
-
-describe("editor tabs", () => {
-  const keys = (s: TabsState) => s.open.map(tabKey);
-
-  it("starts with Next batch and Progress open, Next batch focused", () => {
-    expect(keys(INITIAL_TABS)).toEqual(["batch", "progress"]);
-    expect(INITIAL_TABS.active).toBe("batch");
-  });
-
-  it("opens a new tab to the right of the active one and focuses it", () => {
-    const s = openTab(INITIAL_TABS, { kind: "run", runId: "x" });
-    expect(keys(s)).toEqual(["batch", "run:x", "progress"]);
-    expect(s.active).toBe("run:x");
-  });
-
-  it("focuses an already-open tab instead of opening a duplicate", () => {
-    const s = openTab(openTab(INITIAL_TABS, { kind: "run", runId: "x" }), { kind: "batch" });
-    const again = openTab(s, { kind: "run", runId: "x" });
-    expect(keys(again)).toEqual(["batch", "run:x", "progress"]);
-    expect(again.active).toBe("run:x");
-  });
-
-  it("closing the active tab focuses its right neighbor, else its left one, else nothing", () => {
-    const three = openTab(INITIAL_TABS, { kind: "run", runId: "x" }); // batch, run:x*, progress
-    expect(closeTab(three, "run:x").active).toBe("progress");
-    const last = { ...three, active: "progress" };
-    expect(closeTab(last, "progress").active).toBe("run:x");
-    const one = closeTab(closeTab(INITIAL_TABS, "progress"), "batch");
-    expect(one).toEqual({ open: [], active: null });
-  });
-
-  it("closing an inactive tab keeps the focus where it was", () => {
-    const s = closeTab(INITIAL_TABS, "progress");
-    expect(keys(s)).toEqual(["batch"]);
-    expect(s.active).toBe("batch");
-  });
-
-  it("prunes run tabs whose run is gone, leaving the fixed tabs and live runs open", () => {
-    let s = openTab(INITIAL_TABS, { kind: "run", runId: "gone" });
-    s = openTab(s, { kind: "run", runId: "kept" });
-    const pruned = pruneRunTabs(s, new Set(["kept"]));
-    expect(keys(pruned)).toEqual(["batch", "run:kept", "progress"]);
-    expect(pruned.active).toBe("run:kept");
-  });
-
-  it("pruning with nothing stale returns the same state, so React skips a re-render", () => {
-    const s = openTab(INITIAL_TABS, { kind: "run", runId: "kept" });
-    expect(pruneRunTabs(s, new Set(["kept"]))).toBe(s);
   });
 });

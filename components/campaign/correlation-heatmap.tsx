@@ -1,5 +1,8 @@
 import { formatNumber } from "@/lib/format";
 
+/** The engine's name for the target's column in the correlation grid. */
+export const isTargetLabel = (label: string): boolean => /^target(_mean)?$/i.test(label);
+
 /** Fill for a correlation: accent for positive, neutral grey for negative, capped so ink text stays legible on it in both themes. */
 const fill = (v: number) => {
   const pct = Math.round(Math.min(1, Math.abs(v)) * 60);
@@ -12,11 +15,13 @@ const fill = (v: number) => {
  * box on narrow screens. Names are shown in full, never clipped. The sign is
  * told by the "+" or "-" in the number as well as by the fill.
  */
-export function CorrelationHeatmap({ labels, matrix }: { labels: string[]; matrix: number[][] }) {
+export function CorrelationHeatmap({ labels: raw, matrix, target }: { labels: string[]; matrix: number[][]; /** The target's name: the engine labels its column `target_mean`, which is not a column of the sheet. */ target?: string }) {
+  const labels = raw.map((l) => (target && isTargetLabel(l) ? target : l));
   return (
     <div>
       <p className="mb-2 text-caption text-fg-muted">
-        Rank correlation between each pair of inputs and the target. Accent fill is a positive correlation, grey a negative one; a deeper fill is a stronger one.
+        How strongly each pair of inputs, and each input and the target, went together across the runs, from -1 to +1. Blue means more of one went with more of the other, grey means
+        more of one went with less of the other; a deeper fill is a stronger pattern.
       </p>
       <div className="overflow-x-auto">
         <table className="border-separate border-spacing-0.5 text-caption tabular-nums">

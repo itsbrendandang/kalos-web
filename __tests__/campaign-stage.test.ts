@@ -44,9 +44,9 @@ describe("campaignStage", () => {
     const s = campaignStage({ has_data: true, proposals: [1, 2, 3, 4, 5] }, campaign([]));
     expect(s.round).toBe(1);
     expect(states(s)).toEqual(["done", "current", "upcoming", "upcoming", "upcoming"]);
-    expect(s.steps[0].detail).toBe("Run sheet analyzed");
+    expect(s.steps[0].detail).toBe("Kalos has read the sheet");
     expect(s.steps[1].detail).toBe("5 recipes proposed");
-    expect(s.next).toMatchObject({ stage: "plan", action: "Review and start round 1", href: "/campaign/plan" });
+    expect(s.next).toMatchObject({ stage: "plan", action: "Review the proposed runs", href: "/campaign/plan", why: "plan_ready" });
   });
 
   it("an analysis without a seeded campaign still points at Plan", () => {
@@ -63,6 +63,27 @@ describe("campaignStage", () => {
     expect(s.next).toMatchObject({ stage: "record", action: "Record 3 results", href: "/campaign/record" });
   });
 
+  it("the waiting-runs line names the round the runs belong to, not the campaign's current round (first-time study F15)", () => {
+    // The model was updated (campaign round 1 = round 2 on screen) while three runs started in round 1 still wait.
+    const stale = [{ ...run("a", null), round: 0 }, { ...run("b", null), round: 0 }, { ...run("c", null), round: 0 }];
+    const s = campaignStage({ has_data: true }, campaign(stale, 1));
+    expect(s.round).toBe(2);
+    expect(s.next.reason).toBe("3 runs from round 1 have no result yet. Enter each as it comes back from the lab.");
+    // Without the engine's stamp no round is claimed.
+    expect(campaignStage({ has_data: true }, campaign([run("a", null)], 1)).next.reason).toBe("1 run has no result yet. Enter each as it comes back from the lab.");
+    // The engine's own sentence names the campaign's round; it is corrected to the runs' round.
+    const engineSteps = (["setup", "plan", "run", "record", "learn"] as const).map((key) => ({ key, state: key === "run" ? ("current" as const) : key === "setup" || key === "plan" ? ("done" as const) : ("upcoming" as const), detail: "" }));
+    const withEngine = {
+      ...campaign(stale, 1),
+      stage: { round: 2, current: "run" as const, started: 3, steps: engineSteps },
+      next_action: { stage: "record" as const, action: "Record 3 results", reason: "3 runs from round 2 are waiting for a measured result." },
+    };
+    expect(campaignStage({ has_data: true }, withEngine).next.reason).toBe("3 runs from round 1 are waiting for a measured result.");
+    // Runs from two rounds: say so rather than pick one.
+    const mixed = [{ ...run("a", null), round: 0 }, { ...run("b", null), round: 1 }];
+    expect(campaignStage({ has_data: true }, campaign(mixed, 1)).next.reason).toBe("2 runs from earlier rounds have no result yet. Enter each as it comes back from the lab.");
+  });
+
   it("partial recording keeps Run current and shows progress on Record", () => {
     const s = campaignStage({ has_data: true }, campaign([run("a", 5.1), run("b", null)]));
     expect(states(s)).toEqual(["done", "done", "current", "upcoming", "upcoming"]);
@@ -75,7 +96,7 @@ describe("campaignStage", () => {
     const s = campaignStage({ has_data: true }, campaign([run("a", 5.1), run("b", 4.2)], 1));
     expect(states(s)).toEqual(["done", "done", "done", "done", "current"]);
     expect(s.steps.filter((x) => x.state === "done").every((x) => x.detail.length > 0)).toBe(true);
-    expect(s.next).toMatchObject({ stage: "learn", action: "Learn from round 2", href: "/campaign/learn" });
+    expect(s.next).toMatchObject({ stage: "learn", action: "See what round 2 taught the model", href: "/campaign/learn", why: "learn_ready" });
   });
 
   it("started runs win over a missing analysis (no fake upload prompt)", () => {
@@ -122,13 +143,16 @@ describe("routes", () => {
   it("maps every page to its sidebar section", () => {
     expect(navKeyFor("/")).toBe("campaign");
     expect(navKeyFor("/campaign/record")).toBe("campaign");
+    expect(navKeyFor("/experiments")).toBe("campaign");
+    expect(titleFor("/experiments")).toBe("The five stages");
+    expect(breadcrumbFor("/experiments").map((r) => r.label)).toEqual(["Overview", "The five stages"]);
     expect(navKeyFor("/library/plate")).toBe("library");
     expect(navKeyFor("/projects/p-cho/report")).toBe("projects");
     expect(navKeyFor("/settings")).toBe("settings");
   });
 
   it("builds a section > page breadcrumb", () => {
-    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Campaign", "Plan"]);
+    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Overview", "Plan"]);
     expect(breadcrumbFor("/library").map((r) => r.label)).toEqual(["Library"]);
     expect(breadcrumbFor("/projects").map((r) => r.label)).toEqual(["Projects"]);
   });
@@ -169,7 +193,7 @@ describe("engine stage", () => {
     expect(s.started).toBe(4);
     expect(s.steps.map((x) => x.detail)).toEqual(["engine setup", "engine plan", "engine run", "engine record", "engine learn"]);
     expect(s.steps[4]).toMatchObject({ key: "learn", label: "Learn", href: "/campaign/learn", state: "current" });
-    expect(s.next).toEqual({ stage: "learn", action: "Engine action", reason: "Engine reason.", href: "/campaign/learn" });
+    expect(s.next).toEqual({ stage: "learn", action: "Engine action", reason: "Engine reason.", href: "/campaign/learn", why: "learn_ready" });
   });
 
   it("falls back to the local derivation on an unknown step key, next stage or step count", () => {
@@ -184,7 +208,7 @@ describe("engine stage", () => {
 
   it("falls back when stage absent", () => {
     const s = campaignStage({ has_data: true }, campaign([]));
-    expect(s.next.action).toBe("Review and start round 1");
+    expect(s.next.action).toBe("Review the proposed runs");
   });
 
   const step = (key: EngineStage["steps"][number]["key"], state: EngineStage["steps"][number]["state"], detail = "") => ({ key, state, detail });
@@ -194,28 +218,28 @@ describe("engine stage", () => {
       { has_data: false },
       NONE,
       { round: null, current: "setup", started: 0, steps: [step("setup", "current", "No run sheet yet"), step("plan", "upcoming"), step("run", "upcoming"), step("record", "upcoming"), step("learn", "upcoming")] },
-      { stage: "setup", action: "Upload a run sheet", reason: "Kalos fits a model to the runs you already have, then proposes the first batch." },
+      { stage: "setup", action: "Upload a run sheet", reason: "Kalos learns from the runs you already have, then proposes the first recipes to try." },
     ],
     [
       "analysis, no runs",
       { has_data: true },
       campaign([]),
-      { round: 1, current: "plan", started: 0, steps: [step("setup", "done", "Run sheet analyzed"), step("plan", "current", "Batch ready to review"), step("run", "upcoming"), step("record", "upcoming"), step("learn", "upcoming")] },
-      { stage: "plan", action: "Review and start round 1", reason: "Review the proposed batch, untick any recipe you will not run, then start the rest." },
+      { round: 1, current: "plan", started: 0, steps: [step("setup", "done", "Kalos has read the sheet"), step("plan", "current", "Recipes ready to review"), step("run", "upcoming"), step("record", "upcoming"), step("learn", "upcoming")] },
+      { stage: "plan", action: "Review the proposed runs", reason: "Review the recipes proposed for round 1, untick any you will not run, then start the rest." },
     ],
     [
       "started with awaiting",
       { has_data: true },
       campaign([run("a", 1), run("b", null)]),
-      { round: 1, current: "run", started: 2, steps: [step("setup", "done", "Run sheet analyzed"), step("plan", "done", "2 runs started"), step("run", "current", "1 awaiting results"), step("record", "upcoming", "1 of 2 recorded"), step("learn", "upcoming")] },
+      { round: 1, current: "run", started: 2, steps: [step("setup", "done", "Kalos has read the sheet"), step("plan", "done", "2 runs started"), step("run", "current", "1 run waiting for a result"), step("record", "upcoming", "1 of 2 recorded"), step("learn", "upcoming")] },
       { stage: "record", action: "Record 1 result", reason: "1 of 2 results are in. Enter the rest as they come back from the lab." },
     ],
     [
       "all measured",
       { has_data: true },
       campaign([run("a", 1), run("b", 2)]),
-      { round: 1, current: "learn", started: 2, steps: [step("setup", "done", "Run sheet analyzed"), step("plan", "done", "2 runs started"), step("run", "done", "All 2 back"), step("record", "done", "2 results recorded"), step("learn", "current", "Ready to update the model")] },
-      { stage: "learn", action: "Learn from round 1", reason: "Every run in round 1 has a result. See what changed, then plan round 2." },
+      { round: 1, current: "learn", started: 2, steps: [step("setup", "done", "Kalos has read the sheet"), step("plan", "done", "2 runs started"), step("run", "done", "All 2 back"), step("record", "done", "2 results recorded"), step("learn", "current", "Ready to update the model")] },
+      { stage: "learn", action: "See what round 1 taught the model", reason: "Every run in round 1 has a result. See what changed, then plan round 2." },
     ],
   ];
 

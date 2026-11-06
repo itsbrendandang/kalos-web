@@ -9,7 +9,7 @@
  */
 
 import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
-import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
+import type { ConstraintReport, DataDrops, PopulatedResult, Proposal } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { engineMessage } from "@/lib/engine-error";
 
@@ -148,10 +148,12 @@ export type FlagKind = "negative" | "low-feasibility" | "constraint" | "outside-
 
 export type RecipeFlag = {
   kind: FlagKind;
-  /** Short chip text. */
+  /** The flag in a few words, naming every input it concerns (never "and 3 more"). */
   label: string;
   /** One plain sentence. */
   detail: string;
+  /** The inputs the flag concerns (edge and outside-range flags), in recipe order. */
+  inputs?: string[];
 };
 
 /** Most serious first. */
@@ -165,7 +167,8 @@ export type FlagContext = {
   constraint?: ConstraintReport | null;
 };
 
-const listNames = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`);
+/** "pH", "pH and temperature_C", "pH, temperature_C and DO_pct_air": every name, never a count of the rest. */
+export const listNames = (names: readonly string[]): string => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
 /** Predicted value of the requested constraint column for one proposal, when the engine sent it. */
 export function constraintPrediction(p: Proposal, constraint: ConstraintReport | null | undefined): { mean: number; std: number | null } | null {
@@ -188,48 +191,100 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
     flags.push({ kind: "negative", label: "Predicted below zero", detail: `Predicted at ${formatNumber(p.pred)}, below zero, but no measured value of this target is negative.` });
   }
   if (p.p_feasible != null && Number.isFinite(p.p_feasible) && p.p_feasible < LOW_FEASIBILITY) {
-    flags.push({ kind: "low-feasibility", label: "Low engine-estimated feasibility", detail: `Engine-estimated feasibility is ${formatNumber(p.p_feasible, "pct")}, below ${formatNumber(LOW_FEASIBILITY, "pct")}.` });
+    flags.push({ kind: "low-feasibility", label: "Unlikely to work", detail: `The model gives this recipe a ${formatNumber(p.p_feasible, "pct")} chance of producing a result, below ${formatNumber(LOW_FEASIBILITY, "pct")}.` });
   }
   const c = constraintPrediction(p, ctx.constraint);
   if (c && ctx.constraint?.floor != null && c.mean < ctx.constraint.floor) {
-    flags.push({ kind: "constraint", label: `Below ${ctx.constraint.column} floor`, detail: `Predicted ${ctx.constraint.column} ${formatNumber(c.mean)} is below the requested floor of ${formatNumber(ctx.constraint.floor)}.` });
+    flags.push({ kind: "constraint", label: `Below the ${ctx.constraint.column} limit`, detail: `Predicted ${ctx.constraint.column} ${formatNumber(c.mean)} is below the limit you asked for, ${formatNumber(ctx.constraint.floor)}.` });
   }
   const bounds = boundaryChecks(recipe, ctx.ranges);
   const outside = bounds.filter((b) => b.where === "below" || b.where === "above").map((b) => b.input);
   const edge = bounds.filter((b) => b.where === "at-min" || b.where === "at-max").map((b) => b.input);
   if (outside.length) {
-    flags.push({ kind: "outside-range", label: `Outside tried range: ${listNames(outside)}`, detail: `${listNames(outside)} ${outside.length === 1 ? "is" : "are"} outside the range tried so far, so the model is extrapolating.` });
+    flags.push({
+      kind: "outside-range",
+      label: `${listNames(outside)} outside what you have tried`,
+      detail: `${listNames(outside)} ${outside.length === 1 ? "is" : "are"} outside what you have tried so far, so the model has no runs to go on there.`,
+      inputs: outside,
+    });
   }
   if (edge.length) {
-    flags.push({ kind: "at-edge", label: `At edge: ${listNames(edge)}`, detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of the range tried so far, where the model has data on one side only.` });
+    flags.push({
+      kind: "at-edge",
+      label: `${listNames(edge)} at the edge of what you have tried`,
+      detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of what you have tried so far, where the model has runs on one side only.`,
+      inputs: edge,
+    });
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the prediction band's half-width of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
+    flags.push({ kind: "gain-within-band", label: "Gain smaller than the likely range", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the likely range of ± ${formatNumber(ctx.band)}, so the run can land below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
 
-/** The batch's checks grouped by kind, for the summary: "P1, P2: gain within band". */
-export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kind: FlagKind; ranks: number[]; label: string }[] {
-  const by = new Map<FlagKind, number[]>();
-  for (const { rank, flags } of rows) for (const f of flags) by.set(f.kind, [...(by.get(f.kind) ?? []), rank]);
-  const label: Record<FlagKind, string> = {
+export type FlagGroup = {
+  kind: FlagKind;
+  ranks: number[];
+  /** True when every recipe of the round carries the flag: it is then said once, above the table, not per row. */
+  all: boolean;
+  /** The inputs the flag concerns across the round (edge and outside-range), in first-seen order. */
+  inputs: string[];
+  /** One sentence for the round: "Every recipe sets an input at the edge of what you have tried so far: pH and temperature_C." or "P2, P4: ...". */
+  sentence: string;
+};
+
+/**
+ * The round's checks grouped by kind, for "Before you start". A flag every recipe carries is one sentence
+ * for the round, naming the inputs; a flag some carry names those recipes. Tested in plan-view.test.ts.
+ */
+export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): FlagGroup[] {
+  const by = new Map<FlagKind, { ranks: number[]; inputs: string[] }>();
+  for (const { rank, flags } of rows) {
+    for (const f of flags) {
+      const g = by.get(f.kind) ?? { ranks: [], inputs: [] };
+      g.ranks.push(rank);
+      for (const i of f.inputs ?? []) if (!g.inputs.includes(i)) g.inputs.push(i);
+      by.set(f.kind, g);
+    }
+  }
+  const some: Record<FlagKind, string> = {
     negative: "predicted below zero for a target that is never negative",
-    "low-feasibility": `engine-estimated feasibility below ${formatNumber(LOW_FEASIBILITY, "pct")}`,
-    constraint: "predicted below the requested constraint floor",
-    "outside-range": "an input outside the range tried so far",
-    "at-edge": "an input at the edge of the range tried so far",
-    "gain-within-band": "predicted gain smaller than the band's half-width",
+    "low-feasibility": `the model gives it under a ${formatNumber(LOW_FEASIBILITY, "pct")} chance of producing a result`,
+    constraint: "predicted below the limit you asked for",
+    "outside-range": "an input outside what you have tried so far",
+    "at-edge": "an input at the edge of what you have tried so far",
+    "gain-within-band": "predicted gain smaller than the likely range",
   };
-  return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => ({ kind, ranks: by.get(kind)!, label: label[kind] }));
+  const every: Record<FlagKind, string> = {
+    negative: "Every recipe is predicted below zero, for a target that is never negative.",
+    "low-feasibility": `Every recipe is given under a ${formatNumber(LOW_FEASIBILITY, "pct")} chance of producing a result.`,
+    constraint: "Every recipe is predicted below the limit you asked for.",
+    "outside-range": "Every recipe sets an input outside what you have tried so far",
+    "at-edge": "Every recipe sets an input at the edge of what you have tried so far",
+    "gain-within-band": "Every recipe's predicted gain is smaller than the likely range, so any of them can land below your best.",
+  };
+  return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => {
+    const g = by.get(kind)!;
+    const all = rows.length > 1 && g.ranks.length === rows.length;
+    const named = g.inputs.length ? `: ${listNames(g.inputs)}.` : ".";
+    const sentence = all
+      ? kind === "at-edge" || kind === "outside-range"
+        ? `${every[kind]}${named}`
+        : every[kind]
+      : `${g.ranks.map((r) => `P${r}`).join(", ")}: ${some[kind]}${kind === "at-edge" || kind === "outside-range" ? ` (${listNames(g.inputs)})` : ""}.`;
+    return { kind, ranks: g.ranks, all, inputs: g.inputs, sentence };
+  });
 }
+
+/** The kinds every recipe of the round carries: said once above the table, left off the rows. */
+export const sharedKinds = (groups: readonly FlagGroup[]): Set<FlagKind> => new Set(groups.filter((g) => g.all).map((g) => g.kind));
 
 // --- Uncertainty -----------------------------------------------------------------
 
 /**
- * The prediction interval `pred ± band`, only when the engine supplied a band
- * (`conformal_q`). Null otherwise: the page then shows no interval at all,
+ * The likely range `pred ± band`, only when the engine supplied a band
+ * (`conformal_q`). Null otherwise: the page then shows no range at all,
  * never one derived from the model SD.
  */
 export function predictionInterval(pred: number, band: number | null | undefined): [number, number] | null {
@@ -237,17 +292,30 @@ export function predictionInterval(pred: number, band: number | null | undefined
   return [pred - band, pred + band];
 }
 
-/**
- * "90% held-out band" from the engine's coverage, or "held-out band" when it
- * did not say (never a guessed percentage). "Held-out" because the coverage
- * was measured on held-out measured runs; see BAND_CAVEAT.
- */
-export function bandLabel(coverage: number | null | undefined): string {
-  return coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} held-out band` : "held-out band";
+/** The label for the likely range, everywhere it is shown. The coverage is said in words by `bandSentence`, never in the label. */
+export function bandLabel(coverage?: number | null): string {
+  void coverage;
+  return "Likely range";
 }
 
-/** Shown wherever the band is: its coverage is not a promise about new recipes. */
-export const BAND_CAVEAT = "Coverage measured on held-out measured runs; not guaranteed for proposals.";
+/**
+ * The engine's coverage as a count a lab can picture: 0.9 reads "9 of 10 past
+ * runs landed this close to their prediction". The smallest of 10, 20 and 100
+ * that states the coverage exactly is used; a coverage none of them fits is
+ * rounded to a whole percent. Null when the engine sent no coverage (then
+ * nothing is promised).
+ */
+export function bandSentence(coverage: number | null | undefined): string | null {
+  if (coverage == null || !Number.isFinite(coverage) || coverage <= 0 || coverage > 1) return null;
+  for (const den of [10, 20, 100]) {
+    const num = coverage * den;
+    if (Math.abs(num - Math.round(num)) < 1e-6) return `${formatNumber(Math.round(num), "count")} of ${formatNumber(den, "count")} past runs landed this close to their prediction.`;
+  }
+  return `About ${formatNumber(coverage, "pct")} of past runs landed this close to their prediction.`;
+}
+
+/** Plain caveat beside the likely range: it was checked on past runs, and is not a promise about new recipes. */
+export const BAND_CAVEAT = "Checked on past runs, not a promise about new recipes.";
 
 /** "47.38 to 55.04", or null when no band was supplied. */
 export function formatInterval(pred: number, band: number | null | undefined): string | null {
@@ -314,15 +382,6 @@ export function formatSetpoint(v: SetpointValue | null | undefined, decimals?: n
   return Number(s.replace(/,/g, "")) === 0 ? s : `${v < 0 ? "-" : ""}${s}`;
 }
 
-/** Inputs in display order: the engine's `proposal_features` first, then the recipe's other inputs A-Z. */
-export function recipeKeys(features: string[], recipe: Record<string, SetpointValue>): { main: string[]; other: string[] } {
-  const main = features.filter((f) => f in recipe);
-  const other = Object.keys(recipe)
-    .filter((k) => !features.includes(k))
-    .sort((a, b) => a.localeCompare(b));
-  return { main, other };
-}
-
 // --- Comparison --------------------------------------------------------------------
 
 /** The comparison view's candidate limits. */
@@ -387,8 +446,10 @@ export function toggleCompare(current: readonly number[], rank: number, max = CO
 export type DiversitySummary = {
   /** One sentence. */
   headline: string;
-  /** Supporting sentences, plain words, from the engine's numbers. */
+  /** Supporting sentences in plain words, from the engine's numbers. No metric text, no codes. */
   notes: string[];
+  /** The engine's own strings for this batch (the metric definition, a notice code), verbatim, for a disclosure. */
+  rawNotes: string[];
   /** True when the batch came back shorter than requested. */
   short: boolean;
 };
@@ -405,29 +466,30 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
   const sep = div?.min_separation ?? notice?.min_separation;
   const short = notice != null || (requested != null && returned != null && returned < requested);
   const notes: string[] = [];
+  const rawNotes: string[] = [];
   let headline: string;
   if (requested != null && returned != null) {
     headline = short
-      ? `The engine returned ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} proposals requested.`
-      : `The engine returned all ${formatNumber(requested, "count")} proposals requested.`;
+      ? `Kalos proposed ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} recipes asked for.`
+      : `Kalos proposed all ${formatNumber(requested, "count")} recipes asked for.`;
   } else {
-    headline = short ? "The engine returned fewer proposals than requested." : "The engine reported how far apart this batch's proposals are.";
+    headline = short ? "Kalos proposed fewer recipes than asked for." : "Kalos reported how far apart this round's recipes are.";
   }
   if (sep != null && Number.isFinite(sep)) {
-    notes.push(`Minimum separation it enforces: ${formatNumber(sep, "pct")}${div?.metric ? `, measured as "${div.metric}"` : ""}.`);
-  } else if (div?.metric) {
-    notes.push(`Separation measured as "${div.metric}".`);
+    notes.push(`Proposed recipes are kept at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
   }
+  if (div?.metric) rawNotes.push(`Separation measured as "${div.metric}".`);
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
-    notes.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
+    notes.push(`Kalos replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "recipe" : "recipes"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") {
-    notes.push("It found no further candidate at least that far from the others (code fewer_distinct_candidates).");
+    notes.push("No further recipe was far enough from the others, so this round has fewer than asked for.");
   } else if (notice) {
-    notes.push(`Engine notice code: ${notice.code}.`);
+    notes.push("Kalos sent a note about this round. Its details are under Method.");
   }
-  return { headline, notes, short };
+  if (notice) rawNotes.push(`Notice code: ${notice.code}.`);
+  return { headline, notes, rawNotes, short };
 }
 
 // --- Upload rejections -----------------------------------------------------------------
@@ -486,8 +548,8 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
         ? `has the same value (${formatSetpoint(s.min, decimalsOf(s.min))}) in every ${s.n_numeric != null ? `one of its ${formatNumber(s.n_numeric, "count")} rows` : "row"}`
         : "does not vary across runs";
     return {
-      title: "No proposals: the target never changes",
-      body: `In ${r.name}, ${t} ${same}, so there is nothing for the model to learn from and the engine proposed no experiments.`,
+      title: "No proposed recipes: the target never changes",
+      body: `In ${r.name}, ${t} ${same}, so there is nothing for the model to learn from and Kalos proposed no runs.`,
       suggestion: r.availableTargets?.length ? `Columns that do vary and could be the target: ${r.availableTargets.join(", ")}.` : null,
     };
   }
@@ -495,7 +557,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
   const known = engineMessage({ code: r.code, error: r.error });
   return {
     title: "The last upload was not used",
-    body: `The engine did not accept ${r.name}. ${known.message}`,
+    body: `Kalos did not accept ${r.name}. ${known.message}`,
     suggestion: null,
   };
 }
@@ -506,7 +568,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
  * fit (`n_dropped_incomplete`, `n_censored_excluded`, falling back to
  * `data_drops`). Nothing is inferred from the sheet on the client.
  */
-export type DataNote = { tone: "neutral" | "warn"; text: string };
+export type DataNote = { tone: "neutral" | "warn"; text: string; /** The why-line code for this note (lib/why.ts). */ why: string };
 
 const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
@@ -521,7 +583,8 @@ export function dataNotes(d: {
   if (auto.length) {
     notes.push({
       tone: "neutral",
-      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as categorical because ${auto.length === 1 ? "it holds" : "they hold"} text levels, so proposals vary ${auto.length === 1 ? "it" : "them"}. Declare the columns on Setup to change that.`,
+      why: "auto_categorical",
+      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as a choice between its text values, so proposed recipes pick one of them. Change how the columns are used on Setup to change that.`,
     });
   }
   const missing = d.n_dropped_incomplete ?? d.data_drops?.rows_dropped ?? 0;
@@ -529,40 +592,15 @@ export function dataNotes(d: {
   if (missing > 0 || censored > 0) {
     const parts = [
       missing > 0 ? `${count(missing, "run")} with a missing or non-numeric value` : null,
-      censored > 0 ? `${count(censored, "run")} with a censored value such as <LOD` : null,
+      censored > 0 ? `${count(censored, "run")} with a value below the detection limit, such as <LOD` : null,
     ].filter((p): p is string => p != null);
     notes.push({
       tone: "warn",
-      text: `${parts.join(" and ")} ${missing + censored === 1 ? "was" : "were"} left out of the fit. Nothing was imputed.`,
+      why: censored > 0 && missing === 0 ? "censored_rows" : "dropped_rows",
+      text: `${parts.join(" and ")} ${missing + censored === 1 ? "was" : "were"} left out when the model learned. Nothing was filled in.`,
     });
   }
   return notes;
 }
 
-/** The provenance facts the engine recorded, as label/value rows. Only fields present on `run` are returned. */
-export function runFacts(run: RunRecord | null | undefined): { label: string; value: string }[] {
-  if (!run) return [];
-  const rows: { label: string; value: string }[] = [];
-  const add = (label: string, value: string | null | undefined) => {
-    if (value != null && value !== "") rows.push({ label, value });
-  };
-  if (run.kind === "upload") add("Source", "Run sheet upload");
-  else if (run.kind === "reanalyze") add("Source", "Re-analysis of the campaign's folded runs");
-  if (run.profile === "bioprocess") add("Columns", "Inferred from names (bioprocess profile)");
-  else if (run.profile === "generic") add("Columns", "Declared by you (generic profile)");
-  if (run.input_sha256) add("Input fingerprint", run.input_sha256.slice(0, 12));
-  if (run.anonymize !== true) add("Sheet", run.sheet ?? undefined);
-  if (typeof run.n_rows === "number") add("Runs fitted", run.n_rows.toLocaleString("en-US"));
-  if (typeof run.n_features === "number") add("Inputs modeled", run.n_features.toLocaleString("en-US"));
-  if (typeof run.pending_runs === "number") add("Runs in flight when proposed", run.pending_runs.toLocaleString("en-US"));
-  if (typeof run.seed === "number") add("Fit seed", String(run.seed));
-  if (run.torch_threads !== undefined) add("Threads", run.torch_threads === null ? "not pinned" : String(run.torch_threads));
-  if (run.library_versions) {
-    const v = Object.entries(run.library_versions)
-      .filter(([, ver]) => typeof ver === "string")
-      .map(([name, ver]) => `${name} ${ver}`);
-    add("Libraries", v.length ? v.join(", ") : null);
-  }
-  if (run.build_sha) add("Engine build", run.build_sha.slice(0, 12));
-  return rows;
-}
+export { runFacts } from "@/components/campaign/plan/run-facts";

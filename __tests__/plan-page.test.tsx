@@ -79,8 +79,11 @@ async function renderPlan(withUpload = false) {
 
 const isDisabled = (el: HTMLElement) => (el as HTMLButtonElement).disabled || el.getAttribute("aria-disabled") === "true" || el.hasAttribute("data-disabled");
 
-/** The header's Review button (the table and cards both render; the header button is the first). */
-const reviewButton = () => screen.getAllByRole("button", { name: /^Review and start/ })[0];
+/** The header's "Start these N runs" button (the sticky mobile bar repeats it; the header button is the first). */
+const reviewButton = () => screen.getAllByRole("button", { name: /^Start these \d+ runs?$/ })[0];
+
+/** Opens one of the secondary tabs under the recipes (Compare, Predicted ... across two inputs, Method). */
+const openTab = (name: string | RegExp) => fireEvent.click(screen.getByRole("tab", { name: typeof name === "string" ? new RegExp(`^${name}`) : name }));
 
 async function openDialog() {
   fireEvent.click(reviewButton());
@@ -205,25 +208,28 @@ describe("Plan data notes and provenance", () => {
       }),
     );
     await renderPlan();
-    expect(screen.getByText(/Strain was read as categorical/)).toBeTruthy();
+    expect(screen.getByText(/Strain was read as a choice between its text values/)).toBeTruthy();
     expect(screen.getByText(/2 runs with a missing or non-numeric value/)).toBeTruthy();
-    expect(screen.getByText(/1 run with a censored value such as <LOD/)).toBeTruthy();
-    const details = screen.getByText("How this batch was made").closest("details") as HTMLDetailsElement;
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
+    expect(screen.getByText(/1 run with a value below the detection limit, such as <LOD/)).toBeTruthy();
+    openTab("Method");
+    // The engine's names (fingerprint, build) sit one click further down, behind their own disclosure.
+    expect(screen.queryByText("abcdef012345")).toBeNull();
+    fireEvent.click(await screen.findByText("What Kalos recorded about this model"));
     expect(await screen.findByText("abcdef012345")).toBeTruthy();
   });
 
   it("says the engine did not report provenance when the run block is absent", async () => {
     await renderPlan();
-    expect(screen.getByText("How this batch was made")).toBeTruthy();
-    expect(screen.getByText("not reported")).toBeTruthy();
+    openTab("Method");
+    expect(await screen.findByText("How these recipes were made")).toBeTruthy();
+    fireEvent.click(screen.getByText("What Kalos recorded about this model"));
+    expect(await screen.findByText(/^Not reported: how this model was made/)).toBeTruthy();
   });
 
-  it("mounts the response surface only when its disclosure is opened, labelled predicted mean only", async () => {
-    // The fixture's own surface is empty (the engine sent no grid), so the disclosure must not appear for it.
+  it("mounts the predicted surface only when its tab is opened, labelled as the model's best guess only", async () => {
+    // The fixture's own surface is empty (the engine sent no grid), so the tab must not appear for it.
     await renderPlan();
-    expect(screen.queryByText("How the model responds to two inputs")).toBeNull();
+    expect(screen.queryByRole("tab", { name: /across two inputs$/ })).toBeNull();
     cleanup();
     vi.stubGlobal(
       "fetch",
@@ -235,11 +241,32 @@ describe("Plan data notes and provenance", () => {
       }),
     );
     await renderPlan();
-    const summary = screen.getByText("How the model responds to two inputs");
-    expect(screen.queryByText(/Predicted mean only, uncertainty not shown/)).toBeNull();
-    const details = summary.closest("details") as HTMLDetailsElement;
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
-    expect(await screen.findByText(/Predicted mean only, uncertainty not shown/)).toBeTruthy();
+    expect(screen.queryByText(/best guess only; how sure it is is not shown/)).toBeNull();
+    openTab(/across two inputs$/);
+    expect(await screen.findByText(/best guess only; how sure it is is not shown/)).toBeTruthy();
+  });
+});
+
+describe("warnings every recipe carries (first-time study F10)", () => {
+  it("are said once above the table, naming the inputs, and the rows say so instead of repeating them", async () => {
+    // Narrow the tried range of pH so every recipe sits outside it.
+    const narrow = { ...latestFixture, feature_ranges: { pH: [6.5, 6.51], Temp_C: [20, 40], Methanol: [0, 5] } };
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/latest")) return json(narrow);
+      if (url.endsWith("/api/campaign")) return onCampaign();
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    await renderPlan();
+    const before = screen.getByRole("heading", { name: "Before you start" }).closest("section")!;
+    expect(within(before).getByText(/^Every recipe sets an input outside what you have tried so far: pH\.$/)).toBeTruthy();
+    expect(within(before).getByText("Said once here, not on every row.")).toBeTruthy();
+    expect(screen.queryByText(/and \d+ more/)).toBeNull();
+    const table = screen.getByRole("table", { name: /Recipes the model proposed/ });
+    // The cell marker next to a value stays (sr-only); the Checks column does not repeat the sentence.
+    expect(within(table).queryByText(/pH outside what you have tried/)).toBeNull();
+    // P1 and P2 also carry their own gain flag, so they show it; the other three carry only the shared one.
+    expect(within(table).getAllByText("As every recipe (see Before you start)").length).toBe(3);
+    expect(within(table).getAllByText("Gain smaller than the likely range").length).toBe(2);
   });
 });

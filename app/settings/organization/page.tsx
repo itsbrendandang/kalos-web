@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Callout } from "@/components/kit/callout";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
+import { Verdict } from "@/components/kit/verdict";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cancelInvitationAction, inviteMemberAction, removeMemberAction } from "@/lib/server/auth-actions";
@@ -13,10 +14,14 @@ export const dynamic = "force-dynamic";
 
 const ERRORS: Record<string, string> = {
   forbidden: "Only organization owners and admins can manage members.",
-  invalid: "Enter a valid email address and pick a role.",
+  invalid: "Enter a valid email address and pick an access level.",
   invite_failed: "Could not create the invitation. The person may already be a member.",
   remove_failed: "Could not remove that member (an organization needs at least one owner).",
 };
+
+/** Access levels in plain words; the stored value (viewer, member, admin, owner) stays out of sight. */
+const ACCESS_LABEL: Record<string, string> = { viewer: "Viewer", member: "Member", admin: "Admin", owner: "Owner" };
+const accessLabel = (role: string) => ACCESS_LABEL[role] ?? role;
 
 export default async function OrganizationPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -33,14 +38,15 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   return (
     <div className="flex max-w-2xl flex-col gap-10">
       <PageHeader title="Members" description="Kalos is invite-only. Invitations are links you send yourself; no email is sent." />
-      {err ? <Callout tone="bad" title={err} /> : null}
+      {err ? <Callout tone="bad" title="That did not work">{err}</Callout> : null}
       {invited ? (
-        <Callout tone="good" title={`Invitation created for ${invited.email}`}>
-          Send this link to them. It works once, only for that Google account, until {new Date(invited.expiresAt).toUTCString()}.
-          <code className="mt-2 block rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-label break-all select-all">
+        <div className="flex flex-col gap-3">
+          <Verdict tone="good">Invitation created for {invited.email}. Send them this link.</Verdict>
+          <code className="ml-7 block rounded-md border border-border bg-subtle px-2 py-1.5 font-mono text-code break-all select-all">
             {origin}/accept-invite/{invited.id}
           </code>
-        </Callout>
+          <p className="ml-7 text-caption text-fg-muted">It works once, only for that Google account, until {new Date(invited.expiresAt).toUTCString()}.</p>
+        </div>
       ) : null}
 
       {isAdmin ? (
@@ -51,15 +57,15 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
               <Input name="email" type="email" required autoComplete="off" />
             </label>
             <label className="grid gap-1 text-label text-fg">
-              Role
+              Access
               <select name="role" defaultValue="member" className="h-9 rounded-lg border border-border-strong bg-surface px-3 text-body text-fg">
-                <option value="viewer">Viewer (read)</option>
-                <option value="member">Member (read and write)</option>
-                <option value="admin">Admin (also manages members, archives)</option>
+                <option value="viewer">Viewer (can look)</option>
+                <option value="member">Member (can look and change)</option>
+                <option value="admin">Admin (also invites and removes members)</option>
                 {isOwner ? <option value="owner">Owner</option> : null}
               </select>
             </label>
-            <Button type="submit">Create invitation</Button>
+            <Button type="submit">Create the invitation</Button>
           </form>
         </Section>
       ) : null}
@@ -71,16 +77,16 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
               <li key={p.id} className="grid gap-2 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-body text-fg">
-                    {p.email} <span className="text-caption text-fg-muted">· {p.role}</span>
+                    {p.email} <span className="text-caption text-fg-muted">· {accessLabel(p.role)}</span>
                   </p>
                   <form action={cancelInvitationAction}>
                     <input type="hidden" name="invitationId" value={p.id} />
                     <Button type="submit" variant="ghost" size="sm">
-                      Cancel
+                      Cancel the invitation
                     </Button>
                   </form>
                 </div>
-                <code className="block rounded-md border border-border bg-subtle px-2 py-1 font-mono text-caption break-all select-all">
+                <code className="block rounded-md border border-border bg-subtle px-2 py-1 font-mono text-code break-all select-all">
                   {origin}/accept-invite/{p.id}
                 </code>
               </li>
@@ -94,13 +100,13 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
           {members.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <p className="min-w-0 text-body text-fg">
-                {m.name || m.email} <span className="text-caption text-fg-muted">· {m.email} · {m.role}</span>
+                {m.name || m.email} <span className="text-caption text-fg-muted">· {m.email} · {accessLabel(m.role)}</span>
               </p>
               {isAdmin && m.userId !== st.context.userId ? (
                 <form action={removeMemberAction}>
                   <input type="hidden" name="memberId" value={m.id} />
                   <Button type="submit" variant="destructive" size="sm">
-                    Remove
+                    Remove the member
                   </Button>
                 </form>
               ) : null}

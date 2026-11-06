@@ -3,22 +3,14 @@
  *
  * The Projects surface has no backend for customers/projects (see app/projects/data.ts) - the
  * product decision is to wire creates/edits to real client-side state instead,
- * so the modals and workspace controls stop being active-but-inert. This module
- * holds the pure, framework-free reducer + helpers; the React context that
- * wraps it (useReducer, in memory only - nothing is written to browser storage) lives in
+ * so the modals stop being active-but-inert. This module holds the pure,
+ * framework-free reducer + helpers; the React context that wraps it
+ * (useReducer, in memory only - nothing is written to browser storage) lives in
  * components/projects/store-context.tsx. Keeping the logic here means it can be
  * unit tested directly, with no DOM involved.
  */
 
-import {
-  CUSTOMERS,
-  getProject as getSeedProject,
-  type Customer,
-  type PipelineStage,
-  type Project,
-  type ProjectStage,
-  type ProjectStatus,
-} from "@/app/projects/data";
+import { CUSTOMERS, getProject as getSeedProject, type Customer, type Project, type ProjectStage, type ProjectStatus } from "@/app/projects/data";
 
 export interface ProjectsState {
   customers: Customer[];
@@ -68,8 +60,6 @@ export type ProjectsAction =
   | { type: "updateCustomer"; id: string; patch: { name: string; address: string } }
   | { type: "addProject"; customerName: string; project: NewProjectInput; today: string }
   | { type: "updateProject"; id: string; patch: ProjectEditInput }
-  | { type: "advanceIteration"; projectId: string }
-  | { type: "runPipeline"; projectId: string; stageTemplate: PipelineStage[] }
   | { type: "markProjectComplete"; projectId: string; completedOn: string };
 
 /** Finds a project across all customers in the live store state (no seed fallback). */
@@ -107,46 +97,7 @@ function buildNewProject(customer: Customer, input: NewProjectInput, today: stri
     objective: input.objective,
     status: input.status,
     stage: stageForNewProject(input.status, today),
-    target: input.objective,
-    defaultTab: "phase1",
-    hasTree: null,
     experiments: [],
-    config: null,
-    run: null,
-    pipeline: [],
-    candidates: [],
-    iterations: [],
-    report: null,
-  };
-}
-
-/** Marks the current active iteration done and unlocks the next one, if any. */
-function advanceProjectIteration(project: Project): Project {
-  if (project.stage.kind !== "phase1") return project;
-  const activeIndex = project.iterations.findIndex((it) => it.state === "active");
-  if (activeIndex === -1) return project;
-
-  const iterations = project.iterations.map((it, i) => {
-    if (i === activeIndex) return { ...it, state: "done" as const };
-    if (i === activeIndex + 1 && it.state === "locked") return { ...it, state: "active" as const };
-    return it;
-  });
-
-  const nextIteration = Math.min(project.stage.iteration + 1, project.stage.totalIterations);
-  return {
-    ...project,
-    iterations,
-    stage: { ...project.stage, iteration: nextIteration },
-  };
-}
-
-/** Transitions a project's pipeline run from setup to complete. */
-function runProjectPipeline(project: Project, stageTemplate: PipelineStage[]): Project {
-  const stages = project.pipeline.length > 0 ? project.pipeline : stageTemplate;
-  return {
-    ...project,
-    run: { number: (project.run?.number ?? 0) + 1, status: "complete" },
-    pipeline: stages.map((s) => ({ ...s, state: "done", chips: s.chips.length > 0 ? s.chips : ["Complete"] })),
   };
 }
 
@@ -191,12 +142,6 @@ export function projectsReducer(state: ProjectsState, action: ProjectsAction): P
         })),
       };
 
-    case "advanceIteration":
-      return { customers: mapProject(state.customers, action.projectId, advanceProjectIteration) };
-
-    case "runPipeline":
-      return { customers: mapProject(state.customers, action.projectId, (p) => runProjectPipeline(p, action.stageTemplate)) };
-
     case "markProjectComplete":
       return {
         customers: mapProject(state.customers, action.projectId, (p) => ({
@@ -209,32 +154,4 @@ export function projectsReducer(state: ProjectsState, action: ProjectsAction): P
     default:
       return state;
   }
-}
-
-// --- CSV export (Projects report "Export CSV") -------------------------------
-
-function csvField(value: string | number): string {
-  const s = String(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function csvRow(values: (string | number)[]): string {
-  return values.map(csvField).join(",");
-}
-
-/**
- * Builds a CSV export of a project's final report: stats, candidate decisions,
- * and top drivers, one section per row group under a shared header. Pure
- * string-building only - the caller (project-report.tsx) turns this into a
- * download via a Blob + object URL.
- */
-export function buildProjectReportCsv(project: Project): string {
-  const rows: string[] = [csvRow(["Section", "Name", "Value", "Detail"])];
-  const r = project.report;
-  if (r) {
-    for (const s of r.stats) rows.push(csvRow(["Stat", s.label, s.value, s.sub]));
-    for (const c of r.candidates) rows.push(csvRow(["Candidate", c.name, `${c.prob}%`, c.uncertainty]));
-    for (const d of r.drivers) rows.push(csvRow(["Driver", d.name, `${d.weight}%`, d.range]));
-  }
-  return rows.join("\n");
 }

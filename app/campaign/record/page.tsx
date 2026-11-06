@@ -7,8 +7,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { parseUnit } from "@/lib/utils";
+import { recipeColumns, runLabels } from "@/lib/recipe-identity";
 
-/** Record: enter or correct measured results for this round. Reads and writes the live campaign only, never demo data. */
+/** Record: enter or change measured results for this round. Reads and writes the live campaign only, never demo data. */
 export default function RecordPage() {
   const campaign = useCampaign();
   const latest = useLatest();
@@ -36,7 +37,7 @@ export default function RecordPage() {
         <PageHeader title="Record results" description="Enter each measured value as it comes back from the lab." />
         <EmptyState
           title="No runs are waiting for results"
-          description="Start a batch from the Plan stage, then come back here to record what you measure."
+          description="Start runs from the Plan stage, then come back here to record what you measure."
           action={
             <Link href="/campaign/plan" className={buttonVariants({ variant: "outline" })}>
               Go to Plan
@@ -52,7 +53,9 @@ export default function RecordPage() {
       round={c.round}
       best={c.best}
       unit={parseUnit(c.target)}
-      drivers={latest.data?.has_data ? latest.data.drivers.map((d) => d.name) : []}
+      columns={recipeColumns(c.pending.map((r) => r.recipe), latest.data?.has_data ? latest.data.features : c.features, c.features)}
+      labels={runLabels(c.pending)}
+      target={c.target}
     />
   );
 }

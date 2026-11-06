@@ -65,7 +65,7 @@ describe("campaign_has_runs refusal (lib/api.ts)", () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 409, { code: "some_other_conflict" }));
     const err = await runFile(sheet()).catch((e: unknown) => e);
     expect(err).not.toBeInstanceOf(CampaignHasRunsError);
-    expect((err as Error).message).toBe("engine responded 409");
+    expect((err as Error).message).toBe("Kalos answered 409");
   });
 
   it("a 400 bad-sheet response is still returned inline, not thrown", async () => {

@@ -79,69 +79,67 @@ export type ValidationReport = {
 
 // --- friendly labels ---------------------------------------------------------
 
-/** Scientist-facing label + one-line plain-English explanation for each check -
- *  written for a process scientist, not a programmer: what failed, and why it
- *  matters for trusting the run sheet or the model fit on top of it. */
+/** Plain label + one-line explanation for each sheet check, written for a lab
+ *  scientist: what was found and what it means for trusting the run sheet or
+ *  the model built on it. `finding` is the one-line phrase shown on the finding
+ *  row; `label` names the check in the Method details; the engine's own check
+ *  name is the key and only ever appears in a disclosure. The "why this
+ *  matters" line for each check lives in lib/why.ts under the same key. */
 export const CHECK_INFO: Record<CheckId, { label: string; finding: string; explanation: string }> = {
   units_consistency: {
     finding: "Mixed units",
-    label: "Unit consistency",
-    explanation:
-      "A column mixes units within itself (e.g. some Temp readings in F, others in C), so the same number could mean two different things.",
+    label: "Mixed units in one column",
+    explanation: "A column mixes units (for example some temperatures in °F, others in °C), so the same number could mean two different things.",
   },
   physical_bounds: {
     finding: "Values outside physical limits",
-    label: "Physical bounds",
-    explanation:
-      "A value falls outside what's physically possible for that measurement (e.g. a negative titer, a pH above 14) - usually a unit mix-up or a typo.",
+    label: "Values that are physically impossible",
+    explanation: "A value falls outside what is physically possible for that measurement (a negative titer, a pH above 14). It is usually a unit mix-up or a typo.",
   },
   duplicate_rows: {
-    finding: "Duplicate rows",
-    label: "Duplicate rows",
-    explanation: "Two or more rows are exact repeats of each other, which can double-count a run and bias the fit.",
+    finding: "Duplicate runs",
+    label: "Runs entered twice",
+    explanation: "Two or more runs are exact repeats of each other, so one run counts twice.",
   },
   missingness: {
     finding: "Missing values",
-    label: "Missing data",
-    explanation: "A column or a set of rows is missing a large share of its values, which limits what the model can learn from it.",
+    label: "Blank cells",
+    explanation: "A column or a set of runs is missing a large share of its values, which limits what the model can learn from it.",
   },
   outliers: {
     finding: "Unusual values",
-    label: "Outliers",
-    explanation:
-      "A value sits far outside the rest of that column's distribution - could be a genuinely extreme run, or a data-entry mistake worth checking.",
+    label: "Unusual values",
+    explanation: "A value sits far from the rest of its column. It could be a real extreme run or a data-entry mistake worth checking.",
   },
   provenance_metadata: {
-    finding: "Missing run metadata",
-    label: "Provenance metadata",
-    explanation: "Run metadata (operator, date, batch, or similar) is missing, which makes a result harder to trace back to how it was produced.",
+    finding: "Missing run details",
+    label: "Missing run details",
+    explanation: "Run details (who ran it, when, which lot of materials) are missing, which makes a result harder to trace back to how it was produced.",
   },
   replicate_adequacy: {
-    finding: "Too few replicates",
-    label: "Replicate adequacy",
-    explanation: "A condition was run too few times to separate a real effect from ordinary run-to-run noise.",
+    finding: "Too few repeated runs",
+    label: "Too few repeated runs",
+    explanation: "A recipe was run too few times to tell a real difference from ordinary run-to-run variation.",
   },
   controls_present: {
-    finding: "No control condition",
-    label: "Controls present",
-    explanation: "The run sheet has no control condition, which makes it hard to tell a meaningful result apart from batch variation.",
+    finding: "No control run",
+    label: "No control run",
+    explanation: "The run sheet has no control run, which makes it hard to tell a meaningful result apart from ordinary variation.",
   },
   constant_columns: {
-    finding: "Input never varies",
-    label: "Constant columns",
-    explanation: "An input never varies across runs, so it can't explain any of the observed variation - the model gets no signal from it.",
+    finding: "An input that never changes",
+    label: "An input that never changes",
+    explanation: "An input has the same value in every run, so it cannot explain any difference between runs and the model learns nothing from it.",
   },
   informative_missingness: {
-    finding: "Blanks that track the outcome",
-    label: "Blanks that track the outcome",
-    explanation:
-      "Blank cells line up with the result (e.g. poor performers were never measured), so a blank is itself a clue and filling it in would quietly teach the model the answer.",
+    finding: "Blanks that line up with the result",
+    label: "Blanks that line up with the result",
+    explanation: "Blank cells line up with the result (for example poor runs were never measured), so a blank is itself a clue, and filling it in would quietly teach the model the answer.",
   },
   constant_within_group: {
-    finding: "Input constant within each group",
-    label: "Constant within each group",
-    explanation:
-      "An input varies across the sheet but has a single value inside every group, so it is really a stand-in for which group a row is in, not a real driver.",
+    finding: "An input that only changes between groups",
+    label: "An input that only changes between groups",
+    explanation: "An input changes across the sheet but has a single value inside every group, so it really stands for which group a run is in, not for a setting.",
   },
 };
 
@@ -218,17 +216,39 @@ export function isRowListTruncated(finding: ValidationFinding): boolean {
   return affectedRowCount(finding) > safeRows(finding).length;
 }
 
-/** The honest row-list caption: "showing 20 of 143 affected rows" when the
- *  engine capped the list, otherwise a plain count. Never implies the shown
- *  list is complete when it isn't. Returns "" when there are no rows to caption. */
+/** The honest row-list caption: a plain count of the runs affected, and, when Kalos capped the list it
+ *  sent, how many of them it named ("43 runs affected, 20 of them named"). The named rows are shown under
+ *  it (`listedRows`), so the caption never speaks of rows that are not on the page. "" without rows. */
 export function rowListCaption(finding: ValidationFinding): string {
   const rows = safeRows(finding);
   if (rows.length === 0) return "";
   const total = affectedRowCount(finding);
   if (isRowListTruncated(finding)) {
-    return `showing ${rows.length} of ${total} affected rows`;
+    return `${total} runs affected, ${rows.length} of them named`;
   }
-  return rows.length === 1 ? "1 affected row" : `${rows.length} affected rows`;
+  return rows.length === 1 ? "1 run affected" : `${rows.length} runs affected`;
+}
+
+export type ListedRow = { /** The row as people count it (the first run is row 1). */ row: number; /** The cell's value in the finding's column, when the sheet is held in the browser. */ value: string | null };
+
+/**
+ * The rows a finding names, as people count them (the engine's 0-based data-row index plus one), each
+ * with its value in the finding's column when `valueAt` can read the sheet. Sorted. Empty without rows.
+ */
+export function listedRows(finding: ValidationFinding, valueAt?: (column: string, index: number) => string | null): ListedRow[] {
+  return [...safeRows(finding)]
+    .filter((i) => Number.isInteger(i) && i >= 0)
+    .sort((a, b) => a - b)
+    .map((i) => ({ row: i + 1, value: finding.column && valueAt ? valueAt(finding.column, i) : null }));
+}
+
+/** "Rows 3, 8 and 15" / "Rows 3, 8, 15 and 2 more": the rows named, as people count them, for a sentence. */
+export function listedRowsSentence(rows: readonly ListedRow[], max = 20): string {
+  const shown = rows.slice(0, max).map((r) => String(r.row));
+  const rest = rows.length - shown.length;
+  if (shown.length === 0) return "";
+  const head = shown.length === 1 ? `Row ${shown[0]}` : `Rows ${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+  return rest > 0 ? `${head} and ${rest} more` : head;
 }
 
 // --- headline --------------------------------------------------------------------
@@ -237,12 +257,12 @@ export function rowListCaption(finding: ValidationFinding): string {
 export function validationHeadline(report: ValidationReport): string {
   const { status, counts, n_rows, n_columns, checks_run } = report;
   if (status === "fail") {
-    return `${counts.error} error${counts.error === 1 ? "" : "s"} found in ${n_rows} rows / ${n_columns} columns - fix these before running an optimization on this data.`;
+    return `${counts.error} error${counts.error === 1 ? "" : "s"} found in ${n_rows} rows and ${n_columns} columns. Fix these before Kalos learns from this sheet.`;
   }
   if (status === "pass_with_warnings") {
     return `No errors, but ${counts.warning} warning${counts.warning === 1 ? "" : "s"} to review before you trust this run sheet.`;
   }
-  return `All ${checks_run.length} checks passed on ${n_rows} rows / ${n_columns} columns.`;
+  return `All ${checks_run.length} checks passed on ${n_rows} rows and ${n_columns} columns.`;
 }
 
 // --- unit conversions ---------------------------------------------------------

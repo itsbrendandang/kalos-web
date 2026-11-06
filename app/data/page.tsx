@@ -1,386 +1,226 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Download, PlugZap, Search, X } from "lucide-react";
-import { Card, Kpi, SectionLabel } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowRight, Upload } from "lucide-react";
+import { PageHeader } from "@/components/kit/page-header";
+import { Verdict } from "@/components/kit/verdict";
+import { Section } from "@/components/kit/section";
+import { Disclosure } from "@/components/kit/disclosure";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/ui/honest-state";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PageHeader, DemoBadge } from "@/components/page-header";
-import {
-  DATASETS,
-  DATASET_COUNT,
-  TOTAL_RUNS,
-  RUNS_BY_DATASET,
-  outputUnit,
-  type DatasetRecord,
-} from "@/lib/mock/registry";
-import { cn } from "@/lib/utils";
-import { DEMO_MODE } from "@/lib/demo";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { getCampaignAnalysis, getCampaignById, listCampaigns } from "@/lib/api";
+import { analysisFacts, buildIndex, campaignFacts, formatDate, indexVerdict, roundsCaption, type CampaignInput, type EngineOnlyRow, type RoundRow, type SheetRow } from "@/lib/data-index";
+import { formatNumber } from "@/lib/format";
+import { useStoredSheets } from "@/lib/sheet-store";
 
-type SortKey = "runs-desc" | "runs-asc" | "name" | "added";
+type EngineIndex = { status: "loading" } | { status: "error" } | { status: "ready"; campaigns: CampaignInput[] };
 
-const SORT_LABEL: Record<SortKey, string> = {
-  "runs-desc": "Runs (high to low)",
-  "runs-asc": "Runs (low to high)",
-  name: "Name (A-Z)",
-  added: "Date added (newest)",
-};
-
-function sortDatasets(rows: DatasetRecord[], key: SortKey): DatasetRecord[] {
-  const sorted = [...rows];
-  switch (key) {
-    case "runs-desc":
-      sorted.sort((a, b) => b.runs - a.runs);
-      break;
-    case "runs-asc":
-      sorted.sort((a, b) => a.runs - b.runs);
-      break;
-    case "name":
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
-      break;
-    case "added":
-      sorted.sort((a, b) => b.addedSort.localeCompare(a.addedSort));
-      break;
-  }
-  return sorted;
+/** Every campaign on the engine with its summary and analysis, read once per mount and on retry. */
+function useEngineCampaigns(): EngineIndex & { refresh: () => void; refreshing: boolean } {
+  const [state, setState] = useState<EngineIndex>({ status: "loading" });
+  const [refreshing, setRefreshing] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let live = true;
+    const read = async (): Promise<CampaignInput[]> => {
+      const infos = await listCampaigns();
+      return Promise.all(
+        infos
+          .filter((c) => !c.archived)
+          .map(async (c) => {
+            const [detail, latest] = await Promise.all([getCampaignById(c.id), getCampaignAnalysis(c.id)]);
+            return { id: c.id, name: c.name, is_default: c.is_default, analysis: analysisFacts(latest), summary: campaignFacts(detail.summary) };
+          }),
+      );
+    };
+    read().then(
+      (campaigns) => {
+        if (live) setState({ status: "ready", campaigns });
+      },
+      () => {
+        if (live) setState({ status: "error" });
+      },
+    ).finally(() => {
+      if (live) setRefreshing(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, [attempt]);
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    setAttempt((a) => a + 1);
+  }, []);
+  return { ...state, refresh, refreshing };
 }
 
-function StatusPill({ status }: { status: DatasetRecord["status"] }) {
-  const active = status === "active";
+/**
+ * Every run sheet this browser has loaded (lib/sheet-store.ts) joined to the engine's campaigns by the
+ * sha256 of the bytes, plus the rounds the campaign has recorded. Each sheet has its own page; the rows
+ * live only in this browser and are never sent anywhere again.
+ */
+export default function DataPage() {
+  const stored = useStoredSheets();
+  const engine = useEngineCampaigns();
+
+  const campaigns = engine.status === "ready" ? engine.campaigns : [];
+  const index = buildIndex({ sheets: stored.status === "ready" ? stored.sheets : [], campaigns });
+  const working = (campaigns.find((c) => c.is_default) ?? campaigns[0])?.analysis ?? null;
+  const loading = stored.status === "loading" || engine.status === "loading";
+  const verdict = indexVerdict(index, working, engine.status === "ready");
+  const nothing = !loading && verdict === "Nothing loaded yet.";
+
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "rounded-full text-[10px] font-semibold whitespace-nowrap",
-        active ? "border-green/30 bg-green-soft text-green" : "border-border bg-card text-muted",
-      )}
-    >
-      {status}
-    </Badge>
-  );
-}
-
-/** Engine credit, relocated here from the primary nav:
- *  the Data room is the registry/provenance surface, so this is where the
- *  model that consumes the registry gets attributed rather than in chrome
- *  that's visible on every route. */
-function EngineCredit() {
-  return <p className="text-center font-mono text-[10px] tracking-wide text-muted">powered by BoTorch + ESM-2</p>;
-}
-
-/** Honest empty state: the registry has no live source yet, so with demo mode off
- *  it renders nothing fabricated rather than a list of simulated datasets. */
-function NoLiveRegistry() {
-  return (
-    <div className="flex flex-col gap-7">
-      <PageHeader eyebrow="Data room" title="Bioprocessing data registry"
-        desc="The datasets and runs the engine has seen." />
-      <EmptyState
-        icon={PlugZap}
-        title="No live datasets"
-        description={
-          <>
-            No live data registry is connected yet. Example data is off, so there is nothing to show here.
-          </>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        eyebrow="Data"
+        title="Data"
+        description="Every run sheet this browser has loaded, and the rounds recorded in the campaign."
+        action={
+          nothing ? null : (
+            <Link href="/campaign/setup" className={buttonVariants({ variant: "outline" })}>
+              Upload a run sheet
+            </Link>
+          )
         }
       />
-      <EngineCredit />
-    </div>
-  );
-}
 
-export default function DataPage() {
-  const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("runs-desc");
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const outputsTracked = useMemo(() => new Set(DATASETS.flatMap((d) => d.outputs)).size, []);
-  const maxRuns = useMemo(() => Math.max(...DATASETS.map((d) => d.runs)), []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return DATASETS;
-    return DATASETS.filter(
-      (d) =>
-        d.name.toLowerCase().includes(q) ||
-        d.barcode.toLowerCase().includes(q) ||
-        d.outputs.some((o) => o.toLowerCase().includes(q)),
-    );
-  }, [query]);
-
-  const rows = useMemo(() => sortDatasets(filtered, sortKey), [filtered, sortKey]);
-
-  const selectedDataset = selected ? (DATASETS.find((d) => d.barcode === selected) ?? null) : null;
-
-  function toggleSelect(barcode: string) {
-    setSelected((cur) => (cur === barcode ? null : barcode));
-  }
-
-  if (!DEMO_MODE) return <NoLiveRegistry />;
-
-  return (
-    <div className="flex flex-col gap-7">
-      <PageHeader
-        eyebrow="Data room"
-        title="Bioprocessing data registry"
-        desc="Example datasets and runs, shown because example data is on."
-      />
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Kpi hero label="Datasets" value={DATASET_COUNT} />
-        <Kpi label="Runs tracked" value={TOTAL_RUNS} />
-        <Kpi label="Outputs tracked" value={outputsTracked} />
-      </div>
-
-      <Card>
-        <SectionLabel>Runs per dataset</SectionLabel>
-        <div className="flex flex-col gap-2">
-          {DATASETS.map((d) => (
-            <div key={d.barcode} className="flex items-center gap-3">
-              <span className="w-[150px] shrink-0 truncate font-mono text-[11px] text-muted" title={d.name}>
-                {d.name}
-              </span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-soft">
-                <div className="h-full rounded-full bg-chart-1" style={{ width: `${(d.runs / maxRuns) * 100}%` }} />
-              </div>
-              <span className="tabular w-10 shrink-0 text-right font-mono text-[11px] text-fg">{d.runs}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <SectionLabel className="mr-auto mb-0">Registry</SectionLabel>
-          <DemoBadge />
-        </div>
-
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px] max-w-sm flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted" />
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search datasets, barcodes, outputs..."
-              aria-label="Search datasets"
-              className="h-9 rounded-[10px] pr-3 pl-8 text-[13px]"
-            />
-          </div>
-          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger aria-label="Sort datasets" className="h-9 rounded-[10px] text-[13px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
-                <SelectItem key={k} value={k}>
-                  {SORT_LABEL[k]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={() => {}}>
-            <Download />
-            Export training table
-          </Button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <Table className="tabular w-full border-collapse text-sm">
-            <TableHeader>
-              <TableRow className="border-none text-[10px] text-muted uppercase hover:bg-transparent">
-                <TableHead className="border-b border-border px-3 py-2 text-left">Barcode</TableHead>
-                <TableHead
-                  className="cursor-pointer border-b border-border px-3 py-2 text-left select-none hover:text-fg"
-                  onClick={() => setSortKey("name")}
-                >
-                  Dataset{sortKey === "name" ? " ▲" : ""}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer border-b border-border px-3 py-2 text-right select-none hover:text-fg"
-                  onClick={() => setSortKey(sortKey === "runs-desc" ? "runs-asc" : "runs-desc")}
-                >
-                  Runs{sortKey === "runs-desc" ? " ▼" : sortKey === "runs-asc" ? " ▲" : ""}
-                </TableHead>
-                <TableHead className="border-b border-border px-3 py-2 text-left">Outputs</TableHead>
-                <TableHead className="border-b border-border px-3 py-2 text-right">Features</TableHead>
-                <TableHead
-                  className="cursor-pointer border-b border-border px-3 py-2 text-left select-none hover:text-fg"
-                  onClick={() => setSortKey("added")}
-                >
-                  Added{sortKey === "added" ? " ▼" : ""}
-                </TableHead>
-                <TableHead className="border-b border-border px-3 py-2 text-left">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((d) => (
-                <TableRow
-                  key={d.barcode}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selected === d.barcode}
-                  onClick={() => toggleSelect(d.barcode)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      toggleSelect(d.barcode);
-                    }
-                  }}
-                  className={cn("cursor-pointer border-none", selected === d.barcode && "bg-blue-soft")}
-                >
-                  <TableCell className="border-b border-border/60 px-3 py-2 font-mono text-[12px] text-chart-1-ink">
-                    {d.barcode}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2 font-mono text-[12px]">{d.name}</TableCell>
-                  <TableCell className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]">
-                    {d.runs}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2 text-[12px] text-muted">
-                    {d.outputs.join(" / ")}
-                  </TableCell>
-                  <TableCell className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]">
-                    {d.features}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2 text-[12px] text-muted">
-                    {d.addedLabel}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2">
-                    <StatusPill status={d.status} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        {rows.length === 0 ? (
+      {loading ? (
+        <LoadingSkeleton rows={4} label="Loading your data" />
+      ) : nothing ? (
+        <>
+          <Verdict tone="neutral">{verdict}</Verdict>
           <EmptyState
-            className="border-none py-8"
-            title="No datasets match your search"
-            description={`No dataset, barcode, or output matched “${query}”.`}
+            icon={Upload}
+            title="No run sheet yet"
+            description="Upload a run sheet in Setup. Kalos reads it and builds the model, and this browser keeps a copy so its rows can be shown here."
+            action={
+              <Link href="/campaign/setup" className={buttonVariants({})}>
+                Upload a run sheet <ArrowRight />
+              </Link>
+            }
           />
-        ) : null}
-        <p className="mt-3 text-[12px] text-muted">
-          {TOTAL_RUNS} runs across {DATASET_COUNT} dataset{DATASET_COUNT === 1 ? "" : "s"}. New uploads appear here after analysis.
-        </p>
-      </Card>
-
-      {selectedDataset ? <DatasetDetail dataset={selectedDataset} onClose={() => setSelected(null)} /> : null}
-
-      <EngineCredit />
-    </div>
-  );
-}
-
-function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: () => void }) {
-  const runs = RUNS_BY_DATASET[dataset.barcode] ?? [];
-  const inputKeys = runs.length ? Object.keys(runs[0].inputs) : [];
-
-  const ranges = dataset.outputs.map((name) => {
-    const values = runs.map((r) => r.outputs[name]).filter((v): v is number => typeof v === "number");
-    const min = values.length ? Math.min(...values) : null;
-    const max = values.length ? Math.max(...values) : null;
-    return { name, min, max, unit: outputUnit(name) };
-  });
-
-  return (
-    <Card className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-head text-[15px] font-semibold text-fg">{dataset.name}</span>
-            <span className="font-mono text-[12px] text-chart-1-ink">{dataset.barcode}</span>
-          </div>
-          <p className="mt-1 text-[12px] leading-snug text-muted">
-            {dataset.rows} rows / {dataset.features} features / {dataset.sizeLabel} / added {dataset.addedLabel} / campaign{" "}
-            <span className="font-mono text-fg">{dataset.campaignHash}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => {}}>
-            <Download />
-            Export CSV
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dataset detail">
-            <X />
-            Close
-          </Button>
-        </div>
-      </div>
-
-      {runs.length === 0 ? (
-        <EmptyState className="border-none py-8" title="No sample runs on file for this dataset yet." />
+        </>
       ) : (
         <>
-          <div>
-            <SectionLabel>Output ranges (sample)</SectionLabel>
-            <div className="flex flex-wrap gap-2">
-              {ranges.map((r) => (
-                <Badge
-                  key={r.name}
-                  variant="outline"
-                  className="rounded-full border-border bg-blue-soft px-2.5 py-1 font-mono text-[11px] text-fg"
-                >
-                  {r.name} {r.min != null ? r.min : "-"}–{r.max != null ? r.max : "-"}
-                  {r.unit ? ` ${r.unit}` : ""}
-                </Badge>
-              ))}
-            </div>
-          </div>
+          <Verdict tone="neutral">{verdict}</Verdict>
 
-          <div>
-            <SectionLabel>Sample runs</SectionLabel>
-            <div className="overflow-x-auto">
-              <Table className="tabular w-full border-collapse text-sm">
-                <TableHeader>
-                  <TableRow className="border-none text-[10px] text-muted uppercase hover:bg-transparent">
-                    <TableHead className="border-b border-border px-3 py-2 text-left">Run</TableHead>
-                    {inputKeys.map((k) => (
-                      <TableHead key={k} className="border-b border-border px-3 py-2 text-right">
-                        {k}
-                      </TableHead>
-                    ))}
-                    {dataset.outputs.map((k) => (
-                      <TableHead key={k} className="border-b border-border px-3 py-2 text-right text-chart-1-ink">
-                        {k}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {runs.map((r) => (
-                    <TableRow key={r.barcode} className="border-none hover:bg-transparent">
-                      <TableCell className="border-b border-border/60 px-3 py-2 font-mono text-[12px] text-chart-1-ink">
-                        {r.barcode}
-                      </TableCell>
-                      {inputKeys.map((k) => (
-                        <TableCell
-                          key={k}
-                          className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]"
-                        >
-                          {r.inputs[k]}
-                        </TableCell>
-                      ))}
-                      {dataset.outputs.map((k) => (
-                        <TableCell
-                          key={k}
-                          className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px] font-semibold text-fg"
-                        >
-                          {r.outputs[k] ?? "-"}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+          {engine.status === "error" ? (
+            <ErrorState
+              title="Could not reach Kalos"
+              description="This is a connection problem, not a result. Which sheet the campaign uses and its rounds are not known until Kalos answers. The sheets held in this browser are listed below."
+              onRetry={engine.refresh}
+              busy={engine.refreshing}
+            />
+          ) : null}
+
+          <Section title="Sheets" description="Each sheet has its own page with the rows, the charts and how each column was read.">
+            {index.sheets.length === 0 && index.engineOnly.length === 0 ? (
+              <p className="text-body text-fg-muted">No sheet is held in this browser.</p>
+            ) : (
+              <ul className="divide-y divide-border border-y border-border">
+                {index.sheets.map((s) => (
+                  <SheetItem key={s.sha} sheet={s} engineKnown={engine.status === "ready"} />
+                ))}
+                {index.engineOnly.map((e) => (
+                  <EngineOnlyItem key={e.campaignId} row={e} />
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section title="Recorded rounds" description="The runs started from Plan and recorded in the campaign, round by round.">
+            {engine.status !== "ready" ? (
+              <p className="text-body text-fg-muted">Kalos could not be asked about its rounds.</p>
+            ) : index.rounds.length === 0 ? (
+              <p className="text-body text-fg-muted">No rounds recorded yet.</p>
+            ) : (
+              <ul className="divide-y divide-border border-y border-border">
+                {index.rounds.map((r) => (
+                  <RoundItem key={`${r.campaignId}-${r.round}`} row={r} />
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Disclosure summary="Where this is kept">
+            <p className="text-body text-fg-muted">
+              This sheet is kept in this browser only, so the rows can be shown without sending them anywhere again. Remove the copy from the browser and the rows stop showing here; Kalos keeps its own copy for the campaign. Each sheet&apos;s address is the fingerprint of the sheet&apos;s bytes (SHA-256), which is how a sheet here is matched to the one Kalos read.
+            </p>
+          </Disclosure>
         </>
       )}
-    </Card>
+    </div>
+  );
+}
+
+const DOT = " \u00b7 ";
+
+function SheetItem({ sheet: s, engineKnown }: { sheet: SheetRow; engineKnown: boolean }) {
+  const facts = [
+    s.rows == null ? null : `${formatNumber(s.rows, "count")} ${s.rows === 1 ? "run" : "runs"}`,
+    s.inputs == null ? null : `${formatNumber(s.inputs, "count")} ${s.inputs === 1 ? "input" : "inputs"}`,
+    s.target == null ? null : `target ${s.target}`,
+    `loaded ${formatDate(s.loadedAt)}`,
+  ].filter((x): x is string => x != null);
+  const rounds = roundsCaption(s.rounds);
+  return (
+    <li>
+      <Link href={`/data/sheet/${s.sha}`} className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 rounded-lg px-2 py-3 hover:bg-fill-hover">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="min-w-0 break-words text-heading text-fg">{s.name}</span>
+          <span className="text-caption tabular-nums text-fg-muted">{facts.join(DOT)}</span>
+          {rounds ? <span className="text-caption text-fg-muted">{rounds}</span> : null}
+        </span>
+        {engineKnown ? (
+          s.usedBy ? (
+            <Badge tone="accent">In use</Badge>
+          ) : (
+            <Badge tone="neutral">Not in use</Badge>
+          )
+        ) : null}
+      </Link>
+    </li>
+  );
+}
+
+function EngineOnlyItem({ row: e }: { row: EngineOnlyRow }) {
+  const facts = [
+    `${formatNumber(e.rows, "count")} ${e.rows === 1 ? "run" : "runs"}`,
+    `${formatNumber(e.inputs, "count")} ${e.inputs === 1 ? "input" : "inputs"}`,
+    `target ${e.target}`,
+    `read by Kalos ${formatDate(e.updatedAt)}`,
+  ];
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-2 py-3">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="min-w-0 break-words text-heading text-fg">{e.dataset}</span>
+        <span className="text-caption tabular-nums text-fg-muted">{facts.join(DOT)}</span>
+        <span className="text-caption text-fg-muted">Rows are not held in this browser; upload the file again in Setup to see them.</span>
+      </span>
+      <Badge tone="neutral">Kalos has it; this browser does not</Badge>
+    </li>
+  );
+}
+
+function RoundItem({ row: r }: { row: RoundRow }) {
+  const facts = [
+    `${formatNumber(r.measured, "count")} measured`,
+    `${formatNumber(r.awaiting, "count")} waiting for a result`,
+    `best ${formatNumber(r.best)}`,
+    `from ${r.fromSheet}`,
+  ];
+  return (
+    <li>
+      <Link href={`/data/round/${r.round}`} className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 rounded-lg px-2 py-3 hover:bg-fill-hover">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-heading text-fg">Round {r.round}</span>
+          <span className="text-caption tabular-nums text-fg-muted">{facts.join(DOT)}</span>
+        </span>
+        <Badge tone="neutral">{r.folded ? "Now part of the runs the model learns from" : r.awaiting > 0 ? "Waiting for a result" : "Measured"}</Badge>
+      </Link>
+    </li>
   );
 }

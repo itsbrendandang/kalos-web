@@ -42,7 +42,7 @@ export const PROXY_TOKEN_TTL_SECONDS = 60;
 export const DEFAULT_MAX_JSON_BYTES = 1024 * 1024;
 export const DEFAULT_ENGINE_TIMEOUT_MS = 120_000;
 export const DEFAULT_RATE_LIMITS = Object.freeze({ sessionPerMinute: 120, writesPerMinute: 30, tenantPerMinute: 600 });
-const MAX_QUERY_LENGTH = 2048;
+export const MAX_QUERY_LENGTH = 2048;
 /** The tenant the engine reserves for anonymous open mode; never minted. */
 const RESERVED_TENANT = "default";
 
@@ -60,7 +60,7 @@ export interface EngineProxyDeps {
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-function positiveInt(raw: string | undefined, fallback: number): number {
+export function positiveInt(raw: string | undefined, fallback: number): number {
   const n = raw?.trim() ? Number(raw) : NaN;
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
@@ -115,7 +115,7 @@ function mediaType(contentType: string | null): string | null {
 type BodyPlan = { forward: boolean; contentType: string | null } | { error: Response };
 
 /** Decide what (if anything) of the request body is forwarded, by route body kind and content type. */
-function planBody(route: EngineRoute, method: string, headers: Headers): BodyPlan {
+export function planBody(route: EngineRoute, method: string, headers: Headers): BodyPlan {
   if (!isStateChanging(method) || route.body === "none") return { forward: false, contentType: null };
   const ct = headers.get("content-type");
   const mt = mediaType(ct);
@@ -134,7 +134,7 @@ function planBody(route: EngineRoute, method: string, headers: Headers): BodyPla
 
 class BodyTooLarge extends Error {}
 
-function countedStream(body: ReadableStream<Uint8Array>, cap: number, onOver: () => void): ReadableStream<Uint8Array> {
+export function countedStream(body: ReadableStream<Uint8Array>, cap: number, onOver: () => void): ReadableStream<Uint8Array> {
   let seen = 0;
   return body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({

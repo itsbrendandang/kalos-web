@@ -119,11 +119,11 @@ describe("surfaceSummary", () => {
     const m = parseSurface(good)!;
     const peak = peakCell(m.z);
     const s = surfaceSummary(m, "titer (g/L)", fmt, { runs: 6, proposals: 2, outside: 1 });
-    expect(s).toContain("Predicted mean titer (g/L) across Temperature (C) from 30.00 to 50.00");
+    expect(s).toContain("Predicted titer (g/L) across Temperature (C) from 30.00 to 50.00");
     expect(s).toContain(`the highest is at Temperature (C) ${fmt(m.x.vals[peak.col])}, pH ${fmt(m.y.vals[peak.row])}`);
     expect(s).toContain("Feed rate (mL/h) 1.25, Strain K12");
-    expect(s).toContain("Predicted mean only: uncertainty is not shown.");
-    expect(s).toContain("6 measured runs and 2 proposed experiments are plotted");
-    expect(s).toContain("1 proposed experiment lies outside the plotted range and is not drawn");
+    expect(s).toContain("The model's best guess only: how sure it is is not shown.");
+    expect(s).toContain("6 measured runs and 2 proposed recipes are plotted");
+    expect(s).toContain("1 proposed recipe lies outside the plotted range and is not drawn");
   });
 });

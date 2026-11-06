@@ -12,20 +12,20 @@ import { cn } from "@/lib/utils";
  * `x`/`y` place a mark inside an SVG plot (the response surface). `halo` draws a
  * page-coloured outline under it, so the mark stays separate from any cell fill.
  */
-type MarkPosition = { x?: number; y?: number; halo?: boolean };
+type MarkPosition = { x?: number; y?: number; halo?: boolean; /** Edge length in SVG units (and CSS px in text). Nested SVGs need it as an attribute, or they take the whole plot. */ size?: number };
 
-export function PredictedMark({ className, x, y, halo = false }: { className?: string } & MarkPosition) {
+export function PredictedMark({ className, x, y, halo = false, size = 10 }: { className?: string } & MarkPosition) {
   return (
-    <svg viewBox="0 0 10 10" x={x} y={y} className={cn("inline-block size-2.5 shrink-0", className)} aria-hidden>
+    <svg viewBox="0 0 10 10" x={x} y={y} width={size} height={size} className={cn("inline-block shrink-0", className)} aria-hidden>
       {halo ? <circle cx="5" cy="5" r="3.6" fill="none" stroke="var(--bg)" strokeWidth="3.6" /> : null}
       <circle cx="5" cy="5" r="3.6" fill="none" stroke="var(--chart-predicted)" strokeWidth="1.8" />
     </svg>
   );
 }
 
-export function MeasuredMark({ className, x, y, halo = false }: { className?: string } & MarkPosition) {
+export function MeasuredMark({ className, x, y, halo = false, size = 10 }: { className?: string } & MarkPosition) {
   return (
-    <svg viewBox="0 0 10 10" x={x} y={y} className={cn("inline-block size-2.5 shrink-0", className)} aria-hidden>
+    <svg viewBox="0 0 10 10" x={x} y={y} width={size} height={size} className={cn("inline-block shrink-0", className)} aria-hidden>
       {halo ? <circle cx="5" cy="5" r="4.6" fill="var(--bg)" /> : null}
       <circle cx="5" cy="5" r="4" fill="var(--chart-measured)" />
     </svg>

@@ -13,7 +13,6 @@ export const ALLOWED_WITHOUT_MFA: ReadonlySet<string>;
 export const RECENT_MFA_PATHS: ReadonlySet<string>;
 export const DISABLED_PATHS: readonly string[];
 export const KALOS_RESOURCES: readonly string[];
-export const ROLE_NAMES: readonly string[];
 export const statements: Record<string, readonly string[]>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const ac: any;
@@ -22,7 +21,7 @@ export const roles: Record<string, any>;
 
 export interface BetterAuthSessionLike {
   session: { id: string; token?: string; userId: string; createdAt?: Date | string; expiresAt?: Date | string; mfaVerifiedAt?: Date | string | null; activeOrganizationId?: string | null };
-  user: { id: string; email?: string; twoFactorEnabled?: boolean | null };
+  user: { id: string; email?: string; name?: string | null; twoFactorEnabled?: boolean | null };
 }
 
 export function mfaSatisfied(sessionData: BetterAuthSessionLike | null | undefined): boolean;

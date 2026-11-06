@@ -1,0 +1,1 @@
+# Files that still carry technical words on the main surface (see __tests__/plain-words.test.ts). Remove a file once it is clean; this list only shrinks.

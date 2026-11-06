@@ -37,7 +37,7 @@ describe("createSessionResolver", () => {
   it("fresh session without MFA -> mfa_required (enrolled flag passed through)", async () => {
     const s = { session: { id: "s1", userId: "u1", createdAt: new Date(NOW - 60e3), mfaVerifiedAt: null }, user: { id: "u1", email: "u@example.com", twoFactorEnabled: false } };
     const st = await createSessionResolver(backend(s), () => NOW)(H);
-    expect(st).toEqual({ status: "mfa_required", userId: "u1", sessionId: "s1", email: "u@example.com", enrolled: false });
+    expect(st).toEqual({ status: "mfa_required", userId: "u1", sessionId: "s1", name: null, email: "u@example.com", enrolled: false });
   });
 
   it("a half session older than the short TTL is treated as anonymous", async () => {
@@ -90,15 +90,15 @@ describe("decisions", () => {
   const ctx = sessionContextFrom(verified() as never, { organizationId: "a", role: "admin" });
   it("API: 401 / 403 JSON, never a redirect", () => {
     expect(apiDecision({ status: "anonymous" })).toEqual({ ok: false, status: 401, error: "unauthenticated" });
-    expect(apiDecision({ status: "mfa_required", userId: "u", sessionId: "s", email: null, enrolled: true })).toMatchObject({ status: 403, error: "mfa_required" });
-    expect(apiDecision({ status: "no_org", context: { ...ctx, orgId: null }, email: null, membershipCount: 0 })).toMatchObject({ status: 403, error: "no_organization" });
-    expect(apiDecision({ status: "ok", context: { ...ctx, orgId: "a" }, email: null })).toMatchObject({ ok: true });
+    expect(apiDecision({ status: "mfa_required", userId: "u", sessionId: "s", name: null, email: null, enrolled: true })).toMatchObject({ status: 403, error: "mfa_required" });
+    expect(apiDecision({ status: "no_org", context: { ...ctx, orgId: null }, name: null, email: null, membershipCount: 0 })).toMatchObject({ status: 403, error: "no_organization" });
+    expect(apiDecision({ status: "ok", context: { ...ctx, orgId: "a" }, name: null, email: null })).toMatchObject({ ok: true });
   });
   it("pages: sign-in, then MFA, then org picker", () => {
     expect(pageRedirect({ status: "anonymous" }, { needOrg: true, next: "/x" })).toBe("/sign-in?next=%2Fx");
-    expect(pageRedirect({ status: "mfa_required", userId: "u", sessionId: "s", email: null, enrolled: false }, { needOrg: false })).toBe("/settings/security");
-    expect(pageRedirect({ status: "no_org", context: ctx, email: null, membershipCount: 2 }, { needOrg: true })).toBe("/select-org");
-    expect(pageRedirect({ status: "no_org", context: ctx, email: null, membershipCount: 2 }, { needOrg: false })).toBeNull();
+    expect(pageRedirect({ status: "mfa_required", userId: "u", sessionId: "s", name: null, email: null, enrolled: false }, { needOrg: false })).toBe("/settings/security");
+    expect(pageRedirect({ status: "no_org", context: ctx, name: null, email: null, membershipCount: 2 }, { needOrg: true })).toBe("/select-org");
+    expect(pageRedirect({ status: "no_org", context: ctx, name: null, email: null, membershipCount: 2 }, { needOrg: false })).toBeNull();
   });
 });
 

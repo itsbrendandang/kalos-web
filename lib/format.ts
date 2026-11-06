@@ -44,12 +44,11 @@ export function formatRange(lo: number | null | undefined, hi: number | null | u
 }
 
 /**
- * The one uncertainty number per recipe (rule 2): the prediction band's
- * half-width with its coverage, "± 0.31 (90% band)". `coverage` is the
- * engine's `conformal_coverage` fraction; when it is missing the percentage
- * is left out, never guessed.
+ * The one uncertainty number per recipe (rule 2): the likely range's
+ * half-width, "likely range ± 0.31". The engine's coverage is not printed here:
+ * it is a statistic, so the pages say "9 of 10 past runs landed this close"
+ * or keep it in a disclosure.
  */
-export function formatBand(halfWidth: number | null | undefined, coverage?: number | null): string {
-  const pct = coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} band` : "prediction band";
-  return `± ${formatNumber(halfWidth)} (${pct})`;
+export function formatBand(halfWidth: number | null | undefined): string {
+  return `likely range ± ${formatNumber(halfWidth)}`;
 }

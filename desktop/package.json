@@ -1,0 +1,14 @@
+{
+  "name": "kalos-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "web": "./prepare-web.sh",
+    "build": "./prepare-web.sh && tauri build --bundles app",
+    "check-engine-auth": "./check-engine-auth.sh"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

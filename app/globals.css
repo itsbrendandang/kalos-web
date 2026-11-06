@@ -17,21 +17,24 @@
 :root {
   color-scheme: light;
 
-  /* Neutrals: warm paper, ink text. */
-  --bg: oklch(0.985 0.003 90);
+  /* Neutrals: flat white surfaces, warm grey hairlines, warm near-black ink. */
+  --bg: oklch(1 0 0);
   --surface: oklch(1 0 0);
-  --subtle: oklch(0.965 0.004 90);
-  --border: oklch(0.91 0.005 90);
-  --border-strong: oklch(0.84 0.006 90);
+  --subtle: oklch(0.972 0.003 95);
+  --border: oklch(0.93 0.004 90);
+  --border-strong: oklch(0.87 0.005 90);
   /* Control boundaries (input, select, checkbox): 3:1 on --surface (WCAG 1.4.11). */
   --border-input: oklch(0.6 0.008 90);
-  --fg: oklch(0.22 0.01 270);
-  --fg-muted: oklch(0.46 0.01 270);
+  --fg: oklch(0.33 0.012 85);
+  --fg-muted: oklch(0.5 0.008 90);
+  /* Translucent ink for hover and selected rows on the grey sidebar. */
+  --fill-hover: oklch(0.33 0.012 85 / 0.05);
+  --fill-active: oklch(0.33 0.012 85 / 0.08);
 
   /* Accent: the primary action, links, focus, the model's proposal. */
-  --accent: oklch(0.48 0.16 285);
-  --accent-hover: oklch(0.43 0.16 285);
-  --accent-soft: oklch(0.95 0.024 285);
+  --accent: oklch(0.52 0.15 252);
+  --accent-hover: oklch(0.47 0.13 252);
+  --accent-soft: oklch(0.96 0.015 245);
   --accent-fg: oklch(1 0 0);
   --ring: var(--accent);
 
@@ -54,12 +57,12 @@
   --chart-4: oklch(0.6 0.17 42);
   --chart-5: oklch(0.6 0.11 235);
   --chart-6: oklch(0.58 0.14 345);
-  --chart-seq-1: oklch(0.93 0.03 285);
-  --chart-seq-2: oklch(0.82 0.07 285);
-  --chart-seq-3: oklch(0.68 0.12 285);
-  --chart-seq-4: oklch(0.53 0.15 285);
-  --chart-seq-5: oklch(0.38 0.14 285);
-  --chart-band: oklch(0.48 0.16 285 / 0.14);
+  --chart-seq-1: oklch(0.93 0.03 250);
+  --chart-seq-2: oklch(0.82 0.07 250);
+  --chart-seq-3: oklch(0.68 0.1 250);
+  --chart-seq-4: oklch(0.53 0.12 250);
+  --chart-seq-5: oklch(0.38 0.09 250);
+  --chart-band: oklch(0.52 0.15 252 / 0.14);
   --chart-reference: var(--fg-muted);
   --chart-predicted: var(--accent);
   --chart-measured: var(--fg);
@@ -69,20 +72,22 @@
 .dark {
   color-scheme: dark;
 
-  --bg: oklch(0.17 0.006 270);
-  --surface: oklch(0.2 0.006 270);
-  --subtle: oklch(0.235 0.007 270);
-  --border: oklch(0.3 0.008 270);
-  --border-strong: oklch(0.38 0.01 270);
+  --bg: oklch(0.205 0.002 90);
+  --surface: oklch(0.235 0.003 90);
+  --subtle: oklch(0.26 0.003 90);
+  --border: oklch(0.32 0.004 90);
+  --border-strong: oklch(0.4 0.005 90);
   --border-input: oklch(0.56 0.01 270);
-  --fg: oklch(0.95 0.005 90);
-  --fg-muted: oklch(0.72 0.01 270);
+  --fg: oklch(0.92 0.004 90);
+  --fg-muted: oklch(0.72 0.006 90);
+  --fill-hover: oklch(0.92 0.004 90 / 0.06);
+  --fill-active: oklch(0.92 0.004 90 / 0.1);
 
   /* A light accent fill on a dark page, so the label on it is dark ink. */
-  --accent: oklch(0.72 0.13 285);
-  --accent-hover: oklch(0.78 0.11 285);
-  --accent-soft: oklch(0.29 0.06 285);
-  --accent-fg: oklch(0.17 0.02 285);
+  --accent: oklch(0.72 0.11 245);
+  --accent-hover: oklch(0.78 0.09 245);
+  --accent-soft: oklch(0.3 0.05 245);
+  --accent-fg: oklch(0.17 0.02 245);
 
   --good: oklch(0.76 0.13 150);
   --good-soft: oklch(0.28 0.05 150);
@@ -97,52 +102,18 @@
   --chart-4: oklch(0.7 0.15 42);
   --chart-5: oklch(0.8 0.1 235);
   --chart-6: oklch(0.75 0.12 345);
-  --chart-seq-1: oklch(0.3 0.05 285);
-  --chart-seq-2: oklch(0.42 0.09 285);
-  --chart-seq-3: oklch(0.56 0.12 285);
-  --chart-seq-4: oklch(0.7 0.12 285);
-  --chart-seq-5: oklch(0.86 0.07 285);
-  --chart-band: oklch(0.72 0.13 285 / 0.2);
+  --chart-seq-1: oklch(0.3 0.05 250);
+  --chart-seq-2: oklch(0.42 0.09 250);
+  --chart-seq-3: oklch(0.56 0.12 250);
+  --chart-seq-4: oklch(0.7 0.12 250);
+  --chart-seq-5: oklch(0.86 0.07 250);
+  --chart-band: oklch(0.72 0.11 245 / 0.2);
 }
 
-/*
- * COMPATIBILITY ALIASES - temporary. The old token names below are read by
- * pages that have not been rebuilt yet (app/data, the library tools, the
- * campaign stage pages, components/dashboard, components/projects and
- * app/projects/projects.css). Each maps onto a new token so those pages render
- * in the new palette. Page engineers delete an alias once nothing reads it;
- * DESIGN.md lists them. Do not use them in new code.
- */
 :root {
-  --card: var(--surface);
-  --muted: var(--fg-muted);
-  --accent-text: var(--accent);
-  --blue: var(--accent);
-  --blue-hover: var(--accent-hover);
-  --blue-deep: var(--accent);
-  --blue-soft: var(--subtle);
-  --blue-tint: var(--accent-soft);
-  --blue-border: var(--border-strong);
-  --blue-hover-bg: var(--subtle);
-  --explore: var(--border-strong);
-  --explore-deep: var(--fg-muted);
-  --explore-soft: var(--subtle);
-  --green: var(--good);
-  --green-soft: var(--good-soft);
-  --amber: var(--warn);
-  --amber-soft: var(--warn-soft);
-  --red: var(--bad);
-  --grid: var(--chart-grid);
-  --series-1: var(--chart-1);
-  --series-2: var(--chart-2);
-  --series-3: var(--chart-3);
-  --series-4: var(--chart-4);
-  --series-5: var(--chart-5);
-  --series-6: var(--chart-6);
-  --chart-1-ink: var(--accent);
+  /* shadcn semantic names read by registry blocks (components.json). */
   --primary-foreground: var(--accent-fg);
   --secondary: var(--subtle);
-  --font-jbmono: var(--font-geist-mono);
 }
 
 @theme inline {
@@ -154,6 +125,8 @@
   --color-border-input: var(--border-input);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
+  --color-fill-hover: var(--fill-hover);
+  --color-fill-active: var(--fill-active);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
@@ -182,35 +155,10 @@
   --color-chart-measured: var(--chart-measured);
   --color-chart-grid: var(--chart-grid);
 
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* COMPATIBILITY utilities for not-yet-rebuilt pages (see the alias block). */
-  --color-card: var(--surface);
-  --color-muted: var(--fg-muted);
-  --color-accent-text: var(--accent);
-  --color-blue: var(--accent);
-  --color-blue-hover: var(--accent-hover);
-  --color-blue-deep: var(--accent);
-  --color-blue-soft: var(--subtle);
-  --color-blue-tint: var(--accent-soft);
-  --color-blue-border: var(--border-strong);
-  --color-explore: var(--border-strong);
-  --color-explore-deep: var(--fg-muted);
-  --color-explore-soft: var(--subtle);
-  --color-green: var(--good);
-  --color-green-soft: var(--good-soft);
-  --color-amber: var(--warn);
-  --color-amber-soft: var(--warn-soft);
-  --color-red: var(--bad);
-  --color-grid: var(--chart-grid);
-  --color-chart-1-ink: var(--accent);
-  --color-series-1: var(--chart-1);
-  --color-series-2: var(--chart-2);
-  --color-series-3: var(--chart-3);
-  --color-series-4: var(--chart-4);
-  --color-series-5: var(--chart-5);
-  --color-series-6: var(--chart-6);
+  /* shadcn semantic names, so registry blocks keep resolving (components.json). */
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --color-card-foreground: var(--fg);
@@ -224,26 +172,25 @@
   --color-accent-foreground: var(--accent-fg);
   --color-destructive: var(--bad);
   --color-input: var(--border-strong);
-  --font-head: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Type scale: role tokens, one per job. `text-metric` numbers also take
- * `tabular-nums` (Metric and KpiCard apply it). Geist Mono via `font-mono
- * text-code` is for code-like values only (ids, column keys), never numbers. */
+ * `tabular-nums` (Metric and KpiCard apply it). The system monospace via
+ * `font-mono text-code` is for code-like values only (ids, column keys), never numbers. */
 @theme {
-  --text-display: 2rem;
-  --text-display--line-height: 2.375rem;
-  --text-display--font-weight: 600;
-  --text-display--letter-spacing: -0.015em;
-  --text-title: 1.375rem;
-  --text-title--line-height: 1.75rem;
+  --text-display: 2.5rem;
+  --text-display--line-height: 3rem;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+  --text-title: 1.5rem;
+  --text-title--line-height: 2rem;
   --text-title--font-weight: 600;
   --text-title--letter-spacing: -0.01em;
   --text-heading: 1rem;
   --text-heading--line-height: 1.5rem;
   --text-heading--font-weight: 600;
-  --text-body: 0.875rem;
-  --text-body--line-height: 1.375rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
   --text-body--font-weight: 400;
   --text-label: 0.8125rem;
   --text-label--line-height: 1.125rem;
@@ -258,8 +205,9 @@
   --text-code: 0.8125rem;
   --text-code--line-height: 1.125rem;
 
-  /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
-   * are Tailwind's defaults, so the scale is not overridden. */
+  /* Radius (Notion style, small): rounded-lg 5px for controls, rounded-xl 6px
+   * for callouts and inline panels, rounded-2xl 8px for cards. Do not use
+   * rounded-3xl or larger. */
 
   /* Elevation: none, except overlays (popovers, menus, dialogs, the palette),
    * which use shadow-popover. The scale is zeroed rather than banned with
@@ -271,6 +219,11 @@
   --shadow-lg: none;
   --shadow-xl: none;
   --shadow-2xl: none;
+  /* Cards: a hairline plus a 1px lift, used by the `glass` class. */
+  --shadow-card: 0 1px 2px oklch(0.33 0.012 85 / 0.06);
+  --radius-lg: 0.3125rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
   --shadow-popover: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12);
   --inset-shadow-2xs: none;
   --inset-shadow-xs: none;
@@ -286,19 +239,14 @@
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.875rem;
-  line-height: 1.375rem;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
 }
 
 ::selection {
   background: var(--accent-soft);
   color: var(--fg);
-}
-
-/* COMPATIBILITY: old pages use `.tabular`; new code uses `tabular-nums`. */
-.tabular {
-  font-variant-numeric: tabular-nums;
 }
 
 /* One focus ring everywhere, visible in both themes (accent clears 3:1 on
@@ -316,4 +264,40 @@ body {
 }
 .surface-cell:focus-visible {
   stroke: var(--ring);
+}
+
+
+/* Surfaces. `glass` is the one card treatment: a flat surface with a hairline
+ * and the card shadow (the name is historical; nothing is translucent).
+ * Overlays keep their own shadow-popover. `canvas` is the page background. */
+@layer components {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+  }
+  .canvas {
+    background-color: var(--bg);
+  }
+}
+
+/* Print (Copy and Print on Plan and Run): the page alone, no sidebar, top bar, buttons or sticky bars, and
+ * tables unclipped so every recipe is on paper. */
+@media print {
+  aside,
+  header.md\:hidden,
+  .print\:hidden,
+  button,
+  [role="dialog"] {
+    display: none !important;
+  }
+  main,
+  .canvas {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  [data-scroll-x] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
 }

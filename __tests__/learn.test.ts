@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CampaignRun, Promotion } from "@/lib/api";
-import { bandCalibration, calibrationSentence, canPlanNext, promotionLine } from "@/components/campaign/learn";
+import { bandCalibration, calibrationSentence, canPlanNext, promotionLine, verdictImpact } from "@/components/campaign/learn";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 const run = (pred: number, result: number | null): CampaignRun => ({
@@ -27,10 +27,10 @@ describe("bandCalibration", () => {
 
 describe("calibrationSentence", () => {
   it("states k of n with the engine's coverage", () => {
-    expect(calibrationSentence({ inside: 3, total: 5 }, 0.9)).toBe("3 of 5 measured runs landed inside their predicted band (90%).");
+    expect(calibrationSentence({ inside: 3, total: 5 }, 0.9)).toBe("3 of 5 measured results landed inside their likely range. The range is meant to hold 90% of results.");
   });
   it("omits the coverage rather than guessing it", () => {
-    expect(calibrationSentence({ inside: 3, total: 5 })).toBe("3 of 5 measured runs landed inside their predicted band.");
+    expect(calibrationSentence({ inside: 3, total: 5 })).toBe("3 of 5 measured results landed inside their likely range.");
   });
 });
 
@@ -53,11 +53,27 @@ describe("promotionLine", () => {
     expect(promotionLine(promo(true, []))).toBeNull();
   });
   it("says the first failing check in plain words with one fix, never the raw gate text", () => {
-    const line = promotionLine(promo(false, ["feasibility_auc=0.625 < min 0.65", "ece=0.2 > max 0.15"]));
-    expect(line).toBe("Not cleared to promote: it cannot yet tell feasible recipes from infeasible ones (1 more check also fell short). Add runs that include some that failed or produced nothing.");
-    expect(line).not.toMatch(/auc|ece|0\.65/);
+    const line = promotionLine(promo(false, ["feasibility_auc=0.625 < min 0.65", "ece=0.2 > max 0.15"]))!;
+    expect(line.sentence).toBe("The model has not passed every check yet: it cannot yet tell which recipes will fail outright (1 more check also fell short).");
+    expect(line.fix).toBe("If some runs produce nothing, record them too: the model needs failed runs to learn what fails.");
+    expect(line.why).toBe("feasibility_auc");
+    expect(`${line.sentence} ${line.fix}`).not.toMatch(/auc|ece|0\.65|feasib/);
   });
-  it("explains an unmeasurable gate as unmeasured", () => {
-    expect(promotionLine(promo(false, ["feasibility_auc missing/NaN (unmeasured)"]))).toContain("could not be measured on this data");
+  it("explains an unmeasurable gate as a check that could not be run", () => {
+    const line = promotionLine(promo(false, ["feasibility_auc missing/NaN (unmeasured)"]))!;
+    expect(line.sentence).toContain("could not be run on this sheet");
+    expect(line.why).toBe("unmeasured");
+  });
+  it("has no why code for a gate this app has no words for", () => {
+    expect(promotionLine(promo(false, ["something_new=1 < 2"]))!.why).toBeNull();
+  });
+});
+
+describe("verdictImpact", () => {
+  it("says what the next round does for each verdict", () => {
+    expect(verdictImpact("reliable", true, 3)).toBe("Plan round 3 uses it to suggest the next round of recipes.");
+    expect(verdictImpact("reliable", false, 3)).toContain("has not passed every check yet");
+    expect(verdictImpact("not-yet", true, 2)).toContain("ideas to try");
+    expect(verdictImpact("insufficient", true, 2)).toContain("Too few past runs could be tested");
   });
 });

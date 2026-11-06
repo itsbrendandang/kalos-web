@@ -1,51 +1,93 @@
 /*
- * Every page in the app, in one place: the activity rail, the explorers, the
- * editor tabs and breadcrumb, the command palette and the Library index all
- * read from here, so a route is renamed or added once. Labels are what people see.
+ * Every page in the app, in one place: the sidebar, the breadcrumb, the
+ * command palette and the Library index all read from here, so a route is
+ * renamed or added once. Labels are what people see.
  */
 
 export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
 
 export type RouteItem = { href: string; label: string; description: string };
 
-/** The activity rail's sections, in order; Settings is pinned at the rail's foot. */
+/**
+ * The sidebar's sections, in order. Overview is the one front door to the
+ * campaign (Experiments is a sub-view of it, not a second entry); the five
+ * stages sit under it; Tools and Workspace are the two groups below; Settings
+ * is pinned at the foot. The sidebar and the command palette read RAIL_GROUPS,
+ * so the two cannot drift.
+ */
 export const NAV_ITEMS = [
-  { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
-  { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
-  { key: "library", href: "/library", label: "Library", description: "Standalone tools: vessels, plates, scale-up, simulator." },
+  { key: "campaign", href: "/", label: "Overview", description: "The live campaign: where the round is and what to do next." },
+  { key: "agent", href: "/agent", label: "Ask Kalos", description: "What to do next, and answers about your own sheets, rounds and results." },
+  { key: "review", href: "/review", label: "Review", description: "See where a run went differently and ask what happened." },
+  { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
+  { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },
+  { key: "data", href: "/data", label: "Data", description: "Every run sheet loaded here, and the rounds recorded in the campaign." },
+  { key: "library", href: "/library", label: "Library", description: "Tools that use Kalos outside the campaign: scale-up readout, benchmark." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
-  { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
+  { key: "documents", href: "/documents", label: "Documents", description: "Procedure drafts written from your records, with every version kept." },
+  { key: "settings", href: "/settings", label: "Settings", description: "Appearance, the connection to Kalos and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
 
 export type NavKey = (typeof NAV_ITEMS)[number]["key"];
 
+export type RailGroup = { label: string | null; keys: readonly NavKey[] };
+
+/**
+ * The sidebar's groups, always visible, in order. The unlabelled first group
+ * is Overview (the sidebar lists the five stages under it); Settings is not a
+ * group member, it is pinned at the foot.
+ */
+export const RAIL_GROUPS: readonly RailGroup[] = [
+  { label: null, keys: ["campaign"] },
+  { label: "Tools", keys: ["agent", "review", "process", "graph"] },
+  { label: "Workspace", keys: ["data", "library", "projects", "documents"] },
+];
+
+/**
+ * The sidebar in Simple view: Overview (the conversation), Ask Kalos (the
+ * same conversation as a panel), Data and Documents; Settings stays at the
+ * foot. The stage pages are reached from the "See the full page" links.
+ */
+export const SIMPLE_RAIL_GROUPS: readonly RailGroup[] = [{ label: null, keys: ["campaign", "agent", "data", "documents"] }];
+
+/** Looks up a rail section by key; every key in RAIL_GROUPS exists in NAV_ITEMS. */
+export function navItem(key: NavKey): (typeof NAV_ITEMS)[number] {
+  return NAV_ITEMS.find((n) => n.key === key)!;
+}
+
 export const OVERVIEW_ROUTE: RouteItem = { href: "/", label: "Overview", description: "Where the campaign is and what to do next." };
+
+/** A sub-view of Overview (not a rail entry): the five stages in one list. */
+export const EXPERIMENTS_ROUTE: RouteItem = { href: "/experiments", label: "The five stages", description: "The whole loop in one place: set up, plan, run, record, learn." };
 
 /** The campaign stages, in order: Setup once, then Plan, Run, Record, Learn each round. */
 export const CAMPAIGN_STAGES = [
   { key: "setup", href: "/campaign/setup", label: "Setup", description: "Upload a run sheet, check data quality and choose the target." },
-  { key: "plan", href: "/campaign/plan", label: "Plan", description: "Review and start the proposed batch." },
-  { key: "run", href: "/campaign/run", label: "Run", description: "Runs in flight and their recipes." },
+  { key: "plan", href: "/campaign/plan", label: "Plan", description: "Review the proposed recipes and start the runs." },
+  { key: "run", href: "/campaign/run", label: "Run", description: "Runs in the lab and their recipes." },
   { key: "record", href: "/campaign/record", label: "Record", description: "Enter measured results." },
   { key: "learn", href: "/campaign/learn", label: "Learn", description: "What the round taught the model, then plan the next one." },
 ] as const satisfies readonly (RouteItem & { key: StageKey })[];
 
+/** The Library's tools. Both call Kalos; neither touches the campaign. (Plate analysis and Vessels, which ran on seeded fixtures only, were removed.) */
 export const LIBRARY_ITEMS: readonly RouteItem[] = [
-  { href: "/library/vessels", label: "Vessels", description: "Bioreactor kinetics across vessels." },
-  { href: "/library/plate", label: "Plate analysis", description: "96-well plate QC and growth curves." },
-  { href: "/library/scale-up", label: "Scale-up readout", description: "Predict a recipe at a larger scale from your data." },
-  { href: "/library/simulator", label: "Simulator", description: "A synthetic optimization benchmark to try the method." },
-  { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
+  { href: "/library/scale-up", label: "Scale-up readout", description: "Ask what a recipe would do at a larger scale, from your run sheet." },
+  { href: "/library/simulator", label: "Benchmark", description: "Watch Kalos search a made-up problem with one known best recipe." },
 ];
 
-const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
+const PAGES: readonly RouteItem[] = [EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
 
 /** Which rail section a pathname belongs to. */
 export function navKeyFor(pathname: string): NavKey {
-  if (pathname === "/" || pathname.startsWith("/campaign")) return "campaign";
+  if (pathname === "/" || pathname.startsWith("/campaign") || pathname.startsWith("/experiments")) return "campaign";
+  if (pathname.startsWith("/agent")) return "agent";
+  if (pathname.startsWith("/review")) return "review";
+  if (pathname.startsWith("/process")) return "process";
+  if (pathname.startsWith("/graph")) return "graph";
   if (pathname.startsWith("/data")) return "data";
   if (pathname.startsWith("/library")) return "library";
   if (pathname.startsWith("/projects")) return "projects";
+  if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/settings")) return "settings";
   return "campaign";
 }

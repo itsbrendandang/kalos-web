@@ -50,8 +50,8 @@ export function UploadZone({ onFile, disabled = false, compact = false }: { onFi
           if (f && !disabled) onFile(f);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-6 text-center transition-colors",
-          compact ? "py-6" : "py-16",
+          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 text-center transition-colors",
+          compact ? "py-4" : "py-10",
           drag ? "border-accent bg-accent-soft" : "border-border-strong bg-surface hover:bg-subtle",
           disabled && "pointer-events-none bg-subtle",
         )}

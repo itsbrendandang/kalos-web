@@ -1,32 +1,51 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Pencil, Plus } from "lucide-react";
-import type { Customer } from "./data";
-import { ProjectCard, AddProjectCard } from "@/components/projects/project-card";
+import Link from "next/link";
+import { ChevronRight, Pencil } from "lucide-react";
+import { SEED_PROJECT_IDS, stageLabel, type Customer, type Project } from "./data";
+import { PageHeader } from "@/components/kit/page-header";
+import { Section } from "@/components/kit/section";
+import { Badge, ExampleBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/honest-state";
 import { ProjectsModal, type ModalState } from "@/components/projects/modals";
 import { useProjectsStore } from "@/components/projects/store-context";
 
+/**
+ * Projects: every customer's projects in one list, with the stage of each in
+ * words. The seed projects are illustrative and badged as example data; what
+ * the viewer adds lives in this browser session only.
+ */
 export default function ProjectsPage() {
   const [modal, setModal] = useState<ModalState>(null);
   const { customers } = useProjectsStore();
+  const seeded = customers.some((c) => c.projects.some((p) => SEED_PROJECT_IDS.has(p.id)));
 
   return (
-    <div>
-      <div className="mb-[18px] flex items-center justify-between">
-        <div>
-          <div className="v-eyebrow mb-0.5">All customers</div>
-          <h1 className="v-title">Projects</h1>
-        </div>
-        <button type="button" className="v-btn v-btn-primary" onClick={() => setModal({ kind: "add-customer" })}>
-          <Plus className="size-3" />
-          Add customer
-        </button>
-      </div>
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        title="Projects"
+        description="Client projects and where each one stands. Changes you make here last until the app is closed; nothing is sent anywhere."
+        meta={seeded ? <ExampleBadge /> : null}
+        action={
+          <Button disabled={customers.length === 0} onClick={() => setModal({ kind: "add-project" })}>
+            Add a project
+          </Button>
+        }
+      />
 
-      {customers.map((c) => (
-        <CustomerSection key={c.id} customer={c} onModal={setModal} />
-      ))}
+      {customers.length === 0 ? (
+        <EmptyState title="No customers yet" description="Add a customer, then add projects under it." />
+      ) : (
+        customers.map((c) => <CustomerSection key={c.id} customer={c} onModal={setModal} />)
+      )}
+
+      <div>
+        <Button variant="outline" onClick={() => setModal({ kind: "add-customer" })}>
+          Add a customer
+        </Button>
+      </div>
 
       <ProjectsModal state={modal} onClose={() => setModal(null)} />
     </div>
@@ -36,26 +55,45 @@ export default function ProjectsPage() {
 function CustomerSection({ customer, onModal }: { customer: Customer; onModal: (m: ModalState) => void }) {
   const n = customer.projects.length;
   return (
-    <section className="mb-5">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Building2 className="size-3.5 text-[color:var(--v-faint)]" />
-          <span className="text-[13px] font-medium text-[color:var(--v-ink)]">{customer.name}</span>
-          <span className="v-tag">
-            {n} project{n === 1 ? "" : "s"}
-          </span>
-        </div>
-        <button type="button" className="v-btn v-btn-ghost" onClick={() => onModal({ kind: "edit-customer", customer })}>
-          <Pencil className="size-[11px]" />
-          Edit
-        </button>
-      </div>
-      <div className="grid grid-cols-1 gap-[9px] sm:grid-cols-2 lg:grid-cols-3">
-        {customer.projects.map((p) => (
-          <ProjectCard key={p.id} project={p} onEdit={(project) => onModal({ kind: "edit-project", project })} />
-        ))}
-        <AddProjectCard onClick={() => onModal({ kind: "add-project", customerName: customer.name })} />
-      </div>
-    </section>
+    <Section
+      id={`customer-${customer.id}`}
+      title={customer.name}
+      description={n === 0 ? "No projects yet" : `${n} ${n === 1 ? "project" : "projects"}`}
+      actions={
+        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${customer.name}`} onClick={() => onModal({ kind: "edit-customer", customer })}>
+          <Pencil aria-hidden />
+        </Button>
+      }
+    >
+      {n === 0 ? (
+        <p className="text-body text-fg-muted">No projects under this customer yet.</p>
+      ) : (
+        <ul className="divide-y divide-border border-y border-border">
+          {customer.projects.map((p) => (
+            <ProjectRow key={p.id} project={p} />
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+function ProjectRow({ project }: { project: Project }) {
+  return (
+    <li>
+      <Link
+        href={`/projects/${project.id}`}
+        className="-mx-2 flex items-center gap-4 rounded-lg px-2 py-3 hover:bg-fill-hover"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-heading text-fg">{project.name}</span>
+          <span className="block text-body text-fg-muted">{project.objective}</span>
+        </span>
+        <Badge tone={project.stage.kind === "completed" ? "good" : project.stage.kind === "drafting" ? "neutral" : "accent"} className="shrink-0">
+          {stageLabel(project.stage)}
+        </Badge>
+        <ChevronRight className="size-4 shrink-0 text-fg-muted" aria-hidden />
+      </Link>
+    </li>
   );
 }

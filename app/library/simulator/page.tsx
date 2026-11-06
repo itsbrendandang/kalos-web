@@ -1,328 +1,263 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Info, RefreshCw } from "lucide-react";
-import { runSingle, runMulti, type MultiRun, type SingleRun } from "@/lib/api";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
-import { PageHeader } from "@/components/page-header";
-import { Proposals } from "@/components/proposals";
-import { formatNumber } from "@/lib/format";
+import { useState } from "react";
+import { FlaskConical } from "lucide-react";
+import { runMulti, runSingle, type MultiProposal, type MultiRun, type Proposal, type SingleRun } from "@/lib/api";
+import { PageHeader } from "@/components/kit/page-header";
+import { Verdict } from "@/components/kit/verdict";
+import { Section } from "@/components/kit/section";
+import { Disclosure } from "@/components/kit/disclosure";
+import { ChartFrame } from "@/components/kit/chart-frame";
 import { lazyChart } from "@/components/kit/lazy-chart";
+import { Metric } from "@/components/kit/metric";
+import { Button } from "@/components/ui/button";
+import { ModeBadge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { formatNumber } from "@/lib/format";
+import { dimensionNames, multiVerdict, singleVerdict } from "./benchmark";
+
+const ConvergenceChart = lazyChart(() => import("./charts").then((m) => m.ConvergenceChart));
+const ParetoChart = lazyChart(() => import("./charts").then((m) => m.ParetoChart));
 
 type Mode = "single" | "multi";
-
-/** Distance from the recipe the run actually found to the benchmark's known
- *  optimum recipe (both are points in the same unit cube) - 0 means the
- *  search landed exactly on the true optimum. */
-const ConvergenceChart = lazyChart(() => import("@/components/charts").then((m) => m.ConvergenceChart));
-const ParetoChart = lazyChart(() => import("@/components/charts").then((m) => m.ParetoChart));
-
-function recipeDistance(a: number[], b: number[]): number {
-  return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
-}
+type Outcome<T> = { status: "idle" } | { status: "running" } | { status: "error" } | { status: "done"; data: T };
 
 /**
- * In-silico optimizer: runs the engine's Bayesian optimization loop against a
- * synthetic benchmark surface (kalos/portal/app.py's `_titer`/`_purity` - a
- * deterministic gaussian bump over a 3-dimensional unit cube, not a real
- * bioprocess). This is a demo/sanity-check of the optimizer's search
- * behavior against a KNOWN answer, not an analysis of any real data or a
- * validated predictor - see the banner below and match /decide's honesty bar.
+ * The engine's optimizer on a made-up surface whose best answer is known
+ * (a smooth bump over a three-dimensional unit cube, not a bioprocess). It
+ * shows how the method behaves; it says nothing about any real process.
  */
-export default function Simulate() {
+export default function BenchmarkPage() {
   const [mode, setMode] = useState<Mode>("single");
-  const [single, setSingle] = useState<SingleRun | null>(null);
-  const [multi, setMulti] = useState<MultiRun | null>(null);
-  const [singleErr, setSingleErr] = useState(false);
-  const [multiErr, setMultiErr] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [single, setSingle] = useState<Outcome<SingleRun>>({ status: "idle" });
+  const [multi, setMulti] = useState<Outcome<MultiRun>>({ status: "idle" });
+  const running = single.status === "running" || multi.status === "running";
+  const hasRun = single.status !== "idle" || multi.status !== "idle";
 
-  async function refresh() {
-    setBusy(true);
-    setSingleErr(false);
-    setMultiErr(false);
-    const [s, m] = await Promise.allSettled([runSingle(), runMulti()]);
-    if (s.status === "fulfilled") setSingle(s.value);
-    else setSingleErr(true);
-    if (m.status === "fulfilled") setMulti(m.value);
-    else setMultiErr(true);
-    setBusy(false);
+  async function run() {
+    setSingle({ status: "running" });
+    setMulti({ status: "running" });
+    // One at a time: the engine answers busy to a second request while the first is running.
+    const [s] = await Promise.allSettled([runSingle()]);
+    setSingle(s.status === "fulfilled" ? { status: "done", data: s.value } : { status: "error" });
+    const [m] = await Promise.allSettled([runMulti()]);
+    setMulti(m.status === "fulfilled" ? { status: "done", data: m.value } : { status: "error" });
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [s, m] = await Promise.allSettled([runSingle(), runMulti()]);
-      if (cancelled) return;
-      if (s.status === "fulfilled") setSingle(s.value);
-      else setSingleErr(true);
-      if (m.status === "fulfilled") setMulti(m.value);
-      else setMultiErr(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const loading = single == null && multi == null && !singleErr && !multiErr;
-  const bothFailed = singleErr && multiErr && single == null && multi == null;
-
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="In-silico"
-        title="In-silico optimizer"
-        desc="Watch the Bayesian optimizer search a benchmark surface with a known answer, single- and multi-objective."
+        eyebrow="Library"
+        title="Benchmark the optimizer"
+        description="Run the engine's search on a made-up surface whose best answer is known. It shows how the method behaves, not what your process will do."
         action={
-          <Button variant="ghost" onClick={refresh} disabled={busy}>
-            <RefreshCw />
-            {busy ? "Running..." : "Run again"}
+          <Button onClick={() => void run()} disabled={running}>
+            {running ? "Running..." : hasRun ? "Run again" : "Run the benchmark"}
           </Button>
         }
       />
 
-      <div className="flex items-start gap-2.5 rounded-2xl glass p-4 text-[13px] leading-relaxed text-muted">
-        <Info className="mt-0.5 size-4 shrink-0" />
-        <p>
-          This runs the engine&apos;s real Bayesian optimization loop, but against a{" "}
-          <span className="font-semibold">synthetic in-silico benchmark surface</span> - a deterministic function
-          with a known optimum, not a real bioprocess or any client data. It exists to show how the optimizer
-          searches and converges, not to predict a real outcome. Nothing on this page is a validated model or a
-          recommendation to run.
-        </p>
-      </div>
-
-      <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-fit gap-0">
-        <TabsList>
-          <TabsTrigger value="single">Single objective</TabsTrigger>
-          <TabsTrigger value="multi">Multi-objective</TabsTrigger>
+      <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="gap-0">
+        <TabsList variant="line">
+          <TabsTrigger value="single">One objective</TabsTrigger>
+          <TabsTrigger value="multi">Two objectives</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {bothFailed ? (
-        <ErrorState
-          title="Engine unavailable"
-          description="The dashboard could not reach the kalos engine to run the in-silico optimizer. Try again in a moment."
-          onRetry={refresh}
-          busy={busy}
-        />
-      ) : loading ? (
-        <div className="py-6">
-          <p className="mb-3 text-center font-mono text-[11px] text-muted">Running the optimizer…</p>
-          <LoadingSkeleton variant="rows" rows={4} label="Running the optimizer" className="mx-auto max-w-md" />
+      {mode === "single" ? <SingleView outcome={single} onRetry={run} /> : <MultiView outcome={multi} onRetry={run} />}
+
+      <Disclosure summary="About this benchmark">
+        <div className="flex max-w-[68ch] flex-col gap-2 text-body text-fg-muted">
+          <p>
+            The surface is a deterministic function with one known best recipe, written into the engine for this purpose. The optimizer
+            starts from a handful of random points and asks for two more recipes per round, exactly as it does on a run sheet.
+          </p>
+          <p>
+            Because the answer is known, the distance between the recipe found and the true optimum is an honest score for the search.
+            Nothing here is a prediction about a real bioprocess, and the recipes are not settings to run.
+          </p>
         </div>
-      ) : mode === "single" ? (
-        <SingleView data={single} err={singleErr} busy={busy} onRetry={refresh} />
-      ) : (
-        <MultiView data={multi} err={multiErr} busy={busy} onRetry={refresh} />
-      )}
+      </Disclosure>
     </div>
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function NotRunYet() {
   return (
-    <div className="min-w-0">
-      <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">{label}</div>
-      <div className="tabular mt-0.5 font-mono text-[20px] font-semibold text-fg">{value}</div>
-      {sub ? <div className="text-[11px] text-muted">{sub}</div> : null}
-    </div>
+    <EmptyState
+      icon={FlaskConical}
+      title="Nothing has run yet"
+      description="Run the benchmark to watch the optimizer search the surface. A run takes a few seconds."
+    />
   );
 }
 
-function SectionHead({ title, sub }: { title: string; sub?: string }) {
+function Failed({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="mb-3 flex items-center gap-3">
-      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
-      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
-      <div className="h-px flex-1 bg-border" />
-    </div>
+    <ErrorState
+      title="Could not reach the engine"
+      description="The benchmark request failed before the engine could answer. This is a connection problem, not a result."
+      onRetry={onRetry}
+    />
   );
 }
 
-function SingleView({
-  data,
-  err,
-  busy,
-  onRetry,
-}: {
-  data: SingleRun | null;
-  err: boolean;
-  busy: boolean;
-  onRetry: () => void;
-}) {
-  if (err && data == null) {
-    return (
-      <ErrorState
-        title="Single-objective run unavailable"
-        description="The engine did not return a single-objective run. Try again in a moment."
-        onRetry={onRetry}
-        busy={busy}
-      />
-    );
-  }
-  if (!data) return null;
-
+function SingleView({ outcome, onRetry }: { outcome: Outcome<SingleRun>; onRetry: () => void }) {
+  if (outcome.status === "idle") return <NotRunYet />;
+  if (outcome.status === "running") return <LoadingSkeleton variant="chart" label="Running the benchmark" />;
+  if (outcome.status === "error") return <Failed onRetry={onRetry} />;
+  const data = outcome.data;
   const last = data.trajectory[data.trajectory.length - 1];
-  const dims = data.best_recipe.length;
-  const dist = recipeDistance(data.best_recipe, data.optimum);
-  const chartData = data.trajectory.map((t) => ({ n: t.n, best: t.best }));
-  const cols = Array.from({ length: dims }, (_, i) => `x${i + 1}`);
+  const cols = dimensionNames(data.best_recipe.length);
+  const points = data.trajectory.map((t) => ({ n: t.n, best: t.best }));
 
   return (
-    <div className="flex flex-col gap-6">
-      {err ? (
-        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
-          Refresh failed. Showing the last run.
-        </Card>
-      ) : null}
+    <div className="flex flex-col gap-8">
+      <Verdict tone="good">{singleVerdict(data)}</Verdict>
 
-      <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
-        <Stat label="Best value found" value={formatNumber(data.best_value)} sub={`after ${last.n} experiments`} />
-        <Stat label="Rounds" value={String(data.trajectory.length - 1)} />
-        <Stat
-          label="Distance to known optimum"
-          value={formatNumber(dist)}
-          sub="0 = found the true optimum, in recipe-space units"
+      <ChartFrame
+        title="Best value found, by experiments run"
+        n={last?.n ?? null}
+        method="After each batch of two experiments the engine records the best value seen so far. The line steps up when a batch beats the previous best and stays flat when it does not."
+        state={points.length < 2 ? "insufficient" : "ready"}
+      >
+        <ConvergenceChart data={points} />
+      </ChartFrame>
+
+      <Section title="Best recipe found against the known optimum" description="Each input runs from 0 to 1 on the benchmark surface.">
+        <Table className="min-w-[24rem]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Recipe</TableHead>
+              {cols.map((c) => (
+                <TableHead key={c} numeric className="font-mono text-code">
+                  {c}
+                </TableHead>
+              ))}
+              <TableHead numeric>Value</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>Found by the search</TableCell>
+              {data.best_recipe.map((v, i) => (
+                <TableCell key={i} numeric>
+                  {formatNumber(v)}
+                </TableCell>
+              ))}
+              <TableCell numeric>{formatNumber(data.best_value)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="text-fg-muted">Known optimum</TableCell>
+              {data.optimum.map((v, i) => (
+                <TableCell key={i} numeric className="text-fg-muted">
+                  {formatNumber(v)}
+                </TableCell>
+              ))}
+              <TableCell numeric className="text-fg-muted">
+                n/a
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </Section>
+
+      <Disclosure summary="Next proposed batch" meta={`${formatNumber(data.proposals.length, "count")} recipes`}>
+        <ProposalsTable cols={cols} rows={data.proposals} predHead="Predicted value" predFn={(r) => `${formatNumber(r.pred)} ± ${formatNumber(r.std)}`} />
+      </Disclosure>
+    </div>
+  );
+}
+
+function MultiView({ outcome, onRetry }: { outcome: Outcome<MultiRun>; onRetry: () => void }) {
+  if (outcome.status === "idle") return <NotRunYet />;
+  if (outcome.status === "running") return <LoadingSkeleton variant="chart" label="Running the benchmark" />;
+  if (outcome.status === "error") return <Failed onRetry={onRetry} />;
+  const data = outcome.data;
+  const last = data.trajectory[data.trajectory.length - 1];
+  const cols = dimensionNames(data.proposals[0]?.vals.length ?? 0);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <Verdict tone="neutral">{multiVerdict(data)}</Verdict>
+
+      <ChartFrame
+        title="Titer against purity, every run"
+        n={data.all.length}
+        method="Each dot is one simulated run. A run is on the trade-off front when no other run beats it on both titer and purity at once; those are joined by a line."
+        state={data.all.length < 2 ? "insufficient" : "ready"}
+        height={300}
+      >
+        <ParetoChart all={data.all} pareto={data.pareto} />
+      </ChartFrame>
+
+      <div className="flex flex-wrap gap-x-10 gap-y-4">
+        <Metric label="Recipes on the front" value={data.pareto.length} quantity="count" />
+        <Metric label="Best titer seen" value={last?.best_titer} qualifier="made-up units" />
+        <Metric label="Best purity seen" value={last?.best_purity} unit="%" />
+        <Metric label="Rounds run" value={Math.max(0, data.trajectory.length - 1)} quantity="count" />
+      </div>
+
+      <Disclosure summary="Next proposed batch" meta={`${formatNumber(data.proposals.length, "count")} recipes`}>
+        <ProposalsTable
+          cols={cols}
+          rows={data.proposals}
+          predHead="Predicted titer / purity"
+          predFn={(r) => `${formatNumber(r.pred_titer)} / ${formatNumber(r.pred_purity)}%`}
         />
-        <Stat label="Next batch" value={String(data.proposals.length)} sub="proposed experiments" />
-      </Card>
-
-      <section>
-        <SectionHead title="Convergence" sub="Best value found so far, as the search runs more experiments." />
-        <Card>
-          <ConvergenceChart data={chartData} yLabel="best value" />
-        </Card>
-      </section>
-
-      <section>
-        <SectionHead title="Best recipe found vs. the known optimum" />
-        <Card className="p-3.5">
-          <div className="overflow-x-auto">
-            <table className="tabular w-full min-w-[420px] border-separate border-spacing-y-1 font-mono text-xs">
-              <thead>
-                <tr className="text-[10px] text-muted uppercase">
-                  <th className="px-2 py-1.5 text-left"></th>
-                  {cols.map((c) => (
-                    <th key={c} className="px-2 py-1.5 text-right">
-                      {c}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-fg">
-                    Found by search
-                  </td>
-                  {data.best_recipe.map((v, i) => (
-                    <td key={i} className="border-y border-border/70 bg-card px-2 py-2 text-right text-fg">
-                      {formatNumber(v)}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-muted">
-                    Known optimum
-                  </td>
-                  {data.optimum.map((v, i) => (
-                    <td key={i} className="rounded-r-xl border-y border-r border-border/70 bg-card px-2 py-2 text-right text-muted">
-                      {formatNumber(v)}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </section>
-
-      <section>
-        <SectionHead title="Next proposed batch" sub="Unlabeled unit-cube dimensions - a synthetic benchmark, not a real recipe." />
-        <Card className="p-3.5">
-          {data.proposals.length ? (
-            <Proposals
-              cols={cols}
-              rows={data.proposals}
-              predHead="predicted"
-              predFn={(r) => `${formatNumber(r.pred)} ± ${formatNumber(r.std)}`}
-            />
-          ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
-          )}
-        </Card>
-      </section>
+      </Disclosure>
     </div>
   );
 }
 
-function MultiView({
-  data,
-  err,
-  busy,
-  onRetry,
+/** The proposed batch: one row per recipe, the inputs, the prediction and the reason the engine gave. */
+function ProposalsTable<T extends Proposal | MultiProposal>({
+  cols,
+  rows,
+  predHead,
+  predFn,
 }: {
-  data: MultiRun | null;
-  err: boolean;
-  busy: boolean;
-  onRetry: () => void;
+  cols: string[];
+  rows: T[];
+  predHead: string;
+  predFn: (r: T) => string;
 }) {
-  if (err && data == null) {
-    return (
-      <ErrorState
-        title="Multi-objective run unavailable"
-        description="The engine did not return a multi-objective run. Try again in a moment."
-        onRetry={onRetry}
-        busy={busy}
-      />
-    );
-  }
-  if (!data) return null;
-
-  const last = data.trajectory[data.trajectory.length - 1];
-  const dims = data.proposals[0]?.vals.length ?? 0;
-  const cols = Array.from({ length: dims }, (_, i) => `x${i + 1}`);
-
+  if (!rows.length) return <p className="text-body text-fg-muted">The engine proposed nothing for the next batch.</p>;
   return (
-    <div className="flex flex-col gap-6">
-      {err ? (
-        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
-          Refresh failed. Showing the last run.
-        </Card>
-      ) : null}
-
-      <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
-        <Stat label="Pareto front size" value={String(last?.pareto ?? data.pareto.length)} sub="non-dominated recipes" />
-        <Stat label="Best titer seen" value={formatNumber(last?.best_titer ?? 0)} sub="mg/L, synthetic" />
-        <Stat label="Best purity seen" value={formatNumber(last?.best_purity ?? 0, "count")} sub="%, synthetic" />
-        <Stat label="Next batch" value={String(data.proposals.length)} sub="proposed experiments" />
-      </Card>
-
-      <section>
-        <SectionHead title="Pareto front" sub="Titer vs. purity - the two objectives trade off, so there is no single winner." />
-        <Card>
-          <ParetoChart all={data.all} pareto={data.pareto} />
-        </Card>
-      </section>
-
-      <section>
-        <SectionHead title="Next proposed batch" sub="Unlabeled unit-cube dimensions - a synthetic benchmark, not a real recipe." />
-        <Card className="p-3.5">
-          {data.proposals.length ? (
-            <Proposals
-              cols={cols}
-              rows={data.proposals}
-              predHead="predicted titer / purity"
-              predFn={(r) => `${formatNumber(r.pred_titer)} / ${formatNumber(r.pred_purity, "count")}%`}
-            />
-          ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
-          )}
-        </Card>
-      </section>
-    </div>
+    <Table className="min-w-[36rem]">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead>Recipe</TableHead>
+          {cols.map((c) => (
+            <TableHead key={c} numeric className="font-mono text-code">
+              {c}
+            </TableHead>
+          ))}
+          <TableHead numeric>{predHead}</TableHead>
+          <TableHead>Why</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r, i) => (
+          <TableRow key={i}>
+            <TableCell>{i + 1}</TableCell>
+            {r.vals.map((v, j) => (
+              <TableCell key={j} numeric>
+                {formatNumber(v)}
+              </TableCell>
+            ))}
+            <TableCell numeric>{predFn(r)}</TableCell>
+            <TableCell>
+              <span className="inline-flex items-center gap-1.5">
+                <ModeBadge mode={r.mode} />
+                <span className="text-fg">{r.reason}</span>
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

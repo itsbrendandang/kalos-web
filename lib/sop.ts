@@ -88,7 +88,7 @@ export function sopSourceHref(sourceId: string): string | null {
     case "sheet":
       return /^[0-9a-f]{64}$/i.test(rest) ? `/data/sheet/${rest}` : "/data";
     case "round":
-      return /^\d{1,6}$/.test(rest) ? `/data/round/${rest}` : "/data";
+      return /^\d{1,6}$/.test(rest) ? `/data/round/${Number(rest) + 1}` : "/data";
     default:
       return null;
   }
@@ -109,7 +109,7 @@ export function sopSourceLabel(sourceId: string): string {
     case "sheet":
       return `Sheet ${rest.slice(0, 7)}`;
     case "round":
-      return `Round ${rest}`;
+      return /^\d{1,6}$/.test(rest) ? `Round ${Number(rest) + 1}` : `Round ${rest}`;
     default:
       return sourceId;
   }

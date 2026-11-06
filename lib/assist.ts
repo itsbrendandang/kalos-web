@@ -106,7 +106,8 @@ export function sourceHref(source: Pick<AssistSource, "kind" | "id">): string | 
     case "sheet":
       return /^[0-9a-f]{64}$/i.test(id) ? `/data/sheet/${id}` : "/data";
     case "round":
-      return /^\d{1,6}$/.test(id) ? `/data/round/${id}` : "/data";
+      // The engine counts rounds from 0; the app's pages and people count from 1 (displayRound in lib/campaign-stage.ts).
+      return /^\d{1,6}$/.test(id) ? `/data/round/${Number(id) + 1}` : "/data";
     case "finding":
       return /^[a-z0-9_.-]{1,80}$/i.test(id) ? `/campaign/learn#${id}` : "/campaign/learn";
     case "analysis":
@@ -132,7 +133,7 @@ export function sourceLabel(source: Pick<AssistSource, "kind" | "id">): string {
     case "sheet":
       return `${kind} ${source.id.slice(0, 7)}`;
     case "round":
-      return `${kind} ${source.id}`;
+      return /^\d{1,6}$/.test(source.id) ? `${kind} ${Number(source.id) + 1}` : kind;
     case "finding":
       return `${kind}: ${source.id.replace(/\.\d+$/, "").replace(/_/g, " ")}`;
     case "doc":

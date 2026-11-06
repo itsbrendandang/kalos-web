@@ -34,7 +34,8 @@ describe("assistUnavailableReason", () => {
 describe("sourceHref", () => {
   it("links a sheet, a round, a finding and the model results to their pages", () => {
     expect(sourceHref({ kind: "sheet", id: SHA })).toBe(`/data/sheet/${SHA}`);
-    expect(sourceHref({ kind: "round", id: "2" })).toBe("/data/round/2");
+    // The engine counts rounds from 0, the app from 1.
+    expect(sourceHref({ kind: "round", id: "1" })).toBe("/data/round/2");
     expect(sourceHref({ kind: "finding", id: "near_constant_input.2" })).toBe("/campaign/learn#near_constant_input.2");
     expect(sourceHref({ kind: "analysis", id: "cv" })).toBe("/campaign/learn");
   });
@@ -52,7 +53,7 @@ describe("sourceHref", () => {
 describe("sourceLabel", () => {
   it("says the kind in plain words", () => {
     expect(sourceLabel({ kind: "sheet", id: SHA })).toBe("Sheet aaaaaaa");
-    expect(sourceLabel({ kind: "round", id: "3" })).toBe("Round 3");
+    expect(sourceLabel({ kind: "round", id: "2" })).toBe("Round 3");
     expect(sourceLabel({ kind: "finding", id: "near_constant_input.2" })).toBe("Finding: near constant input");
     expect(sourceLabel({ kind: "doc", id: "docs/ASSISTANT.md" })).toBe("Guide page: ASSISTANT");
     expect(sourceLabel({ kind: "skill", id: "run-sheet-checks" })).toBe("Method: run sheet checks");

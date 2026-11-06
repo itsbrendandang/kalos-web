@@ -45,7 +45,7 @@ const CLOUD = { ...LOCAL, provider: "anthropic", model: "claude", local: false }
 const SOURCED = {
   answer: "The best measured Titer was 63.3 g/L, in round 1. The model predicted 70.1 for recipe 2.",
   sources: [
-    { kind: "round", id: "1", quote: "Measured Titer 63.3 g/L", campaign_id: null },
+    { kind: "round", id: "0", quote: "Measured Titer 63.3 g/L", campaign_id: null },
     { kind: "sheet", id: SHA, quote: "Column Titer, the target", campaign_id: null },
     { kind: "analysis", id: "proposals", quote: "Predicted Titer 70.1 for recipe 2", campaign_id: null },
     { kind: "doc", id: "docs/ASSISTANT.md", quote: "Answers quote only your own data.", campaign_id: null },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AssistantSettings } from "@/components/assist/assistant-settings";
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
@@ -26,6 +27,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description="How Kalos looks on this device, and what it is connected to." />
       <Appearance />
       <EngineConnection />
+      <AssistantSettings />
       <Integrations />
       <Section title="Activity log" description="A local log of changes you made to your process map. It is not an audit trail for regulated records.">
         <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>View activity log</Link>

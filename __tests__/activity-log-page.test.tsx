@@ -5,6 +5,7 @@ import AuditPage from "@/app/settings/audit/page";
 import { relativeTime } from "@/app/settings/audit/relative-time";
 import SettingsPage from "@/app/settings/page";
 import { EngineDataProvider } from "@/hooks/use-engine";
+import { AssistProvider } from "@/hooks/use-assist";
 
 /*
  * The change history is labelled as a local activity log, not an audit trail for regulated
@@ -43,7 +44,9 @@ describe("activity log page", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
     render(
       <EngineDataProvider>
-        <SettingsPage />
+        <AssistProvider>
+          <SettingsPage />
+        </AssistProvider>
       </EngineDataProvider>,
     );
     expect(screen.getByRole("heading", { name: "Activity log" })).toBeTruthy();

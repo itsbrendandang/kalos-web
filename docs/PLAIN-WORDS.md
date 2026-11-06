@@ -297,6 +297,9 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - inputs_changed: The settings in this sheet differ from the campaign's earlier rounds, so results from before and after may not compare.
 - coded_column: A column of codes was kept as it is and not checked against physical limits, since its numbers stand for labels.
 - outcome_like_name: A column whose name reads like a result is not used as a setting, so no suggestion changes it.
+- stopping_advice_only: Kalos never ends a campaign; this advice has been tried only on one small simulated case, not on real assays, so whether another round is worth it is your call.
+- specs_treated_independently: Kalos judges each spec on its own, so when two results rise and fall together the chance of meeting all of them at once can be too high or too low; read it as a rough guide.
+- possibly_measured_after_run: A column that might be measured during the run, used as a setting, would let the model look better than it is; untick it if it is a result.
 
 ### Review tool findings
 

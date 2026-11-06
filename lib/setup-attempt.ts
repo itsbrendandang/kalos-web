@@ -5,10 +5,9 @@
 // treat it as the new file's analysis:
 //   - `file`    the file the shown analysis was fitted from (null after a page reload: nothing to re-fit)
 //   - `failed`  the most recent attempt that was rejected; while set, the shown analysis is STALE
-//   - `confirmed` the user pressed "Looks right" for the CURRENT analysis; it never survives an attempt,
-//                 a failure, or a different file.
-// While stale, nothing that acts on the analysis (confirm, re-fit, target change, the next-step action)
-// is offered, unless the user explicitly chooses to keep working with the previous file.
+// The columns are chosen BEFORE the fit (lib/column-choice.ts), so there is no confirmation step after it.
+// While stale, nothing that acts on the analysis (re-fit, the next-step action) is offered, unless the user
+// explicitly chooses to keep working with the previous file.
 
 export type FailedAttempt = {
   file: File;
@@ -23,35 +22,31 @@ export type FailedAttempt = {
 export type SetupState = {
   file: File | null;
   failed: FailedAttempt | null;
-  confirmed: boolean;
   /** Worksheets of the held workbook when the engine listed more than one, and the one it read. */
   sheets: string[];
   sheetUsed: string | null;
 };
 
-export const initialSetupState: SetupState = { file: null, failed: null, confirmed: false, sheets: [], sheetUsed: null };
+export const initialSetupState: SetupState = { file: null, failed: null, sheets: [], sheetUsed: null };
 
 export type SetupAction =
   | { type: "start" }
   | { type: "success"; file: File; sheets?: string[]; sheetUsed?: string | null }
   | { type: "failure"; file: File; error: string; sheets?: string[] }
-  | { type: "confirm" }
   | { type: "keepPrevious" };
 
 export function setupReducer(s: SetupState, a: SetupAction): SetupState {
   switch (a.type) {
     case "start":
-      // A new attempt invalidates any earlier confirmation or failure note straight away.
-      return { ...s, failed: null, confirmed: false };
+      // A new attempt invalidates any earlier failure note straight away.
+      return { ...s, failed: null };
     case "success":
-      return { file: a.file, failed: null, confirmed: false, sheets: a.sheets ?? [], sheetUsed: a.sheetUsed ?? null };
+      return { file: a.file, failed: null, sheets: a.sheets ?? [], sheetUsed: a.sheetUsed ?? null };
     case "failure":
       // The held file stays the previous successful one; it is only identified as such, never as the new file.
-      return { ...s, failed: { file: a.file, name: a.file.name, error: a.error, refit: a.file === s.file, sheets: a.sheets ?? [] }, confirmed: false };
-    case "confirm":
-      return s.failed ? s : { ...s, confirmed: true };
+      return { ...s, failed: { file: a.file, name: a.file.name, error: a.error, refit: a.file === s.file, sheets: a.sheets ?? [] } };
     case "keepPrevious":
-      return { ...s, failed: null, confirmed: false };
+      return { ...s, failed: null };
   }
 }
 
@@ -70,21 +65,18 @@ export function staleNotice(s: SetupState, previousName: string | null | undefin
     : `Showing the last sheet Kalos read: ${prev}. Your new file ${s.failed.name} was not used.`;
 }
 
-/** Confirm / re-fit / target change act on the analysis; they are only offered when it is not stale and a file is held. */
+/** A re-fit acts on the analysis; it is only offered when the analysis is not stale and a file is held. */
 export const canActOnAnalysis = (s: SetupState): boolean => s.file !== null && s.failed === null;
 
 /**
- * FIX 8 decision: confirmation is ADVISORY. The engine has already saved the fit and a reload skips the step, so
- * routes are not hard-blocked (the sidebar and status bar link straight on). The header's next-step action is
- * therefore always offered for a current analysis, but styled as primary only once the columns were confirmed
- * (or there is nothing to confirm); until then it is secondary and says so. A stale analysis offers no next step.
+ * The header's next-step action: offered for every current analysis (the columns were chosen before the fit,
+ * so there is nothing left to confirm), hidden for a stale one, for a sheet that failed its check, and before
+ * any analysis exists.
  */
-export type NextAction = { visible: boolean; emphasis: "primary" | "secondary"; hint: string | null };
+export type NextAction = { visible: boolean };
 
 export function nextAction(s: SetupState, opts: { hasAnalysis: boolean; validationFailed: boolean }): NextAction {
-  if (!opts.hasAnalysis || opts.validationFailed || isStale(s)) return { visible: false, emphasis: "primary", hint: null };
-  const unconfirmed = s.file !== null && !s.confirmed;
-  return { visible: true, emphasis: unconfirmed ? "secondary" : "primary", hint: unconfirmed ? "Columns not confirmed yet (optional)" : null };
+  return { visible: opts.hasAnalysis && !opts.validationFailed && !isStale(s) };
 }
 
 /**
@@ -105,5 +97,3 @@ export function singleFlight() {
   };
 }
 
-/** The target picker is usable only for a current analysis the user can act on, and never while a fit runs. */
-export const canChangeTarget = (s: SetupState, busy: boolean): boolean => !busy && canActOnAnalysis(s);

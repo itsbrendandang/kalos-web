@@ -588,7 +588,7 @@ export const runMulti = (): Promise<MultiRun> =>
   });
 
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
-export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
+export type ColumnRolesInput = { target: string; features: string[]; ids?: string[]; /** Inputs whose values are labels, not numbers (the engine's `categoricals`). */ categoricals?: string[] };
 
 /**
  * The engine refused an upload because the campaign still has awaiting or

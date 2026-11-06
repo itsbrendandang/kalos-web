@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useAssistIndexStatus, useAssistThread, useNextStepCard } from "@/hooks/use-assist";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
-import { reliabilityVerdict } from "@/lib/api";
+import { modelVerdict } from "@/lib/api";
 import { starterPrompts } from "@/lib/assist-embed";
 import { displayRound } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
@@ -60,7 +60,8 @@ export function Conversation() {
   const active = view.state === "data" ? view.campaign : null;
   const analysis = !demo && latest.data.has_data ? latest.data : null;
   const target = active?.target ?? analysis?.target ?? null;
-  const verdict = analysis ? reliabilityVerdict(analysis) : null;
+  // Kalos owns the model verdict (promotion status); the page only reads it.
+  const verdict = analysis ? modelVerdict(analysis) : null;
   const trust = verdict ? trustPlain(verdict) : null;
   const round = active ? displayRound(active.round) : analysis ? 1 : null;
   const best = active?.best ?? analysis?.best ?? null;
@@ -90,7 +91,7 @@ export function Conversation() {
       <section aria-label="From Kalos" className="flex flex-col gap-6">
         <p className="text-caption text-fg-muted">Kalos</p>
         {trust && verdict ? (
-          <Verdict tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"} why={whyLine(verdict.state)} detail={<p>{trust.gloss}</p>} detailLabel="How the model was scored">
+          <Verdict tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"} why={whyLine(verdict.why)} detail={<p>{trust.gloss}</p>} detailLabel="How the model was scored">
             {trust.word}. {trust.sentence}
           </Verdict>
         ) : null}

@@ -310,9 +310,12 @@ function RunOrderPanel({
   blocks,
   best,
   ariaLabel,
+  compact = false,
 }: {
   title: string | null;
   rows: { row: number; v: number | null }[];
+  /** The panel is narrow: one row label in the middle instead of one at each end. */
+  compact?: boolean;
   y: (v: number) => number;
   yTicks: number[];
   H: number;
@@ -358,12 +361,17 @@ function RunOrderPanel({
           </g>
         );
       })}
-      {n > 0 ? (
+      {n > 0 && compact ? (
+        // A narrow panel (a round with a few runs beside a long sheet) has room for one label only.
+        <text x="50%" y={H - 4} textAnchor="middle" className={TICK}>
+          {n === 1 ? `row ${formatNumber(rows[0].row + 1, "count")}` : `rows ${formatNumber(rows[0].row + 1, "count")}–${formatNumber(rows[n - 1].row + 1, "count")}`}
+        </text>
+      ) : n > 0 ? (
         <>
           <text x="0%" y={H - 4} className={TICK}>
             row {formatNumber(rows[0].row + 1, "count")}
           </text>
-          {n > 2 ? (
+          {n > 12 ? (
             <text x={px(mid)} y={H - 4} textAnchor="middle" className={TICK}>
               row {formatNumber(rows[mid].row + 1, "count")}
             </text>
@@ -411,9 +419,11 @@ export function RunOrderFigure({ yName, values, groups = [], origins }: { yName:
       </svg>
       <div className="flex min-w-0 flex-1 gap-4">
         {panels.map((p, i) => (
-          <div key={p.label} className="min-w-0" style={{ flexGrow: Math.max(1, p.rows.length), flexBasis: 0 }}>
+          // A small panel still gets at least an eighth of the width, so its dots and label have room.
+          <div key={p.label} className="min-w-0" style={{ flexGrow: Math.max(p.rows.length, values.length / 8), flexBasis: 0 }}>
             <RunOrderPanel
               title={panels.length > 1 ? `${p.label}, n = ${formatNumber(p.n, "count")}` : null}
+              compact={panels.length > 1 && p.rows.length < values.length / 5}
               rows={p.rows}
               y={y}
               yTicks={yTicks}

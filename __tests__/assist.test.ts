@@ -3,6 +3,7 @@ import { localNextStep } from "@/lib/agent";
 import { WHY } from "@/lib/why";
 import type { Campaign } from "@/lib/api";
 import {
+  assistLimitLine,
   assistUnavailableReason,
   nextState,
   indexLine,
@@ -124,6 +125,17 @@ describe("shape checks", () => {
     expect(isAssistAnswer({ answer: "x", sources: [], abstained: true, next })).toBe(true);
     expect(isAssistAnswer({ answer: "x", sources: [{ kind: "sheet", id: SHA, quote: "q" }], abstained: false })).toBe(true);
     expect(isAssistAnswer({ answer: "x", sources: [{ kind: "sheet" }], abstained: false })).toBe(false);
+  });
+});
+
+describe("assistLimitLine", () => {
+  it("says how long to wait after too many questions, and when a draft or version ceiling is reached", () => {
+    expect(assistLimitLine({ status: 429, code: "rate_limited", retryAfter: 30 }, "question")).toBe("Too many questions in a row. Wait 30 seconds, then ask again.");
+    expect(assistLimitLine({ status: 429, code: "rate_limited" }, "question")).toBe("Too many questions in a row. Wait a moment, then ask again.");
+    expect(assistLimitLine({ status: 409, code: "limit_reached" }, "draft")).toMatch(/as many drafts as Kalos keeps \(500\)/);
+    expect(assistLimitLine({ status: 409, code: "limit_reached" }, "version")).toMatch(/as many versions as Kalos keeps \(200\)/);
+    expect(assistLimitLine({ status: 500, code: "engine_error" }, "question")).toBeNull();
+    expect(assistLimitLine(new Error("x"), "question")).toBeNull();
   });
 });
 

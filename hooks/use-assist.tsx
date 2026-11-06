@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { localNextStep } from "@/lib/agent";
 import { askAssist, getAssistIndexStatus, getAssistNext } from "@/lib/api";
-import { AssistUnavailableError, type AssistAnswer, type AssistIndexStatus, type AssistNext, type AssistUnavailableReason } from "@/lib/assist";
+import { assistLimitLine, AssistUnavailableError, type AssistAnswer, type AssistIndexStatus, type AssistNext, type AssistUnavailableReason } from "@/lib/assist";
 import { DEMO_MODE } from "@/lib/demo";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { campaignView } from "@/lib/workbench";
@@ -151,7 +151,7 @@ function useThread(): ThreadState {
       const text =
         err instanceof AssistUnavailableError
           ? "The model did not answer. Check that it is running, then ask again."
-          : "Kalos could not be reached, so the question was not answered. Ask again in a moment.";
+          : (assistLimitLine(err, "question") ?? "Kalos could not be reached, so the question was not answered. Ask again in a moment.");
       setTurns((t) => t.map((x) => (x.id === id ? { ...x, reply: { kind: "failed", text } } : x)));
     } finally {
       setBusy(false);

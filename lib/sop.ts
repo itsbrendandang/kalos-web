@@ -140,6 +140,8 @@ export function checkFillValue(value: string): string | null {
   if (value.length > 500) return "Keep it under 500 characters.";
   if (/[\r\n]/.test(value)) return "One line only.";
   if (value.includes("[[") || value.includes("]]")) return "Square brackets are not allowed here.";
+  if (value.includes("|")) return "A | is not allowed here: it would break the draft's tables.";
+  if (/[\u0000-\u001f\u007f]/.test(value)) return "Only ordinary characters, please.";
   return null;
 }
 

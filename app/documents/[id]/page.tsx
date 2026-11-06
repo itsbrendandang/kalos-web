@@ -13,7 +13,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Input } from "@/components/ui/input";
 import { fillSop, getSop, reviseSop, RevisionRefusedError, sopExportHref } from "@/lib/api";
-import { AssistUnavailableError } from "@/lib/assist";
+import { assistLimitLine, AssistUnavailableError } from "@/lib/assist";
 import { EngineError } from "@/lib/engine-error";
 import { checkFillValue, draftBody, draftHeader, formatDraftDate, openPlaceholders, placeholderLabel, placeholdersAgree, sopSourceHref, sopSourceLabel, templateLabel, type SopDraft } from "@/lib/sop";
 
@@ -221,7 +221,7 @@ function ReviseForm({ draftId, onRevised }: { draftId: string; onRevised: (d: So
     } catch (err) {
       if (err instanceof RevisionRefusedError) setRefused(err.reasons.length ? err.reasons : ["That would change something taken from your records."]);
       else if (err instanceof AssistUnavailableError) setFailed(err.reason === "unavailable" ? "The model did not answer. Check that it is running, then try again." : "The assistant is off, so the wording cannot be changed. The values on the right can still be filled in.");
-      else setFailed("Kalos could not be reached, so nothing was changed. Try again in a moment.");
+      else setFailed(assistLimitLine(err, "version") ?? "Kalos could not be reached, so nothing was changed. Try again in a moment.");
     } finally {
       setBusy(false);
     }
@@ -285,8 +285,9 @@ function FillForm({ draftId, placeholders, onFilled }: { draftId: string; placeh
     try {
       onFilled(await fillSop(draftId, Object.fromEntries(ready.map((r) => [r.name, r.value.trim()]))));
       setValues({});
-    } catch {
-      setFailed("The values were not saved. Try again in a moment.");
+    } catch (err) {
+      const code = err instanceof EngineError ? err.code : null;
+      setFailed(code === "invalid_value" ? "One of the values has a character Kalos does not accept here (a |, a line break or a control character)." : (assistLimitLine(err, "version") ?? "The values were not saved. Try again in a moment."));
     } finally {
       setBusy(false);
     }

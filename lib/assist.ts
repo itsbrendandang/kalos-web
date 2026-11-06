@@ -89,6 +89,26 @@ export class AssistUnavailableError extends Error {
   }
 }
 
+/**
+ * A plain sentence for a failed assistant call, or null when the caller has its
+ * own words. 429 rate_limited: too many questions in a row (Retry-After, when
+ * sent, becomes a wait). 409 limit_reached: a tenant's draft count or a draft's
+ * version count is at its ceiling.
+ */
+export function assistLimitLine(err: unknown, what: "question" | "draft" | "version"): string | null {
+  if (!err || typeof err !== "object" || !("status" in err) || !("code" in err)) return null;
+  const { status, code, retryAfter } = err as { status: number; code: string; retryAfter?: number };
+  if (status === 429 || code === "rate_limited") {
+    const wait = retryAfter != null && retryAfter > 0 ? ` Wait ${retryAfter} ${retryAfter === 1 ? "second" : "seconds"}, then ask again.` : " Wait a moment, then ask again.";
+    return `Too many ${what === "question" ? "questions" : "changes"} in a row.${wait}`;
+  }
+  if (status === 409 || code === "limit_reached") {
+    if (what === "draft") return "This campaign has as many drafts as Kalos keeps (500). Delete is not possible; export what you need and reuse a draft.";
+    return "This draft has as many versions as Kalos keeps (200). Start a new draft from the same record to go on.";
+  }
+  return null;
+}
+
 /** Maps an engine error status and code to the reason, or null when it is some other failure. */
 export function assistUnavailableReason(status: number, code: string | null | undefined): AssistUnavailableReason | null {
   if (status === 404) return code === "assist_disabled" ? "off" : "absent";

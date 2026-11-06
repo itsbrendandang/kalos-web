@@ -1121,7 +1121,11 @@ async function assistFailure(r: Response): Promise<never> {
   const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" ? d.error : null;
   const reason = assistUnavailableReason(r.status, code);
   if (reason) throw new AssistUnavailableError(reason);
-  throw new EngineError(r.status, code ?? codeForStatus(r.status));
+  const err = new EngineError(r.status, code ?? codeForStatus(r.status));
+  // 429 carries Retry-After in seconds; kept on the error so the panel can say how long to wait.
+  const retry = Number(r.headers.get("retry-after"));
+  if (r.status === 429 && Number.isFinite(retry) && retry > 0) (err as EngineError & { retryAfter?: number }).retryAfter = Math.ceil(retry);
+  throw err;
 }
 
 /** GET /api/assist/next: the one next step for the tenant's campaign. */

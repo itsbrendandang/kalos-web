@@ -248,7 +248,7 @@ describe("Settings, Assistant", () => {
     mockEngine({ status: () => json(CLOUD) });
     mount(<AssistantSettings />);
     expect(await screen.findByText("Anthropic")).toBeTruthy();
-    expect(screen.getByTestId("assist-consent").textContent).toContain("sent to Anthropic");
+    expect(screen.getByTestId("assist-consent").textContent).toMatch(/With Anthropic, a question sends .* Revising a draft sends the whole draft/);
     expect(screen.getByText("Sent away")).toBeTruthy();
   });
 

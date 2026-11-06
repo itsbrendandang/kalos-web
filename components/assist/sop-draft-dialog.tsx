@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useNextStepCard } from "@/hooks/use-assist";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { draftSop, listCampaigns } from "@/lib/api";
-import { AssistUnavailableError } from "@/lib/assist";
+import { assistLimitLine, AssistUnavailableError } from "@/lib/assist";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { SOP_TEMPLATES, type SopSource, type SopTemplate } from "@/lib/sop";
@@ -68,7 +68,7 @@ export function SopDraftDialog({ open, onOpenChange, prefill }: { open: boolean;
       close(false);
       router.push(`/documents/${encodeURIComponent(draft.draft_id)}`);
     } catch (e) {
-      setFailed(e instanceof AssistUnavailableError && e.reason === "absent" ? "This version of Kalos cannot write procedure drafts yet." : "The draft could not be written. Try again in a moment.");
+      setFailed(e instanceof AssistUnavailableError && e.reason === "absent" ? "This version of Kalos cannot write procedure drafts yet." : (assistLimitLine(e, "draft") ?? "The draft could not be written. Try again in a moment."));
     } finally {
       setBusy(false);
     }

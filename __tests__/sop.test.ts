@@ -85,6 +85,8 @@ describe("placeholders", () => {
     expect(checkFillValue("a\nb")).toBe("One line only.");
     expect(checkFillValue("[[x]]")).toBe("Square brackets are not allowed here.");
     expect(checkFillValue("x".repeat(501))).toBe("Keep it under 500 characters.");
+    expect(checkFillValue("a | b")).toBe("A | is not allowed here: it would break the draft's tables.");
+    expect(checkFillValue("a\tb")).toBe("Only ordinary characters, please.");
   });
 });
 

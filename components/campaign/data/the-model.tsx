@@ -14,31 +14,18 @@ import { Disclosure } from "@/components/kit/disclosure";
 import { lazyChart } from "@/components/kit/lazy-chart";
 import { Section } from "@/components/kit/section";
 import { WhyLine } from "@/components/kit/why-line";
-import { reliabilityVerdict, type PopulatedResult, type ReliabilityVerdict } from "@/lib/api";
+import { modelVerdict, type PopulatedResult } from "@/lib/api";
 import { formatNumber, formatRange } from "@/lib/format";
-import { trustPlain } from "@/lib/plain";
+import { sourceNote, trustPlain } from "@/lib/plain";
+import { TONE_ICON, TONE_TEXT } from "@/components/kit/tone";
 import { parseUnit } from "@/lib/utils";
 
 const PredVsMeasured = lazyChart(() => import("@/components/campaign/pred-vs-measured").then((m) => m.PredVsMeasured));
 
-/** The one plain sentence for the reliability state; never stronger than the engine's own reason, which sits in the disclosure. */
-export function rankingSentence(state: ReliabilityVerdict["state"]): string {
-  if (state === "reliable") return "The model put past runs in the right order most of the time.";
-  if (state === "insufficient") return "Not enough runs to tell whether the model puts past runs in the right order.";
-  return "The model has not yet shown it can put past runs in the right order.";
-}
-
-/** The badge word for the reliability state. */
-export function rankingWord(state: ReliabilityVerdict["state"]): string {
-  if (state === "reliable") return "Reliable";
-  if (state === "insufficient") return "Not enough runs to tell";
-  return "Not yet reliable";
-}
-
 export function TheModel({ analysis }: { analysis: PopulatedResult }) {
   const target = analysis.target;
   const unit = parseUnit(target);
-  const verdict = reliabilityVerdict(analysis);
+  const verdict = modelVerdict(analysis);
   const trust = trustPlain(verdict);
   const ranges = calibrationVerdict(analysis.reliability?.calibration);
   const rows = driverRows(analysis.gp_shapes, target);
@@ -51,14 +38,19 @@ export function TheModel({ analysis }: { analysis: PopulatedResult }) {
     <Section title="The model" description="What Kalos built from this sheet. Its numbers are predicted, not measured.">
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          <Verdict tone={tone}>{rankingSentence(verdict.state)}</Verdict>
+          <Verdict tone={tone}>{verdict.reason}</Verdict>
           <div className="ml-7 flex flex-col gap-2">
-            <WhyLine code={verdict.state} />
+            <WhyLine code={verdict.why} />
             <p className="flex flex-wrap items-center gap-2 text-label text-fg-muted">
-              Can you trust its ranking?
-              <Badge tone={tone}>{rankingWord(verdict.state)}</Badge>
+              Kalos&apos;s verdict
+              <Badge tone={tone}>{verdict.label}</Badge>
             </p>
-            <p className="text-body text-fg">{ranges.sentence}</p>
+            {sourceNote(verdict.source) ? <p className="text-caption text-fg-muted">{sourceNote(verdict.source)}</p> : null}
+            {/* The likely-range check is a separate fact with its own icon, so it never sits under the verdict's tick as if it were part of it. */}
+            <p className="flex items-start gap-2 text-body text-fg">
+              <RangesIcon state={ranges.state} />
+              <span>{ranges.sentence}</span>
+            </p>
             <WhyLine code={ranges.state} />
             {rho != null && ci == null ? <WhyLine code="cv_ci_unavailable" /> : null}
             <Disclosure summary="How the model was scored" className="border-t-0">
@@ -132,4 +124,11 @@ export function TheModel({ analysis }: { analysis: PopulatedResult }) {
       </div>
     </Section>
   );
+}
+
+/** The icon beside the likely-range check: warn when the range is too narrow or too wide, neutral otherwise. */
+function RangesIcon({ state }: { state: string }) {
+  const tone = state === "bands_narrow" || state === "bands_wide" ? "warn" : state === "bands_ok" ? "good" : "neutral";
+  const Icon = TONE_ICON[tone];
+  return <Icon className={`mt-1 size-4 shrink-0 ${TONE_TEXT[tone]}`} aria-hidden />;
 }

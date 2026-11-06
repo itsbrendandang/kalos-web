@@ -20,7 +20,8 @@ import { RANK_AGREEMENT_GLOSS, trustNumbers } from "@/components/campaign/trust-
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
-import { coveragePct, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
+import { coveragePct, modelVerdict, type PopulatedResult } from "@/lib/api";
+import { sourceNote } from "@/lib/plain";
 import { campaignStage } from "@/lib/campaign-stage";
 import { learnFailure, type EngineMessage } from "@/lib/engine-error";
 import { formatNumber } from "@/lib/format";
@@ -126,7 +127,7 @@ export default function LearnPage() {
   const shownRecord = unlearned ? null : stored && stored.round === learned ? stored : null;
   const unit = parseUnit(d.target);
   const name = targetName(d.target);
-  const verdict = reliabilityVerdict(d);
+  const verdict = modelVerdict(d);
   const promotion = promotionLine(d.promotion);
   const calibration = bandCalibration(runs, d.conformal_q);
   const coverage = coveragePct(d.conformal_coverage);
@@ -225,7 +226,8 @@ export default function LearnPage() {
         <Verdict tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}>
           <span className="font-semibold">{verdict.label}.</span> {verdict.reason}
         </Verdict>
-        <WhyLine code={verdict.state} className="ml-7" />
+        <WhyLine code={verdict.why} className="ml-7" />
+        {sourceNote(verdict.source) ? <p className="ml-7 text-caption text-fg-muted">{sourceNote(verdict.source)}</p> : null}
         {verdict.caveat ? <WhyLine code={verdict.caveat} className="ml-7" /> : null}
         <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
           <div className="flex flex-col gap-2 text-body text-fg-muted">

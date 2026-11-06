@@ -15,7 +15,7 @@ import {
   type SetpointValue,
 } from "@/components/campaign/plan-view";
 import { targetName } from "@/components/campaign/target";
-import { constraintNote, designBoxExclusionsNote, incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict } from "@/lib/api";
+import { constraintNote, designBoxExclusionsNote, incumbentLabel, proposalIncumbent, proposalRecipe, modelVerdict } from "@/lib/api";
 import { parseUnit } from "@/lib/utils";
 import { recipeColumns } from "@/lib/recipe-identity";
 import { parseSurface } from "@/components/campaign/plan/surface-model";
@@ -31,7 +31,7 @@ export function useBatchModel(d: PlanAnalysis) {
   const unit = parseUnit(d.target);
   const incumbent = proposalIncumbent(d);
   const band = d.conformal_q ?? null;
-  const verdict = reliabilityVerdict(d);
+  const verdict = modelVerdict(d);
   const ranges = useMemo(() => observedRanges(d), [d]);
   const spread = useMemo(() => spreadSentences(d.batch_diversity, d.proposal_notice), [d.batch_diversity, d.proposal_notice]);
 

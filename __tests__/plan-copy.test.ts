@@ -9,15 +9,18 @@ const verdict = (over: Partial<ReliabilityVerdict>): ReliabilityVerdict => ({
   ci: [0.41, 0.8],
   floor: 0.5,
   caveat: null,
-  reason: "The model put your past runs in the right order most of the time, and we are sure enough of that, so its suggestions are worth running.",
+  why: "reliable",
+  source: "kalos",
+  failed: [],
+  reason: "The model passed every one of Kalos's checks, so its suggestions are worth running.",
   ...over,
 });
 
 describe("Plan trust verdict", () => {
   it("is one plain sentence per state, with a tone that is never the only signal", () => {
-    expect(trustSentence(verdict({}))).toMatch(/^The model put your past runs in the right order most of the time/);
-    expect(trustSentence(verdict({ state: "not-yet", label: "Not yet reliable" }))).toMatch(/rough guide\.$/);
-    expect(trustSentence(verdict({ state: "insufficient", label: "Not enough runs to tell", rho: null }))).toMatch(/too few measured runs/);
+    expect(trustSentence(verdict({}))).toMatch(/^Reliable\. The model passed every one of Kalos's checks/);
+    expect(trustSentence(verdict({ state: "not-yet", label: "Not yet reliable", reason: "The model did not pass every one of Kalos's checks." }))).toMatch(/^Not yet reliable\. The model did not pass .* rough guide\.$/);
+    expect(trustSentence(verdict({ state: "insufficient", label: "Not enough runs to tell", rho: null, reason: "Kalos could not finish checking the model." }))).toBe("Not enough runs to tell. Kalos could not finish checking the model.");
     expect(trustTone(verdict({}))).toBe("good");
     expect(trustTone(verdict({ state: "not-yet" }))).toBe("warn");
     expect(trustTone(verdict({ state: "insufficient" }))).toBe("neutral");

@@ -39,7 +39,7 @@ Source of truth for every word a user sees in kalos-web (branch `redesign-notion
 | Re-doing that with new results | **update the model** | refit, re-analyze, retrain |
 | The page that shows the runs Kalos suggests | **Plan** ; the list is **proposed recipes** | batch, proposals, recommendations, candidates |
 | Starting them | **Start these runs** | approve, submit, launch, commit |
-| Learn verdict levels | **Reliable** / **Not yet reliable** / **Not enough runs to tell** | calibrated, promoted, gated |
+| Learn verdict levels | **Reliable** / **Not yet reliable** / **Not enough runs to tell**. Kalos owns the verdict: every badge, sentence and why-line reads `modelVerdict()` (lib/api.ts), which is the engine's `promotion.status`; the rank score is a disclosure number and never decides it | calibrated, promoted, gated |
 
 ## Term by term
 

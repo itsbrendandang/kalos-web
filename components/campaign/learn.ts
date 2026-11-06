@@ -4,7 +4,7 @@
  * gate) in plain words. Tested in __tests__/learn.test.ts.
  */
 
-import type { CampaignRun, Promotion } from "@/lib/api";
+import { GATE_WORDS, gateKey, isUnmeasuredFailure, type CampaignRun, type Promotion } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { measured, type ActiveCampaign } from "@/lib/workbench";
 import type { WhyCode } from "@/lib/why";
@@ -39,13 +39,6 @@ export function rankWords(state: "reliable" | "not-yet" | "insufficient"): { wor
 /** The next round needs at least one measured result to learn from. */
 export const canPlanNext = (campaign: ActiveCampaign | null): boolean => campaign != null && measured(campaign).length > 0;
 
-const GATES: Record<string, { reason: string; fix: string }> = {
-  surrogate_spearman: { reason: "it does not yet put the runs it was tested on in the right order", fix: "Add more measured runs." },
-  group_mean_margin: { reason: "it does no better than the average of each group of runs", fix: "Add runs that change the recipe within a group." },
-  feasibility_auc: { reason: "it cannot yet tell which recipes will fail outright", fix: "Add runs that include some that failed or produced nothing." },
-  ece: { reason: "its likely range is wrong about how often it is right", fix: "Add more measured runs." },
-  brier: { reason: "its confidence that a recipe will work is not reliable yet", fix: "Add runs that include some that failed or produced nothing." },
-};
 
 export type PromotionLine = {
   /** "The model has not passed every check yet: <reason> (1 more check also fell short)." */
@@ -65,9 +58,9 @@ export type PromotionLine = {
 export function promotionLine(promotion: Promotion | undefined): PromotionLine | null {
   if (!promotion || promotion.passed) return null;
   const [first, ...rest] = promotion.failures;
-  const key = first ? first.split(/[=\s]/)[0] : "";
-  const gate = GATES[key];
-  const unmeasured = first?.includes("unmeasured") ?? false;
+  const key = first ? gateKey(first) : "";
+  const gate = GATE_WORDS[key];
+  const unmeasured = first ? isUnmeasuredFailure(first) : false;
   const reason = unmeasured ? "a required check could not be run on this sheet" : (gate?.reason ?? "it has not met every check yet");
   const more = rest.length ? ` (${rest.length} more ${rest.length === 1 ? "check" : "checks"} also fell short)` : "";
   return {

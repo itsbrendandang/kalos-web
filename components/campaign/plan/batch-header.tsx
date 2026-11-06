@@ -6,6 +6,7 @@ import type { BatchModel } from "@/components/campaign/plan/use-batch-model";
 import { trustNumbers, trustSentence, trustTone } from "@/components/campaign/plan/copy";
 import { RANK_AGREEMENT_GLOSS } from "@/components/campaign/trust-numbers";
 import { WhyLine } from "@/components/kit/why-line";
+import { sourceNote } from "@/lib/plain";
 
 /**
  * Title, the trust verdict as one plain sentence (the numbers and the engine's
@@ -45,7 +46,8 @@ export function BatchHeader({
       meta={
         <div className="mt-3 flex flex-col gap-2">
           <Verdict tone={tone}>{trustSentence(m.verdict)}</Verdict>
-          <WhyLine code={m.verdict.state} className="ml-7" />
+          <WhyLine code={m.verdict.why} className="ml-7" />
+          {m.verdict.source !== "kalos" ? <p className="ml-7 text-caption text-fg-muted">{sourceNote(m.verdict.source)}</p> : null}
           {m.verdict.caveat ? <WhyLine code={m.verdict.caveat} className="ml-7" /> : null}
           <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
             <div className="text-body text-fg-muted">{detail}</div>

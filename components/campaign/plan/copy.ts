@@ -14,13 +14,14 @@ export { trustNumbers } from "@/components/campaign/trust-numbers";
 
 /** The one trust sentence the page leads with. */
 export function trustSentence(v: ReliabilityVerdict): string {
+  // The engine's verdict, word for word the same on every page, with what it means for this round.
   switch (v.state) {
     case "reliable":
-      return "The model put your past runs in the right order most of the time, so the order of these recipes is worth following.";
+      return `${v.label}. ${v.reason} The order of these recipes is worth following.`;
     case "not-yet":
-      return "The model has not yet shown that it puts past runs in the right order, so treat this order as a rough guide.";
+      return `${v.label}. ${v.reason} Treat this order as a rough guide.`;
     default:
-      return "There are too few measured runs to tell whether the model puts them in the right order.";
+      return `${v.label}. ${v.reason}`;
   }
 }
 

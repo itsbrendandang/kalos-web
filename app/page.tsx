@@ -21,7 +21,7 @@ import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
-import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
+import { modelVerdict, type PopulatedResult } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatNumber } from "@/lib/format";
@@ -95,7 +95,7 @@ function FullOverview() {
 
   const unit = parseUnit(target);
   const trendReady = active != null && bestSoFarSeries(active).filter((p) => p.best != null).length >= 2;
-  const verdict = analysis ? reliabilityVerdict(analysis) : null;
+  const verdict = analysis ? modelVerdict(analysis) : null;
   const trust = verdict ? trustPlain(verdict) : null;
   const shapes = new Map((analysis?.gp_shapes?.available ? analysis.gp_shapes.features : []).map((f) => [f.name, f]));
   const lines = analysis ? topDrivers(analysis.drivers, 5).map((b) => driverLine(analysis.drivers.find((d) => d.name === b.name)!, target, shapes.get(b.name))) : [];
@@ -139,7 +139,7 @@ function FullOverview() {
       <NextStep
         tone={tone}
         sentence={sentence}
-        why={planning && verdict ? verdict.state : stage.next.why}
+        why={planning && verdict ? verdict.why : stage.next.why}
         action={stage.next.action}
         href={stage.next.href}
         detail={detail}
@@ -260,7 +260,7 @@ function Kpis({
   round: number | null;
 }) {
   const delta = active ? bestDeltaFromPreviousRound(active) : null;
-  const verdict = analysis ? reliabilityVerdict(analysis) : null;
+  const verdict = analysis ? modelVerdict(analysis) : null;
   const verdictTone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
   return (
     <section aria-label="Key numbers" className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4 lg:divide-x lg:divide-border [&>*]:lg:pl-6 [&>*:first-child]:lg:pl-0">

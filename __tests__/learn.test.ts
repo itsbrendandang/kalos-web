@@ -55,7 +55,7 @@ describe("promotionLine", () => {
   it("says the first failing check in plain words with one fix, never the raw gate text", () => {
     const line = promotionLine(promo(false, ["feasibility_auc=0.625 < min 0.65", "ece=0.2 > max 0.15"]))!;
     expect(line.sentence).toBe("The model has not passed every check yet: it cannot yet tell which recipes will fail outright (1 more check also fell short).");
-    expect(line.fix).toBe("Add runs that include some that failed or produced nothing.");
+    expect(line.fix).toBe("If some runs produce nothing, record them too: the model needs failed runs to learn what fails.");
     expect(line.why).toBe("feasibility_auc");
     expect(`${line.sentence} ${line.fix}`).not.toMatch(/auc|ece|0\.65|feasib/);
   });

@@ -254,6 +254,12 @@ export type Promotion = {
   metrics: Record<string, number>;
   summary: string;
   meaning: string;
+  /** The engine's own verdict word (newer engines): `failed` = a measured check missed, `not_measurable` = every blocking check could not be measured on this data. */
+  status?: "passed" | "failed" | "not_measurable";
+  /** The checks that blocked only because their metric was missing (newer engines). */
+  unmeasured?: string[];
+  /** Checks neither passed nor failed, with the reason (newer engines). */
+  not_judged?: string[];
 };
 
 /**
@@ -715,26 +721,13 @@ export const getLatest = (): Promise<LatestResult> =>
 /** The populated (has-data) shape of the latest analysis. */
 export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
 
-/**
- * The single canonical "is this model trustworthy" verdict. Every place the UI
- * claims reliability (the dataset pill, the KPI sub-copy) must use this so the
- * page never contradicts itself: the model is reliable only when the held-out
- * correlation clears the floor AND its 95% CI excludes zero.
- */
-export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
-  const rel = d.reliability;
-  if (rel) return rel.clears_floor && rel.ci_excludes_zero;
-  const ci = d.cv_ci95 ?? null;
-  return d.cv_spearman != null && ci != null && ci[0] > 0;
-}
-
 export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
 
 export type ReliabilityVerdict = {
   state: ReliabilityState;
   /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough runs to tell". */
   label: "Reliable" | "Not yet reliable" | "Not enough runs to tell";
-  /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
+  /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. For the disclosure only; it does not decide the verdict. */
   rho: number | null;
   /** Its 95% interval, when the engine reported one. */
   ci: [number, number] | null;
@@ -742,64 +735,111 @@ export type ReliabilityVerdict = {
   floor: number | null;
   /** The why-line code (lib/why.ts) for a caveat on the score itself, e.g. cv_ci_unavailable when no interval was reported; null when there is none. */
   caveat: "cv_ci_unavailable" | null;
-  /** One plain sentence saying why, with no numbers in it: the Spearman, interval and floor are for a disclosure (see trustNumbers). Never says the model is sure while the interval reaches below the floor. */
+  /** One plain sentence saying why, with no numbers in it: the Spearman, interval and floor are for a disclosure (see trustNumbers). */
   reason: string;
+  /** The why-line code for the verdict (lib/why.ts): reliable, not-yet, insufficient, or unmeasured when a check could not be run. */
+  why: "reliable" | "not-yet" | "insufficient" | "unmeasured";
+  /**
+   * "kalos": the engine's own verdict word (`promotion.status`). "derived": an older engine sent only
+   * `promotion.passed` and its failures, and the verdict was read from those; the surface says so.
+   * "none": the engine sent no checks at all, so nothing is confirmed.
+   */
+  source: "kalos" | "derived" | "none";
+  /** The checks that did not pass, in plain words, first one first. Empty when every check passed. */
+  failed: string[];
 };
 
+/** The engine's model checks (its promotion gate), each in the lab's words. The key is the start of the engine's failure line. */
+export const GATE_WORDS: Record<string, { reason: string; fix: string }> = {
+  surrogate_spearman: { reason: "it does not yet put the runs it was tested on in the right order", fix: "Add more measured runs." },
+  group_mean_margin: { reason: "it does no better than the average of each group of runs", fix: "Add runs that change the recipe within a group." },
+  feasibility_auc: { reason: "it cannot yet tell which recipes will fail outright", fix: "If some runs produce nothing, record them too: the model needs failed runs to learn what fails." },
+  ece: { reason: "its likely range is wrong about how often it is right", fix: "Add more measured runs." },
+  brier: { reason: "its confidence that a recipe will work is not reliable yet", fix: "If some runs produce nothing, record them too: the model needs failed runs to learn what fails." },
+};
+
+/** The key of a failure line ("ece=0.31 > max 0.2", "surrogate does not beat the group-mean floor: ..."). */
+export function gateKey(failure: string): string {
+  if (failure.startsWith("surrogate does not beat the group-mean floor")) return "group_mean_margin";
+  return failure.split(/[=\s]/)[0];
+}
+
+/** A failure line that blocked only because its metric could not be measured on this sheet. */
+export const isUnmeasuredFailure = (failure: string): boolean => /unmeasured|missing|NaN|could not be measured/i.test(failure);
+
+/** A failure line in the lab's words: the check's reason, or the unmeasured case. */
+export function gateWords(failure: string): string {
+  if (isUnmeasuredFailure(failure)) return `a check it needs (${GATE_WORDS[gateKey(failure)] ? gateKey(failure).replace(/_/g, " ") : "one of its checks"}) could not be run on this sheet`;
+  return GATE_WORDS[gateKey(failure)]?.reason ?? "it has not met one of its checks";
+}
+
 /**
- * The one reliability verdict app-wide (redesign brief, rule 1). `state` is
- * `isReliable()` - the same predicate as before - plus the honest third case
- * where the engine could not score rank agreement at all. Promotion gates are
- * a separate question with their own line; nothing here reads `promotion`.
+ * The one model verdict, app-wide: the badge, the sentence and the why-line on every page read it, so
+ * no page shows a green check beside a "not yet" sentence. Kalos owns the verdict: it is
+ * `promotion.status` when the engine sends it; an older engine's `promotion.passed` and failure lines
+ * are read into the same three states and marked `derived`; with no checks at all nothing is confirmed.
+ * The rank score, its interval and the floor are carried only for the "How the model was scored"
+ * disclosure; they never decide the state.
  */
-export function reliabilityVerdict(
-  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
-): ReliabilityVerdict {
+export function modelVerdict(d: Partial<Pick<AnalyzeResult, "promotion" | "reliability" | "cv_ci95" | "cv_spearman">>): ReliabilityVerdict {
   const rel = d.reliability;
   const rho = rel?.spearman ?? d.cv_spearman ?? null;
   const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
   const floor = rel?.spearman_floor ?? null;
-  if (rho == null) {
+  const caveat: ReliabilityVerdict["caveat"] = rho != null && !ci ? "cv_ci_unavailable" : null;
+  const p = d.promotion;
+  const numbers = { rho, ci, floor, caveat };
+  if (!p) {
     return {
+      ...numbers,
       state: "insufficient",
       label: "Not enough runs to tell",
-      rho,
-      ci,
-      floor,
-      caveat: null,
-      reason: "Too few past runs could be tested to tell whether the model puts them in the right order.",
+      why: "insufficient",
+      source: "none",
+      failed: [],
+      reason: "Kalos did not report its checks of the model, so nothing about it is confirmed.",
     };
   }
-  if (isReliable(d)) {
-    const reachesBelow = floor != null && ci != null && ci[0] < floor;
+  const failures = (p.failures ?? []).filter((f): f is string => typeof f === "string");
+  const failed = failures.map(gateWords);
+  const status = p.status ?? (p.passed ? "passed" : failures.length > 0 && failures.every(isUnmeasuredFailure) ? "not_measurable" : "failed");
+  const source: ReliabilityVerdict["source"] = p.status ? "kalos" : "derived";
+  if (status === "passed") {
     return {
+      ...numbers,
       state: "reliable",
       label: "Reliable",
-      rho,
-      ci,
-      floor,
-      caveat: ci ? null : "cv_ci_unavailable",
-      reason: reachesBelow
-        ? "The model put your past runs in the right order most of the time, so its suggestions are worth running, though we are less sure of that than usual."
-        : "The model put your past runs in the right order most of the time, and we are sure enough of that, so its suggestions are worth running.",
+      why: "reliable",
+      source,
+      failed,
+      reason: "The model passed every one of Kalos's checks: it put your past runs in the right order and its likely range held up, so its suggestions are worth running.",
     };
   }
-  // Without a `reliability` object there is no floor to compare against: the only known cause is the interval.
-  const belowFloor = rel ? !rel.clears_floor : false;
+  const more = failed.length > 1 ? ` (${failed.length - 1} more ${failed.length === 2 ? "check" : "checks"} also fell short)` : "";
+  if (status === "not_measurable") {
+    return {
+      ...numbers,
+      state: "insufficient",
+      label: "Not enough runs to tell",
+      why: "unmeasured",
+      source,
+      failed,
+      reason: `Kalos could not finish checking the model: ${failed[0] ?? "a check it needs could not be run on this sheet"}${more}. Its suggestions have not been tested that way.`,
+    };
+  }
   return {
+    ...numbers,
     state: "not-yet",
     label: "Not yet reliable",
-    rho,
-    ci,
-    floor,
-    caveat: ci ? null : "cv_ci_unavailable",
-    reason: belowFloor
-      ? "The model put your past runs in the right order about as often as not, so it cannot yet tell a good recipe from a poor one."
-      : rel || ci
-        ? "The model put your past runs in the right order more often than not, but that could still be chance, so it is not confirmed yet."
-        : "Kalos did not say how sure it is that the model puts past runs in the right order, so it is not confirmed yet.",
+    why: "not-yet",
+    source,
+    failed,
+    reason: `The model did not pass every one of Kalos's checks: ${failed[0] ?? "it has not met one of its checks"}${more}. Its suggestions are closer to guesses.`,
   };
 }
+
+/** @deprecated The verdict is the engine's (`modelVerdict`); kept as an alias for one release so callers and tests move over. */
+export const reliabilityVerdict = modelVerdict;
 
 /**
  * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
@@ -841,16 +881,6 @@ export function constraintNote(constraint: ConstraintReport | null | undefined):
   return { plain, raw: constraint.reason };
 }
 
-/**
- * Whether a promotion-gate failure line (`promotion.failures[]`) names an
- * unmeasured metric rather than one that was measured and fell short - so
- * the UI can render the unmeasured case as a neutral disclosure instead of a
- * scarier miss (see `check_gates` in the engine: a missing/NaN required
- * metric fails closed and reads exactly like a rejection unless explained).
- */
-export function isUnmeasuredFailure(failure: string): boolean {
-  return failure.includes("unmeasured");
-}
 
 // --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------
 // The closed optimization loop behind /decide: propose -> run -> log outcome

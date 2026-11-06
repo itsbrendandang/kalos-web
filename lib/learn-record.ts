@@ -6,7 +6,7 @@
 // Pure except the two localStorage helpers; tested in __tests__/learn-record.test.ts.
 
 import type { CampaignRun, PopulatedResult } from "@/lib/api";
-import { reliabilityVerdict } from "@/lib/api";
+import { modelVerdict } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { topDrivers } from "@/lib/overview";
 
@@ -26,7 +26,7 @@ export type ModelSnapshot = {
 };
 
 export function snapshotOf(d: PopulatedResult): ModelSnapshot {
-  const v = reliabilityVerdict(d);
+  const v = modelVerdict(d);
   return {
     n: d.n,
     features: [...d.features],

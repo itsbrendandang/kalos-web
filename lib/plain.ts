@@ -14,6 +14,13 @@ export function trustPlain(v: ReliabilityVerdict): Trust {
   return { level: "warn", word: v.label, sentence: v.reason, gloss: "Treat its suggestions as ideas to try, and add more measured runs before leaning on them." };
 }
 
+/** Where the verdict came from, said only when it is not the engine's own word. */
+export function sourceNote(source: ReliabilityVerdict["source"]): string | null {
+  if (source === "derived") return "Read from Kalos's checks (this version of Kalos sends the checks, not a verdict word).";
+  if (source === "none") return "Kalos sent no checks of the model.";
+  return null;
+}
+
 export type DriverLine = { name: string; sentence: string; clear: boolean; up: boolean };
 
 const SHAPE: Record<string, (at: number | null) => string | null> = {

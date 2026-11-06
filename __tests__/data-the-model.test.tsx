@@ -19,22 +19,37 @@ function open(summary: HTMLElement) {
   });
 }
 
-const analysis = { ...(engine as object), has_data: true, dataset: "pichia.csv", updated: 1, target: "Titer" } as unknown as PopulatedResult;
+const promotion = { passed: true, failures: [], metrics: {}, summary: "ALL GATES PASSED", meaning: "", status: "passed" as const };
+const analysis = { ...(engine as object), promotion, has_data: true, dataset: "pichia.csv", updated: 1, target: "Titer" } as unknown as PopulatedResult;
 
 describe("TheModel", () => {
-  it("states a plain verdict with its why-line and the trust word beside it, and keeps the scoring numbers one click down", () => {
+  it("states Kalos's verdict with its why-line and the badge from the same field, and keeps the scoring numbers one click down", () => {
     render(<TheModel analysis={analysis} />);
-    expect(screen.getByText("The model put past runs in the right order most of the time.")).toBeTruthy();
+    expect(screen.getByText(/^The model passed every one of Kalos's checks/)).toBeTruthy();
     expect(screen.getByText(/Why this matters: If the model puts your past runs in the right order/)).toBeTruthy();
     expect(screen.getByText("Reliable")).toBeTruthy();
-    expect(screen.getByText("Can you trust its ranking?")).toBeTruthy();
+    expect(screen.getByText("Kalos's verdict")).toBeTruthy();
     expect(screen.getByText("The likely range is wider than it needs to be.")).toBeTruthy();
     expect(screen.getByText(/Why this matters: If far more results land inside the likely range/)).toBeTruthy();
     expect(screen.queryByText(/held-out/)).toBeNull();
     open(screen.getByText("How the model was scored"));
-    expect(screen.getByText(/^The model put your past runs in the right order most of the time/)).toBeTruthy();
     expect(screen.getByText(/Rank agreement \(Spearman\) on held-out runs: 0\.90/)).toBeTruthy();
     expect(screen.getByText(/Of held-out runs, 97% fell inside/)).toBeTruthy();
+  });
+
+  it("the badge and the sentence come from the same engine field: a failed check is Not yet reliable even with a high rank score (first-time study F3)", () => {
+    const failed = { ...analysis, promotion: { ...promotion, passed: false, status: "failed" as const, failures: ["ece=0.31 > max 0.20"] } };
+    render(<TheModel analysis={failed} />);
+    expect(screen.getByText("Not yet reliable")).toBeTruthy();
+    expect(screen.getByText(/^The model did not pass every one of Kalos's checks: its likely range is wrong about how often it is right/)).toBeTruthy();
+    expect(screen.queryByText("Reliable")).toBeNull();
+    expect(screen.getByText(/Why this matters: If the model cannot yet rank your past runs/)).toBeTruthy();
+  });
+
+  it("says when the verdict was read from an older engine's checks rather than its own word", () => {
+    const old = { ...analysis, promotion: { ...promotion, status: undefined } };
+    render(<TheModel analysis={old} />);
+    expect(screen.getByText(/Read from Kalos's checks/)).toBeTruthy();
   });
 
   it("labels the predicted slice, its held input, and the shading as how sure the model is, in plain words", () => {

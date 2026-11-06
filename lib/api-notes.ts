@@ -8,7 +8,7 @@
  * in lib/api.ts: absent field -> null (render nothing); present but
  * unmeasured -> the engine's own stated reason, never a fabricated number.
  */
-import { isReliable, type AnalyzeResult, type Calibration, type CvGroupMeanBaseline, type CvLogo, type CvTopK, type DesignBoxExclusion, type DriverSelection, type ProposalGating } from "@/lib/api";
+import { type AnalyzeResult, type Calibration, type CvGroupMeanBaseline, type CvLogo, type CvTopK, type DesignBoxExclusion, type DriverSelection, type ProposalGating } from "@/lib/api";
 
 /**
  * Why a dataset is or is not reliable, in one short phrase, using the engine's
@@ -33,7 +33,7 @@ export function reliabilityReason(
   d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
 ): string {
   const rel = d.reliability;
-  if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
+  if (!rel) return d.cv_spearman != null && d.cv_ci95 != null && d.cv_ci95[0] > 0 ? "Clears the trust floor" : "Below the trust floor";
   const floor = rel.spearman_floor.toFixed(2);
   if (!rel.clears_floor) return `Below the ${floor} floor`;
   if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;

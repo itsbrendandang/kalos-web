@@ -1167,6 +1167,47 @@ export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign
   return r.json();
 }
 
+// --- Multi-campaign reads (kalos-engine docs/CAMPAIGNS_API.md) -------------
+// Read-only: the Data index joins every campaign's analysis to the run sheets
+// this browser holds (lib/data-index.ts). Writes still go through the legacy
+// single-campaign routes above.
+
+/** One campaign's info record, as `GET /api/campaigns` lists it (`kalos/portal/campaigns_api.py`). */
+export type CampaignInfo = {
+  id: string;
+  name: string;
+  created_at: number;
+  updated_at: number;
+  archived: boolean;
+  is_default: boolean;
+  /** Absent on older engines. */
+  created_by?: string;
+  archived_at?: number | null;
+  seeded?: boolean;
+};
+
+/** The tenant's campaigns, newest first (the engine wraps the list as `{ campaigns }`). */
+export const listCampaigns = (): Promise<CampaignInfo[]> =>
+  fetch(`${API}/api/campaigns`).then(async (r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    const body = (await r.json()) as { campaigns?: CampaignInfo[] } | CampaignInfo[];
+    return Array.isArray(body) ? body : (body.campaigns ?? []);
+  });
+
+/** `GET /api/campaigns/{id}`: the info record plus the loop summary in the `GET /api/campaign` shape. */
+export const getCampaignById = (id: string): Promise<{ campaign: CampaignInfo; summary: Campaign }> =>
+  fetch(`${API}/api/campaigns/${encodeURIComponent(id)}`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
+
+/** `GET /api/campaigns/{id}/analysis`: that campaign's own analysis in the `GET /api/latest` shape. */
+export const getCampaignAnalysis = (id: string): Promise<LatestResult> =>
+  fetch(`${API}/api/campaigns/${encodeURIComponent(id)}/analysis`).then((r) => {
+    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    return r.json();
+  });
+
 // --- Optional AI providers (GET /api/providers) -----------------------------
 // Documented optional upgrades some validation checks can use when a key is
 // configured (e.g. an LLM-assisted check) - never required. See

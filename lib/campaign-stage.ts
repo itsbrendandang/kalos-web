@@ -100,8 +100,31 @@ export function campaignStage(
     round: stage.round,
     started: stage.started,
     steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key)!.label, href: meta(s.key)!.href, state: s.state, detail: s.detail })),
-    next: next ? { ...next, href: meta(next.stage)!.href, why: nextWhy(next.stage, { hasData: latest.has_data, measured: local.measured }) } : local.next,
+    next: next
+      ? { ...next, reason: roundOfWaitingRuns(next.reason, campaign), href: meta(next.stage)!.href, why: nextWhy(next.stage, { hasData: latest.has_data, measured: local.measured }) }
+      : local.next,
   };
+}
+
+/**
+ * The round the runs still waiting for a result belong to, as people see it (from the round Kalos stamps
+ * on each run), or null when none is stamped or they come from several rounds.
+ */
+export function waitingRound(campaign: Campaign): number | null {
+  if (!campaign.has_campaign) return null;
+  const rounds = [...new Set(inFlight(campaign).map((r) => (r.round == null ? null : displayRound(r.round))))];
+  return rounds.length === 1 ? rounds[0] : null;
+}
+
+/**
+ * The engine's next-step sentence names the campaign's current round ("3 runs from round 2 are waiting"),
+ * which is wrong once the model has been updated while runs from the earlier round still wait (first-time
+ * study F15). The round in the sentence is corrected to the waiting runs' own round when Kalos stamped it.
+ */
+export function roundOfWaitingRuns(reason: string, campaign: Campaign): string {
+  const r = waitingRound(campaign);
+  if (r == null) return reason;
+  return reason.replace(/\bfrom round \d+\b/g, `from round ${r}`);
 }
 
 /**
@@ -172,8 +195,8 @@ function localStage(
     // The waiting runs' own round (the engine stamps it), not the campaign's current round: after the model is
     // updated the campaign moves on while runs from the earlier round can still be waiting for a result.
     const waitingRounds = [...new Set(inFlight(active!).map((r) => (r.round == null ? null : displayRound(r.round))))];
-    const waitingRound = waitingRounds.length === 1 && waitingRounds[0] != null ? waitingRounds[0] : null;
-    const fromRound = waitingRound != null ? ` from round ${waitingRound}` : waitingRounds.length > 1 ? " from earlier rounds" : "";
+    const wr = waitingRound(campaign);
+    const fromRound = wr != null ? ` from round ${wr}` : waitingRounds.length > 1 ? " from earlier rounds" : "";
     return {
       round,
       ...counts,

@@ -71,6 +71,9 @@ describe("campaignStage", () => {
     expect(s.next.reason).toBe("3 runs from round 1 have no result yet. Enter each as it comes back from the lab.");
     // Without the engine's stamp no round is claimed.
     expect(campaignStage({ has_data: true }, campaign([run("a", null)], 1)).next.reason).toBe("1 run has no result yet. Enter each as it comes back from the lab.");
+    // The engine's own sentence names the campaign's round; it is corrected to the runs' round.
+    const withEngine = { ...campaign(stale, 1), next_action: { stage: "record" as const, action: "Record 3 results", reason: "3 runs from round 2 are waiting for a measured result." } };
+    expect(campaignStage({ has_data: true }, withEngine).next.reason).toBe("3 runs from round 1 are waiting for a measured result.");
     // Runs from two rounds: say so rather than pick one.
     const mixed = [{ ...run("a", null), round: 0 }, { ...run("b", null), round: 1 }];
     expect(campaignStage({ has_data: true }, campaign(mixed, 1)).next.reason).toBe("2 runs from earlier rounds have no result yet. Enter each as it comes back from the lab.");

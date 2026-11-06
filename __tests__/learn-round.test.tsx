@@ -158,7 +158,7 @@ describe("Learn shows the round's results first", () => {
     const section = (await screen.findByRole("heading", { level: 2, name: "What round 1 measured" })).closest("section")!;
     await within(section).findByText(/2 results the model learned from when you planned round 2\. Kept in this browser/);
     expect(within(section).getAllByRole("row").slice(1)).toHaveLength(2);
-    const changed = screen.getByRole("heading", { level: 2, name: "What changed since round 0" }).closest("section")!;
+    const changed = screen.getByRole("heading", { level: 2, name: "What changed since the upload" }).closest("section")!;
     expect(within(changed).getByText("The model now learns from 42 runs, 2 more than before.")).toBeTruthy();
     expect(within(changed).getByText("Best measured lipase_titer rose from 49.76 to 52.50.")).toBeTruthy();
     expect(within(changed).getByText(/from a copy kept in this browser\. Kalos does not yet report what an update changed/)).toBeTruthy();

@@ -134,7 +134,7 @@ export function RoundResults({
       </Section>
 
       <Section
-        title={history.length > 1 ? `What changed since round ${formatNumber(Math.max(0, round - 1), "count")}` : "What changed"}
+        title={history.length > 1 ? (round - 1 >= 1 ? `What changed since round ${formatNumber(round - 1, "count")}` : "What changed since the upload") : "What changed"}
         description={
           unlearned
             ? "Nothing yet: the model has not learned from this round's results. Once it has, this says what moved."

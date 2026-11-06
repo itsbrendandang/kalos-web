@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Callout } from "@/components/kit/callout";
+import { Disclosure } from "@/components/kit/disclosure";
 import { safeNextPath } from "@/lib/auth-routes";
 import { resolveSession } from "@/lib/server/session";
 
@@ -31,20 +32,18 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   if (st.status === "mfa_required") redirect(`/settings/security?next=${encodeURIComponent(next)}`);
 
   return (
-    <AuthCard
-      title="Sign in to Kalos"
-      description="Kalos is in an invite-only beta. Sign in with the Google account your invitation was sent to."
-    >
+    <AuthCard title="Sign in" description="Use the Google account your invitation was sent to.">
       {code ? (
         <Callout tone="bad" title="Sign-in did not complete">
           {ERRORS[code] ?? "Something went wrong during sign-in. Try again, or contact your admin if it keeps happening."}
         </Callout>
       ) : null}
       <GoogleSignInButton callbackURL={next} />
-      <p className="text-caption text-fg-muted">
-        No invitation yet? Ask an admin of your organization to invite you. After Google, you will set up (or enter) a
-        code from an authenticator app.
-      </p>
+      <Disclosure summary="No invitation?">
+        <p className="text-body text-fg-muted">
+          Kalos is invite-only. Ask an admin of your organization to invite you. After Google, you will set up (or enter) a code from an authenticator app.
+        </p>
+      </Disclosure>
     </AuthCard>
   );
 }

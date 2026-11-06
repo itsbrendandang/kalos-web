@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
 import { BackupCodes, MfaEnrol, MfaVerify } from "@/components/auth/mfa-panel";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { Callout } from "@/components/kit/callout";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
+import { Verdict } from "@/components/kit/verdict";
 import { Button } from "@/components/ui/button";
 import { safeNextPath } from "@/lib/auth-routes";
 import { getAuth } from "@/lib/server/auth";
@@ -64,10 +64,12 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
   return (
     <div className={st.status === "ok" ? "flex max-w-2xl flex-col gap-10" : "mx-auto flex max-w-2xl flex-col gap-10 px-6 py-10"}>
       <PageHeader title="Security" description={`Signed in with Google as ${st.email ?? "you"}.`} />
-      {sp.revoked ? <Callout tone="good" title={sp.revoked === "others" ? "Signed out of all other sessions." : "Session signed out."} /> : null}
+      {sp.revoked ? (
+        <Verdict tone="good">{sp.revoked === "others" ? "Signed out of all other sessions." : "That session is signed out."}</Verdict>
+      ) : null}
 
-      <Section title="Two-step sign-in" description="An authenticator app code is required after every Google sign-in.">
-        <p className="text-body text-fg">On: authenticator app (TOTP).</p>
+      <Section title="Two-step sign-in" description="A code from your authenticator app is required after every Google sign-in.">
+        <p className="text-body text-fg">Two-step sign-in is on.</p>
         <BackupCodes />
       </Section>
 
@@ -101,7 +103,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
               <form action={revokeSessionAction}>
                 <input type="hidden" name="sessionId" value={s.id} />
                 <Button type="submit" variant={s.id === current ? "outline" : "destructive"} size="sm">
-                  {s.id === current ? "Sign out" : "Revoke"}
+                  {s.id === current ? "Sign out" : "Sign out this session"}
                 </Button>
               </form>
             </li>
@@ -110,7 +112,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
       </Section>
 
       <div className="max-w-xs">
-        <SignOutButton />
+        <SignOutButton variant="ghost" />
       </div>
     </div>
   );

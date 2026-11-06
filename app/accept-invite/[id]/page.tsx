@@ -31,10 +31,7 @@ export default async function AcceptInvitePage({
     // Nothing about the invitation is shown before sign-in: the link alone
     // does not reveal the organization or the invited address.
     return (
-      <AuthCard
-        title="You have been invited to Kalos"
-        description="Sign in with the Google account this invitation was sent to. You will then set up an authenticator app and join the organization."
-      >
+      <AuthCard title="You have been invited to Kalos" description="Sign in with the Google account this invitation was sent to.">
         <GoogleSignInButton callbackURL={self} label="Continue with Google" />
       </AuthCard>
     );
@@ -63,14 +60,14 @@ export default async function AcceptInvitePage({
       ) : null}
       <form action={acceptInvitationAction}>
         <input type="hidden" name="invitationId" value={inv.id} />
-        <Button type="submit" className="w-full">
-          Accept invitation
+        <Button type="submit" size="lg" className="w-full">
+          Accept the invitation
         </Button>
       </form>
       <form action={declineInvitationAction}>
         <input type="hidden" name="invitationId" value={inv.id} />
         <Button type="submit" variant="ghost" className="w-full">
-          Decline
+          Decline the invitation
         </Button>
       </form>
     </AuthCard>

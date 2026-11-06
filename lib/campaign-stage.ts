@@ -169,6 +169,11 @@ function localStage(
   const startedText = `${plural(started, "run")} started`;
 
   if (awaiting > 0) {
+    // The waiting runs' own round (the engine stamps it), not the campaign's current round: after the model is
+    // updated the campaign moves on while runs from the earlier round can still be waiting for a result.
+    const waitingRounds = [...new Set(inFlight(active!).map((r) => (r.round == null ? null : displayRound(r.round))))];
+    const waitingRound = waitingRounds.length === 1 && waitingRounds[0] != null ? waitingRounds[0] : null;
+    const fromRound = waitingRound != null ? ` from round ${waitingRound}` : waitingRounds.length > 1 ? " from earlier rounds" : "";
     return {
       round,
       ...counts,
@@ -186,7 +191,7 @@ function localStage(
         reason:
           done > 0
             ? `${done} of ${started} results are in. Enter the rest as they come back from the lab.`
-            : `${plural(awaiting, "run")} from round ${round} ${awaiting === 1 ? "is" : "are"} waiting for a measured result.`,
+            : `${plural(awaiting, "run")}${fromRound} ${awaiting === 1 ? "has" : "have"} no result yet. Enter each as it comes back from the lab.`,
         why: done > 0 ? "record_partial" : "run_waiting",
       },
     };

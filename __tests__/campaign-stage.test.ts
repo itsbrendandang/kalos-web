@@ -63,6 +63,19 @@ describe("campaignStage", () => {
     expect(s.next).toMatchObject({ stage: "record", action: "Record 3 results", href: "/campaign/record" });
   });
 
+  it("the waiting-runs line names the round the runs belong to, not the campaign's current round (first-time study F15)", () => {
+    // The model was updated (campaign round 1 = round 2 on screen) while three runs started in round 1 still wait.
+    const stale = [{ ...run("a", null), round: 0 }, { ...run("b", null), round: 0 }, { ...run("c", null), round: 0 }];
+    const s = campaignStage({ has_data: true }, campaign(stale, 1));
+    expect(s.round).toBe(2);
+    expect(s.next.reason).toBe("3 runs from round 1 have no result yet. Enter each as it comes back from the lab.");
+    // Without the engine's stamp no round is claimed.
+    expect(campaignStage({ has_data: true }, campaign([run("a", null)], 1)).next.reason).toBe("1 run has no result yet. Enter each as it comes back from the lab.");
+    // Runs from two rounds: say so rather than pick one.
+    const mixed = [{ ...run("a", null), round: 0 }, { ...run("b", null), round: 1 }];
+    expect(campaignStage({ has_data: true }, campaign(mixed, 1)).next.reason).toBe("2 runs from earlier rounds have no result yet. Enter each as it comes back from the lab.");
+  });
+
   it("partial recording keeps Run current and shows progress on Record", () => {
     const s = campaignStage({ has_data: true }, campaign([run("a", 5.1), run("b", null)]));
     expect(states(s)).toEqual(["done", "done", "current", "upcoming", "upcoming"]);

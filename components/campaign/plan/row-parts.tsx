@@ -17,7 +17,7 @@ export const MODE_HINT = { exploit: "the model expects a high value", explore: "
 export function Flags({ flags, compact = false, shared }: { flags: RecipeFlag[]; compact?: boolean; shared?: ReadonlySet<FlagKind> }) {
   const own = flags.filter((f) => !shared?.has(f.kind));
   if (flags.length === 0) return <span className="text-caption text-fg-muted">None</span>;
-  if (own.length === 0) return <span className="text-caption text-fg-muted">As every recipe (see Before you start)</span>;
+  if (own.length === 0) return <span className="block min-w-[10rem] text-caption text-fg-muted">As every recipe (see Before you start)</span>;
   return (
     <ul className={cn("flex min-w-[14rem] flex-col gap-1", compact && "min-w-0 items-start")}>
       {own.map((f) => (

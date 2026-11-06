@@ -111,11 +111,24 @@ export function sourceHref(source: Pick<AssistSource, "kind" | "id">): string | 
     case "finding":
       return /^[a-z0-9_.-]{1,80}$/i.test(id) ? `/campaign/learn#${id}` : "/campaign/learn";
     case "analysis":
-      return "/campaign/learn";
+      return id === "proposals" ? "/campaign/plan" : "/campaign/learn";
     default:
       return null;
   }
 }
+
+/** The engine's analysis sections in plain words (kalos/assist/index.py ids). */
+const ANALYSIS_LABEL: Record<string, string> = {
+  verdict: "The verdict",
+  drivers: "What went with the target",
+  proposals: "Proposed recipes",
+  best_run: "Best measured run",
+  round_delta: "Since last round",
+  refusal: "Why no recipes",
+  promotion: "Model checks",
+  cv: "Model checks",
+  noise: "Run-to-run spread",
+};
 
 const KIND_LABEL: Record<AssistSourceKind, string> = {
   sheet: "Sheet",
@@ -140,6 +153,8 @@ export function sourceLabel(source: Pick<AssistSource, "kind" | "id">): string {
       return `${kind}: ${source.id.replace(/^.*\//, "").replace(/\.md$/i, "").replace(/[_-]/g, " ")}`;
     case "skill":
       return `${kind}: ${source.id.replace(/-/g, " ")}`;
+    case "analysis":
+      return ANALYSIS_LABEL[source.id] ?? kind;
     default:
       return kind;
   }

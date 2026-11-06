@@ -43,6 +43,13 @@ export const RAIL_GROUPS: readonly RailGroup[] = [
   { label: "Workspace", keys: ["data", "library", "projects", "documents"] },
 ];
 
+/**
+ * The sidebar in Simple view: Overview (the conversation), Ask Kalos (the
+ * same conversation as a panel), Data and Documents; Settings stays at the
+ * foot. The stage pages are reached from the "See the full page" links.
+ */
+export const SIMPLE_RAIL_GROUPS: readonly RailGroup[] = [{ label: null, keys: ["campaign", "agent", "data", "documents"] }];
+
 /** Looks up a rail section by key; every key in RAIL_GROUPS exists in NAV_ITEMS. */
 export function navItem(key: NavKey): (typeof NAV_ITEMS)[number] {
   return NAV_ITEMS.find((n) => n.key === key)!;

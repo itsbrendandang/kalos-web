@@ -192,7 +192,7 @@ describe("the question panel", () => {
     expect(await screen.findByText(SOURCED.answer)).toBeTruthy();
     const chips = screen.getByRole("list", { name: "Sources" });
     const links = within(chips).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/data/round/1", `/data/sheet/${SHA}`, "/campaign/learn"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/data/round/1", `/data/sheet/${SHA}`, "/campaign/plan"]);
     expect(within(chips).getByText("Round 1")).toBeTruthy();
     expect(within(chips).getByText("Guide page: ASSISTANT").closest("a")).toBeNull();
     open(screen.getByText("What was quoted"));

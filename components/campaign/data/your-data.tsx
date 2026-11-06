@@ -381,7 +381,8 @@ function WhyList({ codes }: { codes: readonly WhyCode[] }) {
   );
 }
 
-function ScatterFor({ x, y, caption }: { x: ColumnProfile; y: ColumnProfile; caption?: string }) {
+/** The target against one input: dots for a number column, strips for a text column, with the sentence of what to look for. Also carried by an answer in the conversation. */
+export function ScatterFor({ x, y, caption }: { x: ColumnProfile; y: ColumnProfile; caption?: string }) {
   const { xs, ys, rows } = pairedValues(x, y);
   if (ys.length === 0) return null;
   const chart =

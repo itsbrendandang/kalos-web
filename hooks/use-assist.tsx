@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { localNextStep } from "@/lib/agent";
-import { getAssistIndexStatus, getAssistNext } from "@/lib/api";
-import { AssistUnavailableError, type AssistIndexStatus, type AssistNext, type AssistUnavailableReason } from "@/lib/assist";
+import { askAssist, getAssistIndexStatus, getAssistNext } from "@/lib/api";
+import { AssistUnavailableError, type AssistAnswer, type AssistIndexStatus, type AssistNext, type AssistUnavailableReason } from "@/lib/assist";
 import { DEMO_MODE } from "@/lib/demo";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { campaignView } from "@/lib/workbench";
@@ -37,11 +37,30 @@ export type AssistStatusState = {
   set: (next: AssistIndexStatus) => void;
 };
 
+/** One question and what came back. */
+export type Turn = { id: number; question: string; reply: { kind: "answer"; answer: AssistAnswer } | { kind: "failed"; text: string } | { kind: "pending" } };
+
+/**
+ * The one conversation, shared by the Overview in Simple view, the Ask Kalos
+ * panel and the Ask Kalos page, so a question asked in one place is answered
+ * in all of them. `off` becomes true when the engine says the assistant is
+ * turned off mid-conversation.
+ */
+export type ThreadState = {
+  turns: Turn[];
+  busy: boolean;
+  off: boolean;
+  ask: (question: string) => Promise<void>;
+};
+
+export const MAX_QUESTION = 2000;
+
 type AssistData = {
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
   nextStep: NextStepState;
   assistStatus: AssistStatusState;
+  thread: ThreadState;
 };
 
 const AssistContext = createContext<AssistData | null>(null);
@@ -109,12 +128,45 @@ function useAssistStatus(): AssistStatusState {
   return { ...state, refresh, set };
 }
 
+function useThread(): ThreadState {
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [off, setOff] = useState(false);
+  const seq = useRef(0);
+  const ask = useCallback(async (question: string) => {
+    const q = question.trim().slice(0, MAX_QUESTION);
+    if (!q) return;
+    const id = ++seq.current;
+    setTurns((t) => [...t, { id, question: q, reply: { kind: "pending" } }]);
+    setBusy(true);
+    try {
+      const answer = await askAssist(q);
+      setTurns((t) => t.map((x) => (x.id === id ? { ...x, reply: { kind: "answer", answer } } : x)));
+    } catch (err) {
+      if (err instanceof AssistUnavailableError && err.reason !== "unavailable") {
+        setOff(true);
+        setTurns((t) => t.filter((x) => x.id !== id));
+        return;
+      }
+      const text =
+        err instanceof AssistUnavailableError
+          ? "The model did not answer. Check that it is running, then ask again."
+          : "Kalos could not be reached, so the question was not answered. Ask again in a moment.";
+      setTurns((t) => t.map((x) => (x.id === id ? { ...x, reply: { kind: "failed", text } } : x)));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+  return useMemo(() => ({ turns, busy, off, ask }), [turns, busy, off, ask]);
+}
+
 /** Mounted once by the app shell, inside EngineDataProvider. */
 export function AssistProvider({ children }: { children: ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const nextStep = useNextStep();
   const assistStatus = useAssistStatus();
-  const value = useMemo(() => ({ panelOpen, setPanelOpen, nextStep, assistStatus }), [panelOpen, nextStep, assistStatus]);
+  const thread = useThread();
+  const value = useMemo(() => ({ panelOpen, setPanelOpen, nextStep, assistStatus, thread }), [panelOpen, nextStep, assistStatus, thread]);
   return <AssistContext.Provider value={value}>{children}</AssistContext.Provider>;
 }
 
@@ -132,6 +184,11 @@ export function useNextStepCard(): NextStepState {
 /** Which model answers questions, and where it runs. */
 export function useAssistIndexStatus(): AssistStatusState {
   return useAssistData().assistStatus;
+}
+
+/** The one conversation with Kalos. */
+export function useAssistThread(): ThreadState {
+  return useAssistData().thread;
 }
 
 /** The "Ask Kalos" panel: open from the sidebar or ⌘J. */

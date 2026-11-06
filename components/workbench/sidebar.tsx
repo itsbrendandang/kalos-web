@@ -9,8 +9,9 @@ import { StepDot } from "@/components/campaign/step-dot";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
 import { ExampleBadge } from "@/components/ui/badge";
 import { useCampaignStage } from "@/hooks/use-campaign-stage";
+import { setViewMode, useViewMode, VIEW_MODES } from "@/hooks/use-view-mode";
 import type { StageStep } from "@/lib/campaign-stage";
-import { CAMPAIGN_STAGES, RAIL_GROUPS, navItem, navKeyFor, type NavKey } from "@/lib/routes";
+import { CAMPAIGN_STAGES, RAIL_GROUPS, SIMPLE_RAIL_GROUPS, navItem, navKeyFor, type NavKey } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 /** Set at build time by desktop/prepare-web.sh: Kalos is a local process on this Mac, not a service. */
@@ -55,6 +56,9 @@ export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; 
   const shortcut = useShortcutLabel();
   const askShortcut = useShortcutLabel("J");
   const { stage, status, demo, retry } = useCampaignStage();
+  // Simple view: a short rail (Overview, Ask Kalos, Data, Documents) and no stage rows; the full pages are one link away.
+  const mode = useViewMode();
+  const groups = mode === "simple" ? SIMPLE_RAIL_GROUPS : RAIL_GROUPS;
   const current = stage?.steps.find((x) => x.state === "current") ?? null;
   const doneCount = stage?.steps.filter((x) => x.state === "done").length ?? 0;
 
@@ -86,7 +90,7 @@ export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; 
       </button>
 
       <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1">
-        {RAIL_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label ?? "overview"} className="flex flex-col gap-0.5">
             {group.label ? <p className="px-2.5 pb-0.5 text-caption text-fg-muted">{group.label}</p> : null}
             <ul className="flex flex-col gap-0.5">
@@ -118,9 +122,9 @@ export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; 
                     >
                       <Icon className="size-[18px] shrink-0" aria-hidden />
                       <span className="flex-1">{n.label}</span>
-                      {isOverview && current ? <span className="text-caption font-normal text-fg-muted">{current.label}</span> : null}
+                      {isOverview && current && mode === "full" ? <span className="text-caption font-normal text-fg-muted">{current.label}</span> : null}
                     </Link>
-                    {isOverview ? <StageRows pathname={pathname} steps={stage?.steps ?? null} /> : null}
+                    {isOverview && mode === "full" ? <StageRows pathname={pathname} steps={stage?.steps ?? null} /> : null}
                   </li>
                 );
               })}
@@ -134,6 +138,7 @@ export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; 
           <Settings className="size-[18px]" aria-hidden />
           Settings
         </Link>
+        <ViewSwitch mode={mode} />
         <p className="px-2.5 pb-0.5 text-caption text-fg-muted">Research use only. Suggestions are hypotheses to test, not settings.</p>
         <div className="flex items-center gap-1 pl-1">
           {status === "offline" ? (
@@ -150,6 +155,25 @@ export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; 
           <WorkspaceMenu side="right" className="size-8" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Simple or Full view, saved on this device; Settings has the same choice with a sentence on each. */
+function ViewSwitch({ mode }: { mode: "simple" | "full" }) {
+  return (
+    <div role="group" aria-label="View" className="mx-1.5 my-1 grid grid-cols-2 rounded-lg bg-fill-hover p-0.5">
+      {VIEW_MODES.map((m) => (
+        <button
+          key={m.value}
+          type="button"
+          aria-pressed={mode === m.value}
+          onClick={() => setViewMode(m.value)}
+          className={cn("h-7 rounded-md text-caption transition-colors", mode === m.value ? "bg-surface font-medium text-fg shadow-card" : "text-fg-muted hover:text-fg")}
+        >
+          {m.label}
+        </button>
+      ))}
     </div>
   );
 }

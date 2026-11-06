@@ -12,6 +12,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
+import { setViewMode, useViewMode, VIEW_MODES } from "@/hooks/use-view-mode";
 import { getProviders, type Provider } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { whyLine } from "@/lib/why";
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-10">
       <PageHeader title="Settings" description="How Kalos looks on this device, and what it is connected to." />
+      <ViewChoice />
       <Appearance />
       <EngineConnection />
       <AssistantSettings />
@@ -34,6 +36,33 @@ export default function SettingsPage() {
         <Link href="/settings/audit" className={buttonVariants({ variant: "outline" })}>See the activity record</Link>
       </Section>
     </div>
+  );
+}
+
+/** Simple (Overview is a conversation) or Full (every page). The sidebar footer has the same switch. */
+function ViewChoice() {
+  const mode = useViewMode();
+  return (
+    <Section title="View" description="How much of Kalos you see. Saved on this device only; the sidebar has the same switch.">
+      <fieldset className="flex flex-col gap-2">
+        <legend className="sr-only">View</legend>
+        {VIEW_MODES.map((m) => (
+          <label
+            key={m.value}
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5",
+              mode === m.value ? "border-accent bg-accent-soft" : "border-border-strong bg-surface hover:bg-subtle",
+            )}
+          >
+            <input type="radio" name="view" value={m.value} checked={mode === m.value} onChange={() => setViewMode(m.value)} className="mt-1 accent-[var(--accent)]" />
+            <span className="flex flex-col">
+              <span className="text-label text-fg">{m.label}</span>
+              <span className="text-caption text-fg-muted">{m.description}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+    </Section>
   );
 }
 

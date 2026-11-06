@@ -38,6 +38,7 @@ describe("sourceHref", () => {
     expect(sourceHref({ kind: "round", id: "1" })).toBe("/data/round/2");
     expect(sourceHref({ kind: "finding", id: "near_constant_input.2" })).toBe("/campaign/learn#near_constant_input.2");
     expect(sourceHref({ kind: "analysis", id: "cv" })).toBe("/campaign/learn");
+    expect(sourceHref({ kind: "analysis", id: "proposals" })).toBe("/campaign/plan");
   });
   it("has no page for a doc or a method, so the chip is not a link", () => {
     expect(sourceHref({ kind: "doc", id: "docs/ASSISTANT.md" })).toBeNull();
@@ -57,7 +58,9 @@ describe("sourceLabel", () => {
     expect(sourceLabel({ kind: "finding", id: "near_constant_input.2" })).toBe("Finding: near constant input");
     expect(sourceLabel({ kind: "doc", id: "docs/ASSISTANT.md" })).toBe("Guide page: ASSISTANT");
     expect(sourceLabel({ kind: "skill", id: "run-sheet-checks" })).toBe("Method: run sheet checks");
-    expect(sourceLabel({ kind: "analysis", id: "drivers" })).toBe("Model results");
+    expect(sourceLabel({ kind: "analysis", id: "drivers" })).toBe("What went with the target");
+    expect(sourceLabel({ kind: "analysis", id: "round_delta" })).toBe("Since last round");
+    expect(sourceLabel({ kind: "analysis", id: "something" })).toBe("Model results");
   });
 });
 

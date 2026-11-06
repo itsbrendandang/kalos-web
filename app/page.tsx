@@ -3,6 +3,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { NextStepCard } from "@/components/assist/next-step-card";
+import { Conversation } from "@/components/assist/conversation";
+import { ProposedRecipes } from "@/components/campaign/proposed-recipes";
+import { useViewMode } from "@/hooks/use-view-mode";
 import { useNextStepCard } from "@/hooks/use-assist";
 import { agentStatus } from "@/lib/agent";
 import type { AssistNext } from "@/lib/assist";
@@ -13,12 +16,11 @@ import { KpiCard } from "@/components/kit/kpi-card";
 import { lazyChart } from "@/components/kit/lazy-chart";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
-import { Badge, ExampleBadge, ModeBadge } from "@/components/ui/badge";
+import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
-import { proposalRecipe, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
+import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatNumber } from "@/lib/format";
@@ -42,6 +44,13 @@ const BarChart = lazyChart(() => import("@/components/tremor/bar-chart").then((m
 const LineChart = lazyChart(() => import("@/components/tremor/line-chart").then((m) => m.LineChart));
 
 export default function OverviewPage() {
+  const mode = useViewMode();
+  // Simple view: Overview is a conversation with Kalos; the full page below is one link away.
+  if (mode === "simple") return <Conversation />;
+  return <FullOverview />;
+}
+
+function FullOverview() {
   const latest = useLatest();
   const campaign = useCampaign();
   const view = campaignView(campaign.data, campaign.error, DEMO_MODE, DEMO_CAMPAIGN);
@@ -135,7 +144,7 @@ export default function OverviewPage() {
         next={engineNext}
       />
 
-      {planning && analysis ? <Batch analysis={analysis} target={target} round={stage.round} /> : null}
+      {planning && analysis ? <ProposedRecipes analysis={analysis} target={target} round={stage.round} /> : null}
 
       <Disclosure summary="Numbers, trend and what went with the result" meta={runs != null ? `${formatNumber(runs, "count")} runs` : undefined}>
         <div className="flex flex-col gap-8 pb-2">
@@ -226,53 +235,6 @@ function NextStep({
   return <NextStepCard next={card} tone={tone} aside={aside} detail={detail} />;
 }
 
-/** The proposed recipes: one row per recipe, the inputs as the lab sets them, the predicted value and the kind of bet. */
-function Batch({ analysis, target, round }: { analysis: PopulatedResult; target: string; round: number | null }) {
-  const features = analysis.proposal_features;
-  const n = analysis.proposals.length;
-  return (
-    <Section
-      title={`Proposed recipes for ${round ? `round ${round}` : "the next round"}`}
-      description={`${n} ${n === 1 ? "recipe" : "recipes"}, predicted by the model, not measured. Best bet: the model expects a high value. New ground: a recipe the model is unsure about, run to learn from.`}
-    >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10">#</TableHead>
-            {features.map((f) => (
-              <TableHead key={f} numeric className="font-mono text-code">
-                {f}
-              </TableHead>
-            ))}
-            <TableHead numeric>Predicted {target}</TableHead>
-            <TableHead>Kind of bet</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {analysis.proposals.map((p, i) => {
-            const recipe = proposalRecipe(p, features);
-            return (
-              <TableRow key={i}>
-                <TableCell className="text-fg-muted tabular-nums">{i + 1}</TableCell>
-                {features.map((f) => (
-                  <TableCell key={f} numeric className="tabular-nums">
-                    {formatNumber(recipe[f])}
-                  </TableCell>
-                ))}
-                <TableCell numeric className="font-medium text-fg tabular-nums">
-                  {formatNumber(p.pred)}
-                </TableCell>
-                <TableCell>
-                  <ModeBadge mode={p.mode} />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </Section>
-  );
-}
 
 /** Under the verdict label: how often the model put past runs in the right order, in words. */
 function rankWords(state: "reliable" | "not-yet" | "insufficient"): string {

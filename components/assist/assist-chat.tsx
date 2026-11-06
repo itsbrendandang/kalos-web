@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, FileText } from "lucide-react";
 import { NextStepCard } from "@/components/assist/next-step-card";
+import { SopDraftDialog, type DraftPrefill } from "@/components/assist/sop-draft-dialog";
 import { Sources } from "@/components/assist/sources";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useAssistIndexStatus, useNextStepCard } from "@/hooks/use-assist";
 import { askAssist } from "@/lib/api";
 import { AssistUnavailableError, whereItRuns, type AssistAnswer, type AssistNext } from "@/lib/assist";
+import { detectProcedureAsk } from "@/lib/sop";
 import { cn } from "@/lib/utils";
 
 type Turn = { id: number; question: string; reply: { kind: "answer"; answer: AssistAnswer } | { kind: "failed"; text: string } | { kind: "pending" } };
@@ -76,11 +78,19 @@ function Thread({ onOff, fallbackNext }: { onOff: () => void; fallbackNext: Assi
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
   const inputId = useId();
+  const [draft, setDraft] = useState<{ open: boolean; prefill: DraftPrefill | null }>({ open: false, prefill: null });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const q = question.trim().slice(0, MAX_QUESTION);
     if (!q || busy) return;
+    // "Write an SOP for round 2" is a request for a draft, not a question: open the draft dialog with the round picked.
+    const procedure = detectProcedureAsk(q);
+    if (procedure) {
+      setQuestion("");
+      setDraft({ open: true, prefill: procedure });
+      return;
+    }
     const id = ++seq.current;
     setTurns((t) => [...t, { id, question: q, reply: { kind: "pending" } }]);
     setQuestion("");
@@ -129,6 +139,13 @@ function Thread({ onOff, fallbackNext }: { onOff: () => void; fallbackNext: Assi
           <ArrowUp aria-hidden />
         </Button>
       </form>
+      <div>
+        <Button variant="outline" size="sm" onClick={() => setDraft({ open: true, prefill: null })}>
+          <FileText aria-hidden />
+          Draft a procedure
+        </Button>
+      </div>
+      <SopDraftDialog open={draft.open} onOpenChange={(open) => setDraft((d) => ({ ...d, open }))} prefill={draft.prefill} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { MessageCircleQuestion, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
+import { MessageCircleQuestion, FileText, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
 import { KalosMark } from "@/components/brand/kalos-mark";
 import { StepDot } from "@/components/campaign/step-dot";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
@@ -30,6 +30,7 @@ const ICON: Record<NavKey, LucideIcon> = {
   data: Database,
   library: Library,
   projects: FolderKanban,
+  documents: FileText,
   settings: Settings,
 };
 

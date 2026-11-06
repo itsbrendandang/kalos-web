@@ -24,6 +24,7 @@ export const NAV_ITEMS = [
   { key: "data", href: "/data", label: "Data", description: "Every run sheet loaded here, and the rounds recorded in the campaign." },
   { key: "library", href: "/library", label: "Library", description: "Tools that use the engine outside the campaign: scale-up readout, benchmark." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
+  { key: "documents", href: "/documents", label: "Documents", description: "Procedure drafts written from your records, with every version kept." },
   { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
 
@@ -39,7 +40,7 @@ export type RailGroup = { label: string | null; keys: readonly NavKey[] };
 export const RAIL_GROUPS: readonly RailGroup[] = [
   { label: null, keys: ["campaign"] },
   { label: "Tools", keys: ["agent", "review", "process", "graph"] },
-  { label: "Workspace", keys: ["data", "library", "projects"] },
+  { label: "Workspace", keys: ["data", "library", "projects", "documents"] },
 ];
 
 /** Looks up a rail section by key; every key in RAIL_GROUPS exists in NAV_ITEMS. */
@@ -79,6 +80,7 @@ export function navKeyFor(pathname: string): NavKey {
   if (pathname.startsWith("/data")) return "data";
   if (pathname.startsWith("/library")) return "library";
   if (pathname.startsWith("/projects")) return "projects";
+  if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/settings")) return "settings";
   return "campaign";
 }

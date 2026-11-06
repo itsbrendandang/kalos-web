@@ -9,11 +9,11 @@ const labels = (keys: readonly NavKey[]) => keys.map((k) => NAV_ITEMS.find((n) =
 
 describe("sidebar groups", () => {
   it("is Overview, then Tools, then Workspace, with Settings at the foot", () => {
-    expect(NAV_ITEMS.map((n) => n.key)).toEqual(["campaign", "agent", "review", "process", "graph", "data", "library", "projects", "settings"]);
+    expect(NAV_ITEMS.map((n) => n.key)).toEqual(["campaign", "agent", "review", "process", "graph", "data", "library", "projects", "documents", "settings"]);
     expect(RAIL_GROUPS.map((g) => g.label)).toEqual([null, "Tools", "Workspace"]);
     expect(labels(RAIL_GROUPS[0].keys)).toEqual(["Overview"]);
     expect(labels(RAIL_GROUPS[1].keys)).toEqual(["Ask Kalos", "Review", "Process", "Graph"]);
-    expect(labels(RAIL_GROUPS[2].keys)).toEqual(["Data", "Library", "Projects"]);
+    expect(labels(RAIL_GROUPS[2].keys)).toEqual(["Data", "Library", "Projects", "Documents"]);
   });
 
   it("has no collapsed group and no 'More'", () => {
@@ -51,7 +51,7 @@ describe("README route lines match the code", () => {
   });
 
   it("describes the sidebar as Overview with its stages, Tools and Workspace, never a More group", () => {
-    expect(readme).toMatch(/Sidebar\.\*\* Overview[^\n]*five stages[^\n]*Tools \(Agent, Review, Process, Graph\)[^\n]*Workspace \(Data, Library, Projects\)/);
+    expect(readme).toMatch(/Sidebar\.\*\* Overview[^\n]*five stages[^\n]*Tools \(Agent, Review, Process, Graph\)[^\n]*Workspace \(Data, Library, Projects, Documents\)/);
     expect(readme).not.toMatch(/Activity rail/);
     expect(readme).not.toMatch(/\bMore \(Review/);
   });

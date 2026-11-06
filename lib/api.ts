@@ -14,6 +14,7 @@ import {
   type AssistIndexStatus,
   type AssistNext,
 } from "@/lib/assist";
+import type { SopDraft, SopSource, SopSummary, SopTemplate } from "@/lib/sop";
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -1295,5 +1296,73 @@ export const rebuildAssistIndex = async (): Promise<AssistIndexStatus> => {
   if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
   return v;
 };
+
+// --- Procedure drafts (/api/assist/sop/*) ----------------------------------
+// Written by the engine from campaign records; the model only rewords. A
+// revision the model got wrong (a changed number, a filled placeholder, a
+// touched header) comes back as RevisionRefusedError with the plain reasons.
+
+export class RevisionRefusedError extends Error {
+  constructor(public readonly reasons: string[]) {
+    super("revision refused");
+    this.name = "RevisionRefusedError";
+  }
+}
+
+async function readDraft(r: Response): Promise<SopDraft> {
+  if (!r.ok) return assistFailure(r);
+  const v = (await r.json()) as SopDraft;
+  if (!v || typeof v.draft_id !== "string" || typeof v.markdown !== "string" || !Array.isArray(v.placeholders) || !Array.isArray(v.fields_from_record)) throw new EngineError(r.status, "engine_error");
+  return v;
+}
+
+/** POST /api/assist/sop/draft: a new draft (version 1) from a run, a proposal or a round. No model is used. */
+export const draftSop = async (body: { campaign_id?: string; source: SopSource; template: SopTemplate; title?: string }): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/draft`, { method: "POST", headers: mutationHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body) });
+  return readDraft(r);
+};
+
+/** POST /api/assist/sop/{id}/revise: the model rewords the prose; a changed record is refused. */
+export const reviseSop = async (draftId: string, instruction: string): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}/revise`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ instruction }),
+  });
+  if (r.status === 422) {
+    const d = await readJsonBody(r);
+    const reasons = Array.isArray(d?.reasons) ? (d!.reasons as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    throw new RevisionRefusedError(reasons);
+  }
+  return readDraft(r);
+};
+
+/** POST /api/assist/sop/{id}/fill: the lab's own values for the placeholders, saved as a new version. */
+export const fillSop = async (draftId: string, values: Record<string, string>): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}/fill`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ values }),
+  });
+  return readDraft(r);
+};
+
+/** GET /api/assist/sop: every draft, newest first. */
+export const listSops = async (): Promise<SopSummary[]> => {
+  const r = await fetch(`${API}/api/assist/sop`);
+  if (!r.ok) return assistFailure(r);
+  const body = (await r.json()) as { drafts?: SopSummary[] };
+  return Array.isArray(body?.drafts) ? body.drafts : [];
+};
+
+/** GET /api/assist/sop/{id}?version=N: one version, the latest when omitted. */
+export const getSop = async (draftId: string, version?: number): Promise<SopDraft> => {
+  const q = version != null ? `?version=${encodeURIComponent(String(version))}` : "";
+  return readDraft(await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}${q}`));
+};
+
+/** The download link for a draft (a plain GET the browser follows). */
+export const sopExportHref = (draftId: string, format: "md" | "docx", version?: number): string =>
+  `${API}/api/assist/sop/${encodeURIComponent(draftId)}/export?format=${format}${version != null ? `&version=${encodeURIComponent(String(version))}` : ""}`;
 
 export { API };

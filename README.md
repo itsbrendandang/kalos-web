@@ -80,7 +80,7 @@ Engine-side detail: [`kalos-engine/docs/ARCHITECTURE.md`](https://github.com/its
 The app is one sidebar and a page.
 Every route is a plain page, so deep links, reload and Back all work.
 
-- **Sidebar.** Overview (the campaign's one front door) with the five stages listed under it and a mark for each (done, current, upcoming), then Tools (Agent, Review, Process, Graph), then Workspace (Data, Library, Projects), with Settings pinned at the foot. Every group is always visible. Experiments is a sub-view of Overview at `/experiments`, not a sidebar entry. On phones the sidebar is a sheet behind the top bar.
+- **Sidebar.** Overview (the campaign's one front door) with the five stages listed under it and a mark for each (done, current, upcoming), then Tools (Agent, Review, Process, Graph), then Workspace (Data, Library, Projects, Documents), with Settings pinned at the foot. Every group is always visible. Experiments is a sub-view of Overview at `/experiments`, not a sidebar entry. On phones the sidebar is a sheet behind the top bar.
 - **Engine status.** The sidebar's foot shows whether the engine is connected, with a Retry when it is not.
 - **Command palette.** Cmd+K: jump to any page or stage, or run an action such as "Upload a run sheet". Its groups are the sidebar's.
 

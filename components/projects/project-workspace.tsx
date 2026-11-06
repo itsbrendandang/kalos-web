@@ -41,6 +41,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
+        className="max-sm:flex-col max-sm:items-start"
         eyebrow={
           <Link href="/projects" className="hover:text-accent">
             {project.customerName}
@@ -67,7 +68,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
           <EmptyState
             icon={FlaskConical}
             title="No experiments recorded"
-            description={project.live ? "The runs for this project live in the campaign." : "Experiments appear here once they are recorded under this project."}
+            description={project.live ? "This project's runs are in the campaign. Open it to see them." : "Experiments appear here once they are recorded under this project."}
           />
         ) : (
           <ul className="divide-y divide-border border-y border-border">

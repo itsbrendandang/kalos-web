@@ -4,6 +4,7 @@
 // model's ranking can be leaned on, then the held-out predictions, the driver shapes, and the response slice.
 // Every number comes from the analysis; the wording states what the model did, never what a recipe should do.
 import { DriverList, ModelFigure, SliceFigure } from "@/components/campaign/data/model-figures";
+import { predictedVsMeasured } from "@/components/campaign/data/meaning";
 import { calibrationLine, driverRows, surfaceSlice } from "@/components/campaign/data/model-math";
 import { Badge } from "@/components/ui/badge";
 import { Verdict } from "@/components/kit/verdict";
@@ -58,7 +59,7 @@ export function TheModel({ analysis }: { analysis: PopulatedResult }) {
           caption="Predicted against measured"
           note={
             oof.length
-              ? `${formatNumber(oof.length, "count")} held-out runs, each predicted by a model that had not seen it. Dots on the dashed line were predicted exactly.`
+              ? `${predictedVsMeasured(oof, analysis.conformal_q)} ${formatNumber(oof.length, "count")} held-out runs, each predicted by a model that had not seen it. Dots on the dashed line were predicted exactly.`
               : "The engine sent no held-out predictions for this sheet."
           }
         >

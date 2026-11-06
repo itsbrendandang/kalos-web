@@ -1,13 +1,14 @@
 "use client";
 
 // "Your data": what the dropped run sheet shows, drawn in the browser before and apart from the fit.
-// Every number here comes from the file itself (see profile.ts). Nothing is a model output, and nothing
-// here says whether a run or a recipe is good or bad.
+// Every number here comes from the file itself (see profile.ts). Nothing is a model output, and every sentence
+// under a figure states an association in these runs (meaning.ts), never a cause.
 
-import type { ReactNode } from "react";
-import { CategoryStripFigure, DistributionFigure, CategoryFigure, CoverageFigure, ReplicateFigure, RunOrderFigure, TargetScatterFigure } from "@/components/campaign/data/figures";
+import { pairedValues, rankInputs, strengthWord, type InputRank } from "@/components/campaign/data/association";
+import { CategoryStripFigure, DistributionFigure, CategoryFigure, CoverageFigure, Figure, ReplicateFigure, RunOrderFigure, TargetScatterFigure } from "@/components/campaign/data/figures";
 import { dataFlags } from "@/components/campaign/data/flags";
-import { histogram, replicateGroups, replicateSpread, summarize, untestedGaps, type ColumnProfile, type SheetProfile } from "@/components/campaign/data/profile";
+import * as meaning from "@/components/campaign/data/meaning";
+import { dataTypeColumn, histogram, measuredOnly, replicateGroups, replicateSpread, summarize, untestedGaps, type ColumnProfile, type SheetProfile } from "@/components/campaign/data/profile";
 import { dataNumber } from "@/components/campaign/data/svg";
 import { gapSentence } from "@/components/campaign/data/copy";
 import { useSheetProfile, type SheetProfileState } from "@/components/campaign/data/use-sheet-profile";
@@ -15,15 +16,38 @@ import { Disclosure } from "@/components/kit/disclosure";
 import { Section } from "@/components/kit/section";
 import { formatNumber } from "@/lib/format";
 
+/** Inputs whose association with the target is at least this strong are shown full size; the rest go in a disclosure. */
+export const TOP_STRENGTH = 0.3;
+/** How many inputs at most are shown full size. */
+export const TOP_MAX = 4;
+
 /** Reads the held file in the browser and shows what it contains. `sheet` picks a worksheet the engine used. */
 export function YourData({ file, sheet, target, engineRuns, engineInputs }: { file: File; sheet?: string; target?: string; engineRuns?: number | null; engineInputs?: string[] }) {
   const state = useSheetProfile(file, sheet);
   return <YourDataView name={file.name} state={state} target={target} engineRuns={engineRuns} engineInputs={engineInputs} />;
 }
 
+/** The inputs in the order of their association with the target: the `rankInputs` order, or sheet order without a target. */
+export function orderInputs(profile: SheetProfile, inputs: ColumnProfile[], target?: string): { col: ColumnProfile; rank: InputRank | null }[] {
+  const targetCol = target ? profile.columns.find((c) => c.name === target) : undefined;
+  if (!target || !targetCol || targetCol.kind !== "numeric") return inputs.map((col) => ({ col, rank: null }));
+  const ranks = rankInputs(profile, target, inputs);
+  return ranks.map((rank) => ({ col: inputs.find((c) => c.name === rank.name)!, rank }));
+}
+
+/** Which ranked inputs are shown full size: strength at least `TOP_STRENGTH`, at least one, at most `TOP_MAX`. */
+export function splitTop<T extends { rank: InputRank | null }>(ordered: T[]): { top: T[]; rest: T[] } {
+  const eligible = ordered.filter((o) => !o.rank?.nearlyConstant);
+  const strong = eligible.filter((o) => (o.rank?.strength ?? 0) >= TOP_STRENGTH).slice(0, TOP_MAX);
+  const top = strong.length ? strong : eligible.slice(0, 1);
+  return { top, rest: ordered.filter((o) => !top.includes(o)) };
+}
+
 /**
  * `engineInputs` is the engine's own input list once it has answered. Before that every column that is not the
  * target is shown as a candidate input; afterwards only the engine's inputs are charted, and the rest are named.
+ * `rowOrigins` gives one label per row ("Round 1"; null for the sheet itself) so the sheet-order figure can show
+ * each origin in its own panel. `hideFacts` leaves out the flag list when a page shows it elsewhere.
  */
 export function YourDataView({
   name,
@@ -31,12 +55,16 @@ export function YourDataView({
   target,
   engineRuns,
   engineInputs,
+  rowOrigins,
+  hideFacts,
 }: {
   name: string;
   state: SheetProfileState | null;
   target?: string;
   engineRuns?: number | null;
   engineInputs?: string[];
+  rowOrigins?: (string | null)[];
+  hideFacts?: boolean;
 }) {
   if (!state || state.status === "loading") {
     return (
@@ -64,11 +92,17 @@ export function YourDataView({
       </Section>
     );
   }
-  const flags = dataFlags(profile);
-  const isInput = (c: ColumnProfile) => (engineInputs ? engineInputs.includes(c.name) : c.name !== target) && (c.kind === "numeric" || c.kind === "category");
-  const inputs = profile.columns.filter(isInput);
+  const flags = hideFacts ? [] : dataFlags(profile);
+  // Shared rule 6: rows a data_type column marks as not measured are never charted.
+  const split = measuredOnly(profile);
+  const charted = split?.profile ?? profile;
+  const origins = split && rowOrigins ? rowOrigins.filter((_, i) => split.kept[i]) : rowOrigins;
+  const dataType = dataTypeColumn(profile)?.name;
+  const isInput = (c: ColumnProfile) => (engineInputs ? engineInputs.includes(c.name) : c.name !== target) && c.name !== dataType && (c.kind === "numeric" || c.kind === "category");
+  const inputs = charted.columns.filter(isInput);
   const notUsed = engineInputs ? profile.columns.filter((c) => c.kind !== "empty" && c.name !== target && !engineInputs.includes(c.name)).map((c) => c.name) : [];
-  const targetCol = target ? profile.columns.find((c) => c.name === target) : undefined;
+  const targetCol = target ? charted.columns.find((c) => c.name === target) : undefined;
+  const ordered = orderInputs(charted, inputs, target);
   const summary = `${formatNumber(profile.n, "count")} ${profile.n === 1 ? "run" : "runs"}, ${formatNumber(profile.columns.filter((c) => c.kind !== "empty").length, "count")} columns, read from this file in your browser.`;
   return (
     <div className="flex flex-col gap-8">
@@ -80,7 +114,7 @@ export function YourDataView({
               <span className="tabular-nums">{formatNumber(profile.n, "count")}</span> rows. The data check below says why.
             </p>
           ) : null}
-          {flags.length ? (
+          {hideFacts ? null : flags.length ? (
             <ul className="flex flex-col divide-y divide-border">
               {flags.map((f) => (
                 <li key={f.key} className="py-2.5 text-body text-fg">
@@ -92,11 +126,12 @@ export function YourDataView({
             <p className="text-body text-fg-muted">No blank cells, constant columns, repeated runs or identical columns found.</p>
           )}
           {notUsed.length ? <p className="text-body text-fg-muted">Not used as inputs by the engine: {notUsed.join(", ")}.</p> : null}
-          {inputs.length ? (
+          {split ? <p className="text-body text-fg">{meaning.leftOut(split, profile.n)}</p> : null}
+          {ordered.length ? (
             <ul className="flex flex-col divide-y divide-border">
-              {inputs.map((c) => (
-                <li key={c.name} className="py-5 first:pt-0 last:pb-0">
-                  <InputRow col={c} />
+              {ordered.map(({ col, rank }, i) => (
+                <li key={col.name} className="py-5 first:pt-0 last:pb-0">
+                  <InputRow col={col} caption={rank ? strengthWord(rank, i) : undefined} />
                 </li>
               ))}
             </ul>
@@ -107,34 +142,51 @@ export function YourDataView({
       </Section>
 
       <Section title={target ? `Target: ${target}` : "Target"} description={target ? undefined : "The target-against-input and run-order figures appear once the engine has read the sheet and named the target."}>
-        {targetCol ? <TargetBlock profile={profile} col={targetCol} inputs={inputs} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
+        {targetCol ? <TargetBlock profile={charted} col={targetCol} ordered={ordered} origins={origins} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
       </Section>
 
       <Disclosure summary="How these are made">
         <div className="flex flex-col gap-2 pb-2 text-body text-fg-muted">
-          <p>Every figure is drawn from this file in your browser, run by run. Nothing is fitted or sent for these charts.</p>
-          <p>Distributions use equal-width bins. Tested range marks each distinct value; a stretch between two neighbouring values is shaded as untested when it is wider than a tenth of the input range.</p>
+          <p>Every figure is drawn from this file in your browser, run by run. Nothing is fitted or sent for these charts. Dots are runs; the ring marks the best run.</p>
+          <p>
+            Distributions use equal-width bins on round edges, the bin count from Sturges&apos; rule (log2 of the run count, plus one, between 4 and 15). Tested range marks each distinct value; a stretch between two
+            neighbouring values is shaded as untested when it is wider than a tenth of the input range.
+          </p>
+          <p>
+            Inputs are ordered by how strongly they moved with the target in these runs: Spearman&apos;s rank correlation for numbers, the correlation ratio for categories. An input whose range is under 1% of its
+            median, or that takes at most two values, is nearly constant and cannot show an association. These are associations in this sheet, not causes.
+          </p>
           <p>Replicates are runs that have the same value in every input column. Row-number-like columns are not used to tell runs apart.</p>
           <p>Run order is the order of the rows in the sheet. It is not proven to be the order the runs were made.</p>
+          {split ? <p>Rows whose {split.column} is not real or measured stay out of every chart, so measured runs are never mixed with simulated or synthetic ones.</p> : null}
         </div>
       </Disclosure>
     </div>
   );
 }
 
-/** One input: its name, a line of plain facts, and its figures (numeric: distribution and tested range; category: bars). */
-function InputRow({ col }: { col: ColumnProfile }) {
+/** One input: its name and place in the ranking, a line of plain facts, and its figures (numeric: distribution and tested range; category: bars). */
+function InputRow({ col, caption }: { col: ColumnProfile; caption?: string }) {
+  const title = (
+    <p className="flex flex-wrap items-baseline gap-x-2">
+      <span className="font-mono text-code break-words text-fg">{col.name}</span>
+      {caption ? <span className="text-caption text-fg-muted">{caption}</span> : null}
+    </p>
+  );
   if (col.kind === "category") {
     return (
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
         <div className="min-w-0">
-          <p className="font-mono text-code break-words text-fg">{col.name}</p>
+          {title}
           <p className="text-caption text-fg-muted">
             {formatNumber(col.levels.length, "count")} levels: {col.levels.map((l) => `${l.value} (${formatNumber(l.n, "count")})`).join(", ")}
             {col.missing ? `, ${formatNumber(col.missing, "count")} blank` : ""}.
           </p>
         </div>
-        <CategoryFigure name={col.name} levels={col.levels} />
+        <figure className="flex min-w-0 flex-col gap-1">
+          <figcaption className="text-caption text-fg-muted">Runs per level, n = {formatNumber(col.filled, "count")}</figcaption>
+          <CategoryFigure name={col.name} levels={col.levels} />
+        </figure>
       </div>
     );
   }
@@ -145,7 +197,7 @@ function InputRow({ col }: { col: ColumnProfile }) {
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
       <div className="min-w-0">
-        <p className="font-mono text-code break-words text-fg">{col.name}</p>
+        {title}
         {s ? (
           <p className="text-caption text-fg-muted">
             From <span className="tabular-nums">{dataNumber(s.min)}</span> to <span className="tabular-nums">{dataNumber(s.max)}</span>, median{" "}
@@ -161,10 +213,11 @@ function InputRow({ col }: { col: ColumnProfile }) {
         <p className="mt-1 text-caption text-fg-muted">{gapSentence(gaps?.gaps ?? [], gaps ? { min: gaps.min, max: gaps.max } : null)}</p>
       </div>
       <div className="flex min-w-0 flex-col gap-3">
-        {hist ? (
+        {hist && s ? (
           <figure className="flex flex-col gap-1">
-            <figcaption className="text-caption text-fg-muted">Runs per range of values</figcaption>
+            <figcaption className="text-caption text-fg-muted">Runs per range of values, n = {formatNumber(values.length, "count")}</figcaption>
             <DistributionFigure name={col.name} hist={hist} n={values.length} />
+            <p className="text-caption text-fg">{meaning.histogram(hist, values.length, s.max)}</p>
           </figure>
         ) : null}
         {gaps ? (
@@ -178,32 +231,61 @@ function InputRow({ col }: { col: ColumnProfile }) {
   );
 }
 
-function TargetBlock({ profile, col, inputs }: { profile: SheetProfile; col: ColumnProfile; inputs: ColumnProfile[] }) {
+function TargetBlock({ profile, col, ordered, origins }: { profile: SheetProfile; col: ColumnProfile; ordered: { col: ColumnProfile; rank: InputRank | null }[]; origins?: (string | null)[] }) {
   if (col.kind !== "numeric") {
     return <p className="text-body text-fg-muted">{col.name} is not numeric in this sheet, so target figures are not drawn.</p>;
   }
   const values = col.numbers.filter((v): v is number => v != null);
+  const s = summarize(values);
   const hist = histogram(values);
   const groups = replicateGroups(profile, new Set(), col.name);
   const spread = replicateSpread(groups);
+  const { top, rest } = splitTop(ordered);
+  const constant = rest.filter((o) => o.rank?.nearlyConstant);
+  const weaker = rest.filter((o) => !o.rank?.nearlyConstant);
   return (
     <div className="flex flex-col gap-8">
-      <Figure caption={`${col.name} in sheet order`} note="Sheet order is the order the rows were written. It is not proven to be the order the runs were made.">
-        <RunOrderFigure yName={col.name} values={col.numbers} groups={groups} />
+      <Figure caption={`${col.name} in sheet order, n = ${formatNumber(values.length, "count")}`} sentence={meaning.sheetOrder(col.numbers, groups, origins)} note="Sheet order is the order the rows were written. It is not proven to be the order the runs were made.">
+        <RunOrderFigure yName={col.name} values={col.numbers} groups={groups} origins={origins} />
       </Figure>
-      {hist ? (
-        <Figure caption={`Distribution of ${col.name}`}>
+      {hist && s ? (
+        <Figure caption={`Distribution of ${col.name}, n = ${formatNumber(values.length, "count")}`} sentence={meaning.histogram(hist, values.length, s.max)}>
           <DistributionFigure name={col.name} hist={hist} n={values.length} />
         </Figure>
       ) : null}
-      {inputs.length ? (
+      {top.length ? (
         <div className="grid gap-8 md:grid-cols-2">
-          {inputs.map((x) => (
-            <ScatterFor key={x.name} x={x} y={col} />
+          {top.map((o) => (
+            <ScatterFor key={o.col.name} x={o.col} y={col} />
           ))}
         </div>
       ) : null}
-      <Figure caption="Replicate spread" note={replicateSentence(spread)}>
+      {rest.length ? (
+        <Disclosure summary={`${formatNumber(rest.length, "count")} more ${rest.length === 1 ? "input" : "inputs"} with weaker association`}>
+          <div className="flex flex-col gap-8 pt-2">
+            {weaker.length ? (
+              <div className="grid gap-8 md:grid-cols-2">
+                {weaker.map((o) => (
+                  <ScatterFor key={o.col.name} x={o.col} y={col} />
+                ))}
+              </div>
+            ) : null}
+            {constant.length ? (
+              <ul className="flex flex-col gap-2">
+                {constant.map((o) => {
+                  const cs = summarize(o.col.numbers.filter((v): v is number => v != null));
+                  return (
+                    <li key={o.col.name} className="text-body text-fg">
+                      <span className="font-mono text-code">{o.col.name}</span>: {cs ? meaning.nearlyConstant(o.col.name, col.name, cs.min, cs.max) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+        </Disclosure>
+      ) : null}
+      <Figure caption={`Replicate spread${groups.length ? `, ${formatNumber(groups.length, "count")} ${groups.length === 1 ? "recipe" : "recipes"}` : ""}`} sentence={meaning.replicate(spread, s?.sd ?? null)}>
         {groups.length ? <ReplicateFigure yName={col.name} groups={groups} /> : null}
       </Figure>
     </div>
@@ -211,34 +293,17 @@ function TargetBlock({ profile, col, inputs }: { profile: SheetProfile; col: Col
 }
 
 function ScatterFor({ x, y }: { x: ColumnProfile; y: ColumnProfile }) {
-  const points = y.numbers
-    .map((yv, i) => ({ yv, xv: x.kind === "numeric" ? x.numbers[i] : x.raw[i], row: i }))
-    .filter((p): p is { yv: number; xv: number | string; row: number } => p.yv != null && p.xv != null && p.xv !== "");
-  if (points.length === 0) return null;
+  const { xs, ys, rows } = pairedValues(x, y);
+  if (ys.length === 0) return null;
   const chart =
     x.kind === "numeric" ? (
-      <TargetScatterFigure xName={x.name} yName={y.name} points={points.map((p) => ({ x: p.xv as number, y: p.yv }))} />
+      <TargetScatterFigure xName={x.name} yName={y.name} points={(xs as number[]).map((xv, i) => ({ x: xv, y: ys[i] }))} />
     ) : (
-      <CategoryStripFigure xName={x.name} yName={y.name} points={points.map((p) => ({ x: String(p.xv), y: p.yv, row: p.row }))} />
+      <CategoryStripFigure xName={x.name} yName={y.name} points={(xs as string[]).map((xv, i) => ({ x: xv, y: ys[i], row: rows[i] }))} />
     );
   return (
-    <Figure caption={`${y.name} against ${x.name}`} note={`${formatNumber(points.length, "count")} runs with both values.`}>
+    <Figure caption={`${y.name} against ${x.name}`} sentence={meaning.inputSentence(x, y)}>
       {chart}
     </Figure>
-  );
-}
-
-function replicateSentence(spread: { groups: number; runs: number; medianSd: number | null }): string {
-  if (spread.groups === 0) return "No replicates: no two runs share every input value, so run-to-run spread cannot be measured from this sheet.";
-  return `${formatNumber(spread.groups, "count")} ${spread.groups === 1 ? "recipe" : "recipes"} run more than once (${formatNumber(spread.runs, "count")} runs). Median spread within a recipe: ${dataNumber(spread.medianSd)}.`;
-}
-
-function Figure({ caption, note, children }: { caption: string; note?: string; children: ReactNode }) {
-  return (
-    <figure className="flex min-w-0 flex-col gap-2">
-      <figcaption className="text-label text-fg">{caption}</figcaption>
-      {children}
-      {note ? <p className="text-caption text-fg-muted">{note}</p> : null}
-    </figure>
   );
 }

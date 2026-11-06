@@ -87,9 +87,9 @@ export function columnRoles(profile: SheetProfile, target: string | undefined, e
     if (i === dt) role = "origin";
     else if (target && c.name === target) role = "target";
     else if (engineInputs?.includes(c.name)) role = "input"; // the engine's word wins over the browser's guess at the kind
-    else if (c.kind === "text" || isRowNumberLike(c, profile.n) || isIdLike(c, profile.n)) role = "label";
-    else if (c.kind === "empty") role = "not-used";
-    else if (engineInputs) role = engineInputs.includes(c.name) ? "input" : "not-used";
+    else if (isRowNumberLike(c, profile.n) || isIdLike(c, profile.n)) role = "label";
+    else if (c.kind === "empty" || engineInputs) role = "not-used"; // the engine read the sheet and left this column out
+    else if (c.kind === "text") role = "label";
     else role = "input";
     return { name: c.name, role, kind: c.kind, roleWords: ROLE_WORDS[role] };
   });

@@ -230,3 +230,12 @@ describe("the round page", () => {
     expect(roundVerdict([{ result: 50 }], null, f)).toBe("Best measured in this round: 50.0.");
   });
 });
+
+describe("columnRoles with the engine's input list", () => {
+  it("marks a free-text column the engine left out as not used, and a run-name column as a label", () => {
+    const rows = ["run,note,SP,Titer", ...Array.from({ length: 14 }, (_, i) => `r${i},note ${i % 13},${i / 2},${i}`)];
+    const p = profileSheet(csv(rows.join("\n")));
+    expect(columnRoles(p, "Titer", ["SP"]).map((c) => c.role)).toEqual(["label", "not-used", "input", "target"]);
+    expect(columnRoles(p, "Titer").map((c) => c.role)).toEqual(["label", "label", "input", "target"]);
+  });
+});

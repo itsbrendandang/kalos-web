@@ -23,3 +23,17 @@ describe("data page column roles", () => {
     expect(runSheetSentence({ dataset: "x.csv", n: 1, features: ["a"], target: "y" })).toBe("The model is working from x.csv: 1 run, 1 input, raising y.");
   });
 });
+
+describe("roleWhy", () => {
+  it("gives dropped_sparse its 'mostly blank' line only when the column really is sparse, else the unknown-status line", async () => {
+    const { isSparse, roleWhy } = await import("@/app/data/roles");
+    const full = prov("CarbonSource", "dropped_sparse");
+    const thin = { ...prov("notes", "dropped_sparse"), non_null: 2 };
+    expect(isSparse(full, [full, thin])).toBe(false);
+    expect(isSparse(thin, [full, thin])).toBe(true);
+    expect(roleWhy("dropped_sparse", false)).toBe("unknown_role");
+    expect(roleWhy("dropped_sparse", true)).toBe("dropped_sparse");
+    expect(roleWhy("kept_feature")).toBe("kept_feature");
+    expect(roleWhy("dropped_something_new")).toBe("unknown_role");
+  });
+});

@@ -124,9 +124,9 @@ export function rankInputs(profile: SheetProfile, target: string, inputs: readon
   return ranked.sort((a, b) => order(a) - order(b) || (b.strength ?? 0) - (a.strength ?? 0) || a.name.localeCompare(b.name));
 }
 
-/** The caption word for an input's place in the ranking: "strongest association", "weaker" or "nearly constant". */
+/** The caption words for an input's place in the ranking: "went most with the target", "weaker" or "nearly constant". */
 export function strengthWord(rank: InputRank, index: number): string {
   if (rank.nearlyConstant) return "nearly constant";
   if (rank.strength == null) return "too few runs to rank";
-  return index === 0 ? "strongest association" : "weaker";
+  return index === 0 ? "went most with the target" : "weaker";
 }

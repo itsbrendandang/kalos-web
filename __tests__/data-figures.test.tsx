@@ -33,8 +33,7 @@ describe("Your data figures", () => {
     expect(t).toContain("3");
     expect(t).toContain("2");
     for (const e of h.edges) expect(t).toContain(String(e));
-    expect(label(container)).toContain("Histogram of SP: 5 runs in 2 bins of equal width from 0 to 10");
-    expect(label(container)).toContain("Sturges");
+    expect(label(container)).toBe("How many runs at each SP value: 5 runs in 2 equal ranges from 0 to 10; the most common range holds 3.");
   });
 
   it("skips the count label on an empty bin and labels every other edge when there are many", () => {
@@ -50,7 +49,7 @@ describe("Your data figures", () => {
     const { container } = render(<CategoryFigure name="flag" levels={[{ value: "A", n: 3 }, { value: "B", n: 1 }]} />);
     expect(Array.from(container.querySelectorAll("rect[data-count]")).map((r) => r.getAttribute("data-count"))).toEqual(["3", "1"]);
     expect(texts(container)).toEqual(expect.arrayContaining(["runs", "3", "1", "A", "B"]));
-    expect(label(container)).toBe("Bar chart of flag: A 3, B 1 runs.");
+    expect(label(container)).toBe("Runs per level of flag: A 3, B 1 runs.");
   });
 
   it("shades each untested stretch and says how many there are", () => {
@@ -58,7 +57,7 @@ describe("Your data figures", () => {
     const g = untestedGaps(values)!;
     const { container } = render(<CoverageFigure name="Gly" min={g.min} max={g.max} values={values} gaps={g.gaps} />);
     expect(container.querySelectorAll("rect[data-gap]")).toHaveLength(1);
-    expect(label(container)).toBe("Coverage of Gly from 0 to 10: 6 distinct tested values, 1 untested stretch.");
+    expect(label(container)).toBe("Tested range of Gly from 0 to 10: 6 different values tried, 1 untested stretch.");
   });
 
   it("plots one dot per run with both values, rings the best with its value, and names both axes", () => {
@@ -70,7 +69,7 @@ describe("Your data figures", () => {
     expect(bestOf(container)?.textContent).toBe("best 20");
     const t = texts(container);
     expect(t).toContain("Titer");
-    expect(t.some((s) => s.startsWith("SP") && s.includes("n = 3"))).toBe(true);
+    expect(t.some((s) => s.startsWith("SP") && s.includes("3 runs"))).toBe(true);
     expect(label(container)).toBe("Titer against SP: 3 runs with both values. Best 20 at SP 2.");
   });
 
@@ -86,10 +85,10 @@ describe("Your data figures", () => {
     const medians = Array.from(container.querySelectorAll("[data-median]")).map((l) => Number(l.getAttribute("data-median")));
     expect(medians).toEqual([9, 2, 2]);
     const t = texts(container);
-    expect(t.slice(t.indexOf("C"))).toEqual(expect.arrayContaining(["C", "n = 1", "A", "n = 2", "B"]));
+    expect(t.slice(t.indexOf("C"))).toEqual(expect.arrayContaining(["C", "1 run", "A", "2 runs", "B"]));
     expect(t.indexOf("C")).toBeLessThan(t.indexOf("A"));
     expect(bestOf(container)?.textContent).toBe("best 9");
-    expect(label(container)).toContain("4 runs across 3 levels, highest median first: C (median 9, n = 1), A (median 2, n = 2), B (median 2, n = 1)");
+    expect(label(container)).toContain("4 runs across 3 levels, highest typical value first: C (typical 9, 1 run), A (typical 2, 2 runs), B (typical 2, 1 run)");
     // Jitter is a fixed function of the row, never random.
     expect(jitter(7)).toBe(jitter(7));
     expect(Math.abs(jitter(7))).toBeLessThanOrEqual(0.25);
@@ -103,7 +102,7 @@ describe("Your data figures", () => {
     expect(Number(svg.getAttribute("viewBox")!.split(" ")[2])).toBeGreaterThan(320);
     expect(svg.style.minWidth).toBe(`${40 * 19 + 44 + 16}px`);
     expect(container.firstElementChild?.className).toContain("overflow-x-auto");
-    expect(label(container)).toContain("src_18 (median 18, n = 1)");
+    expect(label(container)).toContain("src_18 (typical 18, 1 run)");
   });
 
   it("draws the target in sheet order as dots only, with the best ringed and the axis rows labelled", () => {
@@ -135,8 +134,8 @@ describe("Your data figures", () => {
     expect(panels[0].getAttribute("aria-label")).toBe("sheet: 3 values of y, rows 1 to 3.");
     expect(panels[1].getAttribute("aria-label")).toBe("Round 1: 2 values of y, rows 4 to 5.");
     const t = texts(container);
-    expect(t).toContain("sheet, n = 3");
-    expect(t).toContain("Round 1, n = 2");
+    expect(t).toContain("sheet, 3 runs");
+    expect(t).toContain("Round 1, 2 runs");
     expect(container.querySelectorAll("[data-best]")).toHaveLength(1);
     expect(panels[1].querySelector("[data-best]")).toBeTruthy();
   });
@@ -150,6 +149,6 @@ describe("Your data figures", () => {
     expect(Math.min(...ys.slice(0, 2))).toBeLessThan(Math.min(...ys.slice(2))); // the 30/31 group sits left of the 20/21 group
     expect(texts(container).filter((s) => s === "x2")).toHaveLength(2);
     expect(bestOf(container)?.textContent).toBe("best 31");
-    expect(label(container)).toContain("3 replicate groups, 2 shown, highest median first");
+    expect(label(container)).toContain("3 recipes run more than once, 2 shown, highest typical value first");
   });
 });

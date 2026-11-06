@@ -3,9 +3,6 @@ app/campaign/learn/page.tsx
 app/campaign/plan/page.tsx
 app/campaign/record/page.tsx
 app/campaign/run/page.tsx
-app/data/page.tsx
-app/data/roles.ts
-app/data/round/[round]/page.tsx
 app/experiments/page.tsx
 app/graph/page.tsx
 app/library/page.tsx
@@ -21,12 +18,6 @@ app/review/page.tsx
 app/settings/organization/page.tsx
 app/settings/page.tsx
 components/campaign/correlation-heatmap.tsx
-components/campaign/data/figures.tsx
-components/campaign/data/meaning.ts
-components/campaign/data/model-figures.tsx
-components/campaign/data/model-math.ts
-components/campaign/data/the-model.tsx
-components/campaign/data/your-data.tsx
 components/campaign/drivers-list.tsx
 components/campaign/fit-progress.tsx
 components/campaign/learn.ts
@@ -45,9 +36,6 @@ components/campaign/plan/surface-model.ts
 components/campaign/pred-vs-measured.tsx
 components/campaign/record-form.tsx
 components/campaign/stage-bar.tsx
-components/data/column-roles.tsx
-components/data/sheet-page.tsx
-components/kit/chart-frame.tsx
 components/projects/project-workspace.tsx
 components/ui/badge.tsx
 components/ui/honest-state.tsx
@@ -56,12 +44,10 @@ components/workbench/sidebar.tsx
 lib/api.ts
 lib/audit-store.ts
 lib/campaign-stage.ts
-lib/data-index.ts
 lib/engine-error.ts
 lib/graph.ts
 lib/maxims.ts
 lib/routes.ts
 lib/scale-readout.ts
 lib/scaleup-projection.ts
-lib/sheet-store.ts
 lib/validation.ts

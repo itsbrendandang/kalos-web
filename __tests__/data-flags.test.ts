@@ -21,7 +21,7 @@ describe("dataFlags", () => {
   it("flags a headerless column that is unique per run as a possible run number", () => {
     const t = texts(",x,y\n0,1.5,5\n1,2.5,6\n2,3.5,7\n3,4.5,8");
     expect(t).toContain("column 1 has no header in the sheet.");
-    expect(t).toContain("column 1 is different in every run, so it may be a run number or label rather than a process input.");
+    expect(t).toContain("column 1 is different in every run, so it may be a run number or label rather than an input.");
   });
 
   it("reports repeated rows and identical columns", () => {

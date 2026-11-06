@@ -26,14 +26,12 @@ import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { forgetSheet, useStoredSheet } from "@/lib/sheet-store";
 
-export const KEPT_HERE = "This sheet is kept in this browser only, so the rows can be shown without sending them anywhere again. Forget it to remove the copy. The engine keeps its own copy for the campaign.";
-
 const DATE = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric" });
 
 /** The header sentence: counts, target, when it was loaded, and whether the engine is working from it. */
 export function sheetDescription(f: { n: number | null; d: number | null; target: string | null; loadedAt: number; inUse: boolean }): string {
   const parts: string[] = [];
-  if (f.n != null) parts.push(`${formatNumber(f.n, "count")} ${f.n === 1 ? "row" : "rows"}`);
+  if (f.n != null) parts.push(`${formatNumber(f.n, "count")} ${f.n === 1 ? "run" : "runs"}`);
   if (f.d != null) parts.push(`${formatNumber(f.d, "count")} ${f.d === 1 ? "input" : "inputs"}`);
   if (f.target) parts.push(`target ${f.target}`);
   const facts = parts.length ? `${parts.join(", ")}. ` : "";
@@ -85,7 +83,7 @@ export function SheetPage({ sha }: { sha: string }) {
   if (stored.status === "missing") {
     return (
       <div className="flex flex-col gap-8">
-        <PageHeader eyebrow="Data" title="Sheet" description="No stored sheet has this id." />
+        <PageHeader eyebrow="Data" title="Sheet" description="No sheet in this browser has this address." />
         <EmptyState
           icon={Upload}
           title="This sheet is not held in this browser"
@@ -109,8 +107,8 @@ export function SheetPage({ sha }: { sha: string }) {
   const inputs = engineInputs ?? (charted ? charted.profile.columns.filter((c) => c.name !== target && (c.kind === "numeric" || c.kind === "category")).map((c) => c.name) : []);
   const lead = charted && target ? leadSentence(charted.profile, target, inputs) : null;
   const verdict = !target
-    ? "The engine has not named a target for this sheet yet."
-    : (lead ?? (n != null ? `${formatNumber(n, "count")} ${n === 1 ? "row" : "rows"} with ${target}; too few, or too alike, to say which input moved with it.` : `Target ${target}.`));
+    ? "Kalos has not named a target for this sheet yet."
+    : (lead ?? (n != null ? `${formatNumber(n, "count")} ${n === 1 ? "run" : "runs"} with ${target}; too few, or too alike, to say which input moved with it.` : `Target ${target}.`));
 
   const forget = async () => {
     setForgetting(true);
@@ -126,7 +124,7 @@ export function SheetPage({ sha }: { sha: string }) {
         description={sheetDescription({ n, d, target: target ?? null, loadedAt: sheet.addedAt, inUse })}
         action={
           <Button variant="ghost" onClick={() => void forget()} disabled={forgetting}>
-            {forgetting ? "Forgetting…" : "Forget this sheet"}
+            {forgetting ? "Removing…" : "Remove this copy from the browser"}
           </Button>
         }
       />
@@ -159,7 +157,9 @@ export function SheetPage({ sha }: { sha: string }) {
       {live ? <ColumnRoles provenance={live.provenance} droppedIncomplete={live.n_dropped_incomplete} /> : null}
 
       <Disclosure summary="Where this is kept">
-        <p className="text-body text-fg-muted">{KEPT_HERE}</p>
+        <p className="text-body text-fg-muted">
+          This sheet is kept in this browser only, so the rows can be shown without sending them anywhere again. Remove the copy from the browser and the rows stop showing here; Kalos keeps its own copy for the campaign. This page&apos;s address is the fingerprint of the sheet&apos;s bytes (SHA-256), which is how a sheet here is matched to the one Kalos read.
+        </p>
       </Disclosure>
     </div>
   );

@@ -1,6 +1,7 @@
 // Pure reading of the engine's model fields for "The model". Every value here is an engine field, passed
 // through or re-read (the predicted mean and its posterior sd on the surface grid, the ARD relevance share,
-// the shape label, the calibration counts). Nothing is estimated in the browser.
+// the shape label, the calibration counts). Nothing is estimated in the browser. The surface sentences are
+// plain (`calibrationVerdict`); the technical reading (`calibrationLine`) is rendered inside a disclosure.
 import { parseSurface, fractionalIndex } from "@/components/campaign/plan/surface-model";
 import type { AnalyzeResult, Calibration } from "@/lib/api";
 
@@ -38,7 +39,7 @@ export function driverRows(gp: AnalyzeResult["gp_shapes"] | undefined, target: s
         name: f.name,
         share: f.relevance,
         shape: f.shape,
-        sentence: word ? word(target, f.optimum_at ?? null) : "Shape not classified by the engine.",
+        sentence: word ? word(target, f.optimum_at ?? null) : "Kalos did not name a shape for this input.",
         optimumAt: f.optimum_at ?? null,
         missedBySpearman: f.missed_by_spearman === true,
         rho: f.spearman_rho,
@@ -108,12 +109,17 @@ export function surfaceSlice(raw: unknown): Slice | null {
   };
 }
 
-/** One sentence on how the engine's own uncertainty bands did on held-out runs, or the engine's reason when it could not check. */
-export function calibrationLine(cal: Calibration | null | undefined): string {
-  if (!cal) return "The engine did not report whether its uncertainty bands held on held-out runs.";
-  if (!cal.available || cal.levels.length === 0) return cal.reason ?? "The engine could not check its uncertainty bands on held-out runs.";
-  const level = cal.levels.reduce((best, l) => (Math.abs(l.nominal - 0.9) < Math.abs(best.nominal - 0.9) ? l : best), cal.levels[0]);
-  const pct = (v: number) => `${Math.round(v * 100)}%`;
-  const width = cal.z_std == null ? "" : cal.z_std > 1.15 ? " The bands look too narrow for the held-out errors." : cal.z_std < 0.85 ? " The bands look wider than the held-out errors need." : " The bands look about the right width.";
-  return `Of held-out runs, ${pct(level.empirical)} fell inside the model's ${pct(level.nominal)} band, against the ${pct(level.nominal)} it aims for.${width}`;
+/** The likely-range check in plain words, keyed by the why-line code it carries (lib/why.ts). */
+export type CalibrationVerdict = { state: "bands_ok" | "bands_narrow" | "bands_wide" | "bands_unchecked"; sentence: string };
+
+/** Whether the likely range is about the right width, too narrow, wider than it needs to be, or unchecked; from the engine's z_std. */
+export function calibrationVerdict(cal: Calibration | null | undefined): CalibrationVerdict {
+  if (!cal || !cal.available || cal.levels.length === 0 || cal.z_std == null) {
+    return { state: "bands_unchecked", sentence: "The likely range has not been checked on measured runs yet." };
+  }
+  if (cal.z_std > 1.15) return { state: "bands_narrow", sentence: "The likely range is too narrow: fewer results land inside it than it promises." };
+  if (cal.z_std < 0.85) return { state: "bands_wide", sentence: "The likely range is wider than it needs to be." };
+  return { state: "bands_ok", sentence: "The likely range is about the right width." };
 }
+
+export { calibrationLine } from "@/components/campaign/data/model-detail";

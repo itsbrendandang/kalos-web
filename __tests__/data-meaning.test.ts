@@ -52,7 +52,7 @@ describe("sheetOrder", () => {
 });
 
 describe("categoryStrips", () => {
-  it("names the highest and lowest median level with n and how many levels the best runs came from", () => {
+  it("names the highest and lowest typical level with its run count and how many levels the best runs came from", () => {
     const points = [
       { x: "A", y: 1 },
       { x: "A", y: 3 },
@@ -61,10 +61,10 @@ describe("categoryStrips", () => {
       { x: "C", y: 5 },
     ];
     expect(meaning.levelsByMedian(points).map((l) => l.value)).toEqual(["B", "C", "A"]);
-    expect(meaning.categoryStrips("src", "Titer", points)).toBe("B had the highest median Titer (11, n = 2) and A the lowest (2, n = 2); the best 3 runs came from 2 different src values.");
+    expect(meaning.categoryStrips("src", "Titer", points)).toBe("B had the highest typical Titer (11, 2 runs) and A the lowest (2, 2 runs); the best 3 runs came from 2 different src values.");
   });
   it("says when there is one level and nothing with no points", () => {
-    expect(meaning.categoryStrips("src", "Titer", [{ x: "A", y: 1 }, { x: "A", y: 2 }])).toBe("src is A in every one of these 2 runs, so it cannot show an association with Titer.");
+    expect(meaning.categoryStrips("src", "Titer", [{ x: "A", y: 1 }, { x: "A", y: 2 }])).toBe("src is A in every one of these 2 runs, so it cannot show what went with Titer.");
     expect(meaning.categoryStrips("src", "Titer", [])).toBeNull();
   });
 });
@@ -103,14 +103,14 @@ describe("scatter", () => {
 });
 
 describe("histogram sentence", () => {
-  it("names the fullest bin with its share and how many bins above it the top value sits", () => {
+  it("names the most common range with its share and how many ranges above it the top value sits", () => {
     const h = histogram([0, 1, 1, 2, 3, 3, 3, 4, 5, 20], 4)!;
-    const s = meaning.histogram(h, 10, 20)!;
-    expect(s).toMatch(/^\d+ of 10 runs \(\d+%\) fall between \S+ and \S+, the fullest bin; the top value, 20, is \d+ bins? above it\.$/);
+    const s = meaning.histogram("Titer", h, 10, 20)!;
+    expect(s).toMatch(/^\d+ of 10 runs \(\d+%\) had Titer between \S+ and \S+, the most common range; the top value, 20, is \d+ ranges? above it\.$/);
   });
-  it("says 'in that bin' when the top value is in the fullest bin", () => {
-    expect(meaning.histogram({ edges: [0, 5, 10], counts: [1, 4] }, 5, 9)).toBe("4 of 5 runs (80%) fall between 5 and 10, the fullest bin; the top value, 9, is in that bin.");
-    expect(meaning.histogram({ edges: [0, 5, 10], counts: [4, 1] }, 5, 9)).toBe("4 of 5 runs (80%) fall between 0 and 5, the fullest bin; the top value, 9, is 1 bin above it.");
+  it("says 'in that range' when the top value is in the most common range", () => {
+    expect(meaning.histogram("Titer", { edges: [0, 5, 10], counts: [1, 4] }, 5, 9)).toBe("4 of 5 runs (80%) had Titer between 5 and 10, the most common range; the top value, 9, is in that range.");
+    expect(meaning.histogram("Titer", { edges: [0, 5, 10], counts: [4, 1] }, 5, 9)).toBe("4 of 5 runs (80%) had Titer between 0 and 5, the most common range; the top value, 9, is 1 range above it.");
   });
 });
 
@@ -120,15 +120,15 @@ describe("replicate sentence", () => {
     const groups = replicateGroups(p, new Set(), "y");
     const all = summarize(p.columns[1].numbers.filter((v): v is number => v != null))!.sd;
     const s = meaning.replicate(replicateSpread(groups), all);
-    expect(s).toMatch(/^3 recipes run more than once \(6 runs\)\. Median spread within a recipe: \S+, which is \d+% of the spread across all runs\.$/);
-    expect(meaning.replicate(replicateSpread(groups), null)).toMatch(/Median spread within a recipe: \S+\.$/);
-    expect(meaning.replicate({ groups: 0, runs: 0, medianSd: null }, all)).toBe("No replicates: no two runs share every input the engine used, so run-to-run spread cannot be measured from this sheet.");
+    expect(s).toMatch(/^3 recipes run more than once \(6 runs\)\. A repeated recipe typically varied by \S+ run to run, which is \d+% of the spread across all runs\.$/);
+    expect(meaning.replicate(replicateSpread(groups), null)).toMatch(/A repeated recipe typically varied by \S+ run to run\.$/);
+    expect(meaning.replicate({ groups: 0, runs: 0, medianSd: null }, all)).toBe("No repeated recipes: no two runs share every input Kalos used, so run-to-run spread cannot be measured from this sheet.");
   });
 });
 
 describe("other sentences", () => {
   it("explains a nearly constant input", () => {
-    expect(meaning.nearlyConstant("pH", "IVCD", 6.978, 7.028)).toBe("pH is nearly constant (6.978 to 7.028), so this sheet cannot show its association with IVCD.");
+    expect(meaning.nearlyConstant("pH", "IVCD", 6.978, 7.028)).toBe("pH is nearly constant (6.978 to 7.028), so this sheet cannot show whether IVCD went with it.");
   });
   it("says which rows a data_type column keeps out of the charts", () => {
     const p = profileSheet(csv(`x,data_type,y\n1,real,2\n2,synthetic,3\n3,Simulated,4\n4,real,5`));
@@ -158,7 +158,7 @@ describe("other sentences", () => {
       meaning.sheetOrder(p.columns[2].numbers, replicateGroups(p, new Set(), "y")),
       meaning.leadSentence(p, "y", ["x", "c"]),
       meaning.inputSentence(p.columns[1], p.columns[2]),
-      meaning.histogram(histogram([10, 12, 20, 30, 50, 40])!, 6, 50),
+      meaning.histogram("y", histogram([10, 12, 20, 30, 50, 40])!, 6, 50),
       meaning.nearlyConstant("x", "y", 1, 1.001),
     ];
     for (const s of sentences) {
@@ -190,7 +190,7 @@ describe("replicates judged on the inputs the engine used (pichia_HSA rows 54 to
   it("says so in the sheet-order sentence and brackets the block", () => {
     const groups = replicateGroups(p, new Set(), "Titer", used);
     expect(meaning.sheetOrder(y.numbers, groups)).toBe(
-      "Best run: row 4 at 55.62; it is one of 19 runs with the same used inputs. Rows 4 to 22 (19 consecutive rows) share the same used inputs; they differ only in CarbonSource, which the engine did not use.",
+      "Best run: row 4 at 55.62; it is one of 19 runs with the same inputs Kalos used. Rows 4 to 22 (19 consecutive rows) share the same inputs Kalos used; they differ only in CarbonSource, which Kalos did not use.",
     );
   });
 
@@ -198,7 +198,7 @@ describe("replicates judged on the inputs the engine used (pichia_HSA rows 54 to
     const groups = replicateGroups(p, new Set(), "Titer", used);
     const all = summarize(y.numbers.filter((v): v is number => v != null))!.sd;
     expect(meaning.replicate(replicateSpread(groups), all, groups)).toBe(
-      "1 recipe run more than once (19 runs). Median spread within a recipe: 0, which is 0% of the spread across all runs. Replicates are judged on the inputs the engine used; it differs only in CarbonSource, which the engine did not use.",
+      "1 recipe run more than once (19 runs). A repeated recipe typically varied by 0 run to run, which is 0% of the spread across all runs. Repeats are judged on the inputs Kalos used; it differs only in CarbonSource, which Kalos did not use.",
     );
   });
 
@@ -212,7 +212,7 @@ describe("replicates judged on the inputs the engine used (pichia_HSA rows 54 to
     expect(big?.differsIn).toEqual(["CarbonSource"]);
     expect(blocks.length).toBe(7);
     expect(meaning.sheetOrder(real.columns.find((c) => c.name === "Titer")!.numbers, groups)).toBe(
-      "Best run: row 160 at 63.29; no other run repeats its recipe. Rows 24 to 42 (19 consecutive rows) share the same used inputs; they differ only in CarbonSource, which the engine did not use, and 6 more blocks do the same.",
+      "Best run: row 160 at 63.29; no other run repeats its recipe. Rows 24 to 42 (19 consecutive rows) share the same inputs Kalos used; they differ only in CarbonSource, which Kalos did not use, and 6 more blocks do the same.",
     );
     // Judged on every column (before the engine has named its inputs) CarbonSource tells the rows apart.
     expect(consecutiveBlocks(replicateGroups(real, new Set(), "Titer")).find((g) => g.rows[0] === 53)).toBeUndefined();

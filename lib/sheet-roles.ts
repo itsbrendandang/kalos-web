@@ -12,6 +12,7 @@
 // The engine's catch-all `dropped_sparse` is NOT such a statement: with explicit roles it is also what a
 // perfectly good numeric column the user unticked comes back as.
 import type { ColumnRolesInput, ProvenanceEntry } from "@/lib/api";
+import { ROLE_WHY, type WhyCode } from "@/lib/why";
 
 export type ColumnKind = "input" | "target" | "engine_excluded" | "user_excluded";
 
@@ -25,18 +26,20 @@ export type SheetColumn = {
   note: string | null;
   /** A data-quality finding about the column, or null when none is established. */
   warning: string | null;
+  /** The "Why this matters" line for how the column was read (lib/why.ts). */
+  why: WhyCode;
 };
 
 /** Engine statuses that are a NAME-based decision (not a finding about the data). */
 const AUTO_REASON: Record<string, string> = {
-  dropped_id: "treated as an ID",
+  dropped_id: "treated as a run label",
   dropped_output: "looks like a measured output",
 };
 
 /** Engine statuses that state a fact about the data itself and that the provenance counts cannot show. */
 const DATA_FACT: Record<string, string> = {
   dropped_constant: "never changes",
-  dropped_constant_on_fitted_rows: "never changes in the fitted rows",
+  dropped_constant_on_fitted_rows: "never changes in the runs the model learned from",
 };
 /** Statuses the counts in `qualityWarning` establish (or contradict) on their own, so their wording is not reused. */
 const COUNT_CHECKED = new Set(["dropped_all_blank", "dropped_non_numeric", "dropped_sparse"]);
@@ -84,8 +87,8 @@ export function columnsFromProvenance(provenance: readonly ProvenanceEntry[] | u
 
   return list.map((p): SheetColumn => {
     const base = { name: p.name, status: p.status, usedAsInput: p.status === "kept_feature", isTarget: p.status === "target" };
-    if (p.status === "kept_feature") return { ...base, kind: "input", note: null, warning: null };
-    if (p.status === "target") return { ...base, kind: "target", note: null, warning: null };
+    if (p.status === "kept_feature") return { ...base, kind: "input", note: null, warning: null, why: "kept_feature" };
+    if (p.status === "target") return { ...base, kind: "target", note: null, warning: null, why: "target" };
 
     // Everything else is excluded. Warning first: only numbers, or an engine status that is itself a data fact.
     // The engine's own name-based reason, from this fit or, after a roles fit, from the inferred fit it replaced.
@@ -99,14 +102,19 @@ export function columnsFromProvenance(provenance: readonly ProvenanceEntry[] | u
     const engineChose = baseline.get(p.name) === "kept_feature";
     const userUnticked = sentFeatures !== null && !sentFeatures.has(p.name) && auto === null && (baseline.size === 0 || engineChose);
 
-    if (former.has(p.name)) return { ...base, kind: "user_excluded", note: FORMER_TARGET_NOTE, warning };
-    if (declaredByUser || userUnticked) return { ...base, kind: "user_excluded", note: USER_EXCLUDED_NOTE, warning };
-    if (auto) return { ...base, kind: "engine_excluded", note: auto, warning };
+    if (former.has(p.name)) return { ...base, kind: "user_excluded", note: FORMER_TARGET_NOTE, warning, why: "former_target" };
+    if (declaredByUser || userUnticked) return { ...base, kind: "user_excluded", note: USER_EXCLUDED_NOTE, warning, why: "user_excluded" };
+    // The engine's own name-based reason, from this fit or the inferred fit it replaced.
+    const autoStatus = AUTO_REASON[p.status] ? p.status : (baseline.get(p.name) ?? p.status);
+    if (auto) return { ...base, kind: "engine_excluded", note: auto, warning, why: ROLE_WHY[autoStatus] ?? "unknown_role" };
     // Unknown `dropped_*` statuses keep their raw wording; sparse / data-fact statuses say nothing about intent.
     const unknown = !(p.status in DATA_FACT) && !COUNT_CHECKED.has(p.status) && p.status.startsWith("dropped")
       ? p.status.replace(/^dropped_?/, "").replace(/_/g, " ") || "dropped"
       : null;
-    return { ...base, kind: "engine_excluded", note: unknown ?? ENGINE_LEFT_OUT_NOTE, warning };
+    // `dropped_sparse` is also the engine's catch-all; its "mostly blank" why-line only when the counts say so.
+    const sparse = warning === "has no values" || (warning?.startsWith("mostly empty") ?? false);
+    const why: WhyCode = p.status === "dropped_sparse" && !sparse ? "unknown_role" : (ROLE_WHY[p.status] ?? "unknown_role");
+    return { ...base, kind: "engine_excluded", note: unknown ?? ENGINE_LEFT_OUT_NOTE, warning, why };
   });
 }
 

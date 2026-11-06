@@ -15,9 +15,6 @@ import { analysisFacts, buildIndex, campaignFacts, formatDate, indexVerdict, rou
 import { formatNumber } from "@/lib/format";
 import { useStoredSheets } from "@/lib/sheet-store";
 
-const KEPT_WHERE =
-  "This sheet is kept in this browser only, so the rows can be shown without sending them anywhere again. Forget it to remove the copy. The engine keeps its own copy for the campaign.";
-
 type EngineIndex = { status: "loading" } | { status: "error" } | { status: "ready"; campaigns: CampaignInput[] };
 
 /** Every campaign on the engine with its summary and analysis, read once per mount and on retry. */
@@ -98,7 +95,7 @@ export default function DataPage() {
           <EmptyState
             icon={Upload}
             title="No run sheet yet"
-            description="Upload a run sheet in Setup. The engine fits it, and this browser keeps a copy so its rows can be shown here."
+            description="Upload a run sheet in Setup. Kalos reads it and builds the model, and this browser keeps a copy so its rows can be shown here."
             action={
               <Link href="/campaign/setup" className={buttonVariants({})}>
                 Upload a run sheet <ArrowRight />
@@ -112,8 +109,8 @@ export default function DataPage() {
 
           {engine.status === "error" ? (
             <ErrorState
-              title="Could not reach the engine"
-              description="The request failed before the engine could answer, so which sheet the campaign uses and its rounds are not known. The sheets held in this browser are listed below."
+              title="Could not reach Kalos"
+              description="This is a connection problem, not a result. Which sheet the campaign uses and its rounds are not known until Kalos answers. The sheets held in this browser are listed below."
               onRetry={engine.refresh}
               busy={engine.refreshing}
             />
@@ -134,9 +131,9 @@ export default function DataPage() {
             )}
           </Section>
 
-          <Section title="Recorded rounds" description="The runs started from a batch and recorded in the campaign, round by round.">
+          <Section title="Recorded rounds" description="The runs started from Plan and recorded in the campaign, round by round.">
             {engine.status !== "ready" ? (
-              <p className="text-body text-fg-muted">The engine could not be asked about its rounds.</p>
+              <p className="text-body text-fg-muted">Kalos could not be asked about its rounds.</p>
             ) : index.rounds.length === 0 ? (
               <p className="text-body text-fg-muted">No rounds recorded yet.</p>
             ) : (
@@ -149,7 +146,9 @@ export default function DataPage() {
           </Section>
 
           <Disclosure summary="Where this is kept">
-            <p className="text-body text-fg-muted">{KEPT_WHERE}</p>
+            <p className="text-body text-fg-muted">
+              This sheet is kept in this browser only, so the rows can be shown without sending them anywhere again. Remove the copy from the browser and the rows stop showing here; Kalos keeps its own copy for the campaign. Each sheet&apos;s address is the fingerprint of the sheet&apos;s bytes (SHA-256), which is how a sheet here is matched to the one Kalos read.
+            </p>
           </Disclosure>
         </>
       )}
@@ -161,7 +160,7 @@ const DOT = " \u00b7 ";
 
 function SheetItem({ sheet: s, engineKnown }: { sheet: SheetRow; engineKnown: boolean }) {
   const facts = [
-    s.rows == null ? null : `${formatNumber(s.rows, "count")} ${s.rows === 1 ? "row" : "rows"}`,
+    s.rows == null ? null : `${formatNumber(s.rows, "count")} ${s.rows === 1 ? "run" : "runs"}`,
     s.inputs == null ? null : `${formatNumber(s.inputs, "count")} ${s.inputs === 1 ? "input" : "inputs"}`,
     s.target == null ? null : `target ${s.target}`,
     `loaded ${formatDate(s.loadedAt)}`,
@@ -189,10 +188,10 @@ function SheetItem({ sheet: s, engineKnown }: { sheet: SheetRow; engineKnown: bo
 
 function EngineOnlyItem({ row: e }: { row: EngineOnlyRow }) {
   const facts = [
-    `${formatNumber(e.rows, "count")} ${e.rows === 1 ? "row" : "rows"}`,
+    `${formatNumber(e.rows, "count")} ${e.rows === 1 ? "run" : "runs"}`,
     `${formatNumber(e.inputs, "count")} ${e.inputs === 1 ? "input" : "inputs"}`,
     `target ${e.target}`,
-    `analysed ${formatDate(e.updatedAt)}`,
+    `read by Kalos ${formatDate(e.updatedAt)}`,
   ];
   return (
     <li className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-2 py-3">
@@ -201,7 +200,7 @@ function EngineOnlyItem({ row: e }: { row: EngineOnlyRow }) {
         <span className="text-caption tabular-nums text-fg-muted">{facts.join(DOT)}</span>
         <span className="text-caption text-fg-muted">Rows are not held in this browser; upload the file again in Setup to see them.</span>
       </span>
-      <Badge tone="neutral">On the engine only</Badge>
+      <Badge tone="neutral">Kalos has it; this browser does not</Badge>
     </li>
   );
 }
@@ -209,7 +208,7 @@ function EngineOnlyItem({ row: e }: { row: EngineOnlyRow }) {
 function RoundItem({ row: r }: { row: RoundRow }) {
   const facts = [
     `${formatNumber(r.measured, "count")} measured`,
-    `${formatNumber(r.awaiting, "count")} awaiting`,
+    `${formatNumber(r.awaiting, "count")} waiting for a result`,
     `best ${formatNumber(r.best)}`,
     `from ${r.fromSheet}`,
   ];
@@ -220,7 +219,7 @@ function RoundItem({ row: r }: { row: RoundRow }) {
           <span className="text-heading text-fg">Round {r.round}</span>
           <span className="text-caption tabular-nums text-fg-muted">{facts.join(DOT)}</span>
         </span>
-        <Badge tone="neutral">{r.folded ? "Folded into the data" : r.awaiting > 0 ? "Awaiting results" : "Measured"}</Badge>
+        <Badge tone="neutral">{r.folded ? "Now part of the runs the model learns from" : r.awaiting > 0 ? "Waiting for a result" : "Measured"}</Badge>
       </Link>
     </li>
   );

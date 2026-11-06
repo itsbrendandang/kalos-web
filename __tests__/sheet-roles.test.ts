@@ -12,10 +12,10 @@ describe("columnsFromProvenance (the engine's own column names and roles)", () =
     ]);
     expect(cols.filter((c) => c.usedAsInput).map((c) => c.name)).toEqual(["pH", "temp.1"]);
     expect(cols.find((c) => c.isTarget)?.name).toBe("titer");
-    expect(cols.find((c) => c.name === "run_id")).toMatchObject({ kind: "engine_excluded", note: "treated as an ID", warning: null });
-    expect(cols.find((c) => c.name === "pH")).toMatchObject({ kind: "input", note: null, warning: null });
+    expect(cols.find((c) => c.name === "run_id")).toMatchObject({ kind: "engine_excluded", note: "treated as a run label", warning: null, why: "dropped_id" });
+    expect(cols.find((c) => c.name === "pH")).toMatchObject({ kind: "input", note: null, warning: null, why: "kept_feature" });
     expect(cols.find((c) => c.name === "titer")).toMatchObject({ kind: "target", note: null });
-    expect(cols.find((c) => c.name === "k")).toMatchObject({ kind: "engine_excluded", warning: "never changes in the fitted rows" });
+    expect(cols.find((c) => c.name === "k")).toMatchObject({ kind: "engine_excluded", warning: "never changes in the runs the model learned from", why: "dropped_constant_on_fitted_rows" });
   });
   it("is empty without provenance (older engines), so no confirmation panel can be built on guesses", () => {
     expect(columnsFromProvenance(undefined)).toEqual([]);
@@ -28,7 +28,7 @@ describe("column exclusion notes keep four facts apart", () => {
   it("engine auto-exclusion: ID/date and output names get the engine's reason, not a quality warning", () => {
     const cols = columnsFromProvenance([prov("sample_id", "dropped_id", 10, 10), prov("final_od", "dropped_output", 10, 0)]);
     expect(cols.map((c) => [c.kind, c.note, c.warning])).toEqual([
-      ["engine_excluded", "treated as an ID", null],
+      ["engine_excluded", "treated as a run label", null],
       ["engine_excluded", "looks like a measured output", null],
     ]);
   });
@@ -60,7 +60,8 @@ describe("column exclusion notes keep four facts apart", () => {
     const by = Object.fromEntries(cols.map((c) => [c.name, [c.kind, c.note]]));
     expect(by.Temp_C).toEqual(["user_excluded", "You excluded this column"]); // the engine had kept it; the user unticked it
     expect(by.biomass_gL).toEqual(["engine_excluded", "looks like a measured output"]);
-    expect(by.run_id).toEqual(["engine_excluded", "treated as an ID"]);
+    expect(by.run_id).toEqual(["engine_excluded", "treated as a run label"]);
+    expect(cols.find((c) => c.name === "biomass_gL")?.why).toBe("dropped_output"); // the why follows the engine's own reason, from the inferred fit
   });
 
   it("a column the engine left out as sparse in the inferred fit stays the engine's call", () => {

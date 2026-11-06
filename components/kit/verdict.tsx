@@ -25,7 +25,7 @@ export function Verdict({
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <p className="flex items-start gap-2.5 text-heading text-fg">
-        <Icon className={cn("mt-1 size-[18px] shrink-0", TONE_TEXT[tone])} aria-hidden />
+        <Icon className={cn("mt-0.5 size-4 shrink-0", TONE_TEXT[tone])} aria-hidden />
         <span className="min-w-0">{children}</span>
       </p>
       {detail ? (

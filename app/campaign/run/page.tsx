@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { RunsTable } from "@/components/campaign/runs-table";
 import { PageHeader } from "@/components/kit/page-header";
+import { Verdict } from "@/components/kit/verdict";
 import { buttonVariants } from "@/components/ui/button";
 import { ExampleBadge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { displayRound } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
-import { formatNumber } from "@/lib/format";
+
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
+import { runVerdict } from "@/lib/run-stage";
 import { campaignView } from "@/lib/workbench";
 
 /** Run: this round's runs and what is still out. Read-only; results are entered on Record. */
@@ -31,11 +33,7 @@ export default function RunPage() {
         eyebrow={active ? `Round ${displayRound(active.round)}` : undefined}
         title="Runs in flight"
         meta={demo ? <ExampleBadge /> : null}
-        description={
-          active && active.pending.length > 0
-            ? `${formatNumber(awaiting, "count")} of ${formatNumber(active.pending.length, "count")} runs are awaiting a measured result.`
-            : "This round's runs, their recipes and predictions."
-        }
+        description="This round's runs, their recipes and what the model expects of them. Results are entered on Record."
         action={
           awaiting > 0 ? (
             <Link href="/campaign/record" className={buttonVariants()}>
@@ -59,7 +57,10 @@ export default function RunPage() {
           }
         />
       ) : (
-        <RunsTable runs={active.pending} drivers={analysis?.drivers.map((d) => d.name) ?? []} band={band} />
+        <>
+          <Verdict tone={awaiting > 0 ? "neutral" : "good"}>{runVerdict(active.pending, awaiting, analysis?.target ?? active.target, band)}</Verdict>
+          <RunsTable runs={active.pending} drivers={analysis?.drivers.map((d) => d.name) ?? []} band={band} />
+        </>
       )}
     </div>
   );

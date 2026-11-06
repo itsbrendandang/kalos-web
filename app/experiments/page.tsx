@@ -21,6 +21,7 @@ const WHAT: Record<StageKey, { does: string; gives: string }> = {
 };
 
 const WORDS = { done: "Done", current: "You are here", upcoming: "Coming up" } as const;
+const plural = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
 
 /**
  * Experiments: the whole loop on one page. Each round repeats the same five
@@ -39,7 +40,7 @@ export default function ExperimentsPage() {
         eyebrow={stage.round ? `Round ${stage.round}` : "Experiments"}
         title="Experiments"
         meta={demo ? <ExampleBadge /> : null}
-        description={`${stage.started} started · ${stage.awaiting} awaiting results · ${stage.measured} measured`}
+        description={`${plural(stage.started, "run")} started, ${stage.awaiting} awaiting results, ${stage.measured} measured.`}
       />
 
       <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />

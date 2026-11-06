@@ -1,6 +1,6 @@
 // Kalos desktop: a native window around two local processes.
 //
-//   engine  python -m kalos.portal   127.0.0.1:<free port>   state in ~/.kalos
+//   engine  python -m kalos.portal   127.0.0.1:<free port>   state in ~/Library/Application Support/Kalos
 //   web     next standalone server   127.0.0.1:<free port>   KALOS_LOCAL_MODE=1
 //
 // Nothing listens beyond loopback, there is no sign-in (one user, one device),
@@ -16,7 +16,8 @@
 //                     (default ~/GitHub/kalos-engine, then ~/GitHub/kalos)
 //   KALOS_WEB_DIR     a folder with server.js, or a repo with .next/standalone
 //                     (default: the web build packed inside the .app by prepare-web.sh)
-//   KALOS_NODE        the node binary; KALOS_STATE_DIR  engine state (default ~/.kalos)
+//   KALOS_NODE        the node binary
+//   KALOS_STATE_DIR   engine state (default ~/Library/Application Support/Kalos)
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::net::{TcpListener, TcpStream};
@@ -221,7 +222,9 @@ fn start(children: &Children, resources: Option<PathBuf>) -> Result<(u16, String
     let engine_dir = engine_dir();
     let standalone = web_server_dir(resources)?;
     let node = find_node();
-    let state = std::env::var("KALOS_STATE_DIR").unwrap_or_else(|_| home().join(".kalos").to_string_lossy().into());
+    // The app's own folder, not ~/.kalos: that one belongs to engines run by hand.
+    let state = std::env::var("KALOS_STATE_DIR").unwrap_or_else(|_| home().join("Library/Application Support/Kalos").to_string_lossy().into());
+    std::fs::create_dir_all(&state).map_err(|e| format!("could not create the data folder {state}: {e}"))?;
     let token = launch_token()?;
     let engine_secret = launch_token()?;
 
@@ -238,6 +241,9 @@ fn start(children: &Children, resources: Option<PathBuf>) -> Result<(u16, String
         .env("KALOS_AUTH_TOKENS", engine_auth_config(&engine_secret))
         // Only the app's own origin may read engine answers from a browser.
         .env("KALOS_CORS_ORIGINS", format!("http://127.0.0.1:{web_port}"))
+        // Nothing leaves the machine: no language-model provider, even if a key is in the environment.
+        .env("KALOS_LLM_PROVIDER", "none")
+        .env_remove("ANTHROPIC_API_KEY")
         .env_remove("KALOS_AUTH_TOKENS_FILE")
         .env_remove("KALOS_ALLOW_OPEN_ACCESS")
         .stdout(log_file("engine"))

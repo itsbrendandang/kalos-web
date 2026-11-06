@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
+import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Verdict } from "@/components/kit/verdict";
 import { Button } from "@/components/ui/button";
 import { actorCaption, verifyChain } from "@/lib/audit";
 import { sha256, useAudit } from "@/lib/audit-store";
+import { relativeTime } from "./relative-time";
 
 type Check = { state: "idle" } | { state: "ok" } | { state: "bad"; seq: number; why: string };
 
@@ -14,6 +16,7 @@ type Check = { state: "idle" } | { state: "ok" } | { state: "bad"; seq: number; 
 export default function AuditPage() {
   const { entries, where } = useAudit();
   const [check, setCheck] = useState<Check>({ state: "idle" });
+  const last = entries.at(-1);
 
   const verify = async () => {
     const r = await verifyChain(entries, sha256);
@@ -31,27 +34,42 @@ export default function AuditPage() {
   return (
     <div className="flex max-w-3xl flex-col gap-8">
       <PageHeader
+        className="max-sm:flex-col max-sm:items-start"
         eyebrow="Settings"
         title="Local activity log"
-        description="Changes to your process map, newest first. This is a local activity log, not an audit trail for regulated records. Entries can be added but not edited here, and each one is linked to the one before it, so a changed or removed entry shows up when you check."
+        description="Changes made on this device to your process map, newest first. A local log, not an audit trail."
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => void verify()} disabled={!entries.length}>Check the history</Button>
-            <Button variant="ghost" onClick={download} disabled={!entries.length}><Download /> Download JSON</Button>
-          </div>
+          <Button variant="outline" onClick={() => void verify()} disabled={!entries.length}>
+            Check the history
+          </Button>
         }
       />
-      <div role="status" aria-live="polite">
-        {check.state === "ok" ? <p className="text-body text-fg"><Badge tone="good">Intact</Badge> {entries.length === 1 ? "The one entry matches." : `All ${entries.length} entries match.`}</p> : null}
-        {check.state === "bad" ? <p className="text-body text-bad">Entry {check.seq} does not check out. {check.why}</p> : null}
+
+      <div className="flex flex-col gap-4">
+        <p className="text-body text-fg">
+          {entries.length === 0
+            ? "No entries yet. Changes to the Process page appear here."
+            : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}; last change ${last ? relativeTime(last.at) : ""}.`}
+        </p>
+        <div role="status" aria-live="polite" className={check.state === "idle" ? "hidden" : undefined}>
+          {check.state === "ok" ? (
+            <Verdict tone="good">{entries.length === 1 ? "The one entry matches its record." : `All ${entries.length} entries match their records.`}</Verdict>
+          ) : null}
+          {check.state === "bad" ? (
+            <Verdict tone="bad" detail={check.why}>
+              Entry {check.seq} does not match its record.
+            </Verdict>
+          ) : null}
+        </div>
       </div>
-      {entries.length === 0 ? (
-        <p className="text-body text-fg-muted">Nothing recorded yet. Changes to the Process page appear here.</p>
-      ) : (
-        <ol className="glass divide-y divide-border px-5">
+
+      {entries.length > 0 ? (
+        <ol className="divide-y divide-border border-t border-border">
           {[...entries].reverse().map((e) => (
             <li key={e.seq} className="flex flex-col gap-0.5 py-3 sm:flex-row sm:gap-4">
-              <time dateTime={e.at} className="w-44 shrink-0 text-caption tabular-nums text-fg-muted">{new Date(e.at).toLocaleString()}</time>
+              <time dateTime={e.at} className="w-44 shrink-0 text-caption tabular-nums text-fg-muted">
+                {new Date(e.at).toLocaleString()}
+              </time>
               <span className="min-w-0">
                 <span className="block text-body text-fg">{e.detail}</span>
                 <span className="block text-caption text-fg-muted">{actorCaption(e.actor)}</span>
@@ -59,10 +77,27 @@ export default function AuditPage() {
             </li>
           ))}
         </ol>
-      )}
-      <p className="text-caption text-fg-muted">
-        {where === "file" ? "This log is kept in a file in your Kalos folder (audit-log.jsonl)" : "This log is kept in this browser's storage"} and records each change with who made it (a signed-in name, or Local mode, no sign-in). It is a local activity log, not an audit trail for regulated records. It is tamper-evident, not tamper-proof: anyone who can open {where === "file" ? "that file" : "this browser's storage"} can rewrite all of it. It is not an electronic-signature or validated GxP record.
-      </p>
+      ) : null}
+
+      <Disclosure summary="Where this is kept">
+        <div className="flex flex-col gap-2 text-body text-fg-muted">
+          <p>
+            {where === "file" ? "In a file in your Kalos folder (audit-log.jsonl)." : "In this browser's storage."} Each change is recorded with who made it: a
+            signed-in name, or Local mode when there is no sign-in.
+          </p>
+          <p>
+            Entries can be added here but not edited, and each one is linked to the one before it, so a changed or removed entry shows up when you check the
+            history. Anyone who can open {where === "file" ? "that file" : "this browser's storage"} can still rewrite all of it.
+          </p>
+          <p>It is not an audit trail for regulated records and has no electronic signatures.</p>
+        </div>
+      </Disclosure>
+
+      <div>
+        <Button variant="ghost" onClick={download} disabled={!entries.length}>
+          <Download aria-hidden /> Download JSON
+        </Button>
+      </div>
     </div>
   );
 }

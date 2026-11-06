@@ -146,7 +146,7 @@ const campaign = {
 const latest = { has_data: true, n: 10, d: 2, target: "Titer", features: ["SP", "Gly"], dataset: "pichia.csv", updated: 0, conformal_q: 7.05, conformal_coverage: 0.9, run: { input_sha256: "abc" } };
 
 describe("DataRoundPage", () => {
-  it("lists the round's runs with recipe, prediction and band, measurement, status and origin, under one verdict", () => {
+  it("lists the round's runs with recipe, prediction and likely range, measurement, status and origin, under one verdict", () => {
     engine.campaign = { ...engine.campaign, data: campaign, status: "data" };
     engine.latest = { ...engine.latest, data: latest, status: "data" };
     engine.round = "1";
@@ -158,7 +158,7 @@ describe("DataRoundPage", () => {
     const rows = bodyRows();
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByText("abcdef0")).toBeTruthy();
-    expect(within(rows[0]).getByText("± 7.05 (90% band)")).toBeTruthy();
+    expect(within(rows[0]).getByText("likely range ± 7.05")).toBeTruthy();
     expect(within(rows[0]).getByText("Measured")).toBeTruthy();
     expect(within(rows[1]).getByText("not yet")).toBeTruthy();
     expect(within(rows[1]).getByText("Waiting for a result")).toBeTruthy();

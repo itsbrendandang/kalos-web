@@ -22,7 +22,7 @@ function open(summary: HTMLElement) {
 const analysis = { ...(engine as object), has_data: true, dataset: "pichia.csv", updated: 1, target: "Titer" } as unknown as PopulatedResult;
 
 describe("TheModel", () => {
-  it("states a plain verdict with its why-line and the trust word beside it, and keeps the engine's own reason one click down", () => {
+  it("states a plain verdict with its why-line and the trust word beside it, and keeps the scoring numbers one click down", () => {
     render(<TheModel analysis={analysis} />);
     expect(screen.getByText("The model put past runs in the right order most of the time.")).toBeTruthy();
     expect(screen.getByText(/Why this matters: If the model puts your past runs in the right order/)).toBeTruthy();
@@ -32,7 +32,7 @@ describe("TheModel", () => {
     expect(screen.getByText(/Why this matters: If far more results land inside the likely range/)).toBeTruthy();
     expect(screen.queryByText(/held-out/)).toBeNull();
     open(screen.getByText("How the model was scored"));
-    expect(screen.getByText(/ranks held-out runs above the trust floor/)).toBeTruthy();
+    expect(screen.getByText(/^The model put your past runs in the right order most of the time/)).toBeTruthy();
     expect(screen.getByText(/Rank agreement \(Spearman\) on held-out runs: 0\.90/)).toBeTruthy();
     expect(screen.getByText(/Of held-out runs, 97% fell inside/)).toBeTruthy();
   });

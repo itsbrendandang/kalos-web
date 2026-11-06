@@ -21,6 +21,7 @@ import { capFindings } from "@/components/campaign/stage-logic";
 import { whyLine } from "@/lib/why";
 
 const TONE: Record<ValidationStatus, Tone> = { pass: "good", pass_with_warnings: "warn", fail: "bad" };
+const WHY_BY_STATUS: Record<ValidationStatus, string> = { pass: "sheet_passed", pass_with_warnings: "sheet_usable_with_warnings", fail: "sheet_has_errors" };
 
 function sentence(report: ValidationReport): string {
   const { status, counts } = report;
@@ -41,7 +42,9 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Verdict tone={TONE[report.status]}>{sentence(report)}</Verdict>
+      <Verdict tone={TONE[report.status]} why={whyLine(WHY_BY_STATUS[report.status])}>
+        {sentence(report)}
+      </Verdict>
 
       {total > 0 ? (
         <ul className="flex flex-col border-t border-border">

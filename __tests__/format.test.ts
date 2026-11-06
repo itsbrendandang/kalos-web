@@ -50,10 +50,9 @@ describe("formatRange and formatBand", () => {
     expect(formatRange(0.123, 0.456, "corr")).toBe("0.12 to 0.46");
   });
 
-  it("states the band's coverage, and omits it rather than guess", () => {
-    expect(formatBand(0.312, 0.9)).toBe("± 0.31 (90% band)");
-    expect(formatBand(0.312)).toBe("± 0.31 (prediction band)");
-    expect(formatBand(0.312, null)).toBe("± 0.31 (prediction band)");
+  it("says likely range, never band or coverage", () => {
+        expect(formatBand(0.312)).toBe("likely range ± 0.31");
+    expect(formatBand(null)).toBe("likely range ± n/a");
   });
 });
 

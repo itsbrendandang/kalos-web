@@ -52,7 +52,7 @@ It is never used for status.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--accent` | `oklch(0.52 0.15 252)` | `oklch(0.72 0.11 245)` | Primary action, links, focus ring, the model's proposal, Exploit mode |
+| `--accent` | `oklch(0.52 0.15 252)` | `oklch(0.72 0.11 245)` | Primary action, links, focus ring, the model's proposal, the "Best bet" mark |
 | `--accent-hover` | `oklch(0.47 0.13 252)` | `oklch(0.78 0.09 245)` | Primary action on hover |
 | `--accent-soft` | `oklch(0.96 0.015 245)` | `oklch(0.3 0.05 245)` | Tinted surface for accent callouts and selected states |
 | `--accent-fg` | `oklch(1 0 0)` | `oklch(0.17 0.02 245)` | Label on an accent fill |
@@ -149,7 +149,7 @@ Text hierarchy comes from the role and from `text-fg-muted`, never from opacity.
 
 - 8px grid (4px for fine steps).
 - The sidebar is 256px (`w-64`), a `bg-subtle` panel with a right hairline. On phones it becomes a sheet behind a 48px top bar.
-  Every entry is always visible, no collapsed group: Overview with the five stages indented under it (a `StepDot` says which are done and which is current), then the Tools group (Agent, Review, Process, Graph), the Workspace group (Data, Library, Projects), and Settings, the research-use line and the engine status at the foot.
+  Every entry is always visible, no collapsed group: Overview with the five stages indented under it (a `StepDot` says which are done and which is current), then the Tools group (Ask Kalos, which also opens with ⌘J, Review, Process, Graph), the Workspace group (Data, Library, Projects, Documents), and Settings, the research-use line and the connection status ("Connected") at the foot.
   The groups come from `RAIL_GROUPS` in `lib/routes.ts`, which the command palette reads too.
   Rows are 32px and stage rows 28px, so the whole rail fits the desktop app's default 1280x800 window without scrolling.
 - Content max width is 1080px (`components/workbench/app-shell.tsx`). Page padding is 20px on phones and 40px on desktop; the top is 32px and 48px.
@@ -171,7 +171,7 @@ All shared components live in `components/kit/` (the redesign kit) or `component
 | `KpiCard`, `Metric` | `components/kit/kpi-card.tsx`, `components/kit/metric.tsx` | A headline number with its delta or qualifier (`KpiCard`), or an inline number with its label (`Metric`). Both go through `formatNumber`. |
 | `ChartFrame`, `lazyChart` | `components/kit/chart-frame.tsx`, `components/kit/lazy-chart.tsx` | Every chart's frame: title, unit, `n`, a "how this is made" tooltip, and the four honest non-ready states. Load recharts through `lazyChart`. |
 | `NextCard` | `components/kit/next-card.tsx` | The one next step from campaign state, with one button that names the action. |
-| `Badge`, `ModeBadge`, `ExampleBadge` | `components/ui/badge.tsx` | Status labels (`tone` plus a word). `ModeBadge` is the one Explore/Exploit label. `ExampleBadge` marks demo data. |
+| `Badge`, `ModeBadge`, `ExampleBadge` | `components/ui/badge.tsx` | Status labels (`tone` plus a word). `ModeBadge` is the one "Best bet" / "New ground" label (Exploit / Explore in the engine's terms). `ExampleBadge` marks demo data. |
 | `Button`, `buttonVariants` | `components/ui/button.tsx` | One `default` (primary) button per view: the page's primary action. `buttonVariants` styles a link as a button. |
 | `ErrorState`, `EmptyState`, `LoadingSkeleton` | `components/ui/honest-state.tsx` | The three honest states. Never substitute one for another (see below). |
 | `Table` | `components/ui/table.tsx` | Tables, with sticky headers and tabular numerics. |
@@ -185,10 +185,23 @@ The figures on Setup ("Your data") and on every Data page (`components/campaign/
 - **Runs are dots, never a line.** A line through runs implies a time series; sheet order is not proven run order, and replicate blocks would read as plateaus. The best run is a ring with its value; consecutive replicates get a bracket with their count; the campaign's recorded rounds get a panel each, labelled by round.
 - **Text columns are categories.** One strip per level, levels sorted by median target, `n` under each. A text column is never put on a numeric axis.
 - **Every chart has axes and counts.** Labelled y ticks, x ticks or level labels, the column name as written, `n` in the caption. Histograms use Sturges' rule on round edges and print the count on each bar.
-- **Every chart says what to look for, in one sentence computed from the data**, never a cause: "Higher SP went with higher Titer; the best 10 runs all had SP above 4.52." Allowed verbs are "went with", "tended to go with", "had", "fall", "came from"; "because", "drives", "causes", "improves" never appear.
-- **Inputs are ordered by association** (Spearman for numbers, the correlation ratio for categories). The strongest are full size; the rest, the nearly constant and the columns the engine did not use sit behind a `Disclosure`. Measured rows are never charted with simulated or synthetic ones (a `data_type` column keeps them in the table, out of the charts).
+- **Every chart says what to look for, in one sentence computed from the data**, never a cause: "Higher SP went with higher Titer; the best 10 runs all had SP above 4.52." Allowed verbs are "went with", "tended to go with", "had", "fall", "came from"; "because", "drives", "causes", "improves" never appear. The sentence uses the lab's words ("typical", "the most common range", "12 runs"), never the statistic's ("median", "bin", "n = 12"), which stay in the "How these are made" disclosure.
+- **Inputs are ordered by how strongly they went with the target** (Spearman for numbers, the correlation ratio for categories, named only in the disclosure). The strongest are full size; the rest, the nearly constant and the columns Kalos did not use sit behind a `Disclosure`. Measured rows are never charted with simulated or synthetic ones (a `data_type` column keeps them in the table, out of the charts).
 
-Data (`/data`) lists every sheet this browser has loaded (`lib/sheet-store.ts`, IndexedDB keyed by the sha256 the engine stamps as `run.input_sha256`), which one the campaign works from, and the recorded rounds; each sheet (`/data/sheet/[sha]`) and round (`/data/round/[n]`) has its own page with a sortable, filterable table that names each column's role.
+Data (`/data`) lists every sheet this browser has loaded (`lib/sheet-store.ts`, IndexedDB keyed by the sha256 the engine stamps as `run.input_sha256`), which one the campaign works from, and the recorded rounds; each sheet (`/data/sheet/[sha]`) and round (`/data/round/[n]`) has its own page with a sortable, filterable table that says how each column was used.
+
+## Words
+
+The reader is a lab scientist, not a statistician or a software person. The full glossary, with the term-by-term replacements and the "Why this matters" line for every finding code, is `docs/PLAIN-WORDS.md`; the lines themselves are `lib/why.ts`. The rules that every screen follows:
+
+- **Plain on the surface, exact one click down.** A sentence a general-audience reader understands on first read, one idea per sentence, says what a number means for the lab ("The model put your past runs in the right order most of the time"). How it was worked out ("Spearman 0.81, 95% interval 0.72 to 0.87, trust floor 0.20") sits inside a `Disclosure`, the `detail` of a `Verdict`, the `method` of a `ChartFrame` or a tooltip, with the engine's own words kept verbatim there and labelled.
+- **No statistics or software vocabulary on the main surface.** held-out, Spearman, rank correlation, correlation, 95%, CI, interval, calibrated, coverage, bin, histogram, median, sd, surrogate, acquisition, conformal, posterior, Explore/Exploit, feasibility, significant, response surface, n =, optimizer, sha, hash, engine, payload, role, schema, token, provenance. `__tests__/plain-words.test.ts` fails the build when one appears outside a disclosure.
+- **One name for each thing.** *run* (never experiment or row, except "row 12 of the sheet"), *recipe* (never setpoints, conditions or proposal), *round* (never batch; "fed-batch" as a process word is fine), *run sheet* then *sheet* (never file or dataset, except "an .xlsx file over 5 MB"), *campaign*, *the model*, *Kalos* for the service that does the work (never engine or analysis service), *the target*, *inputs*, *runs in the lab* and *waiting for a result* (never in flight), *likely range* for ± on a prediction (never band or interval), *Best bet* and *New ground* for the two kinds of proposed recipe, *Clear signal* and *Could be chance* for whether a pattern could be luck, *repeated runs* (replicate only in a disclosure or "replicate wells" on Review).
+- **Measured and Predicted stay labelled** next to every number of either kind; a likely range is always of a predicted value ("9 of 10 past runs landed this close to their prediction"), never a promise about the next run.
+- **Never a stronger claim than the engine made.** Patterns "went with" the target; "drives", "causes", "improves", "because" never appear; a model estimate is never written as a measurement. The banned words (validated, GMP, Part 11, compliant, digital twin, real-time, design space) still hold.
+- **Buttons say what happens next**, with a verb: "Start these 5 runs", "Save these results", "Build the model with these columns". Never "Approve", "Submit", "OK".
+- **Why this matters.** Every verdict, warning, finding and next step carries one line from `lib/why.ts` (`whyLine(code)`, shown as "Why this matters: …" in `text-fg-muted` body text) that says what it means for the lab's work and what goes wrong if it is ignored. Under a verdict or a warning it sits directly below the sentence; for a lower-priority finding it sits inside the "Why" disclosure. `__tests__/why-lines.test.ts` fails when a code mapped to words has no line. The same lines, with the same keys, are mirrored by the engine (`kalos/assist/why.py`) and the assistant, so all three say the same thing.
+- **Numbers are rounded to what the lab can act on**: a value to the sheet's precision, a share to a whole percent, a count as a count.
 
 ## Honesty rules that are visual
 
@@ -196,8 +209,8 @@ Data (`/data`) lists every sheet this browser has loaded (`lib/sheet-store.ts`, 
 - **Warn and bad surfaces are only for things the user must act on.** Information is a plain sentence, not a tinted slab.
 - **No opacity-dimmed text.** Use `text-fg-muted`, which is contrast-checked. Translucent fills (`--fill-hover`, `--fill-active`) are for rows and nav, never for text.
 - **No uppercase identifiers or units.** Column names and units appear exactly as in the sheet (`pH`, `osmolality_mOsm`, `temperature_C`). Do not style labels with uppercase text.
-- **No raw engine strings in prose.** Say it in plain words and keep the raw values in a `Disclosure` with human labels next to them.
-- **Three honest states.** `ErrorState` means the request to the analysis service failed (a fact about the connection). `EmptyState` means the service answered with nothing (a fact about the data). `LoadingSkeleton` means the request is in flight. Never show a dropped connection as "no data".
+- **No raw engine strings in prose.** Say it in plain words and keep the raw values in a `Disclosure` with human labels next to them ("As Kalos wrote it").
+- **Three honest states.** `ErrorState` means the request to Kalos failed (a fact about the connection: "Could not reach Kalos. This is a connection problem, not a result; nothing you entered is lost."). `EmptyState` means Kalos answered with nothing (a fact about the data). `LoadingSkeleton` means the request is still running. Never show a dropped connection as "no data".
 - **Demo or illustrative content carries a visible "Example data" badge** (`ExampleBadge`).
 - **Never rely on color alone** for state. Pair it with a word or an icon.
 - **Research use only.** Suggestions are hypotheses to test, not validated specifications. The sidebar footer says so.

@@ -216,7 +216,7 @@ export function isRowListTruncated(finding: ValidationFinding): boolean {
   return affectedRowCount(finding) > safeRows(finding).length;
 }
 
-/** The honest row-list caption: "showing 20 of 143 affected rows" when the
+/** The honest row-list caption: "showing 20 of 143 runs affected" when the
  *  engine capped the list, otherwise a plain count. Never implies the shown
  *  list is complete when it isn't. Returns "" when there are no rows to caption. */
 export function rowListCaption(finding: ValidationFinding): string {
@@ -224,9 +224,9 @@ export function rowListCaption(finding: ValidationFinding): string {
   if (rows.length === 0) return "";
   const total = affectedRowCount(finding);
   if (isRowListTruncated(finding)) {
-    return `showing ${rows.length} of ${total} affected rows`;
+    return `showing ${rows.length} of ${total} runs affected`;
   }
-  return rows.length === 1 ? "1 affected row" : `${rows.length} affected rows`;
+  return rows.length === 1 ? "1 run affected" : `${rows.length} runs affected`;
 }
 
 // --- headline --------------------------------------------------------------------

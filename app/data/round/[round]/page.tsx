@@ -160,7 +160,7 @@ export default function DataRoundPage() {
                 ))}
                 <TableCell numeric>
                   {formatNumber(r.pred)}
-                  {band ? <span className="ml-2 text-caption text-fg-muted">{formatBand(band.halfWidth, band.coverage)}</span> : null}
+                  {band ? <span className="ml-2 text-caption text-fg-muted">{formatBand(band.halfWidth)}</span> : null}
                 </TableCell>
                 <TableCell numeric className={r.result == null ? "text-fg-muted" : undefined}>
                   {r.result == null ? "not yet" : formatNumber(r.result)}

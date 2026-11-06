@@ -64,7 +64,7 @@ export function TheModel({ analysis }: { analysis: PopulatedResult }) {
             <Disclosure summary="How the model was scored" className="border-t-0">
               <div className="flex flex-col gap-2 text-body text-fg-muted">
                 <p>{trust.gloss}</p>
-                <p>As Kalos wrote it: {trust.sentence}</p>
+                <p>{trust.sentence}</p>
                 {rho != null ? (
                   <p>
                     Rank agreement (Spearman) on held-out runs: {formatNumber(rho, "corr")}

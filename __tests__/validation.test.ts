@@ -160,18 +160,18 @@ describe("affectedRowCount / isRowListTruncated / rowListCaption", () => {
     const rows = Array.from({ length: 20 }, (_, i) => i);
     const f = finding({ rows, detail: { n_rows_affected: 143 } });
     expect(isRowListTruncated(f)).toBe(true);
-    expect(rowListCaption(f)).toBe("showing 20 of 143 affected rows");
+    expect(rowListCaption(f)).toBe("showing 20 of 143 runs affected");
   });
 
   it("does not claim truncation when the list is complete", () => {
     const f = finding({ rows: [3, 7, 11], detail: { n_rows_affected: 3 } });
     expect(isRowListTruncated(f)).toBe(false);
-    expect(rowListCaption(f)).toBe("3 affected rows");
+    expect(rowListCaption(f)).toBe("3 runs affected");
   });
 
-  it("uses singular phrasing for exactly one affected row", () => {
+  it("uses singular phrasing for exactly one run affected", () => {
     const f = finding({ rows: [3], detail: null });
-    expect(rowListCaption(f)).toBe("1 affected row");
+    expect(rowListCaption(f)).toBe("1 run affected");
   });
 
   it("returns an empty caption when there are no rows", () => {

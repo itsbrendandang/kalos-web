@@ -120,11 +120,11 @@ describe("the next-step card", () => {
     const link = within(card).getByRole("link", { name: /Open Record/ });
     expect(link.getAttribute("href")).toBe("/campaign/record");
     expect(within(card).getAllByRole("link")).toHaveLength(1);
-    // The reasons and the blocker are one click down, not on the surface.
+    // The why-line sits on the surface under the sentence; the reasons and the blocker are one click down.
+    expect(within(card).getByText(`Why this matters: ${GUIDE.why_it_matters}`)).toBeTruthy();
     expect(within(card).queryByText(GUIDE.blockers[0].text)).toBeNull();
     open(within(card).getByText("Why"));
     expect(within(card).getByText(GUIDE.why)).toBeTruthy();
-    expect(within(card).getByText(GUIDE.why_it_matters)).toBeTruthy();
     open(within(card).getByText("One thing is in the way"));
     expect(within(card).getByText(GUIDE.blockers[0].text)).toBeTruthy();
     expect(within(card).getByText(GUIDE.blockers[0].why)).toBeTruthy();

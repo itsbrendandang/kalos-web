@@ -24,8 +24,8 @@ export function ReplaceRunsDialog({
   const { awaiting, measured } = refusal ?? { awaiting: null, measured: null };
   const description =
     awaiting !== null && measured !== null
-      ? `This replaces ${awaiting} awaiting and ${measured} measured runs for this campaign. Export them first or continue.`
-      : "This replaces the awaiting and measured runs for this campaign. Export them first or continue.";
+      ? `This replaces ${awaiting} ${awaiting === 1 ? "run" : "runs"} waiting for a result and ${measured} measured ${measured === 1 ? "run" : "runs"} in this campaign. Export them first, or go on and lose them.`
+      : "This replaces the runs waiting for a result and the measured runs in this campaign. Export them first, or go on and lose them.";
 
   return (
     <Dialog open={refusal !== null} onOpenChange={(open) => !open && onCancel()}>
@@ -38,7 +38,7 @@ export function ReplaceRunsDialog({
           <Button ref={cancelRef} variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={onConfirm}>Replace and continue</Button>
+          <Button onClick={onConfirm}>Replace the runs and upload</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

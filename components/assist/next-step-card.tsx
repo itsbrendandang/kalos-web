@@ -11,10 +11,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNextStepCard } from "@/hooks/use-assist";
 import { nextActionLabel, type AssistNext } from "@/lib/assist";
 import { cn } from "@/lib/utils";
+import { whyLine } from "@/lib/why";
+
+/** The why-line for a next step the guide sent without one, keyed by the stage its button opens (the same lines as lib/agent.ts). */
+function whyForRoute(route: string): string | null {
+  const code = route.startsWith("/campaign/setup") ? "setup_no_sheet" : route.startsWith("/campaign/plan") ? "plan_ready" : route.startsWith("/campaign/run") ? "run_waiting" : route.startsWith("/campaign/record") ? "record_partial" : route.startsWith("/campaign/learn") ? "learn_ready" : null;
+  return code ? whyLine(code) : null;
+}
 
 /**
- * "What to do next": one sentence, one button to the stage page, and what
- * stands in the way one click down. The words come from the engine's guide,
+ * "What to do next": one sentence with its "Why this matters" line directly
+ * under it, one button to the stage page, and what stands in the way one
+ * click down. The words come from the engine's guide,
  * or from the campaign itself on an engine without one (hooks/use-assist).
  */
 export function NextStepCard({
@@ -35,7 +43,7 @@ export function NextStepCard({
   const blocked = next.blockers.length > 0;
   return (
     <section aria-label="What to do next" className={cn("flex flex-col gap-4", className)}>
-      <Verdict tone={blocked ? "warn" : tone} detail={<Why next={next} extra={detail} />} detailLabel="Why">
+      <Verdict tone={blocked ? "warn" : tone} why={next.why_it_matters ?? whyForRoute(next.action_route)} detail={<Why next={next} extra={detail} />} detailLabel="Why">
         {next.step}
       </Verdict>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -53,7 +61,6 @@ function Why({ next, extra }: { next: AssistNext; extra?: ReactNode }) {
   return (
     <div className="flex flex-col gap-3">
       {next.why ? <p>{next.why}</p> : null}
-      {next.why_it_matters ? <p>{next.why_it_matters}</p> : null}
       {next.blockers.length > 0 ? <Blockers blockers={next.blockers} /> : null}
       {extra}
     </div>

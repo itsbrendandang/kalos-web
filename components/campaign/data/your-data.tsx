@@ -14,7 +14,9 @@ import { gapSentence } from "@/components/campaign/data/copy";
 import { useSheetProfile, type SheetProfileState } from "@/components/campaign/data/use-sheet-profile";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Section } from "@/components/kit/section";
+import { WhyLine } from "@/components/kit/why-line";
 import { formatNumber } from "@/lib/format";
+import type { WhyCode } from "@/lib/why";
 
 /** Inputs whose association with the target is at least this strong are shown full size; the rest go in a disclosure. */
 export const TOP_STRENGTH = 0.3;
@@ -84,8 +86,8 @@ export function YourDataView({
       <Section title={title} description={name}>
         <p className="text-body text-fg-muted">
           {state.reason === "too-large"
-            ? "This file is over 5 MB, so it was not read in the browser. The engine still checks it."
-            : "This file could not be read in the browser (legacy .xls files are not supported here). The engine still checks it."}
+            ? "This file is over 5 MB, so it was not read in the browser. Kalos still reads it."
+            : "Older Excel (.xls) files cannot be read in the browser, so its rows are not shown here. Kalos still reads them."}
         </p>
       </Section>
     );
@@ -124,23 +126,33 @@ export function YourDataView({
         <div className="flex flex-col gap-6">
           {engineRuns != null && engineRuns !== profile.n ? (
             <p className="text-body text-fg">
-              The engine fitted <span className="tabular-nums">{formatNumber(engineRuns, "count")}</span> of these{" "}
-              <span className="tabular-nums">{formatNumber(profile.n, "count")}</span> rows. The data check below says why.
+              The model learned from <span className="tabular-nums">{formatNumber(engineRuns, "count")}</span> of these{" "}
+              <span className="tabular-nums">{formatNumber(profile.n, "count")}</span> runs. The sheet check below says why.
             </p>
           ) : null}
           {hideFacts ? null : flags.length ? (
-            <ul className="flex flex-col divide-y divide-border">
-              {flags.map((f) => (
-                <li key={f.key} className="py-2.5 text-body text-fg">
-                  {f.text}
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-col">
+              <ul className="flex flex-col divide-y divide-border">
+                {flags.map((f) => (
+                  <li key={f.key} className="py-2.5 text-body text-fg">
+                    {f.text}
+                  </li>
+                ))}
+              </ul>
+              <Disclosure summary="Why these matter">
+                <WhyList codes={flags.map((f) => f.why)} />
+              </Disclosure>
+            </div>
           ) : (
             <p className="text-body text-fg-muted">No blank cells, constant columns, repeated runs or identical columns found.</p>
           )}
-          {notUsed.length ? <p className="text-body text-fg-muted">Not used as inputs by the engine: {notUsed.join(", ")}.</p> : null}
-          {split ? <p className="text-body text-fg">{meaning.leftOut(split, profile.n)}</p> : null}
+          {notUsed.length ? <p className="text-body text-fg-muted">Columns Kalos did not use as inputs: {notUsed.join(", ")}.</p> : null}
+          {split ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-body text-fg">{meaning.leftOut(split, profile.n)}</p>
+              <Why code="left_out_rows" />
+            </div>
+          ) : null}
           {ordered.length ? (
             <ul className="flex flex-col divide-y divide-border">
               {ordered.map(({ col, rank }, i) => (
@@ -156,7 +168,7 @@ export function YourDataView({
     </Section>
   );
   const targetBlock = (
-    <Section title={target ? `Target: ${target}` : "Target"} description={target ? undefined : "The target-against-input and run-order figures appear once the engine has read the sheet and named the target."}>
+    <Section title={target ? `Target: ${target}` : "Target"} description={target ? undefined : "The target-against-input and run-order figures appear once Kalos has read the sheet and named the target."}>
       {targetCol ? <TargetBlock profile={charted} col={targetCol} ordered={ordered} leftOut={leftOut} origins={origins} usedInputs={engineInputs} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
     </Section>
   );
@@ -168,15 +180,16 @@ export function YourDataView({
       <Disclosure summary="How these are made">
         <div className="flex flex-col gap-2 pb-2 text-body text-fg-muted">
           <p>Every figure is drawn from this file in your browser, run by run. Nothing is fitted or sent for these charts. Dots are runs; the ring marks the best run.</p>
+          <p>&ldquo;Typical&rdquo; is the median: half the runs are above it and half below. &ldquo;Run to run&rdquo; spread is the standard deviation (sd). &ldquo;The most common range&rdquo; is the fullest bin of the distribution.</p>
           <p>
-            Distributions use equal-width bins on round edges, the bin count from Sturges&apos; rule (log2 of the run count, plus one, between 4 and 15). Tested range marks each distinct value; a stretch between two
+            Distributions (how many runs at each value) use equal-width bins on round edges, the bin count from Sturges&apos; rule (log2 of the run count, plus one, between 4 and 15). Tested range marks each distinct value; a stretch between two
             neighbouring values is shaded as untested when it is wider than a tenth of the input range.
           </p>
           <p>
             Inputs are ordered by how strongly they moved with the target in these runs: Spearman&apos;s rank correlation for numbers, the correlation ratio for categories. An input whose range is under 1% of its
             median, or that takes at most two values, is nearly constant and cannot show an association. These are associations in this sheet, not causes.
           </p>
-          <p>Replicates are runs that have the same value in every input the engine uses (every numeric or category column until the engine has named its inputs). Rows that agree on the used inputs and differ only in a column the engine did not use are still replicates, and the sentence names that column. Row-number-like columns are not used to tell runs apart.</p>
+          <p>Repeated runs (replicates) are runs that have the same value in every input Kalos uses (every numeric or category column until Kalos has named its inputs). Rows that agree on the used inputs and differ only in a column Kalos did not use are still replicates, and the sentence names that column. Row-number-like columns are not used to tell runs apart. The replicate spread is the median of the within-recipe sd.</p>
           <p>Run order is the order of the rows in the sheet. It is not proven to be the order the runs were made.</p>
           {split ? <p>Rows whose {split.column} is not real or measured stay out of every chart, so measured runs are never mixed with simulated or synthetic ones.</p> : null}
         </div>
@@ -204,7 +217,7 @@ function InputRow({ col, caption }: { col: ColumnProfile; caption?: string }) {
           </p>
         </div>
         <figure className="flex min-w-0 flex-col gap-1">
-          <figcaption className="text-caption text-fg-muted">Runs per level, n = {formatNumber(col.filled, "count")}</figcaption>
+          <figcaption className="text-caption text-fg-muted">Runs per level, {formatNumber(col.filled, "count")} runs</figcaption>
           <CategoryFigure name={col.name} levels={col.levels} />
         </figure>
       </div>
@@ -220,7 +233,7 @@ function InputRow({ col, caption }: { col: ColumnProfile; caption?: string }) {
         {title}
         {s ? (
           <p className="text-caption text-fg-muted">
-            From <span className="tabular-nums">{dataNumber(s.min)}</span> to <span className="tabular-nums">{dataNumber(s.max)}</span>, median{" "}
+            From <span className="tabular-nums">{dataNumber(s.min)}</span> to <span className="tabular-nums">{dataNumber(s.max)}</span>, typical{" "}
             <span className="tabular-nums">{dataNumber(s.median)}</span>
             {col.missing ? (
               <>
@@ -235,9 +248,9 @@ function InputRow({ col, caption }: { col: ColumnProfile; caption?: string }) {
       <div className="flex min-w-0 flex-col gap-3">
         {hist && s ? (
           <figure className="flex flex-col gap-1">
-            <figcaption className="text-caption text-fg-muted">Runs per range of values, n = {formatNumber(values.length, "count")}</figcaption>
+            <figcaption className="text-caption text-fg-muted">Runs per range of values, {formatNumber(values.length, "count")} runs</figcaption>
             <DistributionFigure name={col.name} hist={hist} n={values.length} />
-            <p className="text-caption text-fg">{meaning.histogram(hist, values.length, s.max)}</p>
+            <p className="text-caption text-fg">{meaning.histogram(col.name, hist, values.length, s.max)}</p>
           </figure>
         ) : null}
         {gaps ? (
@@ -281,11 +294,11 @@ function TargetBlock({
   const weaker = rest.filter((o) => !o.rank?.nearlyConstant);
   return (
     <div className="flex flex-col gap-8">
-      <Figure caption={`${col.name} in sheet order, n = ${formatNumber(values.length, "count")}`} sentence={meaning.sheetOrder(col.numbers, groups, origins)} note="Sheet order is the order the rows were written. It is not proven to be the order the runs were made.">
+      <Figure caption={`${col.name} in sheet order, ${formatNumber(values.length, "count")} runs`} sentence={meaning.sheetOrder(col.numbers, groups, origins)} note="Sheet order is the order the rows were written. It is not proven to be the order the runs were made.">
         <RunOrderFigure yName={col.name} values={col.numbers} groups={groups} origins={origins} />
       </Figure>
       {hist && s ? (
-        <Figure caption={`Distribution of ${col.name}, n = ${formatNumber(values.length, "count")}`} sentence={meaning.histogram(hist, values.length, s.max)}>
+        <Figure caption={`How many runs at each ${col.name} value, ${formatNumber(values.length, "count")} runs`} sentence={meaning.histogram(col.name, hist, values.length, s.max)}>
           <DistributionFigure name={col.name} hist={hist} n={values.length} />
         </Figure>
       ) : null}
@@ -309,37 +322,63 @@ function TargetBlock({
             {leftOut.length ? (
               <div className="grid gap-8 md:grid-cols-2">
                 {leftOut.map((o) => (
-                  <ScatterFor key={o.col.name} x={o.col} y={col} caption="not used by the engine" />
+                  <ScatterFor key={o.col.name} x={o.col} y={col} caption="not used by Kalos" />
                 ))}
               </div>
             ) : null}
             {constant.length ? (
-              <ul className="flex flex-col gap-2">
-                {constant.map((o) => {
-                  const cs = summarize(o.col.numbers.filter((v): v is number => v != null));
-                  return (
-                    <li key={o.col.name} className="text-body text-fg">
-                      <span className="font-mono text-code">{o.col.name}</span>: {cs ? meaning.nearlyConstant(o.col.name, col.name, cs.min, cs.max) : null}
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-2">
+                  {constant.map((o) => {
+                    const cs = summarize(o.col.numbers.filter((v): v is number => v != null));
+                    return (
+                      <li key={o.col.name} className="text-body text-fg">
+                        <span className="font-mono text-code">{o.col.name}</span>: {cs ? meaning.nearlyConstant(o.col.name, col.name, cs.min, cs.max) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Why code="nearly_constant" />
+              </div>
             ) : null}
           </div>
         </Disclosure>
       ) : null}
-      <Figure caption={`Replicate spread${groups.length ? `, ${formatNumber(groups.length, "count")} ${groups.length === 1 ? "recipe" : "recipes"}` : ""}`} sentence={meaning.replicate(spread, s?.sd ?? null, groups)}>
+      <Figure
+        caption={`Repeated recipes${groups.length ? `, ${formatNumber(groups.length, "count")} ${groups.length === 1 ? "recipe" : "recipes"} run more than once` : ""}`}
+        sentence={meaning.replicate(spread, s?.sd ?? null, groups)}
+        note={groups.length ? undefined : <Why code="no_repeats" />}
+      >
         {groups.length ? <ReplicateFigure yName={col.name} groups={groups} /> : null}
       </Figure>
     </div>
   );
 }
 
-/** The disclosure's summary: weaker inputs, columns the engine left out, or both. */
+/** The disclosure's summary: weaker inputs, columns Kalos left out, or both. */
 export function foldedSummary(weaker: number, leftOut: number): string {
-  const a = weaker ? `${formatNumber(weaker, "count")} more ${weaker === 1 ? "input" : "inputs"} with weaker association` : "";
-  const b = leftOut ? `${formatNumber(leftOut, "count")} ${leftOut === 1 ? "column" : "columns"} the engine did not use` : "";
+  const a = weaker ? `${formatNumber(weaker, "count")} more ${weaker === 1 ? "input" : "inputs"} with a weaker pattern` : "";
+  const b = leftOut ? `${formatNumber(leftOut, "count")} ${leftOut === 1 ? "column" : "columns"} Kalos did not use` : "";
   return a && b ? `${a}, and ${b}` : a || b;
+}
+
+/** One "Why this matters" line (lib/why.ts) at caption size, under a figure's sentence or a flag. */
+function Why({ code }: { code: WhyCode }) {
+  return <WhyLine code={code} className="text-caption" />;
+}
+
+/** The why-lines of a list of flags, one per distinct code, in the flags' order. */
+function WhyList({ codes }: { codes: readonly WhyCode[] }) {
+  const distinct = [...new Set(codes)];
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {distinct.map((code) => (
+        <li key={code}>
+          <Why code={code} />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function ScatterFor({ x, y, caption }: { x: ColumnProfile; y: ColumnProfile; caption?: string }) {

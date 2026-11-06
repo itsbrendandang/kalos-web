@@ -165,4 +165,8 @@ export const ROLE_WHY: Record<string, WhyCode> = {
   dropped_all_blank: "dropped_all_blank",
   dropped_non_numeric: "dropped_non_numeric",
   dropped_sparse: "dropped_sparse",
+  // The app's own column kinds (lib/sheet-roles.ts), for columns the user or an older engine decided.
+  user_excluded: "user_excluded",
+  former_target: "former_target",
+  unknown_role: "unknown_role",
 };

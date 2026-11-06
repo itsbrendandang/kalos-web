@@ -1,6 +1,8 @@
-// The one sentence of meaning under every Your data figure. Each states an association seen in these runs and
-// never a cause: no "because", "drives", "causes", "effect of", "leads to", "improves". Pure, so the wording is
-// unit-tested in __tests__/data-meaning.test.ts. Numbers go through `dataNumber`, counts through `formatNumber`.
+// The one sentence of meaning under every Your data figure. Each states what went with what in these runs and
+// never a cause: no "because", "drives", "causes", "effect of", "leads to", "improves". Plain words on the surface
+// ("typical", "12 runs", "the most common range", "Kalos"); the statistics words stay in the How-these-are-made
+// disclosure. Pure, so the wording is unit-tested in __tests__/data-meaning.test.ts. Numbers go through
+// `dataNumber`, counts through `formatNumber`.
 import { associationOf, pairedValues, rankInputs } from "@/components/campaign/data/association";
 import { consecutiveBlocks, summarize, type ColumnProfile, type Histogram, type MeasuredSplit, type ReplicateGroup, type ReplicateSpread, type SheetProfile } from "@/components/campaign/data/profile";
 import { dataNumber } from "@/components/campaign/data/svg";
@@ -37,7 +39,7 @@ export function sheetOrder(values: readonly (number | null)[], groups: readonly 
   const best = present.reduce((a, p) => (p.v > a.v ? p : a));
   const own = groups.find((g) => g.rows.includes(best.i));
   const bestPart = `Best run: row ${formatNumber(best.i + 1, "count")} at ${dataNumber(best.v)}${
-    own ? `; it is one of ${runs(own.rows.length)} ${own.differsIn.length ? "with the same used inputs" : "of the same recipe"}` : "; no other run repeats its recipe"
+    own ? `; it is one of ${runs(own.rows.length)} ${own.differsIn.length ? "with the same inputs Kalos used" : "of the same recipe"}` : "; no other run repeats its recipe"
   }.`;
   const blocks = consecutiveBlocks(groups);
   let blockPart: string;
@@ -48,7 +50,7 @@ export function sheetOrder(values: readonly (number | null)[], groups: readonly 
     const span = `Rows ${formatNumber(first.rows[0] + 1, "count")} to ${formatNumber(first.rows[first.rows.length - 1] + 1, "count")}`;
     const tail = more === 0 ? "" : more === 1 ? ", and 1 more block does the same" : `, and ${formatNumber(more, "count")} more blocks do the same`;
     blockPart = first.differsIn.length
-      ? `${span} (${formatNumber(first.rows.length, "count")} consecutive rows) share the same used inputs; they differ only in ${list(first.differsIn)}, which the engine did not use${tail}.`
+      ? `${span} (${formatNumber(first.rows.length, "count")} consecutive rows) share the same inputs Kalos used; they differ only in ${list(first.differsIn)}, which Kalos did not use${tail}.`
       : `${span} repeat one recipe ${formatNumber(first.rows.length, "count")} times${tail}.`;
   }
   const parts = [bestPart, blockPart];
@@ -82,16 +84,16 @@ export function levelsByMedian(points: readonly { x: string; y: number }[]): { v
     .sort((a, b) => b.median - a.median || a.value.localeCompare(b.value));
 }
 
-/** A2. Which level had the highest and lowest median target, and how many levels the best runs came from. */
+/** A2. Which level had the highest and lowest typical (median) target, and how many levels the best runs came from. */
 export function categoryStrips(xName: string, yName: string, points: readonly { x: string; y: number }[]): string | null {
   if (points.length === 0) return null;
   const levels = levelsByMedian(points);
   const b = bestCount(points.length);
   const bestLevels = new Set(topIndices(points.map((p) => p.y), b).map((i) => points[i].x));
   const top = levels[0];
-  if (levels.length === 1) return `${xName} is ${top.value} in every one of these ${runs(points.length)}, so it cannot show an association with ${yName}.`;
+  if (levels.length === 1) return `${xName} is ${top.value} in every one of these ${runs(points.length)}, so it cannot show what went with ${yName}.`;
   const bottom = levels[levels.length - 1];
-  return `${top.value} had the highest median ${yName} (${dataNumber(top.median)}, n = ${formatNumber(top.ys.length, "count")}) and ${bottom.value} the lowest (${dataNumber(bottom.median)}, n = ${formatNumber(bottom.ys.length, "count")}); the best ${formatNumber(b, "count")} runs ${bestLevels.size === 1 ? `all came from one ${xName} value` : `came from ${formatNumber(bestLevels.size, "count")} different ${xName} values`}.`;
+  return `${top.value} had the highest typical ${yName} (${dataNumber(top.median)}, ${runs(top.ys.length)}) and ${bottom.value} the lowest (${dataNumber(bottom.median)}, ${runs(bottom.ys.length)}); the best ${formatNumber(b, "count")} runs ${bestLevels.size === 1 ? `all came from one ${xName} value` : `came from ${formatNumber(bestLevels.size, "count")} different ${xName} values`}.`;
 }
 
 /** A3. The direction and looseness of the trend by |rho|, then where the best runs sat on the input. */
@@ -110,8 +112,8 @@ export function scatter(xName: string, yName: string, points: readonly { x: numb
   return `${trend}; the best ${formatNumber(b, "count")} runs ${where}.`;
 }
 
-/** A4. The fullest bin, its share of the runs, and how far above it the top value sits. */
-export function histogram(hist: Histogram, n: number, max: number): string | null {
+/** A4. The most common range (the fullest bin), its share of the runs, and how far above it the top value sits. */
+export function histogram(name: string, hist: Histogram, n: number, max: number): string | null {
   if (n === 0 || hist.counts.length === 0) return null;
   const fullest = hist.counts.indexOf(Math.max(...hist.counts));
   const c = hist.counts[fullest];
@@ -124,26 +126,30 @@ export function histogram(hist: Histogram, n: number, max: number): string | nul
     }
   }
   const above = maxBin - fullest;
-  return `${formatNumber(c, "count")} of ${runs(n)} (${formatNumber(c / n, "pct")}) fall between ${dataNumber(hist.edges[fullest])} and ${dataNumber(hist.edges[fullest + 1])}, the fullest bin; the top value, ${dataNumber(max)}, is ${
-    above <= 0 ? "in that bin" : `${formatNumber(above, "count")} ${above === 1 ? "bin" : "bins"} above it`
+  return `${formatNumber(c, "count")} of ${runs(n)} (${formatNumber(c / n, "pct")}) had ${name} between ${dataNumber(hist.edges[fullest])} and ${dataNumber(hist.edges[fullest + 1])}, the most common range; the top value, ${dataNumber(max)}, is ${
+    above <= 0 ? "in that range" : `${formatNumber(above, "count")} ${above === 1 ? "range" : "ranges"} above it`
   }.`;
 }
 
-/** A5. Replicate spread, and how it compares with the spread across all runs (`allSd`, the sd of every target value). */
+/**
+ * A5. How much a repeated recipe varied run to run (the median within-recipe sd), and how that compares with the
+ * spread across all runs (`allSd`, the sd of every target value).
+ */
 export function replicate(spread: ReplicateSpread, allSd: number | null, groups: readonly ReplicateGroup[] = []): string {
-  if (spread.groups === 0) return "No replicates: no two runs share every input the engine used, so run-to-run spread cannot be measured from this sheet.";
-  const head = `${formatNumber(spread.groups, "count")} ${spread.groups === 1 ? "recipe" : "recipes"} run more than once (${runs(spread.runs)}). Median spread within a recipe: ${dataNumber(spread.medianSd)}`;
-  const body = spread.medianSd == null || allSd == null || !(allSd > 0) ? `${head}.` : `${head}, which is ${formatNumber(spread.medianSd / allSd, "pct")} of the spread across all runs.`;
-  return `${body}${differsNote(groups)}`;
+  if (spread.groups === 0) return "No repeated recipes: no two runs share every input Kalos used, so run-to-run spread cannot be measured from this sheet.";
+  const head = `${formatNumber(spread.groups, "count")} ${spread.groups === 1 ? "recipe" : "recipes"} run more than once (${runs(spread.runs)}).`;
+  const varied = spread.medianSd == null ? "" : ` A repeated recipe typically varied by ${dataNumber(spread.medianSd)} run to run`;
+  const share = spread.medianSd == null || allSd == null || !(allSd > 0) ? "" : `, which is ${formatNumber(spread.medianSd / allSd, "pct")} of the spread across all runs`;
+  return `${head}${varied ? `${varied}${share}.` : ""}${differsNote(groups)}`;
 }
 
-/** Replicates are judged on the inputs the engine used; this names the unused columns some groups differ in. */
+/** Repeats are judged on the inputs Kalos used; this names the unused columns some groups differ in. */
 export function differsNote(groups: readonly ReplicateGroup[]): string {
   const differing = groups.filter((g) => g.differsIn.length);
   if (differing.length === 0) return "";
   const columns = [...new Set(differing.flatMap((g) => g.differsIn))];
   const which = differing.length === groups.length ? (groups.length === 1 ? "it differs" : "they differ") : `${formatNumber(differing.length, "count")} of them ${differing.length === 1 ? "differs" : "differ"}`;
-  return ` Replicates are judged on the inputs the engine used; ${which} only in ${list(columns)}, which the engine did not use.`;
+  return ` Repeats are judged on the inputs Kalos used; ${which} only in ${list(columns)}, which Kalos did not use.`;
 }
 
 function list(names: readonly string[]): string {
@@ -152,7 +158,7 @@ function list(names: readonly string[]): string {
 
 /** A3. Why a nearly constant input has no scatter. */
 export function nearlyConstant(xName: string, yName: string, min: number, max: number): string {
-  return `${xName} is nearly constant (${dataNumber(min)} to ${dataNumber(max)}), so this sheet cannot show its association with ${yName}.`;
+  return `${xName} is nearly constant (${dataNumber(min)} to ${dataNumber(max)}), so this sheet cannot show whether ${yName} went with it.`;
 }
 
 /** Shared rule 6. Which rows a `data_type` column keeps out of every chart. */
@@ -163,8 +169,8 @@ export function leftOut(split: MeasuredSplit, total: number): string {
 }
 
 /**
- * A6. How many of the best measured held-out runs the model's top predictions include, and (with a band) how many
- * predictions landed within it. `oof` pairs are [measured, predicted].
+ * A6. How many of the best measured runs (runs the model had not seen) its top predictions include, and (with a
+ * likely range) how many predictions landed within it. `oof` pairs are [measured, predicted].
  */
 export function predictedVsMeasured(oof: readonly (readonly [number, number])[], band?: number | null): string | null {
   const n = oof.length;
@@ -189,7 +195,7 @@ export function inputSentence(x: ColumnProfile, y: ColumnProfile): string | null
 }
 
 /**
- * The strongest-association sentence (the scatter or strip sentence of the top-ranked input), for a page's verdict.
+ * The lead sentence (the scatter or strip sentence of the input that went most with the target), for a page's verdict.
  * Null when there is no numeric target, no rankable input, or too few runs.
  */
 export function leadSentence(profile: SheetProfile, target: string, inputs: readonly (string | ColumnProfile)[]): string | null {

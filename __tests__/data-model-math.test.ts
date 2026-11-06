@@ -42,7 +42,7 @@ describe("driverRows", () => {
       "titer",
     );
     expect(rows[0].sentence).toBe("Peaks inside the range, near 7.04; too much or too little is lower.");
-    expect(rows[1].sentence).toBe("Shape not classified by the engine.");
+    expect(rows[1].sentence).toBe("Kalos did not name a shape for this input.");
   });
 });
 
@@ -91,12 +91,12 @@ describe("surfaceSlice", () => {
 describe("calibrationLine", () => {
   it("states the nearest-to-90% level in plain words and whether the bands were wide or narrow", () => {
     expect(calibrationLine(d.reliability!.calibration)).toBe(
-      "Of held-out runs, 97% fell inside the model's 90% band, against the 90% it aims for. The bands look wider than the held-out errors need.",
+      "Of held-out runs, 97% fell inside the model's 90% range, against the 90% it aims for (z_std 0.63). The ranges look wider than the held-out errors need.",
     );
   });
 
   it("says why when the engine could not check, and when it sent nothing", () => {
     expect(calibrationLine({ available: false, reason: "too few held-out points", n: 3, ece: null, z_std: null, levels: [] })).toBe("too few held-out points");
-    expect(calibrationLine(undefined)).toBe("The engine did not report whether its uncertainty bands held on held-out runs.");
+    expect(calibrationLine(undefined)).toBe("Kalos did not report whether its likely ranges held on held-out runs.");
   });
 });

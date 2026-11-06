@@ -74,7 +74,7 @@ export function DataTable({ columns, rows, target, pageSize = DEFAULT_PAGE_SIZE 
       <TableCell numeric className="text-fg-muted">
         <span className="flex items-center justify-end gap-2">
           {r.best ? <Badge tone="good">Best</Badge> : null}
-          {r.group != null && sizes.get(r.group) ? <span className="text-caption text-fg-muted">replicate x{sizes.get(r.group)}</span> : null}
+          {r.group != null && sizes.get(r.group) ? <span className="text-caption text-fg-muted">repeated x{sizes.get(r.group)}</span> : null}
           <span>{formatNumber(r.index + 1, "count")}</span>
         </span>
       </TableCell>
@@ -152,7 +152,7 @@ export function DataTable({ columns, rows, target, pageSize = DEFAULT_PAGE_SIZE 
                 </span>
               </SortableHead>
             ))}
-            {hasOrigin ? <TableHead className="bg-surface">Origin</TableHead> : null}
+            {hasOrigin ? <TableHead className="bg-surface">From</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>

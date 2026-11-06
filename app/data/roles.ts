@@ -1,21 +1,22 @@
 import type { ProvenanceEntry } from "@/lib/api";
+import { ROLE_WHY, whyLine, type WhyCode } from "@/lib/why";
 
 /**
- * Plain words for each column status the engine emits in its provenance list.
- * Anything not listed here renders as "Not used" and the raw status is shown
- * only inside the "Engine detail" disclosure, never rewritten into prose.
+ * Plain words for each column status the engine emits in its provenance list: how each column was read.
+ * Anything not listed here renders as "Not used" and the raw status is shown only inside the "As Kalos
+ * wrote it" disclosure, never rewritten into prose. Each status carries a "Why this matters" line (ROLE_WHY).
  */
 const ROLE: Record<string, string> = {
-  kept_feature: "Process input",
-  target: "The result being raised",
+  kept_feature: "Used as an input",
+  target: "The target: the number being raised",
   dropped_id: "Not used: treated as a run label",
-  dropped_output: "Not used: looks like a measured output",
+  dropped_output: "Not used: looks like a measured result",
   dropped_constant: "Not used: never changes",
-  dropped_constant_on_fitted_rows: "Not used: never changes in the fitted rows",
+  dropped_constant_on_fitted_rows: "Not used: never changes in the runs the model learned from",
   dropped_all_blank: "Not used: no values",
   dropped_non_numeric: "Not used: mostly text",
   // The engine's catch-all: a column it did not pick, with no specific reason. The counts beside it say the rest.
-  dropped_sparse: "Not used: left out by the engine",
+  dropped_sparse: "Not used: left out by Kalos",
 };
 
 export const UNKNOWN_ROLE = "Not used";
@@ -24,11 +25,28 @@ export function roleLabel(status: string): string {
   return ROLE[status] ?? UNKNOWN_ROLE;
 }
 
+/**
+ * The why-line code for a status: the engine's own name when it has words, else the unknown-status line.
+ * `dropped_sparse` is also the engine's catch-all for a column it did not pick for no stated reason, so its
+ * "mostly blank" line is used only when the column really is sparse (`sparse`, from the filled counts).
+ */
+export function roleWhy(status: string, sparse = true): WhyCode {
+  if (status === "dropped_sparse" && !sparse) return "unknown_role";
+  // A status the glossary already has words for (row_number_like, outcome_like, ...) keeps its own line.
+  return ROLE_WHY[status] ?? (whyLine(status) ? (status as WhyCode) : "unknown_role");
+}
+
+/** A column with fewer filled cells than half the fullest column's is sparse (the same gate as lib/sheet-roles.ts). */
+export function isSparse(c: ProvenanceEntry, provenance: readonly ProvenanceEntry[]): boolean {
+  const rowsAtLeast = provenance.reduce((m, p) => Math.max(m, p.non_null), 0);
+  return c.non_null === 0 || c.non_null < 0.5 * rowsAtLeast;
+}
+
 export function isKnownStatus(status: string): boolean {
   return status in ROLE;
 }
 
-/** Columns whose status the role map does not know, for the "Engine detail" disclosure. */
+/** Columns whose status the map does not know, for the "As Kalos wrote it" disclosure. */
 export function unknownStatuses(provenance: readonly ProvenanceEntry[]): ProvenanceEntry[] {
   return provenance.filter((c) => !isKnownStatus(c.status));
 }

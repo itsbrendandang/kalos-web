@@ -34,7 +34,7 @@ export const ROLE_WORDS: Record<ColumnRole, string> = {
   target: "Target",
   label: "Label",
   "not-used": "Not used",
-  origin: "Origin",
+  origin: "From",
 };
 
 const DATA_TYPE = /^data[\s_-]?type$/i;
@@ -193,7 +193,7 @@ export function sortRows(rows: readonly TableRow[], sort: SortState, targetColum
   });
 }
 
-/** How many rows each replicate group holds, for the "replicate x{k}" caption. */
+/** How many rows each replicate group holds, for the "repeated x{k}" caption. */
 export function groupSizes(rows: readonly TableRow[]): Map<number, number> {
   const out = new Map<number, number>();
   for (const r of rows) if (r.group != null) out.set(r.group, (out.get(r.group) ?? 0) + 1);

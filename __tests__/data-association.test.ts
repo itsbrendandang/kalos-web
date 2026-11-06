@@ -62,7 +62,7 @@ up,down,noise,flat,cat,y
     expect(r[1].rho).toBeUndefined();
     expect(r[2].rho).toBeLessThan(-0.9);
     expect(r[4]).toMatchObject({ name: "flat", nearlyConstant: true });
-    expect(strengthWord(r[0], 0)).toBe("strongest association");
+    expect(strengthWord(r[0], 0)).toBe("went most with the target");
     expect(strengthWord(r[1], 1)).toBe("weaker");
     expect(strengthWord(r[4], 4)).toBe("nearly constant");
   });

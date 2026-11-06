@@ -41,15 +41,20 @@ describe("YourDataView", () => {
     render(<YourDataView name="run.csv" state={ready} />);
     expect(screen.getByText(/6 runs, 5 columns, read from this file in your browser/)).toBeTruthy();
     expect(screen.getByText("column 1 has no header in the sheet.")).toBeTruthy();
-    expect(screen.getByText("column 1 is different in every run, so it may be a run number or label rather than a process input.")).toBeTruthy();
+    expect(screen.getByText("column 1 is different in every run, so it may be a run number or label rather than an input.")).toBeTruthy();
+    // Each fact carries its why-line, one click down.
+    const why = screen.getByText("Why these matter");
+    open(why);
+    expect(screen.getByText(/Why this matters: A column with no header cannot be named in the model/)).toBeTruthy();
+    expect(screen.getByText(/Why this matters: Runs with a blank in this column may be left out of the model/)).toBeTruthy();
     expect(screen.getByText("CarbonSource is blank in 1 run of 6.")).toBeTruthy();
   });
 
   it("draws one figure per input before the engine has named a target, and waits for the target otherwise", () => {
     const { container } = render(<YourDataView name="run.csv" state={ready} />);
-    expect(screen.getByText(/appear once the engine has read the sheet/)).toBeTruthy();
-    expect(container.querySelectorAll('svg[aria-label^="Histogram of"]').length).toBe(5);
-    expect(container.querySelectorAll('svg[aria-label^="Bar chart of"]').length).toBe(0);
+    expect(screen.getByText(/appear once Kalos has read the sheet/)).toBeTruthy();
+    expect(container.querySelectorAll('svg[aria-label^="How many runs at each"]').length).toBe(5);
+    expect(container.querySelectorAll('svg[aria-label^="Runs per level of"]').length).toBe(0);
     expect(container.querySelectorAll('svg[aria-label^="Titer by row"]').length).toBe(0);
   });
 
@@ -60,21 +65,22 @@ describe("YourDataView", () => {
     const shown = container.querySelectorAll('svg[aria-label^="Titer against"]').length;
     expect(shown).toBeGreaterThanOrEqual(1);
     expect(shown).toBeLessThanOrEqual(4);
-    const more = screen.getByText(/more inputs? with weaker association/);
-    expect(more.textContent).toBe(`${4 - shown} more ${4 - shown === 1 ? "input" : "inputs"} with weaker association`);
+    const more = screen.getByText(/more inputs? with a weaker pattern/);
+    expect(more.textContent).toBe(`${4 - shown} more ${4 - shown === 1 ? "input" : "inputs"} with a weaker pattern`);
     open(more);
     expect(container.querySelectorAll('svg[aria-label^="Titer against"]').length).toBe(4);
-    expect(screen.getByText("No replicates: no two runs share every input the engine used, so run-to-run spread cannot be measured from this sheet.")).toBeTruthy();
+    expect(screen.getByText("No repeated recipes: no two runs share every input Kalos used, so run-to-run spread cannot be measured from this sheet.")).toBeTruthy();
+    expect(screen.getByText(/Why this matters: Without any repeated recipe there is no way to see/)).toBeTruthy();
     // One sentence of meaning under every target figure.
     expect(screen.getByText(/^Best run: row \d+ at /)).toBeTruthy();
-    expect(screen.getAllByText(/the fullest bin;/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/the most common range;/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/the best 3 runs/).length).toBe(4);
   });
 
-  it("orders the inputs by their association with the target and captions the first as the strongest", () => {
+  it("orders the inputs by how much they went with the target and captions the first as going most with it", () => {
     const { container } = render(<YourDataView name="run.csv" state={ready} target="Titer" />);
     const rows = Array.from(container.querySelectorAll("li p .text-caption"));
-    expect(rows[0].textContent).toBe("strongest association");
+    expect(rows[0].textContent).toBe("went most with the target");
     expect(rows.slice(1).every((r) => r.textContent === "weaker" || r.textContent === "nearly constant")).toBe(true);
     const names = Array.from(container.querySelectorAll("li p .font-mono")).map((e) => e.textContent);
     const scatters = Array.from(container.querySelectorAll('svg[aria-label^="Titer against"], svg[aria-label^="Titer by "]:not([aria-label*="by row"])')).map((s) => s.getAttribute("aria-label")!.match(/^Titer (?:against|by) (.+?):/)![1]);
@@ -87,8 +93,9 @@ describe("YourDataView", () => {
     );
     const { container } = render(<YourDataView name="run.csv" state={{ status: "ready", profile: flat, sheetUsed: null }} target="Titer" />);
     expect(container.querySelectorAll('svg[aria-label^="Titer against pH"]').length).toBe(0);
-    open(screen.getByText("1 more input with weaker association"));
-    expect(screen.getByText(/pH is nearly constant \(7.001 to 7.003\), so this sheet cannot show its association with Titer\./)).toBeTruthy();
+    open(screen.getByText("1 more input with a weaker pattern"));
+    expect(screen.getByText(/pH is nearly constant \(7.001 to 7.003\), so this sheet cannot show whether Titer went with it\./)).toBeTruthy();
+    expect(screen.getByText(/Why this matters: An input that barely changes across the sheet/)).toBeTruthy();
     expect(container.querySelectorAll('svg[aria-label^="Titer against pH"]').length).toBe(0);
   });
 
@@ -98,6 +105,7 @@ describe("YourDataView", () => {
     );
     const { container } = render(<YourDataView name="run.csv" state={{ status: "ready", profile: typed, sheetUsed: null }} target="Titer" />);
     expect(screen.getByText("2 of 6 rows are marked simulated (1), synthetic (1) in data_type, so they stay in the table and out of every chart; only the 4 runs marked measured are drawn.")).toBeTruthy();
+    expect(screen.getByText(/Why this matters: Rows marked simulated or synthetic are kept out of every chart/)).toBeTruthy();
     expect(container.querySelector('svg[aria-label^="Titer by row in the sheet: 4 values, 4 rows."]')).toBeTruthy();
     expect(container.querySelectorAll('svg[aria-label^="Bar chart of data_type"]').length).toBe(0);
     expect(container.querySelector("[data-best]")?.getAttribute("data-best")).toBe("60");
@@ -107,28 +115,28 @@ describe("YourDataView", () => {
     const origins = [null, null, null, null, "Round 1", "Round 1"];
     render(<YourDataView name="run.csv" state={ready} target="Titer" rowOrigins={origins} hideFacts />);
     expect(screen.queryByText("column 1 has no header in the sheet.")).toBeNull();
-    expect(screen.getByText("Round 1, n = 2")).toBeTruthy();
+    expect(screen.getByText("Round 1, 2 runs")).toBeTruthy();
     expect(screen.getByText(/Round 1 added 2 runs; its best, 40, beat the sheet's best 31.1\./)).toBeTruthy();
   });
 
   it("charts only the engine's inputs once it has answered, and names the columns it did not use", () => {
     const { container } = render(<YourDataView name="run.csv" state={ready} target="Titer" engineInputs={["CarbonSource", "SP"]} />);
-    expect(screen.getByText("Not used as inputs by the engine: column 1, Gly.")).toBeTruthy();
+    expect(screen.getByText("Columns Kalos did not use as inputs: column 1, Gly.")).toBeTruthy();
     // Two input histograms plus the target's own distribution; one scatter per input once the disclosure is open.
-    expect(container.querySelectorAll('svg[aria-label^="Histogram of"]').length).toBe(3);
-    const more = screen.queryByText(/more inputs? with weaker association/);
+    expect(container.querySelectorAll('svg[aria-label^="How many runs at each"]').length).toBe(3);
+    const more = screen.queryByText(/more inputs? with a weaker pattern/);
     if (more) open(more);
     expect(container.querySelectorAll('svg[aria-label^="Titer against"]').length).toBe(2);
   });
 
-  it("says when the engine fitted fewer rows than the sheet holds", () => {
+  it("says when the model learned from fewer runs than the sheet holds", () => {
     render(<YourDataView name="run.csv" state={ready} target="Titer" engineRuns={5} />);
-    expect(screen.getByText(/The engine fitted/).textContent).toContain("5 of these 6 rows");
+    expect(screen.getByText(/The model learned from/).textContent).toContain("5 of these 6 runs");
   });
 
   it("states plainly when the file could not be read in the browser", () => {
     render(<YourDataView name="old.xls" state={{ status: "unreadable", reason: "unreadable" }} />);
-    expect(screen.getByText(/legacy .xls files are not supported here/)).toBeTruthy();
+    expect(screen.getByText(/Older Excel \(.xls\) files cannot be read in the browser/)).toBeTruthy();
     cleanup();
     render(<YourDataView name="big.csv" state={{ status: "unreadable", reason: "too-large" }} />);
     expect(screen.getByText(/over 5 MB/)).toBeTruthy();

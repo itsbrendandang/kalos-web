@@ -2,8 +2,8 @@
 
 // The Your data figures. Each is a plain SVG with position or length encodings only: no pie, no area, no colour
 // as magnitude, and never a line through runs. Measured values are drawn in the ink colour (--chart-measured),
-// the best run is a ring with a text label, and every figure has labelled axes, n, and an aria-label that states
-// what it shows. Pure geometry lives in svg.ts and profile.ts; the sentences under the figures in meaning.ts.
+// the best run is a ring with a text label, and every figure has labelled axes, the run count, and a plain
+// aria-label that states what it shows (it is read aloud, so no statistics words). Pure geometry lives in svg.ts and profile.ts; the sentences under the figures in meaning.ts.
 
 import type { ReactNode } from "react";
 import { levelsByMedian } from "@/components/campaign/data/meaning";
@@ -104,7 +104,7 @@ export function DistributionFigure({ name, hist, n }: { name: string; hist: Hist
   const widest = Math.max(...hist.edges.map((e) => dataNumber(e).length)) * 7 + 6;
   const every = Math.max(hist.edges.length > 8 ? 2 : 1, Math.ceil((widest * hist.edges.length) / (W - pad.l - pad.r)));
   const show = labelled(hist.edges.length, every);
-  const label = `Histogram of ${name}: ${n} runs in ${hist.counts.length} ${hist.counts.length === 1 ? "bin" : "bins"} of equal width from ${dataNumber(hist.edges[0])} to ${dataNumber(hist.edges[hist.edges.length - 1])}, most runs in one bin: ${max}. Bin count by Sturges' rule, edges on round numbers.`;
+  const label = `How many runs at each ${name} value: ${n} runs in ${hist.counts.length} equal ${hist.counts.length === 1 ? "range" : "ranges"} from ${dataNumber(hist.edges[0])} to ${dataNumber(hist.edges[hist.edges.length - 1])}; the most common range holds ${max}.`;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full max-w-sm overflow-visible">
       <title>{label}</title>
@@ -151,7 +151,7 @@ export function CategoryFigure({ name, levels }: { name: string; levels: { value
   const yTicks = niceTicks(0, max, 2).filter((t) => t <= max);
   const y = linear([0, Math.max(max, ...yTicks)], [H - pad.b, pad.t]);
   const x = linear([-0.5, levels.length - 0.5], [pad.l, width - pad.r]);
-  const label = `Bar chart of ${name}: ${levels.map((l) => `${l.value} ${l.n}`).join(", ")} runs.`;
+  const label = `Runs per level of ${name}: ${levels.map((l) => `${l.value} ${l.n}`).join(", ")} runs.`;
   const scroll = width > W;
   return (
     <div className={scroll ? "max-w-full overflow-x-auto" : "max-w-sm"}>
@@ -198,7 +198,7 @@ export function CoverageFigure({ name, min, max, values, gaps }: { name: string;
   const distinct = [...new Set(values)];
   const gapText = gaps.length ? `${gaps.length} untested ${gaps.length === 1 ? "stretch" : "stretches"}` : "no untested stretch";
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Coverage of ${name} from ${dataNumber(min)} to ${dataNumber(max)}: ${distinct.length} distinct tested values, ${gapText}.`} className="block h-auto w-full max-w-sm overflow-visible">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Tested range of ${name} from ${dataNumber(min)} to ${dataNumber(max)}: ${distinct.length} different values tried, ${gapText}.`} className="block h-auto w-full max-w-sm overflow-visible">
       <line x1={6} x2={W - 6} y1={22} y2={22} className={GRID} strokeWidth={1} />
       {gaps.map((g) => (
         <rect key={`${g.from}-${g.to}`} x={x(g.from)} width={Math.max(1, x(g.to) - x(g.from))} y={16} height={12} className="fill-chart-band" data-gap={`${g.from}-${g.to}`} />
@@ -238,7 +238,7 @@ export function TargetScatterFigure({ xName, yName, points }: { xName: string; y
         </g>
       ))}
       <text x={(pad.l + W - pad.r) / 2} y={H - 6} textAnchor="middle" className={CAPTION}>
-        {xName} · n = {formatNumber(points.length, "count")}
+        {xName} · {formatNumber(points.length, "count")} runs
       </text>
       {points.map((p, i) => (
         <circle key={i} cx={x(p.x)} cy={y(p.y)} r={DOT_R} className={DOT} />
@@ -249,8 +249,9 @@ export function TargetScatterFigure({ xName, yName, points }: { xName: string; y
 }
 
 /**
- * Target (y) at each level of a category input: one strip per level, levels sorted by median target descending,
- * the dots jittered on x by a hash of the row, the median as a short tick, the level and its n under the axis.
+ * Target (y) at each level of a category input: one strip per level, levels sorted by typical (median) target
+ * descending, the dots jittered on x by a hash of the row, the median as a short tick, the level and its run count
+ * under the axis.
  * Wider than the column when there are many levels: it scrolls inside the figure. The aria-label lists every level.
  */
 export function CategoryStripFigure({ xName, yName, points }: { xName: string; yName: string; points: { x: string; y: number; row: number }[] }) {
@@ -266,7 +267,7 @@ export function CategoryStripFigure({ xName, yName, points }: { xName: string; y
   const index = new Map(levels.map((l, i) => [l.value, i]));
   const bestI = ys.indexOf(Math.max(...ys));
   const best = points[bestI];
-  const label = `${yName} by ${xName}: ${points.length} runs across ${levels.length} levels, highest median first: ${levels.map((l) => `${l.value} (median ${dataNumber(l.median)}, n = ${l.ys.length})`).join(", ")}. Best ${dataNumber(best.y)} at ${best.x}.`;
+  const label = `${yName} by ${xName}: ${points.length} runs across ${levels.length} levels, highest typical value first: ${levels.map((l) => `${l.value} (typical ${dataNumber(l.median)}, ${l.ys.length} ${l.ys.length === 1 ? "run" : "runs"})`).join(", ")}. Best ${dataNumber(best.y)} at ${best.x}.`;
   const scroll = width > W;
   const cx = (p: { x: string; row: number }) => x(index.get(p.x) ?? 0) + jitter(p.row) * slotW;
   return (
@@ -286,12 +287,12 @@ export function CategoryStripFigure({ xName, yName, points }: { xName: string; y
               {shortLabel(l.value)}
             </text>
             <text x={x(i)} y={H - pad.b + 30} textAnchor="middle" className={TICK}>
-              n = {formatNumber(l.ys.length, "count")}
+              {formatNumber(l.ys.length, "count")} {l.ys.length === 1 ? "run" : "runs"}
             </text>
           </g>
         ))}
         <text x={pad.l} y={H - 6} className={CAPTION}>
-          {xName}, highest median first · n = {formatNumber(points.length, "count")}
+          {xName}, highest typical value first · {formatNumber(points.length, "count")} runs
         </text>
         <BestMark cx={cx(best)} cy={y(best.y)} value={best.y} flip={cx(best) > width * 0.6} />
       </svg>
@@ -422,7 +423,7 @@ export function RunOrderFigure({ yName, values, groups = [], origins }: { yName:
           // A small panel still gets at least an eighth of the width, so its dots and label have room.
           <div key={p.label} className="min-w-0" style={{ flexGrow: Math.max(p.rows.length, values.length / 8), flexBasis: 0 }}>
             <RunOrderPanel
-              title={panels.length > 1 ? `${p.label}, n = ${formatNumber(p.n, "count")}` : null}
+              title={panels.length > 1 ? `${p.label}, ${formatNumber(p.n, "count")} ${p.n === 1 ? "run" : "runs"}` : null}
               compact={panels.length > 1 && p.rows.length < values.length / 5}
               rows={p.rows}
               y={y}
@@ -441,7 +442,7 @@ export function RunOrderFigure({ yName, values, groups = [], origins }: { yName:
 }
 
 /**
- * Each replicate group as a vertical strip of its target values, groups sorted by median target descending,
+ * Each repeated recipe as a vertical strip of its target values, recipes sorted by typical (median) target descending,
  * labelled x{k} under the axis, the best run ringed. Shows at most `limit` groups.
  */
 export function ReplicateFigure({ yName, groups, limit = 40 }: { yName: string; groups: ReplicateGroup[]; limit?: number }) {
@@ -461,7 +462,7 @@ export function ReplicateFigure({ yName, groups, limit = 40 }: { yName: string; 
     <svg
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label={`${yName} for ${groups.length} replicate groups, ${shown.length} shown, highest median first. Each column is one recipe run more than once.`}
+      aria-label={`${yName} for ${groups.length} recipes run more than once, ${shown.length} shown, highest typical value first. Each column is one recipe run more than once.`}
       className="block h-auto w-full max-w-sm overflow-visible"
     >
       <YAxis ticks={yTicks} y={y} x0={pad.l} x1={W - pad.r} name={yName} />
@@ -475,7 +476,7 @@ export function ReplicateFigure({ yName, groups, limit = 40 }: { yName: string; 
         ) : null,
       )}
       <text x={(pad.l + W - pad.r) / 2} y={H - 6} textAnchor="middle" className={CAPTION}>
-        recipes, highest median first · n = {formatNumber(all.length, "count")}
+        recipes, highest typical value first · {formatNumber(all.length, "count")} runs
       </text>
       {bestV != null && bestG >= 0 ? <BestMark cx={x(bestG)} cy={y(bestV)} value={bestV} flip={x(bestG) > W * 0.6} /> : null}
     </svg>

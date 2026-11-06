@@ -53,9 +53,9 @@ describe("DataTable", () => {
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
     const rows = bodyRows();
     expect(rows.map(rowNumber)).toEqual(["6", "2", "4", "1", "5", "3"]);
-    expect(within(rows[2]).getByText("replicate x2")).toBeTruthy();
-    expect(within(rows[3]).getByText("replicate x2")).toBeTruthy();
-    expect(screen.getAllByText("replicate x2")).toHaveLength(2);
+    expect(within(rows[2]).getByText("repeated x2")).toBeTruthy();
+    expect(within(rows[3]).getByText("repeated x2")).toBeTruthy();
+    expect(screen.getAllByText("repeated x2")).toHaveLength(2);
   });
 
   it("sorts another column ascending on the first click without reordering replicates, and keeps the best pinned", () => {
@@ -85,11 +85,11 @@ describe("DataTable", () => {
   it("shows an origin badge per row only when some row has an origin", () => {
     const plain = tableRows(profile, "Titer");
     const { unmount } = render(<DataTable columns={plain.columns} rows={plain.rows} target="Titer" />);
-    expect(screen.queryByText("Origin")).toBeNull();
+    expect(screen.queryByText("From")).toBeNull();
     unmount();
     const t = tableRows(profile, "Titer", { extra: [{ values: { Gly: 1, SP: 2, Titer: 3 }, origin: "Round 1" }] });
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
-    expect(screen.getByText("Origin")).toBeTruthy();
+    expect(screen.getByText("From")).toBeTruthy();
     expect(screen.getByText("Round 1")).toBeTruthy();
     expect(screen.getAllByText("Sheet")).toHaveLength(6); // six sheet rows; the best already leads, so no pinned copy
   });
@@ -98,7 +98,7 @@ describe("DataTable", () => {
     const p = profileSheet(csv("data_type,SP,Titer\nreal,1.5,3\nsynthetic,2.5,4\nReal,3.5,5"));
     const t = tableRows(p, "Titer");
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
-    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Row", "SPInput", "TiterTarget", "Origin"]);
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Row", "SPInput", "TiterTarget", "From"]);
     expect(screen.getAllByText("Measured")).toHaveLength(2); // two rows; the best already leads
     expect(screen.getByText("Synthetic")).toBeTruthy();
   });
@@ -152,24 +152,24 @@ describe("DataRoundPage", () => {
     engine.round = "1";
     render(<DataRoundPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Round 1");
-    expect(screen.getByText("1 run measured, 1 awaiting. Started from pichia.csv.")).toBeTruthy();
+    expect(screen.getByText("1 run measured, 1 waiting for a result. Started from pichia.csv.")).toBeTruthy();
     expect(screen.getByText("Best measured in this round: 70.20, above the sheet's best 63.30.")).toBeTruthy();
-    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Run", "SP", "Gly", "Predicted", "Measured", "Status", "Origin"]);
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Run", "SP", "Gly", "Predicted", "Measured", "Status", "From"]);
     const rows = bodyRows();
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByText("abcdef0")).toBeTruthy();
     expect(within(rows[0]).getByText("± 7.05 (90% band)")).toBeTruthy();
     expect(within(rows[0]).getByText("Measured")).toBeTruthy();
     expect(within(rows[1]).getByText("not yet")).toBeTruthy();
-    expect(within(rows[1]).getByText("Awaiting")).toBeTruthy();
+    expect(within(rows[1]).getByText("Waiting for a result")).toBeTruthy();
     expect(screen.getAllByText("Round 1")).toHaveLength(3); // the title and one origin badge per run
   });
 
-  it("says when the engine folded the round and no longer lists its runs", () => {
+  it("says when the round became part of the runs the model learns from and Kalos no longer lists its runs", () => {
     engine.campaign = { ...engine.campaign, data: { ...campaign, round: 1, pending: [], history: [...campaign.history, { round: 1, best: 70.2, n_base: 12 }] }, status: "data" };
     engine.round = "1";
     render(<DataRoundPage />);
-    expect(screen.getByText("The engine folded round 1 into the campaign's data and no longer lists its runs")).toBeTruthy();
+    expect(screen.getByText("Round 1 is now part of the runs the model learns from, so Kalos no longer lists its runs on their own")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
   });
 
@@ -188,6 +188,6 @@ describe("DataRoundPage", () => {
     engine.campaign = { ...engine.campaign, data: null, error: true, status: "error" };
     engine.round = "1";
     render(<DataRoundPage />);
-    expect(screen.getByRole("alert").textContent).toMatch(/Could not reach the engine/);
+    expect(screen.getByRole("alert").textContent).toMatch(/Could not reach Kalos/);
   });
 });

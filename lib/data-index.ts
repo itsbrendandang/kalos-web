@@ -198,13 +198,13 @@ export function indexVerdict(index: DataIndex, working: AnalysisFacts | null, en
   const held = index.sheets.length;
   if (held === 0 && !working && engineKnown) return "Nothing loaded yet.";
   const first = held === 0 ? "No sheet is held in this browser" : `${plural(held, "sheet")} held here`;
-  if (!engineKnown) return `${first}; the engine could not be asked which one the campaign is working from.`;
+  if (!engineKnown) return `${first}; Kalos could not be asked which one the campaign is working from.`;
   if (!working) return `${first}; the campaign has no run sheet yet.`;
   const name = working.run?.filename ?? working.dataset;
   // The engine's sheet may share a name with a held sheet and still be different bytes; say so rather than let the names match.
   const heldHere = index.sheets.some((s) => s.usedBy != null);
   const copy = heldHere ? "" : ", a copy this browser does not hold";
-  return `${first}; the campaign is working from ${name} (${plural(working.n, "row")})${copy}.`;
+  return `${first}; the campaign is working from ${name} (${plural(working.n, "run")})${copy}.`;
 }
 
 /** The list of rounds recorded from a sheet, as one caption: "Round 1 recorded from it", "Rounds 1, 2 and 3 recorded from it". */

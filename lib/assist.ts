@@ -103,7 +103,7 @@ export function assistLimitLine(err: unknown, what: "question" | "draft" | "vers
     return `Too many ${what === "question" ? "questions" : "changes"} in a row.${wait}`;
   }
   if (status === 409 || code === "limit_reached") {
-    if (what === "draft") return "This campaign has as many drafts as Kalos keeps (500). Delete is not possible; export what you need and reuse a draft.";
+    if (what === "draft") return "This workspace has as many drafts as Kalos keeps (500). Export what you need and reuse a draft.";
     return "This draft has as many versions as Kalos keeps (200). Start a new draft from the same record to go on.";
   }
   return null;

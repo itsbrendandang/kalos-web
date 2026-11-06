@@ -107,13 +107,21 @@ export function NextStepLine({ className }: { className?: string }) {
   const pathname = usePathname();
   const { next } = useNextStepCard();
   if (!next || next.action_route === pathname) return null;
-  const n = next.blockers.length;
+  const [first, ...rest] = next.blockers;
   return (
     <aside aria-label="What to do next" className={cn("mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 text-body", className)}>
       <p className="min-w-0 flex-1 text-fg">
         <span className="text-fg-muted">Next: </span>
         {next.step}
-        {n > 0 ? <span className="text-fg-muted">{` (${n === 1 ? "one thing" : `${n} things`} in the way)`}</span> : null}
+        {first ? (
+          <>
+            {" "}
+            <Link href={next.action_route} className="text-fg-muted underline-offset-4 hover:text-fg hover:underline">
+              {first.text}
+              {rest.length > 0 ? ` And ${rest.length} more.` : ""}
+            </Link>
+          </>
+        ) : null}
       </p>
       <Link href={next.action_route} className={buttonVariants({ variant: "outline", size: "sm" })}>
         {nextActionLabel(next)}

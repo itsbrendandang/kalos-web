@@ -145,8 +145,10 @@ describe("the next-step card", () => {
     const { unmount } = mount(<NextStepLine />);
     const line = await screen.findByRole("complementary", { name: "What to do next" });
     expect(line.textContent).toContain(GUIDE.step);
-    expect(line.textContent).toContain("one thing in the way");
-    expect(within(line).getByRole("link").getAttribute("href")).toBe("/campaign/record");
+    // The thing in the way is named, not counted, and links to the step's page.
+    expect(within(line).getByRole("link", { name: GUIDE.blockers[0].text }).getAttribute("href")).toBe("/campaign/record");
+    expect(line.textContent).not.toContain("in the way");
+    expect(within(line).getByRole("link", { name: /Open Record/ }).getAttribute("href")).toBe("/campaign/record");
     unmount();
     pathname = "/campaign/record";
     mount(<NextStepLine />);

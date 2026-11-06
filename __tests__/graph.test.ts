@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGraph, circularMean, inputSentence } from "@/lib/graph";
+import { buildGraph, circularMean, graphSentence, inputSentence, NODE_R } from "@/lib/graph";
 import type { PopulatedResult } from "@/lib/api";
 
 const a = {
@@ -27,9 +27,19 @@ describe("buildGraph", () => {
   it("puts the most relevant input first", () => {
     expect(g.nodes.find((n) => n.kind === "input")!.label).toBe("a");
   });
-  it("adds the simulation tools and wires them to the result and the recipes", () => {
-    expect(g.nodes.filter((n) => n.kind === "tool").map((n) => n.label).sort()).toEqual(["Scale-up", "Simulator", "Vessels"]);
+  it("adds the two Library tools (no Vessels) and wires them to the result and the recipes", () => {
+    expect(g.nodes.filter((n) => n.kind === "tool").map((n) => n.label).sort()).toEqual(["Benchmark", "Scale-up"]);
     expect(g.edges.filter((e) => e.from === "t:simulator")).toHaveLength(2);
+    expect(g.nodes.some((n) => n.label === "Vessels")).toBe(false);
+  });
+  it("draws every input, recipe and tool at the same size; importance is distance from the hub", () => {
+    const hub = g.nodes.find((n) => n.kind === "target")!;
+    const inputs = g.nodes.filter((n) => n.kind === "input");
+    for (const n of g.nodes) if (n.kind !== "target") expect(n.r).toBe(NODE_R);
+    const dist = (n: { x: number; y: number }) => Math.hypot(n.x - hub.x, n.y - hub.y);
+    const byName = Object.fromEntries(inputs.map((n) => [n.label, dist(n)]));
+    expect(byName.a).toBeLessThan(byName.c);
+    expect(byName.a).toBeLessThan(byName.b);
   });
   it("every edge points at a real node", () => {
     const ids = new Set(g.nodes.map((n) => n.id));
@@ -39,6 +49,16 @@ describe("buildGraph", () => {
 
 describe("circularMean", () => {
   it("handles wrap-around", () => expect(Math.abs(circularMean([Math.PI - 0.1, -Math.PI + 0.1]))).toBeCloseTo(Math.PI, 5));
+});
+
+describe("graphSentence", () => {
+  it("names the result, the best and the inputs that move most closely with it", () => {
+    expect(graphSentence(a, buildGraph(a))).toBe("t: best measured 2 from 10 runs. a moves most closely with it.");
+  });
+  it("says when no link is statistically solid", () => {
+    const loose = { ...a, drivers: a.drivers.map((d) => ({ ...d, significant: false })) } as PopulatedResult;
+    expect(graphSentence(loose, buildGraph(loose))).toMatch(/a and b move most closely with it, though no link is statistically solid\.$/);
+  });
 });
 
 describe("inputSentence", () => {

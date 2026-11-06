@@ -2,6 +2,8 @@
  * Pure layout and wording for the Graph page, tested in __tests__/graph.test.ts.
  * The graph only restates what the engine returned: which inputs relate to the
  * target (and how strongly), and which inputs each proposed recipe varies.
+ * Every node is the same size; an input's importance is its distance from the
+ * result (closer = moves more closely with it), never its area.
  */
 import type { PopulatedResult } from "@/lib/api";
 
@@ -9,6 +11,12 @@ export const GRAPH_W = 860;
 export const GRAPH_H = 600;
 const CX = GRAPH_W / 2;
 const CY = GRAPH_H / 2;
+/** One radius for every node but the hub, so size never reads as importance. */
+export const NODE_R = 12;
+export const HUB_R = 30;
+/** Inputs sit between these distances from the hub, the same in every direction: the most relevant is nearest. */
+const INPUT_NEAR = 100;
+const INPUT_FAR = 225;
 
 export type GraphNode =
   | { id: string; kind: "target"; label: string; x: number; y: number; r: number; best: number | null; n: number }
@@ -62,23 +70,25 @@ export function buildGraph(a: PopulatedResult): Graph {
     return ry - rx;
   });
 
-  const nodes: GraphNode[] = [{ id: "target", kind: "target", label: a.target, x: CX, y: CY, r: 38, best: a.best ?? null, n: a.n }];
+  const nodes: GraphNode[] = [{ id: "target", kind: "target", label: a.target, x: CX, y: CY, r: HUB_R, best: a.best ?? null, n: a.n }];
   const edges: GraphEdge[] = [];
   const angleOf = new Map<string, number>();
 
   inputs.forEach((name, i) => {
     const angle = -Math.PI / 2 + (i / Math.max(1, inputs.length)) * Math.PI * 2;
-    const p = polar(angle, 215, 160);
     const d = driverBy.get(name);
     const s = shapeBy.get(name);
-    const rel = s ? s.relevance / maxRel : Math.abs(d?.rho ?? 0);
+    const rel = Math.max(0, Math.min(1, s ? s.relevance / maxRel : Math.abs(d?.rho ?? 0)));
+    // Closer to the hub = moves more closely with the result.
+    const dist = INPUT_FAR - rel * (INPUT_FAR - INPUT_NEAR);
+    const p = polar(angle, dist, dist);
     angleOf.set(name, angle);
     nodes.push({
       id: `in:${name}`,
       kind: "input",
       label: name,
       ...p,
-      r: 10 + rel * 12,
+      r: NODE_R,
       angle,
       rho: d?.rho ?? null,
       significant: d?.significant ?? false,
@@ -98,7 +108,7 @@ export function buildGraph(a: PopulatedResult): Graph {
   ordered.forEach(({ p, i }, k) => {
     const angle = -Math.PI / 2 + Math.PI / ordered.length + (k / Math.max(1, ordered.length)) * Math.PI * 2;
     const pos = polar(angle, 380, 262);
-    nodes.push({ id: `p:${i}`, kind: "proposal", label: `Try ${i + 1}`, ...pos, r: 13, angle, mode: p.mode, pred: p.pred, std: p.std, reason: p.reason });
+    nodes.push({ id: `p:${i}`, kind: "proposal", label: `Try ${i + 1}`, ...pos, r: NODE_R, angle, mode: p.mode, pred: p.pred, std: p.std, reason: p.reason });
     for (const f of a.proposal_features) {
       if (angleOf.has(f)) edges.push({ id: `v:${i}:${f}`, from: `p:${i}`, to: `in:${f}`, kind: "varies", weight: 0.3, significant: false });
     }
@@ -108,12 +118,11 @@ export function buildGraph(a: PopulatedResult): Graph {
   // links are how the app is wired (open the tool, carry the idea over), not
   // results: no numbers are drawn from them.
   const TOOLS = [
-    { id: "t:simulator", label: "Simulator", x: 780, y: 56, to: ordered.map((o) => `p:${o.i}`), href: "/library/simulator", blurb: "Replays the optimizer on a made-up problem with a known answer, so you can see how it searches before trusting it with your lab." },
-    { id: "t:scaleup", label: "Scale-up", x: 80, y: 548, to: ["target"], href: "/library/scale-up", blurb: "Takes the recipe your result points to and predicts how it should behave at a larger scale." },
-    { id: "t:vessels", label: "Vessels", x: 80, y: 56, to: ["target"], href: "/library/vessels", blurb: "Compares how the same process behaves in different bioreactors, which is where a recipe often changes." },
+    { id: "t:simulator", label: "Benchmark", x: 740, y: 56, to: ordered.map((o) => `p:${o.i}`), href: "/library/simulator", blurb: "Runs the optimizer's search on a made-up surface with a known answer, so you can see how it searches before trusting it with your lab." },
+    { id: "t:scaleup", label: "Scale-up", x: 80, y: 548, to: ["target"], href: "/library/scale-up", blurb: "Takes the recipe your result points to and asks what it would do at a larger scale." },
   ];
   for (const t of TOOLS) {
-    nodes.push({ id: t.id, kind: "tool", label: t.label, x: t.x, y: t.y, r: 11, angle: t.x > CX ? 0 : Math.PI, href: t.href, blurb: t.blurb });
+    nodes.push({ id: t.id, kind: "tool", label: t.label, x: t.x, y: t.y, r: NODE_R, angle: t.x > CX ? 0 : Math.PI, href: t.href, blurb: t.blurb });
     for (const to of t.to) edges.push({ id: `s:${t.id}:${to}`, from: t.id, to, kind: "simulates", weight: 0.3, significant: false });
   }
   return { nodes, edges };
@@ -137,3 +146,20 @@ export function inputSentence(n: Extract<GraphNode, { kind: "input" }>): string 
   if (!parts.length) parts.push("The engine reported nothing specific about this input.");
   return parts.filter(Boolean).join(" ");
 }
+
+/**
+ * The page's one sentence: the result, its best measured value, and the
+ * inputs that move most closely with it (the two with the largest
+ * statistically solid correlation, else the two drawn nearest the hub).
+ */
+export function graphSentence(a: PopulatedResult, g: Graph): string {
+  const head = a.best != null ? `${a.target}: best measured ${formatPlain(a.best)} from ${a.n} runs.` : `${a.target}: ${a.n} runs, no measured best yet.`;
+  const inputs = g.nodes.filter((n): n is Extract<GraphNode, { kind: "input" }> => n.kind === "input");
+  const solid = inputs.filter((n) => n.significant);
+  const lead = (solid.length ? solid : inputs).slice(0, 2).map((n) => n.label);
+  if (!lead.length) return head;
+  const who = lead.length === 2 ? `${lead[0]} and ${lead[1]} move` : `${lead[0]} moves`;
+  return `${head} ${who} most closely with it${solid.length ? "" : ", though no link is statistically solid"}.`;
+}
+
+const formatPlain = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));

@@ -6,7 +6,7 @@
  * __tests__/assist-embed.test.ts.
  */
 import type { AssistAnswer, AssistNext } from "@/lib/assist";
-import { sourceHref } from "@/lib/assist";
+import { nextState, sourceHref } from "@/lib/assist";
 
 export type EmbedContext = {
   target: string | null;
@@ -92,7 +92,8 @@ export type PromptState = {
 /** Up to five questions worth asking right now, worked out from the campaign's state. */
 export function starterPrompts(s: PromptState): string[] {
   const out: string[] = ["What should I run next?"];
-  if (s.trusted === false || s.next?.state === "not_trusted" || s.next?.state === "fit_refused") out.push("Why can't you trust the model yet?");
+  const state = nextState(s.next);
+  if (s.trusted === false || state === "not_trusted" || state === "fit_refused") out.push("Why can't you trust the model yet?");
   if (s.topInput) out.push("Which input matters most?");
   if (s.round != null && s.round >= 2) out.push("What changed since last round?");
   if (s.target && s.topInput) out.push(`Show me ${s.target} by ${s.topInput}`);

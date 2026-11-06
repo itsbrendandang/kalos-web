@@ -238,7 +238,7 @@ function ReviseForm({ draftId, onRevised }: { draftId: string; onRevised: (d: So
           {busy ? "Changing..." : "Change the wording"}
         </Button>
       </div>
-      <p className="text-caption text-fg-muted">The model may reword steps. It cannot change a number taken from your records, fill in a value for your lab, or touch the header line.</p>
+      <p className="text-caption text-fg-muted">The model may reword steps. Kalos checks that numbers from your records are unchanged, that your blanks stay blank and that the header line is untouched; a change that fails a check is not kept. Read the draft before you use it.</p>
       {refused ? (
         <div role="alert" className="flex flex-col gap-1 text-body text-fg">
           <p>Kalos did not keep that change. {refused.length === 1 ? refused[0] : ""}</p>

@@ -91,8 +91,8 @@ export function AssistantSettings() {
           </dl>
           {isCloudProvider(status) ? (
             <p className="text-body text-fg" data-testid="assist-consent">
-              When you ask a question, the question and the parts of your sheets, rounds and results that match it are sent to {providerName(status.provider)}. Nothing is
-              sent until you ask. If that is not acceptable for your data, ask whoever set up Kalos to switch the assistant to Ollama, which stays on this Mac.
+              When you ask a question, the question and the parts of your sheets, rounds and results that match it are sent to {providerName(status.provider)}. When you ask
+              for a change to a procedure draft, the whole draft is sent, including anything you typed into it. Nothing is sent until you ask. If that is not acceptable for your data, ask whoever set up Kalos to switch the assistant to Ollama, which stays on this Mac.
             </p>
           ) : null}
           <div className="flex flex-wrap items-center gap-3">

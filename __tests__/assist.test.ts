@@ -4,6 +4,7 @@ import { WHY } from "@/lib/why";
 import type { Campaign } from "@/lib/api";
 import {
   assistUnavailableReason,
+  nextState,
   indexLine,
   isAssistAnswer,
   isAssistNext,
@@ -116,9 +117,23 @@ describe("shape checks", () => {
     expect(isAssistNext(next)).toBe(true);
     expect(isAssistNext({ ...next, blockers: ["a string"] })).toBe(false);
     expect(isAssistNext({ ...next, step: "" })).toBe(false);
+    // Only this app's stage pages may be linked: a route the engine made up is refused.
+    expect(isAssistNext({ ...next, action_route: "https://example.com" })).toBe(false);
+    expect(isAssistNext({ ...next, action_route: "/settings" })).toBe(false);
+    expect(isAssistNext({ ...next, action_route: "/campaign/learn" })).toBe(true);
     expect(isAssistAnswer({ answer: "x", sources: [], abstained: true, next })).toBe(true);
     expect(isAssistAnswer({ answer: "x", sources: [{ kind: "sheet", id: SHA, quote: "q" }], abstained: false })).toBe(true);
     expect(isAssistAnswer({ answer: "x", sources: [{ kind: "sheet" }], abstained: false })).toBe(false);
+  });
+});
+
+describe("nextState", () => {
+  it("accepts the engine's old and new names for the two renamed states", () => {
+    expect(nextState({ state: "batch_proposed" })).toBe("recipes_proposed");
+    expect(nextState({ state: "recipes_proposed" })).toBe("recipes_proposed");
+    expect(nextState({ state: "no_batch" })).toBe("no_recipes");
+    expect(nextState({ state: "not_trusted" })).toBe("not_trusted");
+    expect(nextState(null)).toBeNull();
   });
 });
 

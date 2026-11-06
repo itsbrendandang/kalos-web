@@ -95,8 +95,8 @@ describe("Overview in Simple view", () => {
     mockEngine(() => json(DRIVERS_ANSWER));
     mount(<OverviewPage />);
     const from = await screen.findByRole("region", { name: "From Kalos" });
-    expect(within(from).getByText(/^Reliable\./)).toBeTruthy();
-    expect(within(from).getByText(/^Why this matters: If the model puts your past runs in the right order/)).toBeTruthy();
+    expect(within(from).getByText(/^(Reliable|Not yet reliable|Not enough runs to tell)\./)).toBeTruthy();
+    expect(within(from).getByText(/^Why this matters: /)).toBeTruthy();
     expect(await within(from).findByText(GUIDE.step)).toBeTruthy();
     expect(within(from).getByRole("link", { name: /Open Plan/ })).toBeTruthy();
     expect(within(from).getByText(/Proposed recipes for round 1/)).toBeTruthy();

@@ -7,6 +7,20 @@
  */
 import { CAMPAIGN_STAGES } from "@/lib/routes";
 
+/**
+ * The guide's state codes. The engine is renaming the two that say "batch"
+ * (batch_proposed -> recipes_proposed, no_batch -> no_recipes); both the old
+ * and the new name are accepted, so either engine works.
+ */
+export const NEXT_STATE_ALIASES: Readonly<Record<string, string>> = { batch_proposed: "recipes_proposed", no_batch: "no_recipes" };
+
+/** A guide state code with the old names mapped to the new ones. */
+export function nextState(next: Pick<AssistNext, "state"> | null | undefined): string | null {
+  const s = next?.state;
+  if (!s) return null;
+  return NEXT_STATE_ALIASES[s] ?? s;
+}
+
 /** GET /api/assist/next. `state` is a stable code; the words are the engine's. */
 export type AssistNext = {
   state?: string;
@@ -219,7 +233,8 @@ export function isAssistNext(v: unknown): v is AssistNext {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
   const blocker = (b: unknown) => !!b && typeof b === "object" && typeof (b as AssistBlocker).text === "string";
-  return typeof o.step === "string" && o.step.length > 0 && typeof o.why === "string" && typeof o.action_route === "string" && Array.isArray(o.blockers) && o.blockers.every(blocker);
+  // Only a stage page of this app may become the card's link: a route the engine made up never reaches <Link href>.
+  return typeof o.step === "string" && o.step.length > 0 && typeof o.why === "string" && typeof o.action_route === "string" && stageForRoute(o.action_route) != null && Array.isArray(o.blockers) && o.blockers.every(blocker);
 }
 
 export function isAssistAnswer(v: unknown): v is AssistAnswer {

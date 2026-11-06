@@ -1,7 +1,11 @@
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { duplicateColumnPairs, histogram, isRowNumberLike, profileSheet, replicateGroups, replicateSpread, summarize, toNumber, untestedGaps } from "@/components/campaign/data/profile";
+import { duplicateColumnPairs, histogram, isCategory, isNearlyConstant, isRowNumberLike, measuredOnly, profileSheet, replicateGroups, replicateSpread, rowsOf, sturgesBins, summarize, toNumber, untestedGaps } from "@/components/campaign/data/profile";
 
 const csv = (text: string) => text.trim().split("\n").map((l) => l.split(","));
+const sample = (name: string) => `${homedir()}/Desktop/kalos-samples/${name}`;
+const readSample = (name: string) => profileSheet(csv(readFileSync(sample(name), "utf8")));
 
 describe("toNumber", () => {
   it("accepts plain and signed decimals and exponents, rejects text and censored values", () => {
@@ -40,9 +44,76 @@ describe("histogram", () => {
     expect(histogram([5, 5, 5], 4)).toEqual({ edges: [5, 6], counts: [3] });
     expect(histogram([])).toBeNull();
   });
-  it("picks a sensible bin count from the sample size when none is given", () => {
+  it("uses Sturges' rule, clamped to 4..15, when no bin count is given", () => {
+    expect(sturgesBins(213)).toBe(9);
+    expect(sturgesBins(5)).toBe(4);
+    expect(sturgesBins(100000)).toBe(15);
     const h = histogram(Array.from({ length: 213 }, (_, i) => i))!;
-    expect(h.counts.length).toBe(15);
+    expect(h.counts.length).toBeGreaterThanOrEqual(8);
+    expect(h.counts.length).toBeLessThanOrEqual(11);
+  });
+  it("snaps the edges to round numbers that cover the range, and still counts every value once", () => {
+    const h = histogram([7.3, 12.1, 25.9, 31.1, 28, 12.4, 40, 33.3])!;
+    expect(h.edges[0]).toBeLessThanOrEqual(7.3);
+    expect(h.edges[h.edges.length - 1]).toBeGreaterThanOrEqual(40);
+    const step = h.edges[1] - h.edges[0];
+    for (const e of h.edges) expect(Math.abs(e / step - Math.round(e / step))).toBeLessThan(1e-9);
+    expect(h.counts.reduce((s, c) => s + c, 0)).toBe(8);
+  });
+  it("places a value on the top edge in the last bin and a value on the first edge in the first", () => {
+    const h = histogram([0, 10, 20, 30, 40, 50])!;
+    expect(h.edges[0]).toBe(0);
+    expect(h.counts[0]).toBeGreaterThanOrEqual(1);
+    expect(h.counts[h.counts.length - 1]).toBeGreaterThanOrEqual(1);
+    expect(h.counts.reduce((s, c) => s + c, 0)).toBe(6);
+  });
+});
+
+describe("column kinds", () => {
+  it("calls a non-numeric column a category up to 30 levels and half the rows, otherwise text", () => {
+    expect(isCategory(19, 213)).toBe(true);
+    expect(isCategory(10, 20)).toBe(true);
+    expect(isCategory(11, 20)).toBe(false);
+    expect(isCategory(31, 1000)).toBe(false);
+    expect(isCategory(2, 3)).toBe(true);
+    expect(isCategory(3, 3)).toBe(false);
+  });
+  it("calls a numeric input nearly constant for one value, a range under 1% of the median, or two values in ten runs", () => {
+    expect(isNearlyConstant([5, 5, 5])).toBe(true);
+    expect(isNearlyConstant([6.978, 7.028, 7.0, 7.01])).toBe(true);
+    expect(isNearlyConstant([6.9, 7.1, 7.0])).toBe(false);
+    expect(isNearlyConstant(Array.from({ length: 10 }, (_, i) => (i % 2 ? 1 : 100)))).toBe(true);
+    expect(isNearlyConstant([1, 100, 1, 100])).toBe(false);
+    expect(isNearlyConstant([])).toBe(false);
+  });
+  it.skipIf(!existsSync(sample("pichia_HSA.csv")))("reads pichia CarbonSource (19 levels in 213 rows) as a category", () => {
+    const p = readSample("pichia_HSA.csv");
+    expect(p.columns.find((c) => c.name === "CarbonSource")).toMatchObject({ kind: "category", distinct: 19 });
+  });
+  it.skipIf(!existsSync(sample("trichoderma_ambr.csv")))("reads trichoderma condition (10 levels in 20 rows) as a category", () => {
+    const p = readSample("trichoderma_ambr.csv");
+    expect(p.columns.find((c) => c.name === "condition")).toMatchObject({ kind: "category", distinct: 10 });
+  });
+  it.skipIf(!existsSync(sample("cho_bioreactor_20829178.csv")))("marks CHO pH (6.978 to 7.028) nearly constant and the other inputs not", () => {
+    const p = readSample("cho_bioreactor_20829178.csv");
+    expect(p.columns.find((c) => c.name === "pH")?.nearlyConstant).toBe(true);
+    expect(p.columns.find((c) => c.name === "DO_pct_air")?.nearlyConstant).toBe(false);
+  });
+});
+
+describe("measuredOnly", () => {
+  it("returns null without a data_type column or when every row is measured", () => {
+    expect(measuredOnly(profileSheet(csv(`x,y\n1,2`)))).toBeNull();
+    expect(measuredOnly(profileSheet(csv(`x,data_type,y\n1,Real,2\n2,measured,3`)))).toBeNull();
+  });
+  it("keeps only real or measured rows and names what was left out", () => {
+    const p = profileSheet(csv(`x,Data Type,y\n1,Real,2\n2,Synthetic,3\n3,synthetic,4\n4,,5`));
+    const m = measuredOnly(p)!;
+    expect(m.kept).toEqual([true, false, false, false]);
+    expect(m.profile.n).toBe(1);
+    expect(m.column).toBe("Data Type");
+    expect(m.leftOut).toEqual([{ value: "(blank)", n: 1 }, { value: "synthetic", n: 1 }, { value: "Synthetic", n: 1 }]);
+    expect(rowsOf(p)).toEqual([["x", "Data Type", "y"], ["1", "Real", "2"], ["2", "Synthetic", "3"], ["3", "synthetic", "4"], ["4", "", "5"]]);
   });
 });
 
@@ -90,7 +161,7 @@ describe("profileSheet", () => {
     expect(by("note")).toMatchObject({ kind: "category", distinct: 1 });
   });
 
-  it("calls a text column with many distinct values free text, and counts the non-numbers in a numeric-looking one", () => {
+  it("calls a text column with a different value in every run free text, and counts the non-numbers in a numeric-looking one", () => {
     const p = profileSheet(csv(`a,b\n1,x1\n2,x2\n<LOD,x3\n4,x4\n5,x5\n6,x6\n7,x7\n8,x8\n9,x9\n10,x10\n11,x11\n12,x12\n13,x13\n14,x14`));
     expect(p.columns[1].kind).toBe("text");
     expect(p.columns[0]).toMatchObject({ kind: "text", nonNumeric: 1 });

@@ -3,6 +3,7 @@
 // number on the Your data view is unit-tested (__tests__/data-profile.test.ts).
 //
 // Only facts from the sheet itself. Nothing is inferred about the process.
+import { niceTicks } from "@/components/campaign/data/svg";
 
 /** A cell that parses as a finite number (blank cells are handled separately). */
 export function toNumber(raw: string): number | undefined {
@@ -34,6 +35,11 @@ export type ColumnProfile = {
   raw: string[];
   /** Level counts, most common first. Category columns only. */
   levels: { value: string; n: number }[];
+  /**
+   * Numeric columns whose values barely move: one distinct value, a range under 1% of the median, or at most two
+   * distinct values in ten or more runs. Such an input cannot show an association with the target in this sheet.
+   */
+  nearlyConstant: boolean;
 };
 
 export type SheetProfile = {
@@ -46,8 +52,27 @@ export type SheetProfile = {
   duplicateColumns: { a: string; b: string }[];
 };
 
-/** A column with at most this many distinct text values is a category; more is free text. */
-export const MAX_CATEGORY_LEVELS = 12;
+/** The most levels a non-numeric column may have and still be a category (see `isCategory`). */
+export const MAX_CATEGORY_LEVELS = 30;
+
+/**
+ * A non-numeric column is a category when it has at most 30 distinct values and no more than half as many
+ * distinct values as runs (at least 2). Otherwise it is label-like text: a run name, a note, a date.
+ */
+export function isCategory(distinct: number, n: number): boolean {
+  return distinct <= MAX_CATEGORY_LEVELS && distinct <= Math.max(2, n / 2);
+}
+
+/** The `nearlyConstant` rule on a numeric column's values (see `ColumnProfile.nearlyConstant`). */
+export function isNearlyConstant(values: readonly number[]): boolean {
+  const v = values.filter((x) => Number.isFinite(x));
+  if (v.length === 0) return false;
+  const distinct = new Set(v).size;
+  if (distinct === 1) return true;
+  if (distinct <= 2 && v.length >= 10) return true;
+  const s = summarize(v)!;
+  return (s.max - s.min) / Math.max(Math.abs(s.median), 1e-9) < 0.01;
+}
 
 /** The shortest interior stretch with no runs, as a share of the input's range, that is named as untested. */
 export const UNTESTED_SHARE = 0.1;
@@ -67,7 +92,7 @@ export function profileSheet(rows: readonly (readonly string[])[]): SheetProfile
     let kind: ColumnKind;
     if (filledRaw.length === 0) kind = "empty";
     else if (nonNumeric === 0) kind = "numeric";
-    else if (distinct <= MAX_CATEGORY_LEVELS) kind = "category";
+    else if (isCategory(distinct, body.length)) kind = "category";
     else kind = "text";
     const tally = new Map<string, number>();
     for (const v of filledRaw) tally.set(v, (tally.get(v) ?? 0) + 1);
@@ -82,6 +107,7 @@ export function profileSheet(rows: readonly (readonly string[])[]): SheetProfile
       numbers: kind === "numeric" ? numbers : numbers.map(() => null),
       raw,
       levels: kind === "category" ? [...tally].map(([value, n]) => ({ value, n })).sort((a, b) => b.n - a.n || a.value.localeCompare(b.value)) : [],
+      nearlyConstant: kind === "numeric" && isNearlyConstant(numbers.filter((x): x is number => x != null)),
     });
   }
   const rowKeys = body.map((r) => JSON.stringify(columns.map((_, c) => cell(r, c))));
@@ -134,18 +160,32 @@ export function summarize(values: readonly number[]): Summary | null {
 
 export type Histogram = { edges: number[]; counts: number[] };
 
-/** Equal-width bins over [min, max]; the top edge is inclusive. One bin when every value is equal. */
+/** Sturges' bin count, `ceil(log2(n) + 1)`, clamped to 4..15. */
+export function sturgesBins(n: number): number {
+  return Math.min(15, Math.max(4, Math.ceil(Math.log2(Math.max(1, n)) + 1)));
+}
+
+/**
+ * Equal-width bins on round edges: about `bins` of them (Sturges' rule when not given), with the width snapped to
+ * the nice step from `niceTicks`, the first edge at or below the smallest value and the last at or above the
+ * largest. The top edge is inclusive. One bin when every value is equal.
+ */
 export function histogram(values: readonly number[], bins?: number): Histogram | null {
   const v = values.filter((x) => Number.isFinite(x));
   if (v.length === 0) return null;
   const lo = Math.min(...v);
   const hi = Math.max(...v);
-  const k = lo === hi ? 1 : Math.max(1, bins ?? Math.min(15, Math.max(4, Math.round(Math.sqrt(v.length)))));
-  const width = lo === hi ? 1 : (hi - lo) / k;
-  const edges = Array.from({ length: k + 1 }, (_, i) => lo + i * width);
-  const counts = new Array<number>(k).fill(0);
+  if (lo === hi) return { edges: [lo, lo + 1], counts: [v.length] };
+  const k = Math.max(1, bins ?? sturgesBins(v.length));
+  const ticks = niceTicks(lo, hi, k);
+  const step = ticks.length >= 2 ? ticks[1] - ticks[0] : (hi - lo) / k;
+  const round = (x: number) => Number(x.toPrecision(12));
+  const first = round(Math.floor(lo / step + 1e-9) * step);
+  const edges: number[] = [first];
+  while (edges[edges.length - 1] < hi - step * 1e-9) edges.push(round(first + edges.length * step));
+  const counts = new Array<number>(edges.length - 1).fill(0);
   for (const x of v) {
-    const i = lo === hi ? 0 : Math.min(k - 1, Math.floor((x - lo) / width));
+    const i = Math.min(counts.length - 1, Math.floor((x - first) / step + 1e-9));
     counts[i] += 1;
   }
   return { edges, counts };
@@ -203,4 +243,54 @@ export function replicateSpread(groups: readonly ReplicateGroup[]): ReplicateSpr
   const medianSd = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : null;
   // Runs counts only the runs that have a target value: a replicate with a blank target is not evidence of spread.
   return { groups: groups.length, runs: groups.reduce((s, g) => s + g.targets.length, 0), medianSd };
+}
+
+/** The sheet's cells back as rows (header first) from a profile, so a subset of rows can be profiled again. */
+export function rowsOf(profile: SheetProfile): string[][] {
+  const header = profile.columns.map((c) => (c.headerless ? "" : c.name));
+  const body = Array.from({ length: profile.n }, (_, r) => profile.columns.map((c) => c.raw[r] ?? ""));
+  return [header, ...body];
+}
+
+/** The `data_type` column of a sheet (`data type`, `data-type` too, any case), or undefined. */
+export function dataTypeColumn(profile: SheetProfile): ColumnProfile | undefined {
+  return profile.columns.find((c) => /^data[\s_-]?type$/i.test(c.name));
+}
+
+/** A `data_type` value that marks a measured run (case-insensitive `real` or `measured`). */
+export function isMeasuredDataType(value: string): boolean {
+  return /^(real|measured)$/i.test(value.trim());
+}
+
+export type MeasuredSplit = {
+  /** The profile of the measured rows only. */
+  profile: SheetProfile;
+  /** True for each original row that is kept. */
+  kept: boolean[];
+  /** Rows left out, by their `data_type` value as written, most common first. */
+  leftOut: { value: string; n: number }[];
+  column: string;
+};
+
+/**
+ * When the sheet has a `data_type` column, the measured rows (`real` or `measured`) on their own, so no chart mixes
+ * measured runs with simulated or synthetic ones. A blank value is not measured. Null when there is no such column
+ * or nothing is left out.
+ */
+export function measuredOnly(profile: SheetProfile): MeasuredSplit | null {
+  const col = dataTypeColumn(profile);
+  if (!col) return null;
+  const kept = col.raw.map((v) => isMeasuredDataType(v));
+  if (kept.every(Boolean)) return null;
+  const tally = new Map<string, number>();
+  col.raw.forEach((v, r) => {
+    if (!kept[r]) tally.set(v || "(blank)", (tally.get(v || "(blank)") ?? 0) + 1);
+  });
+  const [header, ...body] = rowsOf(profile);
+  return {
+    profile: profileSheet([header, ...body.filter((_, r) => kept[r])]),
+    kept,
+    leftOut: [...tally].map(([value, n]) => ({ value, n })).sort((a, b) => b.n - a.n || a.value.localeCompare(b.value)),
+    column: col.name,
+  };
 }

@@ -32,7 +32,7 @@ const select = "h-9 rounded-lg border border-border-strong bg-surface px-2.5 tex
  * Process: the whole workflow as a chain of steps. Each step holds its SOP, the
  * parameters read from it (confirmed by you), and data from whoever ran it,
  * in-house, a CRO or a CDMO. Today it is a place to record and check them;
- * the optimizer does not read this map yet. The verdict is data coverage:
+ * Kalos does not read this map yet. The verdict is data coverage:
  * how many steps have a sheet behind them.
  * Stored on this device only; nothing here is sent anywhere.
  */
@@ -45,7 +45,7 @@ export default function ProcessPage() {
   if (!map)
     return (
       <div className="flex flex-col gap-8">
-        <PageHeader eyebrow="Process" title="Map your whole process" description="Lay out every step from cell line to fill and finish. Add each step's SOP, and the data from whoever ran it, in-house, a CRO or a CDMO." />
+        <PageHeader eyebrow="Process" title="Map your whole process" description="Lay out every step from cell line to fill and finish. Add each step's SOP, and the run sheets from whoever ran it, in-house, a CRO or a CDMO." />
         <div className="glass flex flex-col items-start gap-4 p-6">
           <p className="max-w-[56ch] text-body text-fg-muted">Start from a typical monoclonal antibody chain and edit it, or build your own. The ranges in the template are typical values to change, not recommendations.</p>
           <div className="flex gap-2">
@@ -66,7 +66,7 @@ export default function ProcessPage() {
       <PageHeader
         className="max-sm:flex-col"
         title={map.name}
-        description={`${sum.steps} ${sum.steps === 1 ? "step" : "steps"}, ${sum.params} ${sum.params === 1 ? "parameter" : "parameters"}${sum.partners.length ? `. Partners: ${sum.partners.join(", ")}` : ""}. The optimizer does not read this map yet.`}
+        description={`${sum.steps} ${sum.steps === 1 ? "step" : "steps"}, ${sum.params} ${sum.params === 1 ? "parameter" : "parameters"}${sum.partners.length ? `. Partners: ${sum.partners.join(", ")}` : ""}. Kalos does not read this map yet.`}
         action={
           <Button
             onClick={() => {
@@ -83,8 +83,8 @@ export default function ProcessPage() {
       {sum.steps === 0 ? (
         <Verdict tone="neutral">No steps yet. Add the first one.</Verdict>
       ) : (
-        <Verdict tone={sum.withData === sum.steps ? "good" : "warn"} detail={sum.withData === sum.steps ? "Every step has at least one data sheet." : "Pick a step without data and add a sheet from whoever ran it."}>
-          Data on {sum.withData} of {sum.steps} {sum.steps === 1 ? "step" : "steps"}.
+        <Verdict tone={sum.withData === sum.steps ? "good" : "warn"} detail={sum.withData === sum.steps ? "Every step has at least one run sheet." : "Pick a step without a sheet and add one from whoever ran it."}>
+          Run sheets on {sum.withData} of {sum.steps} {sum.steps === 1 ? "step" : "steps"}.
         </Verdict>
       )}
 
@@ -112,7 +112,7 @@ export default function ProcessPage() {
                     </span>
                   </span>
                   {s.sop ? <FileText className="size-4 text-fg-muted" role="img" aria-label="Has an SOP" /> : null}
-                  <span className="text-caption tabular-nums text-fg-muted">{h.state === "ready" ? h.label : "No data yet"}</span>
+                  <span className="text-caption tabular-nums text-fg-muted">{h.state === "ready" ? h.label : "No sheet yet"}</span>
                 </button>
               </li>
             );
@@ -125,7 +125,7 @@ export default function ProcessPage() {
           ) : (
             <div className="glass p-5">
               <p className="text-heading text-fg">Pick a step</p>
-              <p className="mt-1 text-body text-fg-muted">Add its SOP and the data from whoever ran it.</p>
+              <p className="mt-1 text-body text-fg-muted">Add its SOP and the run sheets from whoever ran it.</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="ghost" onClick={() => { if (window.confirm("Remove the whole process map from this device?")) clearMap(); }}>Reset</Button>
               </div>
@@ -249,9 +249,9 @@ function StepEditor({ step, onChange, onDelete }: { step: Step; onChange: (f: (s
         ) : sopText.trim() ? <p className="text-caption text-fg-muted">No parameters found. Lines like “pH 6.8 - 7.2” or “Temperature: 36.5 ± 0.5 °C” are read.</p> : null}
       </section>
 
-      <section aria-label="Data" className="flex flex-col gap-2">
+      <section aria-label="Run sheets" className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-label text-fg">Data{step.owner !== "in-house" ? ` from ${step.partner || OWNER_LABEL[step.owner]}` : ""}</h3>
+          <h3 className="text-label text-fg">Run sheets{step.owner !== "in-house" ? ` from ${step.partner || OWNER_LABEL[step.owner]}` : ""}</h3>
           <FilePick label="Add sheet" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf" onFile={(f) => readFile(f, "data")} icon={<Table2 />} />
         </div>
         {step.data.length === 0 ? <p className="text-body text-fg-muted">No sheets yet. A CSV of runs, one row each, works.</p> : null}

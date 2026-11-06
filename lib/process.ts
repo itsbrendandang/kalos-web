@@ -124,7 +124,7 @@ export type StepHealth = { state: "ready" | "needs-sop" | "needs-data" | "empty"
 export function stepHealth(s: Step): StepHealth {
   if (!s.params.length && !s.sop && !s.data.length) return { state: "empty", label: "Nothing added yet" };
   if (!s.params.length) return { state: "needs-sop", label: "Add an SOP or parameters" };
-  if (!s.data.length) return { state: "needs-data", label: "No data yet" };
+  if (!s.data.length) return { state: "needs-data", label: "No sheet yet" };
   return { state: "ready", label: `${s.data.reduce((a, d) => a + d.rows, 0)} runs` };
 }
 

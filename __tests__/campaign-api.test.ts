@@ -55,7 +55,7 @@ describe("campaign client (lib/api.ts)", () => {
     expect(err).toBeInstanceOf(EngineError);
     expect((err as EngineError).status).toBe(400);
     expect((err as EngineError).detail).toBe(cap);
-    expect(errorMessage(err).message).toContain("2,000 complete rows");
+    expect(errorMessage(err).message).toContain("2,000 complete runs");
   });
 
   it("reanalyze maps a typed engine code in the body to its copy", async () => {
@@ -176,7 +176,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("reanalyze throws a status-based message on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
 
-    await expect(reanalyze()).rejects.toThrow("engine responded 500");
+    await expect(reanalyze()).rejects.toThrow("Kalos answered 500");
   });
 });
 

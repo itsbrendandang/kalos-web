@@ -23,7 +23,7 @@ export default function AskKalosPage() {
         description="What to do next, and answers about your own sheets, rounds and results. Every answer says where it came from."
       />
       {status === "offline" ? (
-        <ErrorState title="Could not reach Kalos" description="The campaign could not be loaded. This is a connection problem, not an empty campaign." onRetry={retry} />
+        <ErrorState description="The campaign could not be loaded. This is a connection problem, not an empty campaign; nothing you entered is lost." onRetry={retry} />
       ) : (
         <>
           <NextStepFromEngine />

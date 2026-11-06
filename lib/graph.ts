@@ -1,7 +1,7 @@
 /*
  * Pure layout and wording for the Graph page, tested in __tests__/graph.test.ts.
- * The graph only restates what the engine returned: which inputs relate to the
- * target (and how strongly), and which inputs each proposed recipe varies.
+ * The graph only restates what Kalos returned: which inputs went with the
+ * target (and how strongly), and which inputs each proposed recipe changes.
  * Every node is the same size; an input's importance is its distance from the
  * result (closer = moves more closely with it), never its area.
  */
@@ -118,7 +118,7 @@ export function buildGraph(a: PopulatedResult): Graph {
   // links are how the app is wired (open the tool, carry the idea over), not
   // results: no numbers are drawn from them.
   const TOOLS = [
-    { id: "t:simulator", label: "Benchmark", x: 740, y: 56, to: ordered.map((o) => `p:${o.i}`), href: "/library/simulator", blurb: "Runs the optimizer's search on a made-up surface with a known answer, so you can see how it searches before trusting it with your lab." },
+    { id: "t:simulator", label: "Benchmark", x: 740, y: 56, to: ordered.map((o) => `p:${o.i}`), href: "/library/simulator", blurb: "Watches Kalos search a made-up problem with one known best recipe, so you can see how it searches before trusting it with your lab." },
     { id: "t:scaleup", label: "Scale-up", x: 80, y: 548, to: ["target"], href: "/library/scale-up", blurb: "Takes the recipe your result points to and asks what it would do at a larger scale." },
   ];
   for (const t of TOOLS) {
@@ -136,21 +136,37 @@ const SHAPE_TEXT: Record<string, (at: number | null) => string> = {
   flat: () => "Little effect in this data.",
 };
 
+/** How strongly an input went with the target, in words: the number itself stays one click down. */
+export function strengthWord(rho: number): string {
+  const r = Math.abs(rho);
+  return r >= 0.5 ? "strongly" : r >= 0.25 ? "somewhat" : "only a little";
+}
+
+/** "Clear signal" or "Could be chance": the badge words for whether a link could be chance alone. */
+export const signalWord = (significant: boolean): string => (significant ? "clear signal" : "could be chance");
+
+/** One line per input for the ranked list under the verdict: direction, strength, and whether it could be chance. */
+export function linkLine(n: Pick<Extract<GraphNode, { kind: "input" }>, "rho" | "significant">, target: string): string {
+  if (n.rho == null) return `nothing reported about how it went with ${target}`;
+  const dir = n.rho >= 0 ? `went with higher ${target}` : `went with lower ${target}`;
+  return `${dir} ${strengthWord(n.rho)}; ${signalWord(n.significant)}`;
+}
+
 export function inputSentence(n: Extract<GraphNode, { kind: "input" }>): string {
   const parts: string[] = [];
   if (n.shape) parts.push(SHAPE_TEXT[n.shape]?.(n.optimumAt) ?? "");
   if (n.rho != null) {
-    const dir = n.rho >= 0 ? "rises" : "falls";
-    parts.push(`Across the runs, the result ${dir} as this goes up (correlation ${n.rho >= 0 ? "+" : "−"}${Math.abs(n.rho).toFixed(2)}${n.significant ? ", statistically solid" : ", not statistically solid"}).`);
+    const dir = n.rho >= 0 ? "higher" : "lower";
+    parts.push(`Across the runs, more of this went with a ${dir} result, ${strengthWord(n.rho)}. ${n.significant ? "Clear signal." : "Could be chance."}`);
   }
-  if (!parts.length) parts.push("The engine reported nothing specific about this input.");
+  if (!parts.length) parts.push("Kalos reported nothing specific about this input.");
   return parts.filter(Boolean).join(" ");
 }
 
 /**
  * The page's one sentence: the result, its best measured value, and the
- * inputs that move most closely with it (the two with the largest
- * statistically solid correlation, else the two drawn nearest the hub).
+ * inputs that went most closely with it (the two with the largest link that
+ * is a clear signal, else the two drawn nearest the hub).
  */
 export function graphSentence(a: PopulatedResult, g: Graph): string {
   const head = a.best != null ? `${a.target}: best measured ${formatPlain(a.best)} from ${a.n} runs.` : `${a.target}: ${a.n} runs, no measured best yet.`;
@@ -158,8 +174,8 @@ export function graphSentence(a: PopulatedResult, g: Graph): string {
   const solid = inputs.filter((n) => n.significant);
   const lead = (solid.length ? solid : inputs).slice(0, 2).map((n) => n.label);
   if (!lead.length) return head;
-  const who = lead.length === 2 ? `${lead[0]} and ${lead[1]} move` : `${lead[0]} moves`;
-  return `${head} ${who} most closely with it${solid.length ? "" : ", though no link is statistically solid"}.`;
+  const who = lead.length === 2 ? `${lead[0]} and ${lead[1]} went` : `${lead[0]} went`;
+  return `${head} ${who} most closely with it${solid.length ? "" : ", though every link could be chance"}.`;
 }
 
 const formatPlain = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));

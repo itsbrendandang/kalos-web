@@ -28,7 +28,7 @@ describe("sidebar groups", () => {
   it("does not list Experiments as a rail entry: it is a sub-view of Overview", () => {
     expect(NAV_ITEMS.some((n) => n.href === EXPERIMENTS_ROUTE.href)).toBe(false);
     expect(navKeyFor(EXPERIMENTS_ROUTE.href)).toBe("campaign");
-    expect(breadcrumbFor(EXPERIMENTS_ROUTE.href).map((b) => b.label)).toEqual(["Overview", "Experiments"]);
+    expect(breadcrumbFor(EXPERIMENTS_ROUTE.href).map((b) => b.label)).toEqual(["Overview", "The five stages"]);
   });
 
   it("maps every campaign stage page to the Overview section", () => {

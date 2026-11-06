@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGraph, circularMean, graphSentence, inputSentence, NODE_R } from "@/lib/graph";
+import { buildGraph, circularMean, graphSentence, inputSentence, linkLine, NODE_R } from "@/lib/graph";
 import type { PopulatedResult } from "@/lib/api";
 
 const a = {
@@ -52,20 +52,29 @@ describe("circularMean", () => {
 });
 
 describe("graphSentence", () => {
-  it("names the result, the best and the inputs that move most closely with it", () => {
-    expect(graphSentence(a, buildGraph(a))).toBe("t: best measured 2 from 10 runs. a moves most closely with it.");
+  it("names the result, the best and the inputs that went most closely with it", () => {
+    expect(graphSentence(a, buildGraph(a))).toBe("t: best measured 2 from 10 runs. a went most closely with it.");
   });
-  it("says when no link is statistically solid", () => {
+  it("says when every link could be chance", () => {
     const loose = { ...a, drivers: a.drivers.map((d) => ({ ...d, significant: false })) } as PopulatedResult;
-    expect(graphSentence(loose, buildGraph(loose))).toMatch(/a and b move most closely with it, though no link is statistically solid\.$/);
+    expect(graphSentence(loose, buildGraph(loose))).toMatch(/a and b went most closely with it, though every link could be chance\.$/);
   });
 });
 
 describe("inputSentence", () => {
-  it("states the sweet spot and the correlation sign", () => {
+  it("states the sweet spot, the direction in words and whether it is a clear signal; never the number", () => {
     const n = buildGraph(a).nodes.find((x) => x.id === "in:a")!;
     if (n.kind !== "input") throw new Error();
     expect(inputSentence(n)).toMatch(/Best near 35.84/);
-    expect(inputSentence(n)).toMatch(/\+0.40, statistically solid/);
+    expect(inputSentence(n)).toMatch(/went with a higher result, somewhat\. Clear signal\./);
+    expect(inputSentence(n)).not.toMatch(/0\.40|correlat|statistic/);
+  });
+});
+
+describe("linkLine", () => {
+  it("says direction, strength and chance in plain words", () => {
+    expect(linkLine({ rho: 0.82, significant: true }, "Titer")).toBe("went with higher Titer strongly; clear signal");
+    expect(linkLine({ rho: -0.3, significant: false }, "Titer")).toBe("went with lower Titer somewhat; could be chance");
+    expect(linkLine({ rho: null, significant: false }, "Titer")).toBe("nothing reported about how it went with Titer");
   });
 });

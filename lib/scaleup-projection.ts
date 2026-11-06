@@ -139,11 +139,11 @@ const PATH_META: Record<ScaleUpPathId, { label: string; reason: string }> = {
   },
   min_cost: {
     label: "Min cost",
-    reason: "Cheaper batch-fed media and a simpler control strategy at each scale - trades some titer for lower cost/L.",
+    reason: "Cheaper media, fed less often, and simpler controls at each scale - trades some titer for lower cost/L.",
   },
   fastest: {
     label: "Fastest",
-    reason: "Compressed fed-batch duration and fewer intermediate qualification runs - trades titer and confidence for speed.",
+    reason: "A shorter fed-batch and fewer check runs between scales - trades titer and certainty for speed.",
   },
 };
 

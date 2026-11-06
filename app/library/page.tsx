@@ -6,7 +6,7 @@ import { LIBRARY_ITEMS } from "@/lib/routes";
 export default function LibraryPage() {
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Library" description="Two tools that use the engine without touching your campaign." />
+      <PageHeader title="Library" description="Two tools that use Kalos without touching your campaign." />
       <ul className="divide-y divide-border border-y border-border">
         {LIBRARY_ITEMS.map((item) => (
           <li key={item.href}>

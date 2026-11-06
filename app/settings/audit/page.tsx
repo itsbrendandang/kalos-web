@@ -12,7 +12,7 @@ import { relativeTime } from "./relative-time";
 
 type Check = { state: "idle" } | { state: "ok" } | { state: "bad"; seq: number; why: string };
 
-/** Local activity log of changes to the process map. Each entry is chained to the one before it. Not an audit trail for regulated records. */
+/** Activity record of changes to the process map: what was done, by whom, when. Each entry is chained to the one before it. Not an audit trail for regulated records. */
 export default function AuditPage() {
   const { entries, where } = useAudit();
   const [check, setCheck] = useState<Check>({ state: "idle" });
@@ -36,8 +36,8 @@ export default function AuditPage() {
       <PageHeader
         className="max-sm:flex-col max-sm:items-start"
         eyebrow="Settings"
-        title="Local activity log"
-        description="Changes made on this device to your process map, newest first. A local log, not an audit trail."
+        title="Activity record"
+        description="What was done to your process map on this device, by whom and when, newest first. A record kept here, not an audit trail."
         action={
           <Button variant="outline" onClick={() => void verify()} disabled={!entries.length}>
             Check the history
@@ -53,11 +53,11 @@ export default function AuditPage() {
         </p>
         <div role="status" aria-live="polite" className={check.state === "idle" ? "hidden" : undefined}>
           {check.state === "ok" ? (
-            <Verdict tone="good">{entries.length === 1 ? "The one entry matches its record." : `All ${entries.length} entries match their records.`}</Verdict>
+            <Verdict tone="good">{entries.length === 1 ? "The one entry is as it was written." : `All ${entries.length} entries are as they were written.`}</Verdict>
           ) : null}
           {check.state === "bad" ? (
             <Verdict tone="bad" detail={check.why}>
-              Entry {check.seq} does not match its record.
+              Entry {check.seq} is not as it was written.
             </Verdict>
           ) : null}
         </div>
@@ -86,8 +86,8 @@ export default function AuditPage() {
             signed-in name, or Local mode when there is no sign-in.
           </p>
           <p>
-            Entries can be added here but not edited, and each one is linked to the one before it, so a changed or removed entry shows up when you check the
-            history. Anyone who can open {where === "file" ? "that file" : "this browser's storage"} can still rewrite all of it.
+            Entries can be added here but not edited, and each one carries a fingerprint (SHA-256) of the one before it, so a changed or removed entry shows
+            up when you check the history. Anyone who can open {where === "file" ? "that file" : "this browser's storage"} can still rewrite all of it.
           </p>
           <p>It is not an audit trail for regulated records and has no electronic signatures.</p>
         </div>

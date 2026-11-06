@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { chatContext, exampleCourse, parseTimeCourse, review, unusualWells, type Context, type Parsed, type Verdict } from "@/lib/review";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { cn } from "@/lib/utils";
+import { whyLine } from "@/lib/why";
 
 const TONE: Record<Verdict, "good" | "warn" | "neutral" | "accent"> = { supported: "accent", possible: "warn", unlikely: "neutral", "cannot-say": "neutral" };
 const WORD: Record<Verdict, string> = { supported: "Consistent with the data", possible: "Possible", unlikely: "Unlikely", "cannot-say": "Can't tell from this run" };
@@ -22,7 +23,7 @@ const ASKS = ["Was it something I did?", "Why did growth decline?", "What should
 type Turn = { role: "user" | "assistant"; content: string };
 
 /**
- * Review: bring a finished (or running) experiment, see where on the plate
+ * Review: bring a finished (or running) run, see where on the plate
  * things went differently, and ask what happened. The numbers and the
  * explanations come from fixed rules over your data. A model on this device
  * words the answer and is told to use nothing else, and every finding says what
@@ -52,7 +53,7 @@ export default function ReviewPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         className="max-sm:flex-col"
-        title="What happened in this experiment?"
+        title="What happened in this run?"
         meta={example ? <ExampleBadge /> : null}
         description="Bring a plate or culture time course. See where it went differently, and ask whether it was something you did. Your file is read on this device."
         action={
@@ -103,6 +104,7 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
       <div aria-live="polite">
         <VerdictLine
           tone={TONE[r.mine.verdict]}
+          why={r.mine.why ? whyLine(r.mine.why) : null}
           detail={
             <div className="flex flex-col gap-2">
               {rest ? <p>{rest}</p> : null}
@@ -154,7 +156,7 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
       </section>
       </Disclosure>
 
-      <Section title="What the data shows">
+      <Section title="What the readings show">
         <Disclosure summary="The measurements behind this">
           <ul className="flex flex-col gap-1 pb-3 text-body text-fg-muted">{r.facts.map((f, i) => <li key={i}>{f}</li>)}</ul>
         </Disclosure>
@@ -222,7 +224,7 @@ function Chat({ context }: { context: string }) {
   };
 
   return (
-    <Section title="Ask about this experiment" description="Answered by a model running on this device. It is instructed to use only the findings above and your notes. That is an instruction, not a guarantee, so check answers against the findings.">
+    <Section title="Ask about this run" description="Answered by a model running on this device. It is instructed to use only the findings above and your notes. That is an instruction, not a guarantee, so check answers against the findings.">
       {turns.length === 0 ? (
         <div className="flex flex-wrap gap-2">{ASKS.map((a) => <Button key={a} variant="outline" onClick={() => void ask(a)}>{a}</Button>)}</div>
       ) : (

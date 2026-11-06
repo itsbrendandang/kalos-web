@@ -12,6 +12,9 @@ import { listMyMemberships, requirePageSession } from "@/lib/server/session";
 export const metadata: Metadata = { title: "Choose organization · Kalos" };
 export const dynamic = "force-dynamic";
 
+/** The access level in plain words. */
+const ACCESS_LABEL: Record<string, string> = { viewer: "Viewer", member: "Member", admin: "Admin", owner: "Owner" };
+
 export default async function SelectOrgPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   const next = safeNextPath(typeof sp.next === "string" ? sp.next : undefined);
@@ -45,7 +48,7 @@ export default async function SelectOrgPage({ searchParams }: { searchParams: Pr
                     {current ? <Badge tone="accent">Current</Badge> : null}
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-caption text-fg-muted">
-                    {m.role}
+                    {ACCESS_LABEL[m.role] ?? m.role}
                     <ChevronRight className="size-4" aria-hidden />
                   </span>
                 </Button>

@@ -18,14 +18,14 @@ export type RouteItem = { href: string; label: string; description: string };
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Overview", description: "The live campaign: where the round is and what to do next." },
   { key: "agent", href: "/agent", label: "Ask Kalos", description: "What to do next, and answers about your own sheets, rounds and results." },
-  { key: "review", href: "/review", label: "Review", description: "See where an experiment went differently and ask what happened." },
+  { key: "review", href: "/review", label: "Review", description: "See where a run went differently and ask what happened." },
   { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
   { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },
   { key: "data", href: "/data", label: "Data", description: "Every run sheet loaded here, and the rounds recorded in the campaign." },
-  { key: "library", href: "/library", label: "Library", description: "Tools that use the engine outside the campaign: scale-up readout, benchmark." },
+  { key: "library", href: "/library", label: "Library", description: "Tools that use Kalos outside the campaign: scale-up readout, benchmark." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
   { key: "documents", href: "/documents", label: "Documents", description: "Procedure drafts written from your records, with every version kept." },
-  { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
+  { key: "settings", href: "/settings", label: "Settings", description: "Appearance, the connection to Kalos and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
 
 export type NavKey = (typeof NAV_ITEMS)[number]["key"];
@@ -51,21 +51,21 @@ export function navItem(key: NavKey): (typeof NAV_ITEMS)[number] {
 export const OVERVIEW_ROUTE: RouteItem = { href: "/", label: "Overview", description: "Where the campaign is and what to do next." };
 
 /** A sub-view of Overview (not a rail entry): the five stages in one list. */
-export const EXPERIMENTS_ROUTE: RouteItem = { href: "/experiments", label: "Experiments", description: "The whole loop in one place: set up, plan, run, record, learn." };
+export const EXPERIMENTS_ROUTE: RouteItem = { href: "/experiments", label: "The five stages", description: "The whole loop in one place: set up, plan, run, record, learn." };
 
 /** The campaign stages, in order: Setup once, then Plan, Run, Record, Learn each round. */
 export const CAMPAIGN_STAGES = [
   { key: "setup", href: "/campaign/setup", label: "Setup", description: "Upload a run sheet, check data quality and choose the target." },
-  { key: "plan", href: "/campaign/plan", label: "Plan", description: "Review and start the proposed batch." },
-  { key: "run", href: "/campaign/run", label: "Run", description: "Runs in flight and their recipes." },
+  { key: "plan", href: "/campaign/plan", label: "Plan", description: "Review the proposed recipes and start the runs." },
+  { key: "run", href: "/campaign/run", label: "Run", description: "Runs in the lab and their recipes." },
   { key: "record", href: "/campaign/record", label: "Record", description: "Enter measured results." },
   { key: "learn", href: "/campaign/learn", label: "Learn", description: "What the round taught the model, then plan the next one." },
 ] as const satisfies readonly (RouteItem & { key: StageKey })[];
 
-/** The Library's tools. Both call the engine; neither touches the campaign. (Plate analysis and Vessels, which ran on seeded fixtures only, were removed.) */
+/** The Library's tools. Both call Kalos; neither touches the campaign. (Plate analysis and Vessels, which ran on seeded fixtures only, were removed.) */
 export const LIBRARY_ITEMS: readonly RouteItem[] = [
   { href: "/library/scale-up", label: "Scale-up readout", description: "Ask what a recipe would do at a larger scale, from your run sheet." },
-  { href: "/library/simulator", label: "Benchmark", description: "Watch the optimizer search a made-up surface with a known answer." },
+  { href: "/library/simulator", label: "Benchmark", description: "Watch Kalos search a made-up problem with one known best recipe." },
 ];
 
 const PAGES: readonly RouteItem[] = [EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];

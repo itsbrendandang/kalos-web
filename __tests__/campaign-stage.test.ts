@@ -123,8 +123,8 @@ describe("routes", () => {
     expect(navKeyFor("/")).toBe("campaign");
     expect(navKeyFor("/campaign/record")).toBe("campaign");
     expect(navKeyFor("/experiments")).toBe("campaign");
-    expect(titleFor("/experiments")).toBe("Experiments");
-    expect(breadcrumbFor("/experiments").map((r) => r.label)).toEqual(["Overview", "Experiments"]);
+    expect(titleFor("/experiments")).toBe("The five stages");
+    expect(breadcrumbFor("/experiments").map((r) => r.label)).toEqual(["Overview", "The five stages"]);
     expect(navKeyFor("/library/plate")).toBe("library");
     expect(navKeyFor("/projects/p-cho/report")).toBe("projects");
     expect(navKeyFor("/settings")).toBe("settings");

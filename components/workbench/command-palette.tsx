@@ -33,8 +33,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     {
       value: "Actions",
       items: [
-        { value: "action:upload", label: "Upload a run sheet", hint: "Start or replace the campaign's data", run: go("/campaign/setup") },
-        { value: "action:record", label: "Record results", hint: "Enter measured values for runs in flight", run: go("/campaign/record") },
+        { value: "action:upload", label: "Upload a run sheet", hint: "Start the campaign, or replace its runs", run: go("/campaign/setup") },
+        { value: "action:record", label: "Record results", hint: "Enter the measured results for runs in the lab", run: go("/campaign/record") },
         { value: "action:theme", label: "Toggle theme", hint: "Switch between light and dark", run: toggleTheme },
       ],
     },

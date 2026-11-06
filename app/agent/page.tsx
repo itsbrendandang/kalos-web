@@ -76,7 +76,7 @@ export default function AgentPage() {
       ) : (
         <>
           <InTheLab c={c} band={band} />
-          <Forecasts c={c} />
+          {c && measuredRuns(c).length > 0 ? <Forecasts c={c} /> : null}
         </>
       )}
 
@@ -137,7 +137,7 @@ function Forecasts({ c }: { c: ActiveCampaign | null }) {
   return (
     <Section title="How the forecasts held up" description="For runs that came back this round, the model's forecast next to the measured result.">
       {!check ? (
-        <p className="text-body text-fg-muted">No results are in yet, so there is nothing to compare. Once results are recorded, this fills in.</p>
+        <p className="text-body text-fg-muted">Results are in, but none of them had a forecast to compare against.</p>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">

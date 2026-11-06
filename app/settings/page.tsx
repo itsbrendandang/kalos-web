@@ -37,7 +37,7 @@ export default function SettingsPage() {
 function Appearance() {
   const theme = useThemePreference();
   return (
-    <Section title="Appearance" description="Saved in this browser only.">
+    <Section title="Appearance" description="Saved on this device only.">
       <fieldset className="flex flex-wrap gap-2">
         <legend className="sr-only">Theme</legend>
         {THEMES.map((t) => (

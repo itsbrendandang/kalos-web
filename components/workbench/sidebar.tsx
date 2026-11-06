@@ -58,12 +58,12 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
 
   const row = (active: boolean) =>
     cn(
-      "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-body transition-colors",
+      "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-body transition-colors",
       active ? "bg-fill-active font-medium text-fg" : "text-fg-muted hover:bg-fill-hover hover:text-fg",
     );
 
   return (
-    <div className={cn("flex h-full flex-col gap-3 p-3", className)}>
+    <div className={cn("flex h-full flex-col gap-2 p-3", className)}>
       <div className="flex items-center gap-2.5 px-1.5 pt-1">
         <Link href="/" aria-label="Kalos, campaign overview" className="flex items-center gap-2 text-fg">
           <KalosMark className="size-8" />
@@ -83,10 +83,10 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
         <kbd className="font-sans text-caption">{shortcut}</kbd>
       </button>
 
-      <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pt-1">
+      <nav aria-label="Sections" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1">
         {RAIL_GROUPS.map((group) => (
           <div key={group.label ?? "overview"} className="flex flex-col gap-0.5">
-            {group.label ? <p className="px-2.5 pb-1 text-caption text-fg-muted">{group.label}</p> : null}
+            {group.label ? <p className="px-2.5 pb-0.5 text-caption text-fg-muted">{group.label}</p> : null}
             <ul className="flex flex-col gap-0.5">
               {group.keys.map((k) => {
                 const n = navItem(k);
@@ -120,15 +120,15 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
           <Settings className="size-[18px]" aria-hidden />
           Settings
         </Link>
-        <p className="px-2.5 pb-1 text-caption text-fg-muted">Research use only. Suggestions are hypotheses to test, not settings to adopt.</p>
+        <p className="px-2.5 pb-0.5 text-caption text-fg-muted">Research use only. Suggestions are hypotheses to test, not settings.</p>
         <div className="flex items-center gap-1 pl-1">
           {status === "offline" ? (
-            <button type="button" onClick={retry} className="flex h-9 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fill-hover">
+            <button type="button" onClick={retry} className="flex h-8 flex-1 items-center gap-2 rounded-lg px-1.5 text-caption text-fg hover:bg-fill-hover">
               <span className="size-2 rounded-full bg-bad" aria-hidden />
               {ENGINE_LINE.offline}
             </button>
           ) : (
-            <p className="flex h-9 flex-1 items-center gap-2 px-1.5 text-caption text-fg-muted">
+            <p className="flex h-8 flex-1 items-center gap-2 px-1.5 text-caption text-fg-muted">
               <span className={cn("size-2 rounded-full", status === "connected" ? "bg-good" : "animate-pulse bg-fg-muted")} aria-hidden />
               {ENGINE_LINE[status]}
             </p>
@@ -147,7 +147,7 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
  */
 function StageRows({ pathname, steps }: { pathname: string; steps: StageStep[] | null }) {
   return (
-    <ul aria-label="Campaign stages" className="mt-0.5 flex flex-col gap-0.5">
+    <ul aria-label="Campaign stages" className="mt-0.5 flex flex-col gap-px">
       {CAMPAIGN_STAGES.map((s) => {
         const step = steps?.find((x) => x.key === s.key) ?? null;
         const state = step?.state ?? "upcoming";
@@ -159,7 +159,7 @@ function StageRows({ pathname, steps }: { pathname: string; steps: StageStep[] |
               aria-current={here ? "page" : undefined}
               aria-label={step ? `${s.label}, ${state === "done" ? "done" : state === "current" ? "current stage" : "upcoming"}: ${step.detail}` : s.label}
               className={cn(
-                "flex h-8 items-center gap-2.5 rounded-lg py-0 pr-2.5 pl-[30px] text-label font-normal transition-colors",
+                "flex h-7 items-center gap-2.5 rounded-lg py-0 pr-2.5 pl-[30px] text-label font-normal transition-colors",
                 here || state === "current" ? "bg-fill-active text-fg" : "text-fg-muted hover:bg-fill-hover hover:text-fg",
                 here && "font-medium",
               )}

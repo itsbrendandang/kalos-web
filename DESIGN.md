@@ -100,7 +100,7 @@ Warn and bad surfaces are for things the user must act on.
 
 Two families, two jobs, never swapped.
 
-- **Sequential (`--chart-seq-1..5`)** is for ordered magnitude: heatmaps, the plate grid, any value that runs from less to more.
+- **Sequential (`--chart-seq-1..5`)** is for ordered magnitude: heatmaps, the Review plate map, any value that runs from less to more.
   Lightness reverses in dark mode so the highest value is always the most visible step against the page.
   `__tests__/contrast.test.ts` checks that the ramp gets more visible as values rise.
 - **Categorical (`--chart-1..6`)** is for unordered series, in Okabe-Ito order, darkened until each mark clears 3:1 on the plot surface.
@@ -149,6 +149,9 @@ Text hierarchy comes from the role and from `text-fg-muted`, never from opacity.
 
 - 8px grid (4px for fine steps).
 - The sidebar is 256px (`w-64`), a `bg-subtle` panel with a right hairline. On phones it becomes a sheet behind a 48px top bar.
+  Every entry is always visible, no collapsed group: Overview with the five stages indented under it (a `StepDot` says which are done and which is current), then the Tools group (Agent, Review, Process, Graph), the Workspace group (Data, Library, Projects), and Settings, the research-use line and the engine status at the foot.
+  The groups come from `RAIL_GROUPS` in `lib/routes.ts`, which the command palette reads too.
+  Rows are 32px and stage rows 28px, so the whole rail fits the desktop app's default 1280x800 window without scrolling.
 - Content max width is 1080px (`components/workbench/app-shell.tsx`). Page padding is 20px on phones and 40px on desktop; the top is 32px and 48px.
   Full width is allowed for tables and charts.
 - No horizontal page scroll at 390px. Tables scroll inside their own container, with a sticky 40px header and right-aligned `tabular-nums` numerics.
@@ -166,14 +169,12 @@ All shared components live in `components/kit/` (the redesign kit) or `component
 | `Verdict` | `components/kit/verdict.tsx` | A plain-language verdict: one sentence with an icon, and a `Why` disclosure for the reasoning. No box. |
 | `Disclosure` | `components/kit/disclosure.tsx` | Details one click down. Children mount on first open. Use it for method details and raw values. |
 | `KpiCard`, `Metric` | `components/kit/kpi-card.tsx`, `components/kit/metric.tsx` | A headline number with its delta or qualifier (`KpiCard`), or an inline number with its label (`Metric`). Both go through `formatNumber`. |
-| `StatTile` | `components/ui/stat-tile.tsx` | A dense 76px tile for a row of counts. |
 | `ChartFrame`, `lazyChart` | `components/kit/chart-frame.tsx`, `components/kit/lazy-chart.tsx` | Every chart's frame: title, unit, `n`, a "how this is made" tooltip, and the four honest non-ready states. Load recharts through `lazyChart`. |
 | `NextCard` | `components/kit/next-card.tsx` | The one next step from campaign state, with one button that names the action. |
 | `Badge`, `ModeBadge`, `ExampleBadge` | `components/ui/badge.tsx` | Status labels (`tone` plus a word). `ModeBadge` is the one Explore/Exploit label. `ExampleBadge` marks demo data. |
 | `Button`, `buttonVariants` | `components/ui/button.tsx` | One `default` (primary) button per view: the page's primary action. `buttonVariants` styles a link as a button. |
 | `ErrorState`, `EmptyState`, `LoadingSkeleton` | `components/ui/honest-state.tsx` | The three honest states. Never substitute one for another (see below). |
 | `Table` | `components/ui/table.tsx` | Tables, with sticky headers and tabular numerics. |
-| `Alert` | `components/ui/alert.tsx` | A low-level banner shell. New code uses `Callout`. |
 
 Tone is always an icon and a word, never color alone: `TONE_ICON` in `components/kit/tone.tsx` gives each tone its own icon shape.
 
@@ -196,24 +197,9 @@ Tone is always an icon and a word, never color alone: `TONE_ICON` in `components
 - Status colors are lightened and soft fills darkened, so each text and fill pair still passes contrast.
 - Sequential ramps reverse lightness, as described above.
 
-## Compatibility aliases (temporary)
+## What is deliberately not here
 
-`app/globals.css` keeps older token names so pages that are not rebuilt yet still render. Each maps onto a current token.
-Do not use them in new code. A page engineer deletes an alias once nothing reads it (check with `rg`).
-
-**Kalos aliases, CSS variables** (the `COMPATIBILITY ALIASES` block in `:root`):
-`--card`, `--muted`, `--accent-text`, `--blue`, `--blue-hover`, `--blue-deep`, `--blue-soft`, `--blue-tint`, `--blue-border`, `--blue-hover-bg`, `--explore`, `--explore-deep`, `--explore-soft`, `--green`, `--green-soft`, `--amber`, `--amber-soft`, `--red`, `--grid`, `--series-1`, `--series-2`, `--series-3`, `--series-4`, `--series-5`, `--series-6`, `--chart-1-ink`
-
-**Kalos aliases, utilities** (the `COMPATIBILITY utilities` block in `@theme inline`; use them as `bg-*`, `text-*`, `border-*` and so on):
-`--color-card`, `--color-muted`, `--color-accent-text`, `--color-blue`, `--color-blue-hover`, `--color-blue-deep`, `--color-blue-soft`, `--color-blue-tint`, `--color-blue-border`, `--color-explore`, `--color-explore-deep`, `--color-explore-soft`, `--color-green`, `--color-green-soft`, `--color-amber`, `--color-amber-soft`, `--color-red`, `--color-grid`, `--color-chart-1-ink`, `--color-series-1`, `--color-series-2`, `--color-series-3`, `--color-series-4`, `--color-series-5`, `--color-series-6`
-
-**Class:** `.tabular` (use `tabular-nums` in new code).
-
-**Read by these files** (computed from the repo when this doc was written; the list shrinks as pages are rebuilt):
-`app/data/page.tsx`, `app/error.tsx`, `app/library/plate/page.tsx`, `app/library/scale-up/page.tsx`, `app/library/simulator/page.tsx`, `app/library/vessels/page.tsx`, `app/projects/projects.css`, `components/charts.tsx`, `components/plate/control-summary.tsx`, `components/plate/flag-summary.tsx`, `components/plate/plate-heatmap.tsx`, `components/plate/qc-tiles.tsx`, `components/plate/status-chip.tsx`, `components/plate/well-detail.tsx`, `components/plate/well-status-legend.tsx`, `components/projects/phase1-view.tsx`, `components/projects/project-report.tsx`, `components/proposals.tsx`, `components/service-unavailable.tsx`, `components/ui/chart.tsx`, `components/upload-dropzone.tsx`, `components/vessels/correlation-scatter.tsx`, `components/vessels/kinetic-overlay.tsx`, `components/vessels/vessel-table.tsx`
-
-**Kept on purpose, not aliases to delete:**
-- The shadcn semantic names (`--primary-foreground`, `--secondary` and `--color-background`, `--color-foreground`, `--color-card-foreground`, `--color-popover`, `--color-popover-foreground`, `--color-primary`, `--color-primary-foreground`, `--color-secondary`, `--color-secondary-foreground`, `--color-muted-foreground`, `--color-accent-foreground`, `--color-destructive`, `--color-input`) match `components.json`, so registry blocks keep resolving.
-- `--font-head` is read by `app/library/scale-up/page.tsx`.
-- `components/page-header.tsx` is a shim that maps the old `PageHeader` API onto `components/kit/page-header.tsx`; delete it once no page imports it.
-- `.surface-cell` and `.greek-key` (in `app/globals.css`) are page-specific utilities for the plate and campaign views.
+- **No compatibility aliases.** The old token names (`--card`, `--muted`, `--blue*`, `--explore*`, `--green*`, `--amber*`, `--red`, `--grid`, `--series-*`, `--chart-1-ink`, `--accent-text`, `--font-head`) and the `.tabular` class were removed from `app/globals.css` in the second redesign pass, together with every file that read them. `__tests__/design-guards.test.ts` fails the build if one comes back, and also on `uppercase`, `text-[Npx]`, `opacity-N` on marks or text, and alpha-tinted status borders (`border-bad/30`).
+- **The shadcn semantic names** (`--primary-foreground`, `--secondary` and `--color-background`, `--color-foreground`, `--color-card-foreground`, `--color-popover`, `--color-popover-foreground`, `--color-primary`, `--color-primary-foreground`, `--color-secondary`, `--color-secondary-foreground`, `--color-muted-foreground`, `--color-accent-foreground`, `--color-destructive`, `--color-input`) stay, because they match `components.json` and registry blocks resolve against them. They are not aliases of old Kalos names.
+- **Fixture-only screens are gone, not restyled.** Plate analysis and Vessels (seeded simulations with no engine route), the mock data registry on Data, and the fabricated analysis views on Projects (success percentages, pipelines, linkage trees, reports) were deleted. A screen shows the engine's answer or the user's own file, or an honest empty state.
+- `.surface-cell` and `.greek-key` (in `app/globals.css`) are page-specific utilities for the response surface and the footer maxim.

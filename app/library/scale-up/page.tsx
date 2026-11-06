@@ -442,7 +442,7 @@ function ReadoutOutcome({ result, scaleL, onRetry, busy }: { result: ReadoutResu
     case "html":
       return (
         <div className="flex flex-col gap-4">
-          <Verdict tone="good">{sentence}</Verdict>
+          <Verdict tone="neutral">{sentence}</Verdict>
           <iframe
             srcDoc={result.html}
             sandbox=""

@@ -97,7 +97,7 @@ It moves through five stages, each with one primary action:
 
 The rest of the app:
 
-- **Data** (`/data`): a registry of datasets and runs.
+- **Data** (`/data`): the run sheet the engine is working from, and how it read each column.
 - **Library** (`/library`): the Scale-up readout and the optimizer benchmark, the two tools that use the engine without touching the campaign.
 - **Projects** (`/projects`): a list of client projects and the stage each is at, on illustrative seed data; one project links to the live campaign.
 - **Settings** (`/settings`): theme, engine connection, and optional integrations.
@@ -230,7 +230,7 @@ Each rule names the file that carries it.
 | `/library/scale-up` | Engine (`POST /api/scale/readout`). Disabled in demo mode. |
 | `/library/simulator` | Engine (`/api/single`, `/api/multi`), which runs a synthetic benchmark surface. |
 | `/settings` | Engine (`/api/providers`, and the connection check). |
-| `/data` | Fixtures in `lib/mock/registry.ts`, synthetic, shown only in demo mode. |
+| `/data` | Engine (`/api/latest`): the current run sheet and column roles. No fixtures. |
 | `/projects/*` | Illustrative seed data in `app/projects/data.ts` (name, objective, stage, experiment ids), plus what the viewer adds, in memory for the session. One project links to the live campaign on the Overview. |
 
 

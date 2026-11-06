@@ -15,8 +15,8 @@ describe("scale-up readout sentences", () => {
   });
 
   it("states each outcome in one sentence", () => {
-    expect(readoutVerdict({ kind: "html", html: "<p/>" }, 2000)).toBe("The engine produced a readout for 2,000 L.");
-    expect(readoutVerdict({ kind: "html", html: "<p/>" }, null)).toBe("The engine produced a readout.");
+    expect(readoutVerdict({ kind: "html", html: "<p/>" }, 2000)).toMatch(/^The engine's readout for 2,000 L is below\./);
+    expect(readoutVerdict({ kind: "html", html: "<p/>" }, null)).toMatch(/^The engine's readout is below\./);
     expect(readoutVerdict({ kind: "gate", failedCheck: "required_columns", detail: "x" }, 200)).toBe("The engine declined: the sheet is missing a column it needs.");
     expect(readoutVerdict({ kind: "busy", retryAfterSeconds: 30 }, 200)).toBe("The engine is busy; try again in 30 s.");
     expect(readoutVerdict({ kind: "busy", retryAfterSeconds: null }, 200)).toBe("The engine is busy; try again in a moment.");

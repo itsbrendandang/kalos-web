@@ -24,9 +24,10 @@ export function isKnownCheck(check: string): boolean {
 export function readoutVerdict(result: ReadoutResult, scaleL: number | null): string {
   switch (result.kind) {
     case "html":
+      // The readout is the engine's own document and may itself be a refusal, so the sentence does not claim a prediction.
       return scaleL != null && Number.isFinite(scaleL)
-        ? `The engine produced a readout for ${formatNumber(scaleL, "count")} L.`
-        : "The engine produced a readout.";
+        ? `The engine's readout for ${formatNumber(scaleL, "count")} L is below. It says whether a prediction was possible, and what it would take if not.`
+        : "The engine's readout is below. It says whether a prediction was possible, and what it would take if not.";
     case "gate":
       return `The engine declined: ${failedCheckWords(result.failedCheck)}.`;
     case "busy":

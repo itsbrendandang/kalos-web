@@ -26,7 +26,7 @@ export default function ProjectsPage() {
     <div className="flex flex-col gap-10">
       <PageHeader
         title="Projects"
-        description="Client projects and where each one stands. Saved in this browser."
+        description="Client projects and where each one stands. Changes you make here last until the app is closed; nothing is sent anywhere."
         meta={seeded ? <ExampleBadge /> : null}
         action={
           <Button disabled={customers.length === 0} onClick={() => setModal({ kind: "add-project" })}>

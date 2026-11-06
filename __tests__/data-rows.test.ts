@@ -239,3 +239,20 @@ describe("columnRoles with the engine's input list", () => {
     expect(columnRoles(p, "Titer").map((c) => c.role)).toEqual(["label", "label", "input", "target"]);
   });
 });
+
+describe("withExtraRows", () => {
+  it("appends the campaign's measured runs as rows of the same sheet and labels them by round", async () => {
+    const { withExtraRows } = await import("@/components/data/rows");
+    const { profileSheet } = await import("@/components/campaign/data/profile");
+    const profile = profileSheet([
+      ["pH", "Titer"],
+      ["7", "10"],
+      ["7.5", "12"],
+    ]);
+    const out = withExtraRows(profile, [{ values: { pH: 8, Titer: 15 }, origin: "Round 1" }]);
+    expect(out.profile.n).toBe(3);
+    expect(out.origins).toEqual([null, null, "Round 1"]);
+    expect(out.profile.columns.find((c) => c.name === "Titer")?.numbers).toEqual([10, 12, 15]);
+    expect(withExtraRows(profile, []).origins).toEqual([null, null]);
+  });
+});

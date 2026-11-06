@@ -56,10 +56,12 @@ export function DataTable({ columns, rows, target, pageSize = DEFAULT_PAGE_SIZE 
 
   const filtered = useMemo(() => filterRows(rows, { query, levels }), [rows, query, levels]);
   const sorted = useMemo(() => sortRows(filtered, sort, targetColumn), [filtered, sort, targetColumn]);
-  const pinned = filtered.find((r) => r.best) ?? null;
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const current = Math.min(page, pageCount - 1);
   const slice = sorted.slice(current * pageSize, (current + 1) * pageSize);
+  // The best run is pinned above the page unless it already leads it (the default target sort), so it is never shown twice in a row.
+  const best = filtered.find((r) => r.best) ?? null;
+  const pinned = best && slice[0] !== best ? best : null;
 
   const direction = (i: number) => (sort?.column === i ? sort.direction : "none");
   const changeLevel = (column: number, value: string) => {

@@ -4,7 +4,7 @@
 // unit-tested (__tests__/data-rows.test.ts). Nothing here says whether a run is good: "best" is the
 // largest target value in the sheet, and nothing more.
 
-import { isRowNumberLike, replicateGroups, type ColumnKind, type SheetProfile } from "@/components/campaign/data/profile";
+import { isRowNumberLike, profileSheet, replicateGroups, type ColumnKind, type SheetProfile } from "@/components/campaign/data/profile";
 
 export type ColumnRole = "input" | "target" | "label" | "not-used" | "origin";
 
@@ -253,4 +253,19 @@ export function roundVerdict(runs: readonly { result: number | null }[], sheetBe
   if (sheetBest == null || !Number.isFinite(sheetBest)) return `Best measured in this round: ${format(best)}.`;
   const rel = best > sheetBest ? "above" : best < sheetBest ? "below" : "level with";
   return `Best measured in this round: ${format(best)}, ${rel} the sheet's best ${format(sheetBest)}.`;
+}
+
+/**
+ * The sheet's rows with the campaign's measured runs appended, re-profiled as one sheet, and one origin label per
+ * row (null for the file's own rows, the run's round label for the rest). The charts take this so a round's runs
+ * sit in their own panel next to the sheet's, and the lead sentence counts every measured run.
+ */
+export function withExtraRows(profile: SheetProfile, extra: readonly ExtraRow[]): { profile: SheetProfile; origins: (string | null)[] } {
+  if (extra.length === 0) return { profile, origins: new Array<string | null>(profile.n).fill(null) };
+  const header = profile.columns.map((c) => c.name);
+  const body: string[][] = [];
+  for (let r = 0; r < profile.n; r++) body.push(profile.columns.map((c) => c.raw[r] ?? ""));
+  for (const e of extra) body.push(header.map((name) => (e.values[name] == null ? "" : String(e.values[name]))));
+  const origins = [...new Array<string | null>(profile.n).fill(null), ...extra.map((e) => e.origin)];
+  return { profile: profileSheet([header, ...body]), origins };
 }

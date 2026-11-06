@@ -39,20 +39,19 @@ describe("DataTable", () => {
     expect(heads[1].querySelector(".font-mono")?.textContent).toBe("CarbonSource");
   });
 
-  it("sorts the target descending by default, pins the best row first with a Best badge and shows it in its place too", () => {
+  it("sorts the target descending by default, so the best row leads with a Best badge and is not shown twice", () => {
     const t = tableRows(profile, "Titer");
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
     const rows = bodyRows();
-    expect(rows.map(rowNumber)).toEqual(["6", "6", "2", "4", "1", "5", "3"]);
+    expect(rows.map(rowNumber)).toEqual(["6", "2", "4", "1", "5", "3"]);
     expect(within(rows[0]).getByText("Best")).toBeTruthy();
-    expect(within(rows[1]).getByText("Best")).toBeTruthy();
-    expect(screen.getAllByText("Best")).toHaveLength(2);
+    expect(screen.getAllByText("Best")).toHaveLength(1);
   });
 
   it("keeps replicates adjacent when sorted by the target and captions them", () => {
     const t = tableRows(profile, "Titer");
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
-    const rows = bodyRows().slice(1);
+    const rows = bodyRows();
     expect(rows.map(rowNumber)).toEqual(["6", "2", "4", "1", "5", "3"]);
     expect(within(rows[2]).getByText("replicate x2")).toBeTruthy();
     expect(within(rows[3]).getByText("replicate x2")).toBeTruthy();
@@ -92,7 +91,7 @@ describe("DataTable", () => {
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
     expect(screen.getByText("Origin")).toBeTruthy();
     expect(screen.getByText("Round 1")).toBeTruthy();
-    expect(screen.getAllByText("Sheet")).toHaveLength(7); // six sheet rows plus the pinned best
+    expect(screen.getAllByText("Sheet")).toHaveLength(6); // six sheet rows; the best already leads, so no pinned copy
   });
 
   it("shows the sheet's own data_type column as origin words, not as a raw column", () => {
@@ -100,7 +99,7 @@ describe("DataTable", () => {
     const t = tableRows(p, "Titer");
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Row", "SPInput", "TiterTarget", "Origin"]);
-    expect(screen.getAllByText("Measured")).toHaveLength(3); // two rows plus the pinned best
+    expect(screen.getAllByText("Measured")).toHaveLength(2); // two rows; the best already leads
     expect(screen.getByText("Synthetic")).toBeTruthy();
   });
 
@@ -109,7 +108,7 @@ describe("DataTable", () => {
     const t = tableRows(profileSheet(big), "Titer");
     render(<DataTable columns={t.columns} rows={t.rows} target="Titer" />);
     expect(screen.getByText("1-25 of 60")).toBeTruthy();
-    expect(bodyRows()).toHaveLength(26); // the pinned best and one page
+    expect(bodyRows()).toHaveLength(25); // one page; the best leads it, so no pinned copy
     fireEvent.click(screen.getByLabelText("Next page"));
     expect(screen.getByText("26-50 of 60")).toBeTruthy();
   });

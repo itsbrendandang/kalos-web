@@ -9,11 +9,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
+import { leadSentence } from "@/components/campaign/data/meaning";
 import { YourDataView } from "@/components/campaign/data/your-data";
-import { useSheetProfile } from "@/components/campaign/data/use-sheet-profile";
+import { useSheetProfile, type SheetProfileState } from "@/components/campaign/data/use-sheet-profile";
 import { ColumnRoles } from "@/components/data/column-roles";
 import { DataTable } from "@/components/data/data-table";
-import { tableRows, type ExtraRow } from "@/components/data/rows";
+import { tableRows, withExtraRows, type ExtraRow } from "@/components/data/rows";
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
@@ -68,6 +69,10 @@ export function SheetPage({ sha }: { sha: string }) {
   const extra = useMemo(() => (inUse && summary && target ? roundRows(summary.pending, target, summary.round) : []), [inUse, summary, target]);
   const profile = profileState?.status === "ready" ? profileState.profile : null;
   const table = useMemo(() => (profile ? tableRows(profile, target, { engineInputs, extra }) : null), [profile, target, engineInputs, extra]);
+  // The charts see the sheet plus the campaign's measured runs, each run labelled with its round.
+  const charted = useMemo(() => (profile ? withExtraRows(profile, extra) : null), [profile, extra]);
+  const chartState: SheetProfileState | null =
+    charted && profileState?.status === "ready" ? { status: "ready", profile: charted.profile, sheetUsed: profileState.sheetUsed } : profileState;
 
   if (stored.status === "loading") {
     return (
@@ -100,9 +105,12 @@ export function SheetPage({ sha }: { sha: string }) {
   const d = engineInputs ? engineInputs.length : profile ? table!.columns.filter((c) => c.role === "input").length : null;
   const unreadable = profileState?.status === "unreadable";
 
-  // TODO(lead): replace with `leadSentence(profile, target, inputs)` from components/campaign/data/meaning.ts (Part A)
-  // once it lands; until then the verdict is a neutral count.
-  const verdict = target && n != null ? `${formatNumber(n, "count")} ${n === 1 ? "row" : "rows"}, target ${target}.` : "The engine has not named a target for this sheet yet.";
+  // One sentence of meaning for the whole sheet: the input that moved most with the target, from the rows themselves.
+  const inputs = engineInputs ?? (charted ? charted.profile.columns.filter((c) => c.name !== target && (c.kind === "numeric" || c.kind === "category")).map((c) => c.name) : []);
+  const lead = charted && target ? leadSentence(charted.profile, target, inputs) : null;
+  const verdict = !target
+    ? "The engine has not named a target for this sheet yet."
+    : (lead ?? (n != null ? `${formatNumber(n, "count")} ${n === 1 ? "row" : "rows"} with ${target}; too few, or too alike, to say which input moved with it.` : `Target ${target}.`));
 
   const forget = async () => {
     setForgetting(true);
@@ -125,6 +133,8 @@ export function SheetPage({ sha }: { sha: string }) {
 
       <Verdict tone="neutral">{verdict}</Verdict>
 
+      <YourDataView name={sheet.name} state={chartState} target={target} engineRuns={live?.n ?? null} engineInputs={engineInputs} rowOrigins={charted?.origins} hideFacts title="Inputs" targetFirst />
+
       <Section
         title="Rows"
         description={
@@ -145,12 +155,6 @@ export function SheetPage({ sha }: { sha: string }) {
           <LoadingSkeleton variant="table" rows={5} label="Reading the rows" />
         )}
       </Section>
-
-      {/* The charts. YourDataView carries its own section headings today, so it is not wrapped in a "Charts" Section here.
-          TODO(lead): wrap in <Section title="Charts"> and pass `hideFacts` and `rowOrigins` (one label per row: null for the
-          sheet, "Round n" for the campaign's runs: `[...profile rows as null, ...extra.map((e) => e.origin)]`) once Part A's
-          YourDataView gains them. */}
-      <YourDataView name={sheet.name} state={profileState} target={target} engineRuns={live?.n ?? null} engineInputs={engineInputs} />
 
       {live ? <ColumnRoles provenance={live.provenance} droppedIncomplete={live.n_dropped_incomplete} /> : null}
 

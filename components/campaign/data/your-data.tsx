@@ -8,7 +8,7 @@ import { pairedValues, rankInputs, strengthWord, type InputRank } from "@/compon
 import { CategoryStripFigure, DistributionFigure, CategoryFigure, CoverageFigure, Figure, ReplicateFigure, RunOrderFigure, TargetScatterFigure } from "@/components/campaign/data/figures";
 import { dataFlags } from "@/components/campaign/data/flags";
 import * as meaning from "@/components/campaign/data/meaning";
-import { dataTypeColumn, histogram, measuredOnly, replicateGroups, replicateSpread, summarize, untestedGaps, type ColumnProfile, type SheetProfile } from "@/components/campaign/data/profile";
+import { dataTypeColumn, histogram, isRowNumberLike, measuredOnly, replicateGroups, replicateSpread, summarize, untestedGaps, type ColumnProfile, type SheetProfile } from "@/components/campaign/data/profile";
 import { dataNumber } from "@/components/campaign/data/svg";
 import { gapSentence } from "@/components/campaign/data/copy";
 import { useSheetProfile, type SheetProfileState } from "@/components/campaign/data/use-sheet-profile";
@@ -57,6 +57,8 @@ export function YourDataView({
   engineInputs,
   rowOrigins,
   hideFacts,
+  title = "Your data",
+  targetFirst = false,
 }: {
   name: string;
   state: SheetProfileState | null;
@@ -65,17 +67,21 @@ export function YourDataView({
   engineInputs?: string[];
   rowOrigins?: (string | null)[];
   hideFacts?: boolean;
+  /** The heading of the inputs block ("Your data" on Setup; a sheet's own page says "Inputs"). */
+  title?: string;
+  /** Draw the target block above the inputs (a sheet's own page leads with the target). */
+  targetFirst?: boolean;
 }) {
   if (!state || state.status === "loading") {
     return (
-      <Section title="Your data" description={`${name}, read in your browser.`}>
+      <Section title={title} description={`${name}, read in your browser.`}>
         <p className="text-body text-fg-muted">Reading the sheet…</p>
       </Section>
     );
   }
   if (state.status === "unreadable") {
     return (
-      <Section title="Your data" description={name}>
+      <Section title={title} description={name}>
         <p className="text-body text-fg-muted">
           {state.reason === "too-large"
             ? "This file is over 5 MB, so it was not read in the browser. The engine still checks it."
@@ -87,7 +93,7 @@ export function YourDataView({
   const { profile } = state;
   if (profile.n === 0) {
     return (
-      <Section title="Your data" description={name}>
+      <Section title={title} description={name}>
         <p className="text-body text-fg-muted">This sheet has a header and no run rows.</p>
       </Section>
     );
@@ -103,10 +109,18 @@ export function YourDataView({
   const notUsed = engineInputs ? profile.columns.filter((c) => c.kind !== "empty" && c.name !== target && !engineInputs.includes(c.name)).map((c) => c.name) : [];
   const targetCol = target ? charted.columns.find((c) => c.name === target) : undefined;
   const ordered = orderInputs(charted, inputs, target);
+  // Columns the engine left out are still data: they are charted against the target one click down, never full
+  // size and never in the lead sentence. Row-number-like columns and the origin column stay out.
+  const leftOut = engineInputs
+    ? orderInputs(
+        charted,
+        charted.columns.filter((c) => !engineInputs.includes(c.name) && c.name !== target && c.name !== dataType && (c.kind === "numeric" || c.kind === "category") && !isRowNumberLike(c, charted.n)),
+        target,
+      )
+    : [];
   const summary = `${formatNumber(profile.n, "count")} ${profile.n === 1 ? "run" : "runs"}, ${formatNumber(profile.columns.filter((c) => c.kind !== "empty").length, "count")} columns, read from this file in your browser.`;
-  return (
-    <div className="flex flex-col gap-8">
-      <Section title="Your data" description={summary}>
+  const inputsBlock = (
+    <Section title={title} description={summary}>
         <div className="flex flex-col gap-6">
           {engineRuns != null && engineRuns !== profile.n ? (
             <p className="text-body text-fg">
@@ -139,11 +153,17 @@ export function YourDataView({
             <p className="text-body text-fg-muted">No numeric or category inputs were found in this sheet.</p>
           )}
         </div>
-      </Section>
-
-      <Section title={target ? `Target: ${target}` : "Target"} description={target ? undefined : "The target-against-input and run-order figures appear once the engine has read the sheet and named the target."}>
-        {targetCol ? <TargetBlock profile={charted} col={targetCol} ordered={ordered} origins={origins} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
-      </Section>
+    </Section>
+  );
+  const targetBlock = (
+    <Section title={target ? `Target: ${target}` : "Target"} description={target ? undefined : "The target-against-input and run-order figures appear once the engine has read the sheet and named the target."}>
+      {targetCol ? <TargetBlock profile={charted} col={targetCol} ordered={ordered} leftOut={leftOut} origins={origins} /> : target ? <p className="text-body text-fg-muted">{target} is not in this sheet.</p> : null}
+    </Section>
+  );
+  return (
+    <div className="flex flex-col gap-8">
+      {targetFirst ? targetBlock : inputsBlock}
+      {targetFirst ? inputsBlock : targetBlock}
 
       <Disclosure summary="How these are made">
         <div className="flex flex-col gap-2 pb-2 text-body text-fg-muted">
@@ -231,7 +251,20 @@ function InputRow({ col, caption }: { col: ColumnProfile; caption?: string }) {
   );
 }
 
-function TargetBlock({ profile, col, ordered, origins }: { profile: SheetProfile; col: ColumnProfile; ordered: { col: ColumnProfile; rank: InputRank | null }[]; origins?: (string | null)[] }) {
+function TargetBlock({
+  profile,
+  col,
+  ordered,
+  leftOut = [],
+  origins,
+}: {
+  profile: SheetProfile;
+  col: ColumnProfile;
+  ordered: { col: ColumnProfile; rank: InputRank | null }[];
+  /** Columns the engine did not use, charted one click down and captioned as such. */
+  leftOut?: { col: ColumnProfile; rank: InputRank | null }[];
+  origins?: (string | null)[];
+}) {
   if (col.kind !== "numeric") {
     return <p className="text-body text-fg-muted">{col.name} is not numeric in this sheet, so target figures are not drawn.</p>;
   }
@@ -260,13 +293,20 @@ function TargetBlock({ profile, col, ordered, origins }: { profile: SheetProfile
           ))}
         </div>
       ) : null}
-      {rest.length ? (
-        <Disclosure summary={`${formatNumber(rest.length, "count")} more ${rest.length === 1 ? "input" : "inputs"} with weaker association`}>
+      {rest.length || leftOut.length ? (
+        <Disclosure summary={foldedSummary(rest.length, leftOut.length)}>
           <div className="flex flex-col gap-8 pt-2">
             {weaker.length ? (
               <div className="grid gap-8 md:grid-cols-2">
                 {weaker.map((o) => (
                   <ScatterFor key={o.col.name} x={o.col} y={col} />
+                ))}
+              </div>
+            ) : null}
+            {leftOut.length ? (
+              <div className="grid gap-8 md:grid-cols-2">
+                {leftOut.map((o) => (
+                  <ScatterFor key={o.col.name} x={o.col} y={col} caption="not used by the engine" />
                 ))}
               </div>
             ) : null}
@@ -292,7 +332,14 @@ function TargetBlock({ profile, col, ordered, origins }: { profile: SheetProfile
   );
 }
 
-function ScatterFor({ x, y }: { x: ColumnProfile; y: ColumnProfile }) {
+/** The disclosure's summary: weaker inputs, columns the engine left out, or both. */
+export function foldedSummary(weaker: number, leftOut: number): string {
+  const a = weaker ? `${formatNumber(weaker, "count")} more ${weaker === 1 ? "input" : "inputs"} with weaker association` : "";
+  const b = leftOut ? `${formatNumber(leftOut, "count")} ${leftOut === 1 ? "column" : "columns"} the engine did not use` : "";
+  return a && b ? `${a}, and ${b}` : a || b;
+}
+
+function ScatterFor({ x, y, caption }: { x: ColumnProfile; y: ColumnProfile; caption?: string }) {
   const { xs, ys, rows } = pairedValues(x, y);
   if (ys.length === 0) return null;
   const chart =
@@ -303,7 +350,7 @@ function ScatterFor({ x, y }: { x: ColumnProfile; y: ColumnProfile }) {
     );
   // A strip figure with many levels is wider than one column, so it takes the whole row instead of scrolling.
   return (
-    <Figure caption={`${y.name} against ${x.name}`} sentence={meaning.inputSentence(x, y)} className={x.kind === "category" && x.levels.length > 4 ? "md:col-span-2" : undefined}>
+    <Figure caption={`${y.name} against ${x.name}${caption ? `, ${caption}` : ""}`} sentence={meaning.inputSentence(x, y)} className={x.kind === "category" && x.levels.length > 4 ? "md:col-span-2" : undefined}>
       {chart}
     </Figure>
   );

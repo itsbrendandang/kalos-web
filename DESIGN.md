@@ -178,6 +178,18 @@ All shared components live in `components/kit/` (the redesign kit) or `component
 
 Tone is always an icon and a word, never color alone: `TONE_ICON` in `components/kit/tone.tsx` gives each tone its own icon shape.
 
+## Charts of the user's own data
+
+The figures on Setup ("Your data") and on every Data page (`components/campaign/data/figures.tsx`, the maths in `profile.ts`, `association.ts` and `meaning.ts`) follow five rules, checked by `__tests__/data-figures.test.tsx` and `__tests__/data-meaning.test.ts`:
+
+- **Runs are dots, never a line.** A line through runs implies a time series; sheet order is not proven run order, and replicate blocks would read as plateaus. The best run is a ring with its value; consecutive replicates get a bracket with their count; the campaign's recorded rounds get a panel each, labelled by round.
+- **Text columns are categories.** One strip per level, levels sorted by median target, `n` under each. A text column is never put on a numeric axis.
+- **Every chart has axes and counts.** Labelled y ticks, x ticks or level labels, the column name as written, `n` in the caption. Histograms use Sturges' rule on round edges and print the count on each bar.
+- **Every chart says what to look for, in one sentence computed from the data**, never a cause: "Higher SP went with higher Titer; the best 10 runs all had SP above 4.52." Allowed verbs are "went with", "tended to go with", "had", "fall", "came from"; "because", "drives", "causes", "improves" never appear.
+- **Inputs are ordered by association** (Spearman for numbers, the correlation ratio for categories). The strongest are full size; the rest, the nearly constant and the columns the engine did not use sit behind a `Disclosure`. Measured rows are never charted with simulated or synthetic ones (a `data_type` column keeps them in the table, out of the charts).
+
+Data (`/data`) lists every sheet this browser has loaded (`lib/sheet-store.ts`, IndexedDB keyed by the sha256 the engine stamps as `run.input_sha256`), which one the campaign works from, and the recorded rounds; each sheet (`/data/sheet/[sha]`) and round (`/data/round/[n]`) has its own page with a sortable, filterable table that names each column's role.
+
 ## Honesty rules that are visual
 
 - **One `Callout` per screen.** Merge stacked caveats into one verdict sentence, and put the rest behind a `Disclosure`.

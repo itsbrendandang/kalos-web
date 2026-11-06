@@ -48,6 +48,7 @@ export default function AgentPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
+        className="max-sm:flex-col"
         title={view.state === "data" ? status.headline : "Agent"}
         meta={demo ? <ExampleBadge /> : null}
         description={view.state === "data" ? status.detail : "What is in the lab, and how the model's forecasts held up once results came back."}

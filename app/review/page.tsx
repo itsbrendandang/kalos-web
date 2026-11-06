@@ -5,6 +5,8 @@ import { Send, Upload } from "lucide-react";
 import { PlateMap, type PlateMetric } from "@/components/review/plate-map";
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
+import { Panel, Section } from "@/components/kit/section";
+import { Verdict as VerdictLine } from "@/components/kit/verdict";
 import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,24 +51,23 @@ export default function ReviewPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
+        className="max-sm:flex-col"
         title="What happened in this experiment?"
         meta={example ? <ExampleBadge /> : null}
         description="Bring a plate or culture time course. See where it went differently, and ask whether it was something you did. Your file is read on this device."
         action={
-          <div className="flex gap-2">
-            <label className={cn(buttonVariants({ variant: "outline" }), "cursor-pointer focus-within:ring-2 focus-within:ring-accent")}>
-              <Upload /> Upload CSV
-              <input type="file" accept=".csv,.tsv,.txt" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) load(await f.text(), f.name, false); e.target.value = ""; }} />
-            </label>
-            <Button variant="ghost" onClick={() => load(exampleCourse(), "example plate", true)}>Try an example</Button>
-          </div>
+          <label className={cn(buttonVariants(), "cursor-pointer focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2")}>
+            <Upload /> Upload a CSV
+            <input type="file" accept=".csv,.tsv,.txt" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) load(await f.text(), f.name, false); e.target.value = ""; }} />
+          </label>
         }
       />
       {err ? <p role="alert" className="text-body text-bad">{err}</p> : null}
 
       {!parsed ? (
-        <div className="glass p-6 text-body text-fg-muted">
-          <p className="max-w-[60ch]">Upload a CSV of readings over time (OD, confluence, viable cell density). One row per reading with <span className="font-mono text-code">time, well, value</span>, or time down the side and one column per well. Wells named like A1 to H12 appear on a plate map.</p>
+        <div className="flex flex-col items-start gap-4">
+          <p className="max-w-[60ch] text-body text-fg-muted">Upload a CSV of readings over time (OD, confluence, viable cell density). One row per reading with <span className="font-mono text-code">time, well, value</span>, or time down the side and one column per well. Wells named like A1 to H12 appear on a plate map.</p>
+          <Button variant="ghost" onClick={() => load(exampleCourse(), "example plate", true)}>Try an example</Button>
         </div>
       ) : (
         <Results key={loadId} parsed={parsed} fileName={fileName} plate={plate} setPlate={setPlate} vol={vol} setVol={setVol} notes={notes} setNotes={setNotes} />
@@ -89,41 +90,53 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
   const [selected, setSelected] = useState<string | null>(null);
   const sel = parsed.series.find((s) => s.name === selected) ?? null;
 
+  const handling = r.findings.find((f) => f.id === "handling");
+  const shared = r.findings.find((f) => f.id === "shared");
+  // The first sentence is the verdict; the rest of the paragraph opens the Why.
+  const cut = r.mine.text.search(/(?<=\.)\s/);
+  const lead = cut === -1 ? r.mine.text : r.mine.text.slice(0, cut);
+  const rest = cut === -1 ? "" : r.mine.text.slice(cut + 1);
+  const reasons = [handling, shared].flatMap((f) => (f ? [...f.for.map((x) => `For ${f.title.toLowerCase()}: ${x}`), ...f.against.map((x) => `Against ${f.title.toLowerCase()}: ${x}`)] : []));
+
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="glass flex flex-col gap-4 p-5" aria-label="Plate">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-heading text-fg">{fileName}</h2>
-            <div role="group" aria-label="Colour by" className="flex gap-1 rounded-lg bg-subtle p-1 text-label">
-              {([["now", "At a time"], ["peak", "Peak"], ["fall", "Drop from peak"]] as const).map(([k, l]) => (
-                <button key={k} type="button" aria-pressed={metric === k} onClick={() => setMetric(k)} className={cn("rounded-md px-3 py-1", metric === k ? "bg-surface text-fg" : "text-fg-muted hover:text-fg")}>{l}</button>
-              ))}
+      <div aria-live="polite">
+        <VerdictLine
+          tone={TONE[r.mine.verdict]}
+          detail={
+            <div className="flex flex-col gap-2">
+              {rest ? <p>{rest}</p> : null}
+              <ul className="flex flex-col gap-1">
+                {reasons.map((x, i) => <li key={i}>{x}</li>)}
+                <li>{r.caveat}</li>
+              </ul>
             </div>
-          </div>
-          <PlateMap series={parsed.series} metric={metric} timeIndex={ti} selected={selected} flagged={flagged} onSelect={(n) => setSelected(selected === n ? null : n)} />
-          {metric === "now" ? (
-            <label className="flex items-center gap-3 text-caption text-fg-muted">
-              <span className="w-24 shrink-0 tabular-nums">{parsed.timeUnit || "t"} {longest.t[ti]}</span>
-              <input type="range" min={0} max={longest.t.length - 1} value={ti} onChange={(e) => setTi(Number(e.target.value))} aria-label="Time" className="flex-1 accent-[var(--accent)]" />
-            </label>
-          ) : null}
-          {flagged.size ? <p className="text-caption text-fg-muted">A dot marks wells that ended far from the rest or jumped and then fell ({flagged.size}).</p> : null}
-        </section>
-
-        <aside className="glass h-fit p-5 lg:sticky lg:top-6">
-          {sel ? <WellCard s={sel} all={parsed} /> : (
-            <>
-              <p className="text-label text-fg-muted">Was it you?</p>
-              <div aria-live="polite">
-              <p className="mt-1 flex items-center gap-2"><Badge tone={TONE[r.mine.verdict]}>{WORD[r.mine.verdict]}</Badge></p>
-              <p className="mt-2 text-body text-fg-muted">{r.mine.text}</p>
-              </div>
-              <p className="mt-3 text-caption text-fg-muted">Tap a well to see its curve.</p>
-            </>
-          )}
-        </aside>
+          }
+        >
+          <span className="text-fg-muted">Was it you? </span>
+          {lead}
+        </VerdictLine>
       </div>
+
+      <Section title={fileName ?? "Plate"} description={sel ? null : "Tap a well to see its curve against the others."} actions={
+        <div role="group" aria-label="Colour by" className="flex gap-1 rounded-lg bg-subtle p-1 text-label">
+          {([["now", "At a time"], ["peak", "Peak"], ["fall", "Drop from peak"]] as const).map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={metric === k} onClick={() => setMetric(k)} className={cn("rounded-md px-3 py-1", metric === k ? "bg-surface text-fg" : "text-fg-muted hover:text-fg")}>{l}</button>
+          ))}
+        </div>
+      }>
+        <div className="flex max-w-xl flex-col gap-3">
+        <PlateMap series={parsed.series} metric={metric} timeIndex={ti} selected={selected} flagged={flagged} onSelect={(n) => setSelected(selected === n ? null : n)} />
+        {metric === "now" ? (
+          <label className="flex items-center gap-3 text-caption text-fg-muted">
+            <span className="w-24 shrink-0 tabular-nums">{parsed.timeUnit || "t"} {longest.t[ti]}</span>
+            <input type="range" min={0} max={longest.t.length - 1} value={ti} onChange={(e) => setTi(Number(e.target.value))} aria-label="Time" className="flex-1 accent-[var(--accent)]" />
+          </label>
+        ) : null}
+        {flagged.size ? <p className="text-caption text-fg-muted">A dot marks wells that ended far from the rest or jumped and then fell ({flagged.size}).</p> : null}
+        </div>
+        {sel ? <Panel className="max-w-md"><WellCard s={sel} all={parsed} /></Panel> : null}
+      </Section>
 
       <Disclosure summary="Add context (optional)" meta="Vessel, volume, what you did">
       <section aria-label="Setup" className="grid gap-3 pb-4 sm:grid-cols-[auto_auto_1fr]">
@@ -141,8 +154,7 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
       </section>
       </Disclosure>
 
-      <section aria-label="What the data shows" className="flex flex-col gap-4">
-        <h2 className="text-heading text-fg">What the data shows</h2>
+      <Section title="What the data shows">
         <Disclosure summary="The measurements behind this">
           <ul className="flex flex-col gap-1 pb-3 text-body text-fg-muted">{r.facts.map((f, i) => <li key={i}>{f}</li>)}</ul>
         </Disclosure>
@@ -157,8 +169,7 @@ function Results({ parsed, fileName, plate, setPlate, vol, setVol, notes, setNot
             </Disclosure>
           ))}
         </div>
-        <p className="text-caption text-fg-muted">{r.caveat}</p>
-      </section>
+      </Section>
 
       <Chat context={chatContext(r, ctx, notes)} />
     </>
@@ -178,7 +189,7 @@ function WellCard({ s, all }: { s: Parsed["series"][number]; all: Parsed }) {
       <p className="text-label text-fg-muted">Well</p>
       <h2 className="text-title text-fg">{s.name}</h2>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`Curve for ${s.name} against all other wells`}>
-        {all.series.map((x) => <path key={x.name} d={path(x)} fill="none" className="stroke-border-strong" strokeWidth={1} opacity={0.5} />)}
+        {all.series.map((x) => <path key={x.name} d={path(x)} fill="none" className="stroke-border" strokeWidth={1} />)}
         <path d={path(s)} fill="none" className="stroke-accent" strokeWidth={2.5} strokeLinecap="round" />
       </svg>
       <p className="mt-1 text-caption text-fg-muted">This well against every other well in grey.</p>
@@ -211,11 +222,7 @@ function Chat({ context }: { context: string }) {
   };
 
   return (
-    <section aria-label="Ask about this experiment" className="glass flex flex-col gap-3 p-5">
-      <div>
-        <h2 className="text-heading text-fg">Ask about this experiment</h2>
-        <p className="text-caption text-fg-muted">Answered by a model running on this device. It is instructed to use only the findings above and your notes. That is an instruction, not a guarantee, so check answers against the findings.</p>
-      </div>
+    <Section title="Ask about this experiment" description="Answered by a model running on this device. It is instructed to use only the findings above and your notes. That is an instruction, not a guarantee, so check answers against the findings.">
       {turns.length === 0 ? (
         <div className="flex flex-wrap gap-2">{ASKS.map((a) => <Button key={a} variant="outline" onClick={() => void ask(a)}>{a}</Button>)}</div>
       ) : (
@@ -229,8 +236,8 @@ function Chat({ context }: { context: string }) {
       )}
       <form onSubmit={(e) => { e.preventDefault(); void ask(q); }} className="flex gap-2">
         <Input aria-label="Your question" value={q} onChange={(e) => setQ(e.target.value)} placeholder="For example: I added 100 µL on day 0 and never changed it. Does that matter?" />
-        <Button type="submit" disabled={busy || !q.trim()} aria-label="Send"><Send /></Button>
+        <Button type="submit" variant="outline" disabled={busy || !q.trim()} aria-label="Send the question"><Send /></Button>
       </form>
-    </section>
+    </Section>
   );
 }

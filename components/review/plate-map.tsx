@@ -11,10 +11,11 @@ const WELL = /^([A-P])(\d{1,2})$/i;
 const step = (x: number) => Math.min(5, Math.max(1, Math.ceil(x * 5) || 1));
 
 /**
- * The plate as the scientist sees it: rows A to H, columns 1 to 12. Colour is
- * the chosen measure at the chosen moment, so a stripe, an edge or a bad corner
- * shows up as a place, not a number. Each well is also a button, so it works
- * from the keyboard and names itself to a screen reader.
+ * The plate as the scientist sees it: rows A to H, columns 1 to 12. Every well
+ * is the same square; only its colour carries the chosen measure (five steps
+ * of the sequential ramp), so a stripe, an edge or a bad corner shows up as a
+ * place, not a number. Each well is also a button, so it works from the
+ * keyboard and names itself to a screen reader.
  */
 export function PlateMap({
   series,
@@ -56,7 +57,7 @@ export function PlateMap({
   const fmt = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2));
   const unit = metric === "fall" ? "% below peak" : "";
   const cell = (name: string | null) => {
-    if (!name || !grid.has(name)) return <span aria-hidden className="size-full rounded-full border border-dashed border-border" />;
+    if (!name || !grid.has(name)) return <span aria-hidden className="block size-full rounded-sm border border-dashed border-border" />;
     const v = grid.get(name)!;
     const x = hi === lo ? 0.5 : (v - lo) / (hi - lo);
     const on = selected === name;
@@ -68,7 +69,7 @@ export function PlateMap({
         aria-label={`Well ${name}: ${fmt(v)} ${unit}${metric === "now" ? `, reading ${timeIndex + 1}` : ""}${flagged.has(name) ? ", unusual" : ""}`}
         title={`${name}: ${fmt(v)} ${unit}`}
         style={{ backgroundColor: `var(--chart-seq-${step(x)})` }}
-        className={cn("relative size-full rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2", on && "ring-2 ring-fg ring-offset-2 ring-offset-surface")}
+        className={cn("relative size-full rounded-sm", on && "ring-2 ring-ring ring-offset-2 ring-offset-bg")}
       >
         {flagged.has(name) ? <span aria-hidden className="absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-bg ring-1 ring-fg" /> : null}
       </button>
@@ -93,11 +94,21 @@ export function PlateMap({
           {series.map((s) => <div key={s.name} className="aspect-square" title={s.name}>{cell(s.name)}</div>)}
         </div>
       )}
-      <div className="flex items-center gap-2 text-caption tabular-nums text-fg-muted">
-        <span>{fmt(lo)}</span>
-        <span className="h-2 flex-1 rounded-full" style={{ background: "linear-gradient(90deg, var(--chart-seq-1), var(--chart-seq-3), var(--chart-seq-5))" }} aria-hidden />
-        <span>{fmt(hi)} {unit}</span>
-      </div>
+      <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption tabular-nums text-fg-muted" aria-label="Colour scale">
+        {Array.from({ length: 5 }, (_, i) => {
+          const a = lo + ((hi - lo) * i) / 5;
+          const b = lo + ((hi - lo) * (i + 1)) / 5;
+          return (
+            <div key={i} className="flex items-center gap-1.5">
+              <dt className="size-3 shrink-0 rounded-sm" style={{ backgroundColor: `var(--chart-seq-${i + 1})` }}>
+                <span className="sr-only">Step {i + 1}</span>
+              </dt>
+              <dd>{hi === lo ? fmt(lo) : `${fmt(a)} to ${fmt(b)}`}</dd>
+            </div>
+          );
+        })}
+        {unit ? <span>{unit}</span> : null}
+      </dl>
     </div>
   );
 }

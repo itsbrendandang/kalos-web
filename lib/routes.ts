@@ -1,7 +1,7 @@
 /*
- * Every page in the app, in one place: the activity rail, the explorers, the
- * editor tabs and breadcrumb, the command palette and the Library index all
- * read from here, so a route is renamed or added once. Labels are what people see.
+ * Every page in the app, in one place: the sidebar, the breadcrumb, the
+ * command palette and the Library index all read from here, so a route is
+ * renamed or added once. Labels are what people see.
  */
 
 export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
@@ -9,10 +9,11 @@ export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
 export type RouteItem = { href: string; label: string; description: string };
 
 /**
- * The activity rail, in order. Overview is the one front door to the campaign
- * (Experiments is a sub-view of it, not a second entry); Agent sits under it;
- * the rest live under More; Settings is pinned at the foot. The sidebar reads
- * these lists, so the rail and this file cannot drift.
+ * The sidebar's sections, in order. Overview is the one front door to the
+ * campaign (Experiments is a sub-view of it, not a second entry); the five
+ * stages sit under it; Tools and Workspace are the two groups below; Settings
+ * is pinned at the foot. The sidebar and the command palette read RAIL_GROUPS,
+ * so the two cannot drift.
  */
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Overview", description: "The live campaign: where the round is and what to do next." },
@@ -26,14 +27,22 @@ export const NAV_ITEMS = [
   { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
 
-/** Rail sections shown above the "More" group, in order. */
-export const RAIL_TOP: readonly NavKey[] = ["campaign", "agent"];
-/** Rail sections under "More", in order. */
-export const RAIL_MORE: readonly NavKey[] = ["review", "process", "graph", "data", "library", "projects"];
-
 export type NavKey = (typeof NAV_ITEMS)[number]["key"];
 
-/** Looks up a rail section by key; every key in RAIL_TOP and RAIL_MORE exists in NAV_ITEMS. */
+export type RailGroup = { label: string | null; keys: readonly NavKey[] };
+
+/**
+ * The sidebar's groups, always visible, in order. The unlabelled first group
+ * is Overview (the sidebar lists the five stages under it); Settings is not a
+ * group member, it is pinned at the foot.
+ */
+export const RAIL_GROUPS: readonly RailGroup[] = [
+  { label: null, keys: ["campaign"] },
+  { label: "Tools", keys: ["agent", "review", "process", "graph"] },
+  { label: "Workspace", keys: ["data", "library", "projects"] },
+];
+
+/** Looks up a rail section by key; every key in RAIL_GROUPS exists in NAV_ITEMS. */
 export function navItem(key: NavKey): (typeof NAV_ITEMS)[number] {
   return NAV_ITEMS.find((n) => n.key === key)!;
 }

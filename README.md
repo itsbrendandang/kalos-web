@@ -38,7 +38,7 @@ Open PRs are in progress, not implemented.
 | Upload a run sheet and view the engine's data-quality findings | IMPLEMENTED | `app/campaign/setup/page.tsx`, `__tests__/validation.test.ts` |
 | Reliability verdict and uncertainty bands, measured never mixed with predicted | IMPLEMENTED | `lib/api.ts`, `lib/format.ts`, `__tests__/reliability-verdict.test.ts`, `__tests__/workbench.test.ts` |
 | Same-origin server-side proxy that attaches the engine bearer token; path allowlist; 120 s timeout | IMPLEMENTED | `app/api/engine/[...path]/route.ts`, `__tests__/engine-proxy.test.ts` |
-| Workbench shell: activity rail, explorer, route tabs, status bar, command palette | IMPLEMENTED | `components/`, `__tests__/route-tabs.test.ts` |
+| App shell: sidebar with campaign stages, mobile sheet, command palette | IMPLEMENTED | `components/workbench/`, `__tests__/routes.test.ts` |
 | Scale-up readout page, simulator page | IMPLEMENTED (engine-backed; evidence is synthetic) | `app/library/scale-up`, `app/library/simulator`, `__tests__/scale-readout.test.ts` |
 | Data registry, Vessels, Plate analysis, Projects | EXPERIMENTAL (fixtures / seed data, badged) | `lib/mock/registry.ts`, `lib/vessel-data.ts`, `lib/plate-data.ts`, `app/projects/data.ts` |
 | Fit progress, editable column confirmation, `data_type` counts, edge-of-range flag | in progress, open PR [#65](https://github.com/itsbrendandang/kalos-web/pull/65) | not on `main` |
@@ -76,15 +76,12 @@ Engine-side detail: [`kalos-engine/docs/ARCHITECTURE.md`](https://github.com/its
 
 ## What you can do
 
-The app is a workbench.
-It has an activity rail, an explorer, a route-per-tab editor, a status bar and a command palette (Cmd+K).
+The app is one sidebar and a page.
+Every route is a plain page, so deep links, reload and Back all work.
 
-- **Activity rail.** Overview (the campaign's one front door), Agent, and More (Review, Process, Graph, Data, Library, Projects), with Settings pinned at the foot. Experiments is a sub-view of Overview at `/experiments`, not a rail entry.
-- **Explorer.** A tree specific to each section, with keyboard navigation.
-- **Editor tabs.** Every tab is a route, so deep links, reload and Back all work.
-  The open-tab list is a per-viewer convenience kept in `sessionStorage`.
-- **Status bar.** Engine connection, round, runs in flight, best so far, and one text action for the next step.
-- **Command palette.** Jump to any page or stage, or run an action such as "Upload a run sheet".
+- **Sidebar.** Overview (the campaign's one front door) with the five stages listed under it and a mark for each (done, current, upcoming), then Tools (Agent, Review, Process, Graph), then Workspace (Data, Library, Projects), with Settings pinned at the foot. Every group is always visible. Experiments is a sub-view of Overview at `/experiments`, not a sidebar entry. On phones the sidebar is a sheet behind the top bar.
+- **Engine status.** The sidebar's foot shows whether the engine is connected, with a Retry when it is not.
+- **Command palette.** Cmd+K: jump to any page or stage, or run an action such as "Upload a run sheet". Its groups are the sidebar's.
 
 The engine runs one live campaign, and the home page is that campaign's workspace.
 It moves through five stages, each with one primary action:

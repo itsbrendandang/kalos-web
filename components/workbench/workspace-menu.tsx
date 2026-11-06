@@ -21,11 +21,8 @@ import { cn } from "@/lib/utils";
 
 const SHORTCUTS: [keys: string, what: string][] = [
   ["⌘K or Ctrl+K", "Search pages and actions"],
-  ["Up / Down", "Move through the explorer tree"],
-  ["Left / Right", "Close or open a tree group"],
+  ["Up / Down", "Move through the palette's results"],
   ["Enter", "Open the focused page or run the highlighted action"],
-  ["Left / Right on a tab", "Switch between open pages"],
-  ["Delete on a tab", "Close that page's tab"],
   ["Esc", "Close the palette, menus and dialogs"],
 ];
 

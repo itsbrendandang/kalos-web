@@ -70,7 +70,7 @@ function Frame({ children }: { children: ReactNode }) {
       </div>
 
       <MobileSheet open={sheetOpen} onOpenChange={setSheetOpen} onSearch={() => { setSheetOpen(false); setPaletteOpen(true); }} />
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} onToggleExplorer={() => {}} />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
 }

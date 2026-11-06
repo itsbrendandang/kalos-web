@@ -1,15 +1,23 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { breadcrumbFor, EXPERIMENTS_ROUTE, NAV_ITEMS, navKeyFor, RAIL_MORE, RAIL_TOP, type NavKey } from "@/lib/routes";
+import { breadcrumbFor, EXPERIMENTS_ROUTE, NAV_ITEMS, navKeyFor, RAIL_GROUPS, type NavKey } from "@/lib/routes";
 
 const root = join(__dirname, "..");
 
-describe("activity rail", () => {
-  it("is Overview, Agent, More, then Settings, in that order", () => {
+const labels = (keys: readonly NavKey[]) => keys.map((k) => NAV_ITEMS.find((n) => n.key === k)!.label);
+
+describe("sidebar groups", () => {
+  it("is Overview, then Tools, then Workspace, with Settings at the foot", () => {
     expect(NAV_ITEMS.map((n) => n.key)).toEqual(["campaign", "agent", "review", "process", "graph", "data", "library", "projects", "settings"]);
-    expect(RAIL_TOP.map((k) => NAV_ITEMS.find((n) => n.key === k)!.label)).toEqual(["Overview", "Agent"]);
-    expect(RAIL_MORE.map((k) => NAV_ITEMS.find((n) => n.key === k)!.label)).toEqual(["Review", "Process", "Graph", "Data", "Library", "Projects"]);
+    expect(RAIL_GROUPS.map((g) => g.label)).toEqual([null, "Tools", "Workspace"]);
+    expect(labels(RAIL_GROUPS[0].keys)).toEqual(["Overview"]);
+    expect(labels(RAIL_GROUPS[1].keys)).toEqual(["Agent", "Review", "Process", "Graph"]);
+    expect(labels(RAIL_GROUPS[2].keys)).toEqual(["Data", "Library", "Projects"]);
+  });
+
+  it("has no collapsed group and no 'More'", () => {
+    expect(RAIL_GROUPS.some((g) => g.label === "More")).toBe(false);
   });
 
   it("names the first section Overview, at /, and never Campaign", () => {
@@ -30,7 +38,7 @@ describe("activity rail", () => {
   });
 
   it("covers every section key exactly once across the rail", () => {
-    const keys: NavKey[] = [...RAIL_TOP, ...RAIL_MORE, "settings"];
+    const keys: NavKey[] = [...RAIL_GROUPS.flatMap((g) => g.keys), "settings"];
     expect([...keys].sort()).toEqual(NAV_ITEMS.map((n) => n.key).sort());
   });
 });
@@ -42,9 +50,10 @@ describe("README route lines match the code", () => {
     expect(readme).not.toMatch(/`\/experiments`[^|\n]*\|\s*`\/`/);
   });
 
-  it("describes the rail with Overview, Agent and More, not Campaign/Data/Library/Projects", () => {
-    expect(readme).toMatch(/Activity rail\.\*\* Overview[^\n]*Agent[^\n]*More/);
-    expect(readme).not.toMatch(/Activity rail\.\*\* Campaign, Data/);
+  it("describes the sidebar as Overview with its stages, Tools and Workspace, never a More group", () => {
+    expect(readme).toMatch(/Sidebar\.\*\* Overview[^\n]*five stages[^\n]*Tools \(Agent, Review, Process, Graph\)[^\n]*Workspace \(Data, Library, Projects\)/);
+    expect(readme).not.toMatch(/Activity rail/);
+    expect(readme).not.toMatch(/\bMore \(Review/);
   });
 
   it("has no redirect for /experiments in next.config.ts", () => {

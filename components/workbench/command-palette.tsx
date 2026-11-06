@@ -6,7 +6,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog } from "@base-ui/react/dialog";
 import { CornerDownLeft, Search } from "lucide-react";
 import { toggleTheme } from "@/hooks/use-theme";
-import { CAMPAIGN_STAGES, EXPERIMENTS_ROUTE, LIBRARY_ITEMS, NAV_ITEMS, OVERVIEW_ROUTE } from "@/lib/routes";
+import { CAMPAIGN_STAGES, EXPERIMENTS_ROUTE, LIBRARY_ITEMS, OVERVIEW_ROUTE, RAIL_GROUPS, navItem, type RouteItem } from "@/lib/routes";
 
 type Command = { value: string; label: string; hint: string; run: () => void };
 type CommandGroup = { value: string; items: Command[] };
@@ -16,39 +16,26 @@ type CommandGroup = { value: string; items: Command[] };
  * Autocomplete rendered inline inside a Dialog (the documented command
  * palette pattern): type to filter, arrows to move, Enter to run, Escape to
  * close. Opened by the shell's keyboard shortcut and the search buttons.
+ * The page groups mirror the sidebar (RAIL_GROUPS), so the two cannot drift.
  */
-export function CommandPalette({
-  open,
-  onOpenChange,
-  onToggleExplorer,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onToggleExplorer: () => void;
-}) {
+export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
   const hintId = useId();
   const go = (href: string) => () => router.push(href);
+  const page = (r: RouteItem): Command => ({ value: r.href, label: r.label, hint: r.description, run: go(r.href) });
 
   const groups: CommandGroup[] = [
-    {
-      value: "Campaign",
-      items: [OVERVIEW_ROUTE, EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES].map((r) => ({ value: r.href, label: r.label, hint: r.description, run: go(r.href) })),
-    },
-    {
-      value: "Pages",
-      items: [
-        ...NAV_ITEMS.filter((n) => n.key !== "campaign"),
-        ...LIBRARY_ITEMS.filter((l) => l.href.startsWith("/library/")),
-      ].map((r) => ({ value: r.href, label: r.label, hint: r.description, run: go(r.href) })),
-    },
+    { value: "Campaign", items: [OVERVIEW_ROUTE, EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES].map(page) },
+    ...RAIL_GROUPS.filter((g) => g.label != null).map((g) => ({
+      value: g.label!,
+      items: [...g.keys.map((k) => page(navItem(k))), ...(g.keys.includes("library") ? LIBRARY_ITEMS.map(page) : [])],
+    })),
     {
       value: "Actions",
       items: [
         { value: "action:upload", label: "Upload a run sheet", hint: "Start or replace the campaign's data", run: go("/campaign/setup") },
         { value: "action:record", label: "Record results", hint: "Enter measured values for runs in flight", run: go("/campaign/record") },
         { value: "action:theme", label: "Toggle theme", hint: "Switch between light and dark", run: toggleTheme },
-        { value: "action:explorer", label: "Toggle explorer", hint: "Show or hide the side tree", run: onToggleExplorer },
       ],
     },
   ];

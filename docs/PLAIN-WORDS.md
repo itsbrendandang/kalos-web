@@ -136,10 +136,10 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 ### Model checks (promotion gates)
 
 - surrogate_spearman: If the model cannot rank the runs it was tested on, it cannot tell a good recipe from a poor one, and its suggestions are guesses.
-- group_mean_margin: If the model does no better than the average of each group of runs, it has learned the groups, not the recipes, and will suggest more of the same.
-- feasibility_auc: If the model cannot tell which recipes fail outright, it will suggest runs that produce nothing.
+- group_mean_margin: If the model does no better than the average of each group of runs, it has learned the groups, not the recipes, and suggests more of the same.
+- feasibility_auc: If the model cannot tell which recipes fail outright, it can suggest runs that produce nothing.
 - ece: If the likely range is wrong about how often it is right, you cannot tell a safe bet from a long shot.
-- brier: If the model's confidence that a recipe will work is unreliable, it will waste runs on recipes that fail.
+- brier: If the model's confidence that a recipe works is unreliable, runs get spent on recipes that fail.
 - unmeasured: A check that could not be run on this sheet is a check the model has not passed, so its suggestions have not been tested that way.
 
 ### Likely-range check (calibration)
@@ -159,7 +159,7 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - gain-within-band: A predicted gain smaller than the likely range may be no gain at all; the run can land below your best.
 - fewer_distinct_candidates: Fewer recipes than you asked for means the rest would have repeated these; running near-duplicates would teach you nothing new.
 - empty_batch: With no proposed recipes there is nothing to run this round; the sheet gives the model nothing to go on.
-- target_constant_upload: If the target never changes, the model cannot learn what raises it and will propose nothing.
+- target_constant_upload: If the target never changes, the model cannot learn what raises it and proposes nothing.
 
 ### Sheet check (validation findings)
 
@@ -168,7 +168,7 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - duplicate_rows: A run entered twice counts double, so one lucky run can pull the model toward its recipe.
 - missingness: Blank cells shrink what the model can learn from, and a column that is mostly blank teaches it almost nothing.
 - outliers: A value far from the rest is either a real extreme run or a data-entry mistake; the model cannot tell which, and one mistake can bend its suggestions.
-- provenance_metadata: Without who ran it, when, and with which materials, a surprising result cannot be traced back to what caused it.
+- provenance_metadata: Without who ran it, when, and with which materials, a surprising result cannot be traced back to what led to it.
 - replicate_adequacy: Runs that were never repeated hide how much your results vary, so a "best" run may just be a lucky one.
 - controls_present: Without a control run there is no baseline, so a change in the result cannot be told apart from ordinary run-to-run variation.
 - constant_columns: An input that never changes cannot show any effect, so the model learns nothing from it and cannot suggest changing it.
@@ -183,7 +183,7 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - column_missing: Runs with a blank in this column may be left out of the model, so fewer runs teach it.
 - column_constant: A column with one value everywhere cannot tell runs apart, so the model ignores it.
 - column_headerless: A column with no header cannot be named in the model, so Kalos cannot use it.
-- column_unique: A column that is different in every run looks like a run label; if it is used as an input the model will memorise runs instead of learning recipes.
+- column_unique: A column that is different in every run looks like a run label; used as an input, the model memorises runs instead of learning recipes.
 - column_mixed: A number column with text entries is read as text, so its numbers are not used as numbers.
 - rows_duplicate: A run that repeats an earlier one exactly counts twice, so one lucky run can pull the model toward its recipe.
 - columns_duplicate: Two identical columns are one setting entered twice; the model cannot tell them apart.
@@ -202,7 +202,7 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - dropped_all_blank: A column with no values cannot teach the model anything.
 - dropped_non_numeric: A column of mostly text cannot be placed on a scale, so the model cannot learn from it as a setting.
 - dropped_sparse: A column that is mostly blank would leave out most runs if it were used, so it was left out instead.
-- user_excluded: You chose to leave this column out, so no suggestion will change it.
+- user_excluded: You chose to leave this column out, so no suggestion changes it.
 - former_target: The old target is a result, not a setting, so it is not used as an input.
 - unknown_role: Kalos did not use this column; the reason is one click down, as Kalos wrote it.
 
@@ -211,7 +211,7 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - setup_no_sheet: Until you upload a run sheet, Kalos has nothing to learn from and cannot suggest anything.
 - setup_done: Kalos has read your runs and built a first model; the first suggestions rest on this sheet alone, so a mistake in it carries through.
 - plan_ready: Each proposed recipe costs a run; untick the ones you would not run so the lab time goes where it counts.
-- run_waiting: Until these results are entered, the model cannot learn from this round and the next suggestions will be no better.
+- run_waiting: Until these results are entered, the model cannot learn from this round and the next suggestions are no better.
 - record_partial: Every result you enter sharpens the next suggestions; a round with missing results teaches the model less.
 - learn_ready: Updating the model with this round's results is how the next round gets better suggestions; skipping it means planning on stale information.
 
@@ -229,7 +229,7 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - target_empty: A target column with no values gives the model nothing to aim at.
 - target_not_found: Without a target column Kalos does not know what to raise.
 - target_not_numeric: A target that is not a number cannot be raised or lowered, so the model cannot learn from it.
-- target_constant: If the target never changes, the model cannot learn what raises it and will propose nothing.
+- target_constant: If the target never changes, the model cannot learn what raises it and proposes nothing.
 - no_numeric_inputs: Without a number column to change, the model has nothing to vary and nothing to suggest.
 - no_process_inputs: Without a column Kalos can treat as a setting, the model has nothing to vary and nothing to suggest.
 - fit_failed: When the model cannot be built, there are no suggestions; the sheet or the target usually needs a change.
@@ -252,6 +252,32 @@ One sentence each, prefixed on screen with "Why this matters:". Mirrored verbati
 - start_unconfirmed: If the start was not confirmed, some runs may have started and some not, so check Run before starting again.
 - record_partial_save: A result that did not save is not in the model; re-enter it so the round is complete.
 - generic: Kalos could not use this sheet, so nothing from it reaches the model until the problem is fixed.
+
+### Kalos refusals and errors (more codes)
+
+- interrupted: The work stopped before it finished, so nothing was saved; running it again is safe.
+- engine_stopped: Kalos was closed while the work ran, so nothing was saved; running it again is safe.
+- read_timeout: The sheet took too long to arrive, so it was not read and nothing from it reaches the model.
+- invalid_content_length: The upload arrived incomplete, so it was not read and nothing from it reaches the model.
+- analysis_out_of_sync: The model was built before the latest change to the campaign, so its suggestions may not include it.
+- model_check: A check the model has not passed means its suggestions have not been tested that way.
+
+### Sheet facts from the upload (how Kalos read the sheet)
+
+- auto_categorical: A text column was read as a set of labels, so Kalos compares each label with the others instead of treating it as a number.
+- blank_as_absent: Blank cells in this column were read as "none added"; if a blank meant "not recorded", the model learns from a value the lab never set.
+- censored_rows: Runs whose result is only "below detection" have no exact value, so they are left out and teach the model nothing.
+- censored_values: A value like "below detection" has no exact number, so it is not used as a number and that run teaches the model less.
+- dropped_cells: Cells that could not be read as numbers were left out, so those runs teach the model less than the sheet holds.
+- dropped_rows: Runs with blank or unreadable cells were left out, so fewer runs teach the model than the sheet holds.
+- header_row: If Kalos picked the wrong row as the column names, every column is misnamed and settings and results get mixed up.
+- unnamed_column: A column with no name cannot be traced back to a setting or a result, so Kalos cannot use it.
+- near_constant_input: A setting that barely changed was held fixed, because the sheet cannot show its effect and any suggestion about it would be a guess.
+- cv_ci_unavailable: With too few groups of runs there is no way to say how sure the check of the model is, so treat its score as rough.
+- coverage_not_guaranteed: The likely range was checked on past runs, not on new recipes, so read it as a guide and not a promise about the next run.
+- row_number_like: A column that counts rows is not a setting, so it was left out; used as an input, the model memorises runs instead of learning recipes.
+- outcome_like: A column measured after the run is a result, not a setting you choose, so suggesting a value for it would be meaningless.
+- category_not_modeled: A text column with many different labels has too few runs per label to learn from, so it was left out.
 
 ### Review tool findings
 

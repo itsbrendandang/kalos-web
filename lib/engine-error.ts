@@ -55,6 +55,10 @@ const KNOWN: Record<string, (ctx: Context) => EngineMessage> = {
   engine_error: () => ({ message: "Kalos hit an error. Try again in a moment.", signIn: false }),
   engine_unreachable: () => ({ message: "Could not reach Kalos. This is a connection problem, not a result; nothing you entered is lost. Try again in a moment.", signIn: false }),
   engine_timeout: () => ({ message: "The work took too long and was stopped. Try again, or use a smaller sheet.", signIn: false }),
+  interrupted: () => ({ message: "The work stopped before it finished. Nothing was saved; try again.", signIn: false }),
+  engine_stopped: () => ({ message: "Kalos was closed while the work ran. Nothing was saved; start Kalos and try again.", signIn: false }),
+  read_timeout: () => ({ message: "The sheet took too long to arrive and was not read. Check your connection and try again.", signIn: false }),
+  invalid_content_length: () => ({ message: "The upload arrived incomplete and was not read. Try the upload again.", signIn: false }),
   engine_auth_failed: () => ({
     message: "Kalos could not confirm who you are. Try again; if it keeps happening, sign in again.",
     signIn: false,

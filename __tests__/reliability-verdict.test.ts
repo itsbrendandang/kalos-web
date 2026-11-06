@@ -39,7 +39,14 @@ describe("modelVerdict", () => {
   it("is Not enough runs to tell when every blocking check could not be measured, with the unmeasured why-line", () => {
     const v = modelVerdict({ promotion: promo({ passed: false, status: "not_measurable", failures: ["feasibility_auc unmeasured (no non-producers)"] }), reliability: rel({}), cv_spearman: 0.5 });
     expect(v).toMatchObject({ state: "insufficient", label: "Not enough runs to tell", why: "unmeasured", source: "kalos" });
-    expect(v.reason).toMatch(/^Kalos could not finish checking the model: a check it needs \(feasibility auc\) could not be run on this sheet\./);
+    expect(v.reason).toMatch(/^Kalos could not finish checking the model: the check of which recipes fail outright could not be run on this sheet\./);
+  });
+
+  it("leads with a check that was measured and missed, before the ones that could not be run", () => {
+    const v = modelVerdict({ promotion: promo({ passed: false, failures: ["feasibility_auc missing/NaN (unmeasured)", "ece missing/NaN (unmeasured)", "surrogate does not beat the group-mean floor: paired difference -0.57"] }) });
+    expect(v.state).toBe("not-yet");
+    expect(v.reason).toBe("The model did not pass every one of Kalos's checks: it does no better than the average of each group of runs (2 more checks also fell short). Its suggestions are closer to guesses.");
+    expect(v.failed[1]).toBe("the check of which recipes fail outright could not be run on this sheet");
   });
 
   it("reads an older engine's passed flag and failure lines into the same states and marks them derived", () => {

@@ -767,9 +767,18 @@ export function gateKey(failure: string): string {
 /** A failure line that blocked only because its metric could not be measured on this sheet. */
 export const isUnmeasuredFailure = (failure: string): boolean => /unmeasured|missing|NaN|could not be measured/i.test(failure);
 
+/** What each check looks at, as a noun phrase, for the unmeasured case. */
+const GATE_SUBJECT: Record<string, string> = {
+  surrogate_spearman: "the order of past runs",
+  group_mean_margin: "whether it beats the average of each group",
+  feasibility_auc: "which recipes fail outright",
+  ece: "how often its likely range is right",
+  brier: "how sure it is that a recipe works",
+};
+
 /** A failure line in the lab's words: the check's reason, or the unmeasured case. */
 export function gateWords(failure: string): string {
-  if (isUnmeasuredFailure(failure)) return `a check it needs (${GATE_WORDS[gateKey(failure)] ? gateKey(failure).replace(/_/g, " ") : "one of its checks"}) could not be run on this sheet`;
+  if (isUnmeasuredFailure(failure)) return `the check of ${GATE_SUBJECT[gateKey(failure)] ?? "one of the things it needs"} could not be run on this sheet`;
   return GATE_WORDS[gateKey(failure)]?.reason ?? "it has not met one of its checks";
 }
 
@@ -800,7 +809,8 @@ export function modelVerdict(d: Partial<Pick<AnalyzeResult, "promotion" | "relia
       reason: "Kalos did not report its checks of the model, so nothing about it is confirmed.",
     };
   }
-  const failures = (p.failures ?? []).filter((f): f is string => typeof f === "string");
+  // A check that was measured and missed comes before one that could not be run, so the reason leads with the firmer fact.
+  const failures = [...(p.failures ?? []).filter((f): f is string => typeof f === "string")].sort((x, y) => Number(isUnmeasuredFailure(x)) - Number(isUnmeasuredFailure(y)));
   const failed = failures.map(gateWords);
   const status = p.status ?? (p.passed ? "passed" : failures.length > 0 && failures.every(isUnmeasuredFailure) ? "not_measurable" : "failed");
   const source: ReliabilityVerdict["source"] = p.status ? "kalos" : "derived";

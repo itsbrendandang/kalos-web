@@ -14,6 +14,7 @@ import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { shortId } from "@/lib/workbench";
+import { WhyLine } from "@/components/kit/why-line";
 import { changedRows, inlineRecipeKeys, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
 
 type Row = { id: string; value: number };
@@ -57,7 +58,7 @@ export function RecordForm({
         await logResult(id, value);
         setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
       } catch (e) {
-        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "the engine did not respond"}. Earlier rows were saved.`);
+        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "Kalos did not answer"}. Earlier runs were saved.`);
         break;
       }
     }
@@ -78,7 +79,12 @@ export function RecordForm({
           </Button>
         }
       />
-      {error ? <Callout tone="bad" title="Not everything was saved">{error}</Callout> : null}
+      {error ? (
+        <Callout tone="bad" title="Not everything was saved">
+          <p>{error}</p>
+          <WhyLine code="record_partial_save" />
+        </Callout>
+      ) : null}
       <form
         id="record-form"
         onSubmit={(e) => {
@@ -137,7 +143,7 @@ export function RecordForm({
       </form>
       {logged > 0 ? (
         <Link href="/campaign/learn" className={buttonVariants({ variant: "outline", className: "self-start" })}>
-          Learn from round {displayRound(round)}
+          See what round {displayRound(round)} taught the model
         </Link>
       ) : null}
 
@@ -156,9 +162,9 @@ export function RecordForm({
           </ul>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirm(null)}>
-              Review values
+              Go back and check
             </Button>
-            <Button onClick={() => confirm && void save(confirm)}>Save as entered</Button>
+            <Button onClick={() => confirm && void save(confirm)}>Save these results</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

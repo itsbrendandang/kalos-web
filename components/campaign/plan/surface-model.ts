@@ -159,12 +159,12 @@ export function surfaceSummary(model: SurfaceModel, target: string, fmt: (n: num
     : model.sweptAt === "incumbent"
       ? "Other inputs are held at the best recipe so far."
       : "Other inputs are held at fixed values that are not recorded.";
-  const plotted = `${counts.runs} measured ${counts.runs === 1 ? "run" : "runs"} and ${counts.proposals} proposed ${counts.proposals === 1 ? "experiment" : "experiments"} are plotted${counts.outside ? `; ${counts.outside} proposed ${counts.outside === 1 ? "experiment lies" : "experiments lie"} outside the plotted range and ${counts.outside === 1 ? "is" : "are"} not drawn` : ""}.`;
+  const plotted = `${counts.runs} measured ${counts.runs === 1 ? "run" : "runs"} and ${counts.proposals} proposed ${counts.proposals === 1 ? "recipe" : "recipes"} are plotted${counts.outside ? `; ${counts.outside} proposed ${counts.outside === 1 ? "recipe lies" : "recipes lie"} outside the plotted range and ${counts.outside === 1 ? "is" : "are"} not drawn` : ""}.`;
   return [
-    `Predicted mean ${target} across ${x.name} from ${fmt(x.vals[0])} to ${fmt(x.vals[x.vals.length - 1])} and ${y.name} from ${fmt(y.vals[0])} to ${fmt(y.vals[y.vals.length - 1])}.`,
+    `Predicted ${target} across ${x.name} from ${fmt(x.vals[0])} to ${fmt(x.vals[x.vals.length - 1])} and ${y.name} from ${fmt(y.vals[0])} to ${fmt(y.vals[y.vals.length - 1])}.`,
     `Predicted values run from ${fmt(model.zMin)} to ${fmt(model.zMax)}; the highest is at ${x.name} ${fmt(x.vals[peak.col])}, ${y.name} ${fmt(y.vals[peak.row])}.`,
     others,
-    "Predicted mean only: uncertainty is not shown.",
+    "The model's best guess only: how sure it is is not shown.",
     plotted,
   ].join(" ");
 }

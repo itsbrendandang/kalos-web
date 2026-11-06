@@ -9,7 +9,7 @@
  */
 
 import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
-import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
+import type { ConstraintReport, DataDrops, PopulatedResult, Proposal } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { engineMessage } from "@/lib/engine-error";
 
@@ -188,39 +188,39 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
     flags.push({ kind: "negative", label: "Predicted below zero", detail: `Predicted at ${formatNumber(p.pred)}, below zero, but no measured value of this target is negative.` });
   }
   if (p.p_feasible != null && Number.isFinite(p.p_feasible) && p.p_feasible < LOW_FEASIBILITY) {
-    flags.push({ kind: "low-feasibility", label: "Low engine-estimated feasibility", detail: `Engine-estimated feasibility is ${formatNumber(p.p_feasible, "pct")}, below ${formatNumber(LOW_FEASIBILITY, "pct")}.` });
+    flags.push({ kind: "low-feasibility", label: "Unlikely to work", detail: `The model gives this recipe a ${formatNumber(p.p_feasible, "pct")} chance of producing a result, below ${formatNumber(LOW_FEASIBILITY, "pct")}.` });
   }
   const c = constraintPrediction(p, ctx.constraint);
   if (c && ctx.constraint?.floor != null && c.mean < ctx.constraint.floor) {
-    flags.push({ kind: "constraint", label: `Below ${ctx.constraint.column} floor`, detail: `Predicted ${ctx.constraint.column} ${formatNumber(c.mean)} is below the requested floor of ${formatNumber(ctx.constraint.floor)}.` });
+    flags.push({ kind: "constraint", label: `Below the ${ctx.constraint.column} limit`, detail: `Predicted ${ctx.constraint.column} ${formatNumber(c.mean)} is below the limit you asked for, ${formatNumber(ctx.constraint.floor)}.` });
   }
   const bounds = boundaryChecks(recipe, ctx.ranges);
   const outside = bounds.filter((b) => b.where === "below" || b.where === "above").map((b) => b.input);
   const edge = bounds.filter((b) => b.where === "at-min" || b.where === "at-max").map((b) => b.input);
   if (outside.length) {
-    flags.push({ kind: "outside-range", label: `Outside tried range: ${listNames(outside)}`, detail: `${listNames(outside)} ${outside.length === 1 ? "is" : "are"} outside the range tried so far, so the model is extrapolating.` });
+    flags.push({ kind: "outside-range", label: `Outside tried range: ${listNames(outside)}`, detail: `${listNames(outside)} ${outside.length === 1 ? "is" : "are"} outside what you have tried so far, so the model has no runs to go on there.` });
   }
   if (edge.length) {
-    flags.push({ kind: "at-edge", label: `At edge: ${listNames(edge)}`, detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of the range tried so far, where the model has data on one side only.` });
+    flags.push({ kind: "at-edge", label: `At edge: ${listNames(edge)}`, detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of what you have tried so far, where the model has runs on one side only.` });
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the prediction band's half-width of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
+    flags.push({ kind: "gain-within-band", label: "Gain smaller than the likely range", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the likely range of ± ${formatNumber(ctx.band)}, so the run can land below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
 
-/** The batch's checks grouped by kind, for the summary: "P1, P2: gain within band". */
+/** The round's checks grouped by kind, for the summary: "P1, P2: predicted gain smaller than the likely range". */
 export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kind: FlagKind; ranks: number[]; label: string }[] {
   const by = new Map<FlagKind, number[]>();
   for (const { rank, flags } of rows) for (const f of flags) by.set(f.kind, [...(by.get(f.kind) ?? []), rank]);
   const label: Record<FlagKind, string> = {
     negative: "predicted below zero for a target that is never negative",
-    "low-feasibility": `engine-estimated feasibility below ${formatNumber(LOW_FEASIBILITY, "pct")}`,
-    constraint: "predicted below the requested constraint floor",
-    "outside-range": "an input outside the range tried so far",
-    "at-edge": "an input at the edge of the range tried so far",
-    "gain-within-band": "predicted gain smaller than the band's half-width",
+    "low-feasibility": `the model gives it under a ${formatNumber(LOW_FEASIBILITY, "pct")} chance of producing a result`,
+    constraint: "predicted below the limit you asked for",
+    "outside-range": "an input outside what you have tried so far",
+    "at-edge": "an input at the edge of what you have tried so far",
+    "gain-within-band": "predicted gain smaller than the likely range",
   };
   return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => ({ kind, ranks: by.get(kind)!, label: label[kind] }));
 }
@@ -228,8 +228,8 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
 // --- Uncertainty -----------------------------------------------------------------
 
 /**
- * The prediction interval `pred ± band`, only when the engine supplied a band
- * (`conformal_q`). Null otherwise: the page then shows no interval at all,
+ * The likely range `pred ± band`, only when the engine supplied a band
+ * (`conformal_q`). Null otherwise: the page then shows no range at all,
  * never one derived from the model SD.
  */
 export function predictionInterval(pred: number, band: number | null | undefined): [number, number] | null {
@@ -237,17 +237,30 @@ export function predictionInterval(pred: number, band: number | null | undefined
   return [pred - band, pred + band];
 }
 
-/**
- * "90% held-out band" from the engine's coverage, or "held-out band" when it
- * did not say (never a guessed percentage). "Held-out" because the coverage
- * was measured on held-out measured runs; see BAND_CAVEAT.
- */
-export function bandLabel(coverage: number | null | undefined): string {
-  return coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} held-out band` : "held-out band";
+/** The label for the likely range, everywhere it is shown. The coverage is said in words by `bandSentence`, never in the label. */
+export function bandLabel(coverage?: number | null): string {
+  void coverage;
+  return "Likely range";
 }
 
-/** Shown wherever the band is: its coverage is not a promise about new recipes. */
-export const BAND_CAVEAT = "Coverage measured on held-out measured runs; not guaranteed for proposals.";
+/**
+ * The engine's coverage as a count a lab can picture: 0.9 reads "9 of 10 past
+ * runs landed this close to their prediction". The smallest of 10, 20 and 100
+ * that states the coverage exactly is used; a coverage none of them fits is
+ * rounded to a whole percent. Null when the engine sent no coverage (then
+ * nothing is promised).
+ */
+export function bandSentence(coverage: number | null | undefined): string | null {
+  if (coverage == null || !Number.isFinite(coverage) || coverage <= 0 || coverage > 1) return null;
+  for (const den of [10, 20, 100]) {
+    const num = coverage * den;
+    if (Math.abs(num - Math.round(num)) < 1e-6) return `${formatNumber(Math.round(num), "count")} of ${formatNumber(den, "count")} past runs landed this close to their prediction.`;
+  }
+  return `About ${formatNumber(coverage, "pct")} of past runs landed this close to their prediction.`;
+}
+
+/** Plain caveat beside the likely range: it was checked on past runs, and is not a promise about new recipes. */
+export const BAND_CAVEAT = "Checked on past runs, not a promise about new recipes.";
 
 /** "47.38 to 55.04", or null when no band was supplied. */
 export function formatInterval(pred: number, band: number | null | undefined): string | null {
@@ -411,23 +424,23 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
   let headline: string;
   if (requested != null && returned != null) {
     headline = short
-      ? `Kalos returned ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} proposals requested.`
-      : `Kalos returned all ${formatNumber(requested, "count")} proposals requested.`;
+      ? `Kalos proposed ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} recipes asked for.`
+      : `Kalos proposed all ${formatNumber(requested, "count")} recipes asked for.`;
   } else {
-    headline = short ? "Kalos returned fewer proposals than requested." : "Kalos reported how far apart this batch's proposals are.";
+    headline = short ? "Kalos proposed fewer recipes than asked for." : "Kalos reported how far apart this round's recipes are.";
   }
   if (sep != null && Number.isFinite(sep)) {
-    notes.push(`Proposals are kept at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
+    notes.push(`Proposed recipes are kept at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
   }
   if (div?.metric) rawNotes.push(`Separation measured as "${div.metric}".`);
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
-    notes.push(`Kalos replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
+    notes.push(`Kalos replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "recipe" : "recipes"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") {
-    notes.push("No further candidate was far enough from the others, so the batch is shorter than requested.");
+    notes.push("No further recipe was far enough from the others, so this round has fewer than asked for.");
   } else if (notice) {
-    notes.push("The model sent a notice about this batch. Its details are under Method.");
+    notes.push("Kalos sent a note about this round. Its details are under Method.");
   }
   if (notice) rawNotes.push(`Notice code: ${notice.code}.`);
   return { headline, notes, rawNotes, short };
@@ -489,8 +502,8 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
         ? `has the same value (${formatSetpoint(s.min, decimalsOf(s.min))}) in every ${s.n_numeric != null ? `one of its ${formatNumber(s.n_numeric, "count")} rows` : "row"}`
         : "does not vary across runs";
     return {
-      title: "No proposals: the target never changes",
-      body: `In ${r.name}, ${t} ${same}, so there is nothing for the model to learn from and the engine proposed no experiments.`,
+      title: "No proposed recipes: the target never changes",
+      body: `In ${r.name}, ${t} ${same}, so there is nothing for the model to learn from and Kalos proposed no runs.`,
       suggestion: r.availableTargets?.length ? `Columns that do vary and could be the target: ${r.availableTargets.join(", ")}.` : null,
     };
   }
@@ -498,7 +511,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
   const known = engineMessage({ code: r.code, error: r.error });
   return {
     title: "The last upload was not used",
-    body: `The engine did not accept ${r.name}. ${known.message}`,
+    body: `Kalos did not accept ${r.name}. ${known.message}`,
     suggestion: null,
   };
 }
@@ -524,7 +537,7 @@ export function dataNotes(d: {
   if (auto.length) {
     notes.push({
       tone: "neutral",
-      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as categorical because ${auto.length === 1 ? "it holds" : "they hold"} text levels, so proposals vary ${auto.length === 1 ? "it" : "them"}. Declare the columns on Setup to change that.`,
+      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as a choice between its text values, so proposed recipes pick one of them. Change how the columns are used on Setup to change that.`,
     });
   }
   const missing = d.n_dropped_incomplete ?? d.data_drops?.rows_dropped ?? 0;
@@ -532,40 +545,14 @@ export function dataNotes(d: {
   if (missing > 0 || censored > 0) {
     const parts = [
       missing > 0 ? `${count(missing, "run")} with a missing or non-numeric value` : null,
-      censored > 0 ? `${count(censored, "run")} with a censored value such as <LOD` : null,
+      censored > 0 ? `${count(censored, "run")} with a value below the detection limit, such as <LOD` : null,
     ].filter((p): p is string => p != null);
     notes.push({
       tone: "warn",
-      text: `${parts.join(" and ")} ${missing + censored === 1 ? "was" : "were"} left out of the fit. Nothing was imputed.`,
+      text: `${parts.join(" and ")} ${missing + censored === 1 ? "was" : "were"} left out when the model learned. Nothing was filled in.`,
     });
   }
   return notes;
 }
 
-/** The provenance facts the engine recorded, as label/value rows. Only fields present on `run` are returned. */
-export function runFacts(run: RunRecord | null | undefined): { label: string; value: string }[] {
-  if (!run) return [];
-  const rows: { label: string; value: string }[] = [];
-  const add = (label: string, value: string | null | undefined) => {
-    if (value != null && value !== "") rows.push({ label, value });
-  };
-  if (run.kind === "upload") add("Source", "Run sheet upload");
-  else if (run.kind === "reanalyze") add("Source", "Re-analysis of the campaign's folded runs");
-  if (run.profile === "bioprocess") add("Columns", "Inferred from names (bioprocess profile)");
-  else if (run.profile === "generic") add("Columns", "Declared by you (generic profile)");
-  if (run.input_sha256) add("Input fingerprint", run.input_sha256.slice(0, 12));
-  if (run.anonymize !== true) add("Sheet", run.sheet ?? undefined);
-  if (typeof run.n_rows === "number") add("Runs fitted", run.n_rows.toLocaleString("en-US"));
-  if (typeof run.n_features === "number") add("Inputs modeled", run.n_features.toLocaleString("en-US"));
-  if (typeof run.pending_runs === "number") add("Runs in flight when proposed", run.pending_runs.toLocaleString("en-US"));
-  if (typeof run.seed === "number") add("Fit seed", String(run.seed));
-  if (run.torch_threads !== undefined) add("Threads", run.torch_threads === null ? "not pinned" : String(run.torch_threads));
-  if (run.library_versions) {
-    const v = Object.entries(run.library_versions)
-      .filter(([, ver]) => typeof ver === "string")
-      .map(([name, ver]) => `${name} ${ver}`);
-    add("Libraries", v.length ? v.join(", ") : null);
-  }
-  if (run.build_sha) add("Engine build", run.build_sha.slice(0, 12));
-  return rows;
-}
+export { runFacts } from "@/components/campaign/plan/run-facts";

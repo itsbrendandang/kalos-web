@@ -71,8 +71,12 @@ async function openDialog(viewer: Viewer) {
     </ViewerProvider>,
   );
   await screen.findByRole("heading", { level: 1, name: "Plan round 1" });
-  fireEvent.click(screen.getAllByRole("button", { name: /^Approve batch$/ })[0]);
-  return within(await screen.findByRole("dialog"));
+  fireEvent.click(screen.getAllByRole("button", { name: /^Start these \d+ runs?$/ })[0]);
+  const dialog = within(await screen.findByRole("dialog"));
+  // The engine's names (version, build, seed, SHA-256) sit behind a disclosure; open it so the rows can be read.
+  fireEvent.click(dialog.getByText("What these runs were built from"));
+  await dialog.findByText("Model version");
+  return dialog;
 }
 
 describe("approve confirmation", () => {

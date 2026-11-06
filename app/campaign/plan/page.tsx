@@ -9,7 +9,7 @@ import { PlanFrame, PlanHeader } from "@/components/campaign/plan/header";
 import { NoProposals, PlanSkeleton, Started } from "@/components/campaign/plan/states";
 
 /**
- * Plan round N: review the model-generated batch, compare candidates, choose
+ * Plan round N: review the recipes the model proposed, compare them, choose
  * which to run, then approve and start them. Nothing starts without the
  * explicit approval step. Every number is an engine field or is computed from
  * runs the engine returned; see components/campaign/plan-view.ts. Once runs
@@ -25,8 +25,8 @@ export default function PlanPage() {
       <PlanFrame>
         <PlanHeader />
         <ErrorState
-          title="Could not reach the analysis engine"
-          description="The request failed before the engine could respond, so there are no proposals to show. This is a connection problem, not a result: your data and any started runs are unaffected."
+          title="Could not reach Kalos"
+          description="The request failed before Kalos could answer, so there are no proposed recipes to show. This is a connection problem, not a result: your sheet and any started runs are unaffected."
           onRetry={() => {
             void latest.refresh();
             void campaign.refresh();
@@ -43,7 +43,7 @@ export default function PlanPage() {
   const d = latest.data as PlanAnalysis;
   const round = campaignStage(d, campaign.data).round ?? 1;
   const active = campaign.data.has_campaign ? campaign.data : null;
-  // After a start the analysis no longer matches the campaign until Learn re-analyzes, so the old batch is not offered again.
+  // After a start the analysis no longer matches the campaign until Learn updates the model, so the old recipes are not offered again.
   const started = active != null && active.pending.length > 0 && active.analysis_in_sync !== true;
 
   if (started) {

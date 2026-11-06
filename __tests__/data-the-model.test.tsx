@@ -15,7 +15,7 @@ const analysis = { ...(engine as object), has_data: true, dataset: "pichia.csv",
 describe("TheModel", () => {
   it("states the engine's own reason as the verdict, with the trust word beside it", () => {
     render(<TheModel analysis={analysis} />);
-    expect(screen.getByText(/ranks held-out runs above the trust floor/)).toBeTruthy();
+    expect(screen.getByText(/put your past runs in the right order most of the time/)).toBeTruthy();
     expect(screen.getByText("Reliable")).toBeTruthy();
     expect(screen.getByText("Can you trust its ranking?")).toBeTruthy();
   });

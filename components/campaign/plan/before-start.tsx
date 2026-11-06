@@ -3,12 +3,14 @@ import { CircleCheck, TriangleAlert } from "lucide-react";
 import type { DataNote, DiversitySummary } from "@/components/campaign/plan-view";
 import type { BatchModel } from "@/components/campaign/plan/use-batch-model";
 import { TONE_ICON, TONE_TEXT, type Tone } from "@/components/kit/tone";
+import { WhyLine } from "@/components/kit/why-line";
 import { cn } from "@/lib/utils";
 
 /**
- * What to know before approving, one line each. Warnings are things to look at
- * before running (a proposal at the edge of the data, a short batch); the rest
- * is information. Nothing here is a Callout: the page carries one at most.
+ * What to know before starting, one line each. Warnings are things to look at
+ * before running (a recipe at the edge of what has been tried, a short round)
+ * and each carries its why-line; the rest is information. Nothing here is a
+ * Callout: the page carries one at most.
  */
 export function BeforeStart({ m, notes, diversity }: { m: BatchModel; notes: DataNote[]; diversity: DiversitySummary | null }) {
   const rowCount = m.rows.length;
@@ -24,31 +26,32 @@ export function BeforeStart({ m, notes, diversity }: { m: BatchModel; notes: Dat
           </Note>
         ))}
         {m.grouped.map((g) => (
-          <Note key={g.kind} tone="warn">
+          <Note key={g.kind} tone="warn" why={g.kind}>
             <span className="font-medium">{g.ranks.map((r) => `P${r}`).join(", ")}</span>: {g.label}.
           </Note>
         ))}
-        {m.grouped.length === 0 && rowCount > 0 ? <Note tone="good">No proposal was flagged by the checks that could run.</Note> : null}
+        {m.grouped.length === 0 && rowCount > 0 ? <Note tone="good">No recipe was flagged by the checks that could run.</Note> : null}
         {diversity ? (
-          <Note tone={diversity.short ? "warn" : "neutral"} detail={m.spread.length ? m.spread.join(" ") : undefined}>
+          <Note tone={diversity.short ? "warn" : "neutral"} detail={m.spread.length ? m.spread.join(" ") : undefined} why={diversity.short ? "fewer_distinct_candidates" : undefined}>
             {diversity.headline}
           </Note>
         ) : (
-          <Note tone="neutral">How far apart the proposals are was not reported.</Note>
+          <Note tone="neutral">How far apart the recipes are was not reported.</Note>
         )}
-        {m.band == null && rowCount > 0 ? <Note tone="neutral">No prediction band was reported, so predicted gains are shown without an interval.</Note> : null}
+        {m.band == null && rowCount > 0 ? <Note tone="neutral">No likely range was reported, so predicted gains are shown without one.</Note> : null}
       </ul>
     </section>
   );
 }
 
-export function Note({ tone, children, detail }: { tone: Tone; children: ReactNode; detail?: ReactNode }) {
+export function Note({ tone, children, detail, why }: { tone: Tone; children: ReactNode; detail?: ReactNode; why?: string }) {
   const Icon = tone === "good" ? CircleCheck : tone === "warn" ? TriangleAlert : TONE_ICON.neutral;
   return (
     <li className="flex items-start gap-2 text-body text-fg">
       <Icon className={cn("mt-1 size-4 shrink-0", TONE_TEXT[tone])} aria-hidden />
       <span className="min-w-0">
         {children}
+        {why ? <WhyLine code={why} /> : null}
         {detail ? <span className="block text-caption text-fg-muted">{detail}</span> : null}
       </span>
     </li>

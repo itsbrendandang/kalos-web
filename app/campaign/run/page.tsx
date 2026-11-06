@@ -31,7 +31,7 @@ export default function RunPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow={active ? `Round ${displayRound(active.round)}` : undefined}
-        title="Runs in flight"
+        title="Runs in the lab"
         meta={demo ? <ExampleBadge /> : null}
         description="This round's runs, their recipes and what the model expects of them. Results are entered on Record."
         action={

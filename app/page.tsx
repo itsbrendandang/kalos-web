@@ -11,6 +11,7 @@ import { lazyChart } from "@/components/kit/lazy-chart";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
 import { Verdict } from "@/components/kit/verdict";
+import { WhyLine } from "@/components/kit/why-line";
 import { Badge, ExampleBadge, ModeBadge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
@@ -20,10 +21,11 @@ import { useCampaign, useLatest } from "@/hooks/use-engine";
 import { proposalRecipe, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
-import { formatNumber, formatRange } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 import { bestSoFarSeries, topDrivers } from "@/lib/overview";
 import { driverLine, trustPlain, type Trust } from "@/lib/plain";
+import { RANK_AGREEMENT_GLOSS, trustNumbers } from "@/components/campaign/trust-numbers";
 import { cn, parseUnit } from "@/lib/utils";
 import { campaignView, type ActiveCampaign } from "@/lib/workbench";
 import { aimLine } from "@/lib/objective";
@@ -32,7 +34,7 @@ import { EXPERIMENTS_ROUTE } from "@/lib/routes";
 /**
  * Campaign Overview. It answers one question, "what should I run next, and can
  * I trust it?", in this order: one verdict sentence, one primary action, the
- * proposed batch, then every number and chart behind a single Disclosure.
+ * proposed recipes, then every number and chart behind a single Disclosure.
  * Everything comes from /api/latest and /api/campaign; demo data appears only
  * when the engine confirms there is no campaign and demo mode is on, labelled.
  */
@@ -49,8 +51,8 @@ export default function OverviewPage() {
       <div className="flex flex-col gap-8">
         <PageHeader title="Overview" />
         <ErrorState
-          title="Could not reach the analysis service"
-          description="The campaign could not be loaded because the engine did not answer. This is a connection problem, not an empty campaign."
+          title="Could not reach Kalos"
+          description="The campaign could not be loaded because Kalos did not answer. This is a connection problem, not an empty campaign."
           onRetry={() => {
             void latest.refresh();
             void campaign.refresh();
@@ -72,7 +74,7 @@ export default function OverviewPage() {
     return (
       <div className="flex flex-col gap-10">
         <PageHeader title="Start a campaign" />
-        <NextStep tone="accent" sentence={stage.next.reason} action={stage.next.action} href={stage.next.href} />
+        <NextStep tone="accent" sentence={stage.next.reason} why={stage.next.why} action={stage.next.action} href={stage.next.href} />
       </div>
     );
   }
@@ -86,7 +88,7 @@ export default function OverviewPage() {
   const best = active?.best ?? analysis?.best ?? null;
   const runs = active?.n_base ?? analysis?.n ?? null;
   const proposals = analysis?.proposals ?? [];
-  // The batch is the next thing to run only while the plan step is the current one.
+  // The proposed recipes are the next thing to run only while the plan step is the current one.
   const planning = analysis != null && stage.next.stage === "plan" && proposals.length > 0;
   const bestLine =
     best != null
@@ -95,20 +97,18 @@ export default function OverviewPage() {
 
   const sentence = planning ? batchSentence(proposals.length, trust) : stage.next.reason;
   const tone = !planning ? "accent" : trust?.level === "good" ? "good" : trust?.level === "warn" ? "warn" : "neutral";
+  const numbers = verdict ? trustNumbers(verdict) : null;
   const detail = trust ? (
     <div className="flex flex-col gap-2">
-      <p>{trust.sentence}</p>
       <p>{trust.gloss}</p>
-      {verdict?.rho != null ? (
+      {numbers ? (
         <p>
-          Rank agreement on held-out runs is {formatNumber(verdict.rho, "corr")}
-          {verdict.ci ? ` (95% interval ${formatRange(verdict.ci[0], verdict.ci[1], "corr")})` : ""}. 1 means the model orders every unseen run
-          correctly, 0 means no better than chance.
+          {numbers} {RANK_AGREEMENT_GLOSS}
         </p>
       ) : null}
     </div>
   ) : (
-    "Appears once the model has been fitted to your data."
+    "Appears once the model has learned from your runs."
   );
 
   return (
@@ -123,6 +123,7 @@ export default function OverviewPage() {
       <NextStep
         tone={tone}
         sentence={sentence}
+        why={planning && verdict ? verdict.state : stage.next.why}
         action={stage.next.action}
         href={stage.next.href}
         detail={detail}
@@ -131,13 +132,13 @@ export default function OverviewPage() {
 
       {planning && analysis ? <Batch analysis={analysis} target={target} round={stage.round} /> : null}
 
-      <Disclosure summary="Numbers, trend and drivers" meta={runs != null ? `${formatNumber(runs, "count")} runs` : undefined}>
+      <Disclosure summary="Numbers, trend and what went with the result" meta={runs != null ? `${formatNumber(runs, "count")} runs` : undefined}>
         <div className="flex flex-col gap-8 pb-2">
           <Kpis active={active} analysis={analysis} target={target} unit={unit} round={stage.round} />
           <p className="text-body text-fg-muted">
             {agentStatus(active).headline}.{" "}
             <Link href="/agent" className="text-accent hover:underline">
-              Open the agent
+              Open the assistant
             </Link>
           </p>
           {trendReady ? (
@@ -180,18 +181,19 @@ export default function OverviewPage() {
   );
 }
 
-/** One verdict sentence about the batch, with the trust level in plain words. */
+/** One verdict sentence about the proposed recipes, with the trust level in plain words. */
 function batchSentence(n: number, trust: Trust | null): string {
   const head = `Run the ${n} proposed ${n === 1 ? "recipe" : "recipes"}`;
-  if (trust?.level === "good") return `${head}: the model ranks unseen runs well enough to trust them.`;
-  if (trust?.level === "warn") return `${head} as a test: the model is not yet reliable enough to lean on.`;
-  return `${head} as a test: there are not enough held-out runs to judge the model yet.`;
+  if (trust?.level === "good") return `${head}: the model put your past runs in the right order most of the time, so its suggestions are worth running.`;
+  if (trust?.level === "warn") return `${head} as a test: the model cannot yet put your past runs in the right order, so its suggestions are closer to guesses.`;
+  return `${head} as a test: too few past runs could be tested to tell whether the model is any good yet.`;
 }
 
 /** The one verdict sentence, the one primary action, and the trust level beside it. */
 function NextStep({
   tone,
   sentence,
+  why,
   action,
   href,
   detail,
@@ -199,6 +201,7 @@ function NextStep({
 }: {
   tone: "accent" | "good" | "warn" | "neutral";
   sentence: string;
+  why: string;
   action: string;
   href: string;
   detail?: ReactNode;
@@ -206,9 +209,13 @@ function NextStep({
 }) {
   return (
     <section aria-label="Next step" className="flex flex-col gap-4">
-      <Verdict tone={tone} detail={detail} detailLabel="Why">
-        {sentence}
-      </Verdict>
+      <div className="flex flex-col gap-1">
+        <Verdict tone={tone}>{sentence}</Verdict>
+        <WhyLine code={why} className="ml-7" />
+        <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
+          <div className="text-body text-fg-muted">{detail}</div>
+        </Disclosure>
+      </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <Link href={href} className={buttonVariants({ size: "lg" })}>
           {action}
@@ -225,14 +232,14 @@ function NextStep({
   );
 }
 
-/** The proposed batch: one row per recipe, the inputs as the lab sets them, the predicted value and the mode. */
+/** The proposed recipes: one row per recipe, the inputs as the lab sets them, the predicted value and the kind of bet. */
 function Batch({ analysis, target, round }: { analysis: PopulatedResult; target: string; round: number | null }) {
   const features = analysis.proposal_features;
   const n = analysis.proposals.length;
   return (
     <Section
-      title="Proposed batch"
-      description={`${n} ${n === 1 ? "recipe" : "recipes"} for ${round ? `round ${round}` : "the next round"}. Explore runs test unfamiliar settings; Exploit runs are the model's best bet.`}
+      title={`Proposed recipes for ${round ? `round ${round}` : "the next round"}`}
+      description={`${n} ${n === 1 ? "recipe" : "recipes"}, predicted by the model, not measured. Best bet: the model expects a high value. New ground: a recipe the model is unsure about, run to learn from.`}
     >
       <Table>
         <TableHeader>
@@ -244,7 +251,7 @@ function Batch({ analysis, target, round }: { analysis: PopulatedResult; target:
               </TableHead>
             ))}
             <TableHead numeric>Predicted {target}</TableHead>
-            <TableHead>Mode</TableHead>
+            <TableHead>Kind of bet</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -271,6 +278,13 @@ function Batch({ analysis, target, round }: { analysis: PopulatedResult; target:
       </Table>
     </Section>
   );
+}
+
+/** Under the verdict label: how often the model put past runs in the right order, in words. */
+function rankWords(state: "reliable" | "not-yet" | "insufficient"): string {
+  if (state === "reliable") return "It put past runs in the right order most of the time";
+  if (state === "not-yet") return "It put past runs in the right order about as often as not";
+  return "Too few past runs could be tested";
 }
 
 function Kpis({
@@ -301,21 +315,14 @@ function Kpis({
       />
       <KpiCard
         bare
-        label="Model reliability"
-        value={verdict?.rho ?? null}
-        quantity="corr"
-        badge={verdict ? <Badge tone={verdictTone}>{verdict.label}</Badge> : null}
-        qualifier={
-          !verdict
-            ? "Appears after an analysis"
-            : verdict.ci
-              ? `Rank agreement on held-out runs, 95% CI ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}`
-              : "Rank agreement on held-out runs; no interval reported"
-        }
+        label="Can the model be trusted?"
+        value={verdict ? verdict.label : null}
+        badge={verdict ? <Badge tone={verdictTone}>{verdict.state === "reliable" ? "Yes" : verdict.state === "not-yet" ? "Not yet" : "Cannot tell"}</Badge> : null}
+        qualifier={!verdict ? "Appears once the model has learned from your runs" : rankWords(verdict.state)}
       />
       <KpiCard
         bare
-        label="Runs in flight"
+        label="Runs in the lab"
         value={active?.n_awaiting ?? 0}
         quantity="count"
         qualifier={`${formatNumber(active?.n_measured ?? 0, "count")} measured this round`}
@@ -325,7 +332,7 @@ function Kpis({
         label="Round"
         value={round}
         quantity="count"
-        qualifier={`${formatNumber(active?.n_base ?? analysis?.n, "count")} runs in the dataset`}
+        qualifier={`${formatNumber(active?.n_base ?? analysis?.n, "count")} runs in the sheet`}
       />
     </section>
   );
@@ -374,12 +381,11 @@ function DriversChart({ analysis, target }: { analysis: PopulatedResult | null; 
   const bars = analysis ? topDrivers(analysis.drivers) : [];
   return (
     <ChartFrame
-      title="Top process drivers"
-      unit="rank correlation"
+      title={`What went with higher ${target}`}
       n={analysis ? (analysis.driver_selection?.n_units ?? analysis.n) : null}
-      method="Spearman rank correlation of each input with the target across measured runs, with its 95% confidence interval. Significant means the interval excludes zero and the input survives a correction for testing many inputs at once. An association in these runs, not proof of cause."
+      method="Spearman rank correlation of each input with the target across measured runs, with its 95% confidence interval. A clear signal means the interval excludes zero and the input survives a correction for testing many inputs at once. An association in these runs, not proof of cause."
       state={bars.length ? "ready" : "empty"}
-      emptyText={analysis ? "This analysis reported no drivers." : "Drivers appear after the first analysis."}
+      emptyText={analysis ? "Kalos found nothing that went with the result in these runs." : "This appears once the model has learned from your runs."}
     >
       <BarChart
         className="h-64"
@@ -394,19 +400,18 @@ function DriversChart({ analysis, target }: { analysis: PopulatedResult | null; 
         valueFormatter={(v) => formatNumber(v, "corr")}
         barStyle={(d) => (d.significant ? { color: "accent" } : { color: "muted", outline: true })}
         legend={[
-          { name: "Significant", color: "accent", swatch: "solid" },
-          { name: "Not significant", color: "muted", swatch: "outline" },
+          { name: "Clear signal", color: "accent", swatch: "solid" },
+          { name: "Could be chance", color: "muted", swatch: "outline" },
         ]}
         legendPosition="left"
-        xAxisLabel={`Correlation with ${target}`}
-        aria-label={`Top drivers: ${bars.map((b) => `${b.name} ${formatNumber(b.rho, "corr")}${b.significant ? ", significant" : ", not significant"}`).join("; ")}`}
+        xAxisLabel={`How strongly it went with ${target}`}
+        aria-label={`What went with ${target}: ${bars.map((b) => `${b.name} ${formatNumber(b.rho, "corr")}${b.significant ? ", clear signal" : ", could be chance"}`).join("; ")}`}
         customTooltip={(d) => (
           <div className="space-y-0.5 text-fg-muted">
             <p>
-              Correlation <span className="text-fg tabular-nums">{formatNumber(Number(d.rho), "corr")}</span>
+              Went with {target} <span className="text-fg tabular-nums">{formatNumber(Number(d.rho), "corr")}</span>
             </p>
-            <p>95% CI {formatRange(Number(d.lo), Number(d.hi), "corr")}</p>
-            <p className="text-fg">{d.significant ? "Significant" : "Not significant"}</p>
+            <p className="text-fg">{d.significant ? "Clear signal" : "Could be chance"}</p>
           </div>
         )}
       />

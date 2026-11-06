@@ -79,11 +79,11 @@ async function renderPlan(withUpload = false) {
 
 const isDisabled = (el: HTMLElement) => (el as HTMLButtonElement).disabled || el.getAttribute("aria-disabled") === "true" || el.hasAttribute("data-disabled");
 
-/** The header's Approve batch button (the sticky mobile bar repeats it; the header button is the first). */
-const reviewButton = () => screen.getAllByRole("button", { name: /^Approve batch$/ })[0];
+/** The header's "Start these N runs" button (the sticky mobile bar repeats it; the header button is the first). */
+const reviewButton = () => screen.getAllByRole("button", { name: /^Start these \d+ runs?$/ })[0];
 
-/** Opens one of the secondary tabs under the batch (Compare, Response surface, Method). */
-const openTab = (name: string) => fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+/** Opens one of the secondary tabs under the recipes (Compare, Predicted ... across two inputs, Method). */
+const openTab = (name: string | RegExp) => fireEvent.click(screen.getByRole("tab", { name: typeof name === "string" ? new RegExp(`^${name}`) : name }));
 
 async function openDialog() {
   fireEvent.click(reviewButton());
@@ -208,24 +208,28 @@ describe("Plan data notes and provenance", () => {
       }),
     );
     await renderPlan();
-    expect(screen.getByText(/Strain was read as categorical/)).toBeTruthy();
+    expect(screen.getByText(/Strain was read as a choice between its text values/)).toBeTruthy();
     expect(screen.getByText(/2 runs with a missing or non-numeric value/)).toBeTruthy();
-    expect(screen.getByText(/1 run with a censored value such as <LOD/)).toBeTruthy();
+    expect(screen.getByText(/1 run with a value below the detection limit, such as <LOD/)).toBeTruthy();
     openTab("Method");
+    // The engine's names (fingerprint, build) sit one click further down, behind their own disclosure.
+    expect(screen.queryByText("abcdef012345")).toBeNull();
+    fireEvent.click(await screen.findByText("What Kalos recorded about this model"));
     expect(await screen.findByText("abcdef012345")).toBeTruthy();
   });
 
   it("says the engine did not report provenance when the run block is absent", async () => {
     await renderPlan();
     openTab("Method");
-    expect(await screen.findByText("How this batch was made")).toBeTruthy();
-    expect(screen.getByText(/^Not reported: how this analysis was produced/)).toBeTruthy();
+    expect(await screen.findByText("How these recipes were made")).toBeTruthy();
+    fireEvent.click(screen.getByText("What Kalos recorded about this model"));
+    expect(await screen.findByText(/^Not reported: how this model was made/)).toBeTruthy();
   });
 
-  it("mounts the response surface only when its disclosure is opened, labelled predicted mean only", async () => {
-    // The fixture's own surface is empty (the engine sent no grid), so the disclosure must not appear for it.
+  it("mounts the predicted surface only when its tab is opened, labelled as the model's best guess only", async () => {
+    // The fixture's own surface is empty (the engine sent no grid), so the tab must not appear for it.
     await renderPlan();
-    expect(screen.queryByRole("tab", { name: "Response surface" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /across two inputs$/ })).toBeNull();
     cleanup();
     vi.stubGlobal(
       "fetch",
@@ -237,8 +241,8 @@ describe("Plan data notes and provenance", () => {
       }),
     );
     await renderPlan();
-    expect(screen.queryByText(/Predicted mean only, uncertainty not shown/)).toBeNull();
-    openTab("Response surface");
-    expect(await screen.findByText(/Predicted mean only, uncertainty not shown/)).toBeTruthy();
+    expect(screen.queryByText(/best guess only; how sure it is is not shown/)).toBeNull();
+    openTab(/across two inputs$/);
+    expect(await screen.findByText(/best guess only; how sure it is is not shown/)).toBeTruthy();
   });
 });

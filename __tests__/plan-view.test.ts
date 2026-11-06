@@ -6,6 +6,7 @@ import {
   runFacts,
   BAND_CAVEAT,
   bandLabel,
+  bandSentence,
   exactSetpoint,
   formatGain,
   toRejection,
@@ -96,10 +97,10 @@ describe("recipeFlags", () => {
   it("is empty for an unremarkable recipe", () => {
     expect(kinds(p(45))).toEqual([]);
   });
-  it("says the band is compared by its half-width, the same measure as the gain", () => {
+  it("compares the gain with the likely range's ± width, the same measure as the gain, in plain words", () => {
     const flag = recipeFlags(p(51), { pH: 6 }, ctx).find((f) => f.kind === "gain-within-band");
-    expect(flag?.detail).toContain("half-width of ±3");
-    expect(flag?.detail).not.toContain("prediction band of");
+    expect(flag?.detail).toContain("likely range of ± 3");
+    expect(flag?.detail).not.toMatch(/half-width|prediction band|interval/);
   });
   it("flags a gain smaller than the band, but not a gain larger than it or no gain", () => {
     expect(kinds(p(51))).toEqual(["gain-within-band"]);
@@ -155,11 +156,17 @@ describe("uncertainty display", () => {
     expect(formatInterval(51.205, 3.8329)).toBe("47.37 to 55.04");
     expect(formatInterval(51.205, null)).toBeNull();
   });
-  it("names the coverage only when the engine reported it", () => {
-    expect(bandLabel(0.9)).toBe("90% held-out band");
-    expect(bandLabel(undefined)).toBe("held-out band");
-    expect(bandLabel(null)).toBe("held-out band");
-    expect(BAND_CAVEAT).toMatch(/not guaranteed for proposals/);
+  it("labels the likely range the same everywhere and says the coverage as a count of past runs, only when the engine reported it", () => {
+    expect(bandLabel(0.9)).toBe("Likely range");
+    expect(bandLabel(undefined)).toBe("Likely range");
+    expect(bandSentence(0.9)).toBe("9 of 10 past runs landed this close to their prediction.");
+    expect(bandSentence(0.95)).toBe("19 of 20 past runs landed this close to their prediction.");
+    expect(bandSentence(0.8)).toBe("8 of 10 past runs landed this close to their prediction.");
+    expect(bandSentence(0.874)).toBe("About 87% of past runs landed this close to their prediction.");
+    expect(bandSentence(undefined)).toBeNull();
+    expect(bandSentence(null)).toBeNull();
+    expect(BAND_CAVEAT).toMatch(/not a promise about new recipes/);
+    expect(`${bandLabel(0.9)} ${bandSentence(0.9)} ${BAND_CAVEAT}`).not.toMatch(/held-out|coverage|conformal|interval|band/i);
   });
   it("builds one padded axis for the batch strips that holds every interval and the best", () => {
     const [lo, hi] = stripDomain([50, 45], 2, 49)!;
@@ -247,8 +254,8 @@ describe("diversitySummary", () => {
   it("describes a full batch in plain words, and keeps the engine's metric text apart from them", () => {
     const s = diversitySummary({ requested: 5, returned: 5, near_duplicates_replaced: 1, min_separation: 0.05, metric: "max over continuous factors of |difference| / factor range" }, null)!;
     expect(s.short).toBe(false);
-    expect(s.headline).toBe("Kalos returned all 5 proposals requested.");
-    expect(s.notes).toEqual(["Proposals are kept at least 5% apart on the input ranges.", "Kalos replaced 1 near-duplicate proposal."]);
+    expect(s.headline).toBe("Kalos proposed all 5 recipes asked for.");
+    expect(s.notes).toEqual(["Proposed recipes are kept at least 5% apart on the input ranges.", "Kalos replaced 1 near-duplicate recipe."]);
     expect(s.notes.join(" ")).not.toMatch(/max over|factor range|engine|distinct|in flight/);
     expect(s.rawNotes).toEqual(['Separation measured as "max over continuous factors of |difference| / factor range".']);
   });
@@ -258,8 +265,8 @@ describe("diversitySummary", () => {
       { code: "fewer_distinct_candidates", requested: 5, returned: 3, min_separation: 0.05, message: "..." },
     )!;
     expect(s.short).toBe(true);
-    expect(s.headline).toBe("Kalos returned 3 of the 5 proposals requested.");
-    expect(s.notes.at(-1)).toBe("No further candidate was far enough from the others, so the batch is shorter than requested.");
+    expect(s.headline).toBe("Kalos proposed 3 of the 5 recipes asked for.");
+    expect(s.notes.at(-1)).toBe("No further recipe was far enough from the others, so this round has fewer than asked for.");
     expect(s.notes.join(" ")).not.toMatch(/fewer_distinct_candidates|code/);
     expect(s.rawNotes).toEqual(["Notice code: fewer_distinct_candidates."]);
   });
@@ -311,19 +318,19 @@ describe("rejectionCopy", () => {
       targetSummary: { n_numeric: 40, n_distinct: 1, min: 5, max: 5 },
       availableTargets: ["biomass_gL"],
     });
-    expect(c.title).toBe("No proposals: the target never changes");
-    expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5) in every one of its 40 rows, so there is nothing for the model to learn from and the engine proposed no experiments.");
+    expect(c.title).toBe("No proposed recipes: the target never changes");
+    expect(c.body).toBe("In constant_target.csv, lipase_titer has the same value (5) in every one of its 40 rows, so there is nothing for the model to learn from and Kalos proposed no runs.");
     expect(c.suggestion).toBe("Columns that do vary and could be the target: biomass_gL.");
   });
   it("gives a known code its plain sentence and never shows the raw code", () => {
     const c = rejectionCopy({ name: "tiny.csv", forDataset: null, code: "too_few_rows", error: "need at least 6 rows" });
-    expect(c.body).toBe("The engine did not accept tiny.csv. This sheet has too few rows to fit a model. Add more measured runs.");
+    expect(c.body).toMatch(/^Kalos did not accept tiny\.csv\. /);
     expect(c.body).not.toContain("too_few_rows");
     expect(c.suggestion).toBeNull();
   });
   it("falls back to the engine's own sentence for an unknown code, still without the code", () => {
     const c = rejectionCopy({ name: "x.csv", forDataset: null, code: "novel_code", error: "Column 'pH' is not numeric" });
-    expect(c.body).toBe("The engine did not accept x.csv. Column 'pH' is not numeric");
+    expect(c.body).toBe("Kalos did not accept x.csv. Column 'pH' is not numeric");
     expect(c.body).not.toContain("novel_code");
   });
 });
@@ -337,22 +344,22 @@ describe("dataNotes", () => {
   it("names auto-detected categoricals and asks for the declaration on Setup", () => {
     const [n] = dataNotes({ auto_categorical: ["Strain"] });
     expect(n.tone).toBe("neutral");
-    expect(n.text).toContain("Strain was read as categorical");
-    expect(n.text).toContain("Declare the columns on Setup");
+    expect(n.text).toContain("Strain was read as a choice between its text values");
+    expect(n.text).toContain("Change how the columns are used on Setup");
   });
 
   it("counts missing and censored exclusions separately and says nothing was imputed", () => {
     const [n] = dataNotes({ n_dropped_incomplete: 2, n_censored_excluded: 1 });
     expect(n.tone).toBe("warn");
     expect(n.text).toContain("2 runs with a missing or non-numeric value");
-    expect(n.text).toContain("1 run with a censored value such as <LOD");
-    expect(n.text).toContain("Nothing was imputed");
+    expect(n.text).toContain("1 run with a value below the detection limit, such as <LOD");
+    expect(n.text).toContain("Nothing was filled in");
   });
 
   it("falls back to data_drops when the top-level counts are absent", () => {
     const [n] = dataNotes({ data_drops: { rows_dropped: 3, censored_rows_excluded: 0 } });
     expect(n.text).toContain("3 runs with a missing or non-numeric value");
-    expect(n.text).not.toContain("censored");
+    expect(n.text).not.toContain("detection limit");
   });
 });
 
@@ -365,7 +372,7 @@ describe("runFacts", () => {
   it("shows the fingerprint and build, and never the sheet name under anonymize", () => {
     const facts = runFacts({ kind: "upload", profile: "bioprocess", input_sha256: "abcdef0123456789ff", sheet: "Runs", anonymize: true, torch_threads: null, build_sha: "1234567890abcdef" });
     const get = (label: string) => facts.find((f) => f.label === label)?.value;
-    expect(get("Input fingerprint")).toBe("abcdef012345");
+    expect(get("Sheet fingerprint (SHA-256)")).toBe("abcdef012345");
     expect(get("Sheet")).toBeUndefined();
     expect(get("Threads")).toBe("not pinned");
     expect(get("Engine build")).toBe("1234567890ab");

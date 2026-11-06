@@ -21,7 +21,7 @@ describe("a failed upload never leaves the previous analysis actionable", () => 
     expect(s.failed).toMatchObject({ name: "notes.txt", error: "Unsupported file type", refit: false });
     expect(isStale(s)).toBe(true);
     expect(canActOnAnalysis(s)).toBe(false);
-    expect(staleNotice(s, "mixed.csv")).toBe("Showing the last successful analysis: mixed.csv. Your new file notes.txt was not used.");
+    expect(staleNotice(s, "mixed.csv")).toBe("Showing the last sheet Kalos read: mixed.csv. Your new file notes.txt was not used.");
   });
 
   it("cannot be confirmed while stale (a stale 'Looks right' click is ignored)", () => {
@@ -39,10 +39,10 @@ describe("a failed upload never leaves the previous analysis actionable", () => 
     expect(afterReload.file).toBeNull();
     expect(canActOnAnalysis(afterReload)).toBe(false);
     expect(staleNotice(afterReload, "old.csv")).toContain("old.csv");
-    expect(staleNotice(afterReload, undefined)).toContain("the previous file");
+    expect(staleNotice(afterReload, undefined)).toContain("the previous sheet");
     const refit = run([{ type: "start" }, { type: "failure", file: mixed, error: "x" }], good);
     expect(refit.failed?.refit).toBe(true);
-    expect(staleNotice(refit, "mixed.csv")).toBe("Showing the last successful analysis: mixed.csv. This re-fit was not applied.");
+    expect(staleNotice(refit, "mixed.csv")).toBe("Showing the last sheet Kalos read: mixed.csv. The model was not rebuilt with your new columns.");
   });
 
   it("the user can explicitly keep the previous file, which clears the failure but not the lost confirmation", () => {

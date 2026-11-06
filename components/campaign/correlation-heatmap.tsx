@@ -16,7 +16,8 @@ export function CorrelationHeatmap({ labels, matrix }: { labels: string[]; matri
   return (
     <div>
       <p className="mb-2 text-caption text-fg-muted">
-        Rank correlation between each pair of inputs and the target. Accent fill is a positive correlation, grey a negative one; a deeper fill is a stronger one.
+        How strongly each pair of inputs, and each input and the target, went together across the runs, from -1 to +1. Blue means more of one went with more of the other, grey means
+        more of one went with less of the other; a deeper fill is a stronger pattern.
       </p>
       <div className="overflow-x-auto">
         <table className="border-separate border-spacing-0.5 text-caption tabular-nums">

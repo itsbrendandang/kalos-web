@@ -6,7 +6,8 @@ import { ChevronRight } from "lucide-react";
 import { Badge, ModeBadge } from "@/components/ui/badge";
 import { SortableHead, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from "@/components/ui/table";
 import type { CampaignRun } from "@/lib/api";
-import { formatBand, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
+import { likelyRange } from "@/lib/run-stage";
 import { shortId } from "@/lib/workbench";
 import { cn } from "@/lib/utils";
 import { clampPage, inlineRecipeKeys, nextSort, RUN_PAGE_SIZE, sortRuns, type RunSort, type RunSortKey } from "@/components/campaign/stage-logic";
@@ -83,11 +84,11 @@ export function RunsTable({
                   </TableCell>
                   <TableCell numeric>
                     {formatNumber(r.pred)}
-                    {band ? <span className="ml-2 text-caption text-fg-muted">{formatBand(band.halfWidth, band.coverage)}</span> : null}
+                    {band ? <span className="ml-2 text-caption text-fg-muted">{likelyRange(band.halfWidth)}</span> : null}
                   </TableCell>
                   <TableCell numeric>{formatNumber(r.result)}</TableCell>
                   <TableCell>
-                    <Badge tone={r.awaiting ? "warn" : "good"}>{r.awaiting ? "Awaiting" : "Measured"}</Badge>
+                    <Badge tone={r.awaiting ? "warn" : "good"}>{r.awaiting ? "Waiting for a result" : "Measured"}</Badge>
                   </TableCell>
                   <TableCell>
                     <Link href={`/campaign/record#record-${r.id}`} className="text-label text-accent hover:underline">

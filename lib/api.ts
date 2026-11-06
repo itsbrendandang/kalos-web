@@ -566,13 +566,13 @@ export type AnalyzeResult = Partial<Diagnostics> & {
 
 export const runSingle = (): Promise<SingleRun> =>
   fetch(`${API}/api/single`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
 export const runMulti = (): Promise<MultiRun> =>
   fetch(`${API}/api/multi`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
@@ -691,11 +691,13 @@ export function incumbentLabel(d: Pick<AnalyzeResult, "noise">): string {
   return d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run";
 }
 
+export { calibrationNote, cvLogoNote, cvTopKNote, designBoxExclusionsNote, driverSelectionNote, groupMeanBaselineVerdict, proposalAuditNote, proposalGatingNote, reliabilityReason, repeatSpreadNote } from "@/lib/api-notes";
+
 export const getLatest = (): Promise<LatestResult> =>
   fetch(`${API}/api/latest`).then((r) => {
     // fetch only rejects on network failure; treat a non-2xx engine response as an
     // error too, so callers show the offline state instead of a fake "no data".
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
@@ -708,35 +710,6 @@ export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
  * page never contradicts itself: the model is reliable only when the held-out
  * correlation clears the floor AND its 95% CI excludes zero.
  */
-/**
- * Why a dataset is or is not reliable, in one short phrase, using the engine's
- * OWN floor rather than a hardcoded number.
- *
- * This exists because `/results` used to render
- * `reliable ? "Clears the 0.20 floor" : "Below the 0.20 floor"`, which was wrong
- * in two ways at once. It hardcoded a floor the engine owns and reports as
- * `reliability.spearman_floor`, and - worse - `reliable` is `isReliable()`,
- * which is `clears_floor AND ci_excludes_zero`. So a model that genuinely
- * CLEARED the floor but whose 95% CI still included zero was told "Below the
- * 0.20 floor": a false statement about its own score, and the wrong reason for
- * the right verdict. A scientist debugging why their run was not trusted would
- * have gone looking at the wrong number.
- *
- * The two failure modes are distinguished, because the fix for them differs: a
- * rho below the floor needs a better model or better data, while a CI spanning
- * zero at an adequate rho usually just needs more runs.
- */
-export function reliabilityReason(
-  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
-): string {
-  const rel = d.reliability;
-  if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
-  const floor = rel.spearman_floor.toFixed(2);
-  if (!rel.clears_floor) return `Below the ${floor} floor`;
-  if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
-  return `Clears the ${floor} floor`;
-}
-
 export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
   const rel = d.reliability;
   if (rel) return rel.clears_floor && rel.ci_excludes_zero;
@@ -748,15 +721,15 @@ export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
 
 export type ReliabilityVerdict = {
   state: ReliabilityState;
-  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough data". */
-  label: "Reliable" | "Not yet reliable" | "Not enough data";
+  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough runs to tell". */
+  label: "Reliable" | "Not yet reliable" | "Not enough runs to tell";
   /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
   rho: number | null;
   /** Its 95% interval, when the engine reported one. */
   ci: [number, number] | null;
   /** The engine's trust floor for `rho`, when reported. */
   floor: number | null;
-  /** One plain sentence saying why. Never says "clears" while the interval reaches below the floor. */
+  /** One plain sentence saying why, with no numbers in it: the Spearman, interval and floor are for a disclosure (see trustNumbers). Never says the model is sure while the interval reaches below the floor. */
   reason: string;
 };
 
@@ -773,15 +746,14 @@ export function reliabilityVerdict(
   const rho = rel?.spearman ?? d.cv_spearman ?? null;
   const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
   const floor = rel?.spearman_floor ?? null;
-  const floorText = floor != null ? ` (${floor.toFixed(2)})` : "";
   if (rho == null) {
     return {
       state: "insufficient",
-      label: "Not enough data",
+      label: "Not enough runs to tell",
       rho,
       ci,
       floor,
-      reason: "There are not enough held-out runs to measure how well the model ranks recipes.",
+      reason: "Too few past runs could be tested to tell whether the model puts them in the right order.",
     };
   }
   if (isReliable(d)) {
@@ -793,8 +765,8 @@ export function reliabilityVerdict(
       ci,
       floor,
       reason: reachesBelow
-        ? `The model ranks held-out runs above the trust floor${floorText} on average, but its 95% interval still reaches below it.`
-        : `The model ranks held-out runs above the trust floor${floorText}, and its 95% interval stays above it.`,
+        ? "The model put your past runs in the right order most of the time, so its suggestions are worth running, though we are less sure of that than usual."
+        : "The model put your past runs in the right order most of the time, and we are sure enough of that, so its suggestions are worth running.",
     };
   }
   // Without a `reliability` object there is no floor to compare against: the only known cause is the interval.
@@ -806,12 +778,10 @@ export function reliabilityVerdict(
     ci,
     floor,
     reason: belowFloor
-      ? `The model's ranking of held-out runs is below the trust floor${floorText}.`
-      : rel
-        ? "The model's ranking of held-out runs is above the trust floor on average, but its 95% interval still includes zero, so it is not confirmed yet."
-        : ci
-          ? "The model's ranking of held-out runs has a 95% interval that includes zero, so it is not confirmed yet."
-          : "The engine did not report a 95% interval for the model's ranking of held-out runs, so it is not confirmed yet.",
+      ? "The model put your past runs in the right order about as often as not, so it cannot yet tell a good recipe from a poor one."
+      : rel || ci
+        ? "The model put your past runs in the right order more often than not, but that could still be chance, so it is not confirmed yet."
+        : "Kalos did not say how sure it is that the model puts past runs in the right order, so it is not confirmed yet.",
   };
 }
 
@@ -824,154 +794,6 @@ export function reliabilityVerdict(
 export function coveragePct(conformalCoverage: number | null | undefined): string | null {
   if (conformalCoverage == null || !Number.isFinite(conformalCoverage)) return null;
   return `${Math.round(conformalCoverage * 100)}%`;
-}
-
-/**
- * One-line disclosure of how the engine selected which drivers to report -
- * how many candidate features were tested and how many survived to the
- * displayed top slice. Returns `null` when the engine didn't report
- * `driver_selection` (an older engine build) - render nothing rather than
- * imply a selection process that wasn't disclosed.
- */
-export function driverSelectionNote(sel: DriverSelection | null | undefined): string | null {
-  if (!sel) return null;
-  const base = `${sel.n_tested} feature${sel.n_tested === 1 ? "" : "s"} tested - showing the top ${sel.n_reported}, ranked by ${sel.ranked_by} (${sel.fdr_method} FDR, q=${sel.fdr_q}).`;
-  if (sel.unit == null || sel.n_units == null || sel.n_rows == null) return base;
-  return `${base} Tested per ${sel.unit} (${sel.n_units} ${sel.unit}${sel.n_units === 1 ? "" : "s"}, ${sel.n_rows} row${sel.n_rows === 1 ? "" : "s"}).`;
-}
-
-// --- Honesty-parity helpers -------------------------------------------------
-// Pure formatters for the engine's newer response fields, following the same
-// contract every helper above already does: absent field -> null (render
-// nothing); present-but-unmeasured -> the engine's own stated reason, never a
-// fabricated number. Kept here rather than inline in components so the
-// render-or-explain logic is unit-testable without a DOM.
-
-/**
- * Held-out prediction-interval calibration (`reliability.calibration`): is
- * the stated +/- band honest, not just the ranking. `null` when the field is
- * absent (older engine build) - render nothing. When the engine could not
- * measure it on this sheet (`available: false`), returns the engine's own
- * reason rather than a fabricated ECE.
- */
-export function calibrationNote(cal: Calibration | null | undefined): string | null {
-  if (!cal) return null;
-  if (!cal.available) return `Not scored - ${cal.reason ?? "not enough held-out points"}.`;
-  const parts = [`ECE ${cal.ece != null ? cal.ece.toFixed(2) : "n/a"}`];
-  if (cal.z_std != null) {
-    const shape = cal.z_std > 1 ? "bands read narrow, overconfident" : cal.z_std < 1 ? "bands read wide" : "well-calibrated";
-    parts.push(`z_std ${cal.z_std.toFixed(2)} (${shape})`);
-  }
-  return `${parts.join(" - ")}, n=${cal.n}.`;
-}
-
-/**
- * Per-repeat pooled Spearman spread (`cv_n_repeats`/`cv_spearman_per_repeat`) -
- * `cv_ci95` already reflects this partition-to-partition variance in its
- * width; this surfaces the spread itself, subtly, beside the point estimate.
- * `null` when there is nothing to add: fewer than 2 finite repeats, or the
- * fields are absent (older engine build).
- */
-export function repeatSpreadNote(
-  nRepeats: number | null | undefined,
-  perRepeat: (number | null)[] | null | undefined,
-): string | null {
-  const finite = (perRepeat ?? []).filter((v): v is number => v != null);
-  if (finite.length < 2) return null;
-  const lo = Math.min(...finite).toFixed(2);
-  const hi = Math.max(...finite).toFixed(2);
-  return `${nRepeats ?? finite.length} repeats: ${lo} to ${hi}`;
-}
-
-/**
- * Leave-one-group-out generalization (`cv_logo`) - the harder question of
- * generalizing to the NEXT group the model has seen nothing like. `null`
- * when the field is absent (older engine build); the engine's own `reason`
- * when it could not be computed on this sheet (no group column, or too many
- * groups to afford it) rather than silence.
- */
-export function cvLogoNote(logo: CvLogo | null | undefined): string | null {
-  if (!logo) return null;
-  if (logo.spearman == null) return logo.reason ?? "Not scored.";
-  return `rho ${logo.spearman.toFixed(2)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
-}
-
-/**
- * "Of the true top-k recipes, how many did the model's top-k catch"
- * (`cv_topk`). `null` when the field is absent (older engine build);
- * `evaluable: false` renders the engine's stated reason rather than a number
- * that looks measured.
- */
-export function cvTopKNote(topk: CvTopK | null | undefined): string | null {
-  if (!topk) return null;
-  if (!topk.evaluable || topk.overlap == null) return topk.reason ?? "Not scored.";
-  const hits = Math.round(topk.overlap * topk.k);
-  return `${hits} of the true top ${topk.k} caught (n=${topk.n}).`;
-}
-
-/**
- * The group-mean baseline floor (`cv_group_mean_baseline`): how much of the
- * apparent CV signal is just the model recognizing which recipe a row
- * belongs to. `null` when the field is absent (older engine build).
- * Otherwise always returns text - the engine's stated `reason` when the
- * baseline itself could not be computed, or a line built from `spearman` and
- * `interpretation` when it could - plus `prominent`, true when the caller
- * should surface this as a loud callout rather than a quiet mention: the
- * model's own `cv_spearman` does not clearly beat the floor (does not
- * strictly exceed it), which is the honest moment this field exists for.
- */
-export function groupMeanBaselineVerdict(
-  cvSpearman: number | null | undefined,
-  baseline: CvGroupMeanBaseline | null | undefined,
-): { text: string; prominent: boolean } | null {
-  if (!baseline) return null;
-  if (baseline.spearman == null) {
-    return { text: baseline.reason ?? "Not scored.", prominent: false };
-  }
-  const beats = cvSpearman != null && cvSpearman > baseline.spearman;
-  const text = `Group-mean baseline rho ${baseline.spearman.toFixed(2)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
-    baseline.interpretation ? ` - ${baseline.interpretation}` : ""
-  }`;
-  return { text, prominent: !beats };
-}
-
-/**
- * Which region of the recipe space was actually searched, when narrowed
- * because some observed cells were physically impossible
- * (`design_box_exclusions`) - so a consumer never assumes the search box is
- * the full data range. `null` when nothing was excluded, or the field is
- * absent (older engine build).
- */
-export function designBoxExclusionsNote(exclusions: DesignBoxExclusion[] | null | undefined): string | null {
-  if (!exclusions || exclusions.length === 0) return null;
-  const parts = exclusions.map(
-    (e) => `${e.column} (${e.lower.toFixed(2)} to ${e.upper.toFixed(2)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
-  );
-  return `Search box narrowed for ${exclusions.length} feature${exclusions.length === 1 ? "" : "s"}: ${parts.join("; ")}.`;
-}
-
-/**
- * How this batch was actually computed (`proposal_optimizer`/
- * `n_pending_considered`) - mirrors the seed/timestamp/engine_version audit
- * trail: a large categorical space silently switches optimizers, and
- * in-flight recipes change what the acquisition already knew about. `null`
- * only when the engine reported neither (older engine build).
- */
-export function proposalAuditNote(optimizer: string | null | undefined, nPending: number | null | undefined): string | null {
-  const parts: string[] = [];
-  if (optimizer) parts.push(`${optimizer} optimizer`);
-  if (nPending != null) parts.push(`${nPending} in-flight recipe${nPending === 1 ? "" : "s"} considered`);
-  return parts.length ? parts.join(" - ") : null;
-}
-
-/**
- * Whether/why the proposal acquisition was gated by predicted feasibility
- * (`proposal_gating`). `null` when the field is absent (older engine build,
- * or an engine build before this NEW optimistic field shipped).
- */
-export function proposalGatingNote(gating: ProposalGating | null | undefined): string | null {
-  if (!gating) return null;
-  return gating.reason;
 }
 
 /**
@@ -991,15 +813,15 @@ export function constraintNote(constraint: ConstraintReport | null | undefined):
   if (!constraint) return null;
   if (constraint.reason === "no constraint requested") return null;
   if (constraint.applied) {
-    return { plain: `The batch keeps ${constraint.column} at or above ${constraint.floor}, using the ${constraint.n_rows_with_value} runs that report it.`, raw: null };
+    return { plain: `Every proposed recipe keeps ${constraint.column} at or above ${constraint.floor}, using the ${constraint.n_rows_with_value} runs that report it.`, raw: null };
   }
   const column = constraint.column ?? "the requested column";
   // The engine's reason names the count; the sentence says it in plain words and keeps the reason verbatim.
   const few = constraint.reason != null && /numeric value/.test(constraint.reason);
   const n = constraint.n_rows_with_value;
   const plain = few
-    ? `The constraint on ${column} was not applied: only ${n} ${n === 1 ? "run reports" : "runs report"} a numeric value for it.`
-    : `The constraint on ${column} was not applied to this batch.`;
+    ? `The limit on ${column} was not applied: only ${n} ${n === 1 ? "run reports" : "runs report"} a number for it.`
+    : `The limit on ${column} was not applied to this round.`;
   return { plain, raw: constraint.reason };
 }
 
@@ -1108,7 +930,7 @@ export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>
 
 export const getCampaign = (): Promise<Campaign> =>
   fetch(`${API}/api/campaign`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
@@ -1127,7 +949,7 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
     headers: mutationHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ recipes }),
   });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
   recordAudit([{ action: "campaign.start", detail: `Started ${recipes.length} run${recipes.length === 1 ? "" : "s"}: ${recipes.map((x) => x.mode).join(", ")}.` }]);
 }
 
@@ -1140,7 +962,7 @@ export async function logResult(id: string, value: number): Promise<void> {
   if (!r.ok) {
     // The documented 400 body is { error }; fall back to a status-based
     // message for anything else (network hiccup, unexpected 5xx shape).
-    let message = `engine responded ${r.status}`;
+    let message = `Kalos answered with an error (${r.status})`;
     try {
       const body: unknown = await r.json();
       if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
@@ -1189,7 +1011,7 @@ export type CampaignInfo = {
 /** The tenant's campaigns, newest first (the engine wraps the list as `{ campaigns }`). */
 export const listCampaigns = (): Promise<CampaignInfo[]> =>
   fetch(`${API}/api/campaigns`).then(async (r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     const body = (await r.json()) as { campaigns?: CampaignInfo[] } | CampaignInfo[];
     return Array.isArray(body) ? body : (body.campaigns ?? []);
   });
@@ -1197,14 +1019,14 @@ export const listCampaigns = (): Promise<CampaignInfo[]> =>
 /** `GET /api/campaigns/{id}`: the info record plus the loop summary in the `GET /api/campaign` shape. */
 export const getCampaignById = (id: string): Promise<{ campaign: CampaignInfo; summary: Campaign }> =>
   fetch(`${API}/api/campaigns/${encodeURIComponent(id)}`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
 /** `GET /api/campaigns/{id}/analysis`: that campaign's own analysis in the `GET /api/latest` shape. */
 export const getCampaignAnalysis = (id: string): Promise<LatestResult> =>
   fetch(`${API}/api/campaigns/${encodeURIComponent(id)}/analysis`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 
@@ -1227,7 +1049,7 @@ export type ProvidersResponse = { providers: Provider[] };
 
 export const getProviders = (): Promise<ProvidersResponse> =>
   fetch(`${API}/api/providers`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
+    if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
 

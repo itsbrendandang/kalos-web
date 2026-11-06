@@ -36,7 +36,7 @@ export default function RecordPage() {
         <PageHeader title="Record results" description="Enter each measured value as it comes back from the lab." />
         <EmptyState
           title="No runs are waiting for results"
-          description="Start a batch from the Plan stage, then come back here to record what you measure."
+          description="Start runs from the Plan stage, then come back here to record what you measure."
           action={
             <Link href="/campaign/plan" className={buttonVariants({ variant: "outline" })}>
               Go to Plan

@@ -34,11 +34,11 @@ describe("fitRoomSentence", () => {
 
   it("names the used count, the cap and how many more results fit, in plain words", () => {
     const s = fitRoomSentence(fitRoom(1700, 2000))!;
-    expect(s).toBe("This fit uses 1,700 of the 2,000 complete rows the model can take. Each measured result adds a row, so after about 300 more the model stops fitting.");
+    expect(s).toBe("The model uses 1,700 of the 2,000 complete runs it can take. Each measured result adds a run, so after about 300 more the model stops updating.");
     expect(s).not.toMatch(/surrogate|N<=|engine/);
   });
 
   it("says the cap is reached when there is no room left", () => {
-    expect(fitRoomSentence(fitRoom(2000, 2000))).toMatch(/already uses all 2,000 complete rows/);
+    expect(fitRoomSentence(fitRoom(2000, 2000))).toMatch(/already uses all 2,000 complete runs/);
   });
 });

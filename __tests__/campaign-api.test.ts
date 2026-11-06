@@ -81,7 +81,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("getCampaign throws a status-based message on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
 
-    await expect(getCampaign()).rejects.toThrow("engine responded 500");
+    await expect(getCampaign()).rejects.toThrow("Kalos answered with an error (500)");
   });
 
   it("startRuns POSTs {recipes} as JSON to /api/campaign/start", async () => {
@@ -101,7 +101,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("startRuns throws a status-based message on a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "bad recipe" }));
 
-    await expect(startRuns([])).rejects.toThrow("engine responded 400");
+    await expect(startRuns([])).rejects.toThrow("Kalos answered with an error (400)");
   });
 
   it("logResult POSTs {id, value} as JSON to /api/campaign/result", async () => {
@@ -128,7 +128,7 @@ describe("campaign client (lib/api.ts)", () => {
   it("logResult falls back to a status-based message when the error body isn't the documented shape", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, { detail: "internal error" }));
 
-    await expect(logResult("b1e2", 1)).rejects.toThrow("engine responded 500");
+    await expect(logResult("b1e2", 1)).rejects.toThrow("Kalos answered with an error (500)");
   });
 
   it("logResult falls back to a status-based message when the error body isn't valid JSON", async () => {
@@ -140,7 +140,7 @@ describe("campaign client (lib/api.ts)", () => {
       },
     } as unknown as Response);
 
-    await expect(logResult("b1e2", 1)).rejects.toThrow("engine responded 502");
+    await expect(logResult("b1e2", 1)).rejects.toThrow("Kalos answered with an error (502)");
   });
 
   it("reanalyze POSTs to /api/campaign/reanalyze and returns {analysis, campaign}", async () => {

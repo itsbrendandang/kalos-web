@@ -12,24 +12,24 @@ import { CompareToggle, ExpandButton, Flags, SetpointText } from "@/components/c
 import type { PlanContext, PlanRow, SetRowState } from "@/components/campaign/plan/types";
 
 /**
- * Desktop (container >= 56rem): one row per proposal, 40px-class rows with
+ * Desktop (container >= 56rem): one row per recipe, 40px-class rows with
  * right-aligned tabular numerics and a sticky header. Details expand beneath
- * the row. Predicted and gain are the two numbers the eye needs; the band sits
- * under the prediction in caption type.
+ * the row. Predicted and gain are the two numbers the eye needs; the likely
+ * range sits under the prediction in caption type.
  */
 export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ctx: PlanContext; state: SetRowState }) {
   const cols = 6 + ctx.features.length + (ctx.others.length ? 1 : 0);
   return (
     <div className="relative max-h-[min(70vh,640px)] overflow-auto rounded-xl border border-border" data-scroll-x>
       <table className="w-full border-separate border-spacing-0 text-body">
-        <caption className="sr-only">Model-generated proposals for {ctx.target}, sorted by predicted value. Predicted values are not measurements.</caption>
+        <caption className="sr-only">Recipes the model proposed to raise {ctx.target}, highest predicted value first. Predicted values are not measurements.</caption>
         <thead>
           <tr className="text-label text-fg-muted">
             <th scope="col" className="sticky top-0 z-10 h-10 w-10 border-b border-border bg-surface px-2 text-left font-medium">
               <span className="sr-only">Include</span>
             </th>
             <th scope="col" className="sticky top-0 z-10 h-10 border-b border-border bg-surface px-2 text-left font-medium">
-              Proposal
+              Recipe
             </th>
             {ctx.features.map((f) => (
               <th key={f} scope="col" className="sticky top-0 z-10 h-10 border-b border-border bg-surface px-2 text-right font-medium whitespace-nowrap">
@@ -47,7 +47,7 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
                 Predicted{ctx.unit ? ` (${ctx.unit})` : ""}
               </span>
               <span className="block text-caption font-normal" title={ctx.band != null ? BAND_CAVEAT : undefined}>
-                {ctx.band != null ? bandLabel(ctx.coverage) : "\u00a0"}
+                {ctx.band != null ? `${bandLabel(ctx.coverage)} ± ${formatNumber(ctx.band)}` : "\u00a0"}
               </span>
             </th>
             <th scope="col" className="sticky top-0 z-10 h-10 border-b border-border bg-surface px-2 text-right font-medium whitespace-nowrap">
@@ -119,14 +119,14 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
   );
 }
 
-/** The predicted value, right-aligned, with its band beneath. Shared by the table and the cards' details. */
+/** The predicted value, right-aligned, with its likely range beneath. Shared by the table and the cards' details. */
 export function PredictionCell({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
   const p = row.item.proposal;
   const interval = formatInterval(p.pred, ctx.band);
   return (
     <div className="flex flex-col items-end gap-0.5">
       <span className="font-medium text-fg tabular-nums">{formatNumber(p.pred)}</span>
-      <span className="text-caption whitespace-nowrap text-fg-muted tabular-nums">{interval ?? "no band reported"}</span>
+      <span className="text-caption whitespace-nowrap text-fg-muted tabular-nums">{interval ?? "no likely range reported"}</span>
     </div>
   );
 }

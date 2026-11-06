@@ -27,7 +27,7 @@ export function fitRoomSentence(room: FitRoom | null): string | null {
   const used = formatNumber(room.used, "count");
   const limit = formatNumber(room.limit, "count");
   if (room.state === "full") {
-    return `This fit already uses all ${limit} complete rows the model can take. Each measured result adds a complete row, so the next one may be refused.`;
+    return `The model already uses all ${limit} complete runs it can take. Each measured result adds a complete run, so the next update may be refused.`;
   }
-  return `This fit uses ${used} of the ${limit} complete rows the model can take. Each measured result adds a row, so after about ${formatNumber(room.left, "count")} more the model stops fitting.`;
+  return `The model uses ${used} of the ${limit} complete runs it can take. Each measured result adds a run, so after about ${formatNumber(room.left, "count")} more the model stops updating.`;
 }

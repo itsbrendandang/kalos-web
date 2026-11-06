@@ -4,8 +4,8 @@
  * Pure, so every rule is unit tested in __tests__/campaign-stage.test.ts.
  *
  * Rounds: the engine counts re-analyses (`campaign.round`, 0 right after an
- * upload). People count batches, so the batch proposed after k re-analyses is
- * "round k + 1".
+ * upload). People count rounds of runs, so the recipes proposed after k
+ * re-analyses are "round k + 1".
  *
  * The engine cannot tell a run still in the lab from one that is back but not
  * yet entered: both are "awaiting". So while any run awaits, the round is in
@@ -18,6 +18,7 @@
 import type { Campaign, LatestResult } from "@/lib/api";
 import { CAMPAIGN_STAGES, type StageKey } from "@/lib/routes";
 import { inFlight, measured, type ActiveCampaign } from "@/lib/workbench";
+import type { WhyCode } from "@/lib/why";
 
 export type StepState = "done" | "current" | "upcoming";
 
@@ -38,7 +39,26 @@ export type NextAction = {
   href: string;
   /** One sentence on why this is next. */
   reason: string;
+  /** The "Why this matters" line for this step (lib/why.ts). */
+  why: NextWhy;
 };
+
+export type NextWhy = Extract<WhyCode, "setup_no_sheet" | "setup_done" | "plan_ready" | "run_waiting" | "record_partial" | "learn_ready">;
+
+/** The why-line code for a next step, from the stage it lives on and how far the round has got. */
+export function nextWhy(stage: StageKey, counts: { hasData: boolean; measured: number }): NextWhy {
+  switch (stage) {
+    case "setup":
+      return counts.hasData ? "setup_done" : "setup_no_sheet";
+    case "plan":
+      return "plan_ready";
+    case "run":
+    case "record":
+      return counts.measured > 0 ? "record_partial" : "run_waiting";
+    default:
+      return "learn_ready";
+  }
+}
 
 export type CampaignStage = {
   /** The round being worked on, as people count it (1-based); null before any analysis. */
@@ -80,7 +100,7 @@ export function campaignStage(
     round: stage.round,
     started: stage.started,
     steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key)!.label, href: meta(s.key)!.href, state: s.state, detail: s.detail })),
-    next: next ? { ...next, href: meta(next.stage)!.href } : local.next,
+    next: next ? { ...next, href: meta(next.stage)!.href, why: nextWhy(next.stage, { hasData: latest.has_data, measured: local.measured }) } : local.next,
   };
 }
 
@@ -113,13 +133,14 @@ function localStage(
         stage: "setup",
         action: "Upload a run sheet",
         href: href("setup"),
-        reason: "Kalos fits a model to the runs you already have, then proposes the first batch.",
+        reason: "Kalos learns from the runs you already have, then proposes the first recipes to try.",
+        why: "setup_no_sheet",
       },
     };
   }
 
   const round = displayRound(active?.round ?? 0);
-  const setupDone: [StepState, string] = ["done", latest.has_data ? "Run sheet analyzed" : "Campaign seeded"];
+  const setupDone: [StepState, string] = ["done", latest.has_data ? "Kalos has read the sheet" : "Campaign started"];
 
   if (started === 0) {
     const proposed = latest.proposals?.length;
@@ -128,18 +149,19 @@ function localStage(
       ...counts,
       steps: steps({
         setup: setupDone,
-        plan: ["current", proposed ? `${plural(proposed, "recipe")} proposed` : "Batch ready to review"],
+        plan: ["current", proposed ? `${plural(proposed, "recipe")} proposed` : "Recipes ready to review"],
         run: ["upcoming", ""],
         record: ["upcoming", ""],
         learn: ["upcoming", ""],
       }),
       next: {
         stage: "plan",
-        action: `Review and start round ${round}`,
+        action: "Review the proposed runs",
         href: href("plan"),
         reason: proposed
-          ? `The model proposed ${plural(proposed, "recipe")}. Untick any you will not run, then start the rest.`
-          : "Review the proposed batch, untick any recipe you will not run, then start the rest.",
+          ? `The model proposed ${plural(proposed, "recipe")} for round ${round}. Untick any you will not run, then start the rest.`
+          : `Review the recipes proposed for round ${round}, untick any you will not run, then start the rest.`,
+        why: "plan_ready",
       },
     };
   }
@@ -153,7 +175,7 @@ function localStage(
       steps: steps({
         setup: setupDone,
         plan: ["done", startedText],
-        run: ["current", `${awaiting} awaiting results`],
+        run: ["current", `${plural(awaiting, "run")} waiting for a result`],
         record: ["upcoming", done > 0 ? `${done} of ${started} recorded` : "Nothing recorded yet"],
         learn: ["upcoming", ""],
       }),
@@ -165,6 +187,7 @@ function localStage(
           done > 0
             ? `${done} of ${started} results are in. Enter the rest as they come back from the lab.`
             : `${plural(awaiting, "run")} from round ${round} ${awaiting === 1 ? "is" : "are"} waiting for a measured result.`,
+        why: done > 0 ? "record_partial" : "run_waiting",
       },
     };
   }
@@ -181,9 +204,10 @@ function localStage(
     }),
     next: {
       stage: "learn",
-      action: `Learn from round ${round}`,
+      action: `See what round ${round} taught the model`,
       href: href("learn"),
       reason: `Every run in round ${round} has a result. See what changed, then plan round ${round + 1}.`,
+      why: "learn_ready",
     },
   };
 }

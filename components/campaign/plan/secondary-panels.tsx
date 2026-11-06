@@ -13,7 +13,7 @@ export type PlanTab = "compare" | "surface" | "method";
 
 /**
  * The detail that answers "why" and "compare these" sits under secondary tabs,
- * below the batch. Only the open tab mounts, so the surface draws on demand.
+ * below the recipes. Only the open tab mounts, so the surface draws on demand.
  */
 export function SecondaryPanels({
   d,
@@ -36,11 +36,11 @@ export function SecondaryPanels({
 }) {
   const surface = m.surface;
   return (
-    <section ref={rootRef} aria-label="More on this batch" className="flex scroll-mt-6 flex-col gap-3">
+    <section ref={rootRef} aria-label="More on this round" className="flex scroll-mt-6 flex-col gap-3">
       <Tabs value={tab} onValueChange={(v) => onTabChange(v as PlanTab)}>
         <TabsList variant="line" className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="compare">{compared.length ? `Compare (${compared.length})` : "Compare"}</TabsTrigger>
-          {surface ? <TabsTrigger value="surface">Response surface</TabsTrigger> : null}
+          {surface ? <TabsTrigger value="surface">Predicted {m.name} across two inputs</TabsTrigger> : null}
           <TabsTrigger value="method">Method</TabsTrigger>
         </TabsList>
         <TabsContent value="compare" className="pt-4">
@@ -48,7 +48,7 @@ export function SecondaryPanels({
             <Comparison rows={compared} ctx={m.ctx} onRemove={onRemove} onClear={onClear} />
           ) : (
             <p className="max-w-[72ch] text-body text-fg-muted">
-              Choose Compare on {COMPARE_MIN} to 5 proposals in the table to see them side by side, with the inputs where they differ.
+              Choose Compare on {COMPARE_MIN} to 5 recipes in the table to see them side by side, with the inputs where they differ.
             </p>
           )}
         </TabsContent>

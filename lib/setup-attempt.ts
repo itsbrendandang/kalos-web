@@ -64,10 +64,10 @@ export const isStale = (s: SetupState): boolean => s.failed !== null;
  */
 export function staleNotice(s: SetupState, previousName: string | null | undefined): string | null {
   if (!s.failed) return null;
-  const prev = previousName?.trim() || "the previous file";
+  const prev = previousName?.trim() || "the previous sheet";
   return s.failed.refit
-    ? `Showing the last successful analysis: ${prev}. This re-fit was not applied.`
-    : `Showing the last successful analysis: ${prev}. Your new file ${s.failed.name} was not used.`;
+    ? `Showing the last sheet Kalos read: ${prev}. The model was not rebuilt with your new columns.`
+    : `Showing the last sheet Kalos read: ${prev}. Your new file ${s.failed.name} was not used.`;
 }
 
 /** Confirm / re-fit / target change act on the analysis; they are only offered when it is not stale and a file is held. */

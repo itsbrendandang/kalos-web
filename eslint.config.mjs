@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The desktop app's packed web build and Rust output (git-ignored).
+    "desktop/src-tauri/resources/**",
+    "desktop/src-tauri/target/**",
+    "desktop/node_modules/**",
   ]),
 ]);
 

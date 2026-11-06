@@ -5,7 +5,7 @@
 // here says whether a run or a recipe is good or bad.
 
 import type { ReactNode } from "react";
-import { DistributionFigure, CategoryFigure, CoverageFigure, ReplicateFigure, RunOrderFigure, TargetScatterFigure } from "@/components/campaign/data/figures";
+import { CategoryStripFigure, DistributionFigure, CategoryFigure, CoverageFigure, ReplicateFigure, RunOrderFigure, TargetScatterFigure } from "@/components/campaign/data/figures";
 import { dataFlags } from "@/components/campaign/data/flags";
 import { histogram, replicateGroups, replicateSpread, summarize, untestedGaps, type ColumnProfile, type SheetProfile } from "@/components/campaign/data/profile";
 import { dataNumber } from "@/components/campaign/data/svg";
@@ -189,7 +189,7 @@ function TargetBlock({ profile, col, inputs }: { profile: SheetProfile; col: Col
   return (
     <div className="flex flex-col gap-8">
       <Figure caption={`${col.name} in sheet order`} note="Sheet order is the order the rows were written. It is not proven to be the order the runs were made.">
-        <RunOrderFigure yName={col.name} values={col.numbers} />
+        <RunOrderFigure yName={col.name} values={col.numbers} groups={groups} />
       </Figure>
       {hist ? (
         <Figure caption={`Distribution of ${col.name}`}>
@@ -212,14 +212,14 @@ function TargetBlock({ profile, col, inputs }: { profile: SheetProfile; col: Col
 
 function ScatterFor({ x, y }: { x: ColumnProfile; y: ColumnProfile }) {
   const points = y.numbers
-    .map((yv, i) => ({ yv, xv: x.kind === "numeric" ? x.numbers[i] : x.raw[i] }))
-    .filter((p): p is { yv: number; xv: number | string } => p.yv != null && p.xv != null && p.xv !== "");
+    .map((yv, i) => ({ yv, xv: x.kind === "numeric" ? x.numbers[i] : x.raw[i], row: i }))
+    .filter((p): p is { yv: number; xv: number | string; row: number } => p.yv != null && p.xv != null && p.xv !== "");
   if (points.length === 0) return null;
   const chart =
     x.kind === "numeric" ? (
       <TargetScatterFigure xName={x.name} yName={y.name} points={points.map((p) => ({ x: p.xv as number, y: p.yv }))} />
     ) : (
-      <TargetScatterFigure xName={x.name} yName={y.name} points={points.map((p) => ({ x: String(p.xv), y: p.yv }))} levels={x.levels.map((l) => l.value)} />
+      <CategoryStripFigure xName={x.name} yName={y.name} points={points.map((p) => ({ x: String(p.xv), y: p.yv, row: p.row }))} />
     );
   return (
     <Figure caption={`${y.name} against ${x.name}`} note={`${formatNumber(points.length, "count")} runs with both values.`}>

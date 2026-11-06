@@ -11,7 +11,8 @@ import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
 import { ProjectsStoreProvider } from "@/components/projects/store-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EngineDataProvider } from "@/hooks/use-engine";
-import { AssistProvider } from "@/hooks/use-assist";
+import { AssistPanel } from "@/components/assist/assist-panel";
+import { AssistProvider, useAssistPanel } from "@/hooks/use-assist";
 
 const MAIN_ID = "main";
 
@@ -38,17 +39,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Frame({ children }: { children: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { open: askOpen, setOpen: setAskOpen } = useAssistPanel();
 
+  // ⌘K opens the palette, ⌘J the Ask Kalos panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === "k") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+      } else if (key === "j") {
+        e.preventDefault();
+        setAskOpen(!askOpen);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [askOpen, setAskOpen]);
+  const openAsk = () => {
+    setSheetOpen(false);
+    setAskOpen(true);
+  };
 
   return (
     <div className="canvas flex h-dvh flex-col overflow-hidden">
@@ -63,7 +75,7 @@ function Frame({ children }: { children: ReactNode }) {
 
       <div className="flex min-h-0 flex-1">
         <aside aria-label="Sidebar" className="hidden w-64 shrink-0 border-r border-border bg-subtle md:block">
-          <Sidebar onSearch={() => setPaletteOpen(true)} />
+          <Sidebar onSearch={() => setPaletteOpen(true)} onAsk={openAsk} />
         </aside>
         <main id={MAIN_ID} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none">
           <div className="mx-auto w-full max-w-[1080px] px-5 py-8 md:px-10 md:py-12">{children}
@@ -72,8 +84,9 @@ function Frame({ children }: { children: ReactNode }) {
         </main>
       </div>
 
-      <MobileSheet open={sheetOpen} onOpenChange={setSheetOpen} onSearch={() => { setSheetOpen(false); setPaletteOpen(true); }} />
+      <MobileSheet open={sheetOpen} onOpenChange={setSheetOpen} onSearch={() => { setSheetOpen(false); setPaletteOpen(true); }} onAsk={openAsk} />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <AssistPanel />
     </div>
   );
 }
@@ -97,7 +110,7 @@ function MobileTopBar({ onOpenSheet, onSearch }: { onOpenSheet: () => void; onSe
   );
 }
 
-function MobileSheet({ open, onOpenChange, onSearch }: { open: boolean; onOpenChange: (open: boolean) => void; onSearch: () => void }) {
+function MobileSheet({ open, onOpenChange, onSearch, onAsk }: { open: boolean; onOpenChange: (open: boolean) => void; onSearch: () => void; onAsk: () => void }) {
   // Following any link closes the sheet.
   const closeOnNavigate = (target: EventTarget) => {
     if (target instanceof Element && target.closest("a")) onOpenChange(false);
@@ -112,7 +125,7 @@ function MobileSheet({ open, onOpenChange, onSearch }: { open: boolean; onOpenCh
           className="fixed inset-y-0 left-0 z-50 w-[85vw] max-w-xs border-r border-border bg-subtle shadow-popover transition-transform duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full md:hidden"
         >
           <Dialog.Title className="sr-only">Navigation</Dialog.Title>
-          <Sidebar onSearch={onSearch} />
+          <Sidebar onSearch={onSearch} onAsk={onAsk} />
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

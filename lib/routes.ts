@@ -17,7 +17,7 @@ export type RouteItem = { href: string; label: string; description: string };
  */
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Overview", description: "The live campaign: where the round is and what to do next." },
-  { key: "agent", href: "/agent", label: "Agent", description: "What is in the lab now, and how the model's forecasts held up." },
+  { key: "agent", href: "/agent", label: "Ask Kalos", description: "What to do next, and answers about your own sheets, rounds and results." },
   { key: "review", href: "/review", label: "Review", description: "See where an experiment went differently and ask what happened." },
   { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
   { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },

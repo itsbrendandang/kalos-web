@@ -28,6 +28,8 @@ The app is one sidebar and a page. The campaign Overview is the front door; the 
 | **Record** | `/campaign/record` | Enter the measured results. Press **Save these results**. | Measured values, always labelled measured. |
 | **Learn** | `/campaign/learn` | Read what the round taught the model. Plan the next round. | **Reliable**, **Not yet reliable** or **Not enough runs to tell**, with why it matters. Whether measured results landed inside their likely range. What went with higher values of your target, marked **Clear signal** or **Could be chance**. |
 
+- **Sidebar.** Overview (the campaign's front door) with the five stages listed under it and a mark for each (done, current, upcoming), then Tools (Agent, Review, Process, Graph), then Workspace (Data, Library, Projects, Documents), with Settings pinned at the foot. A Simple view shortens the rail to Overview, Ask Kalos, Data, Documents and Settings; the full pages stay one link away. On phones the sidebar is a sheet behind the top bar.
+
 The rest of the sidebar:
 
 - **Ask Kalos** (`/agent`): the one next step, and questions answered only from your own sheets, rounds and results, each answer with its sources. Needs the engine's assistant routes (engine branch `assistant`, not yet merged); without them the page says "This version of Kalos has no assistant" and shows the next step worked out from the campaign.

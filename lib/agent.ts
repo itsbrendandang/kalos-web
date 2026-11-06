@@ -2,7 +2,10 @@
  * Pure rules for the Agent page, tested in __tests__/agent.test.ts. Nothing
  * here invents data: every number comes from the campaign the engine returned.
  */
-import type { CampaignRun } from "@/lib/api";
+import type { Campaign, CampaignRun, LatestResult } from "@/lib/api";
+import type { AssistNext } from "@/lib/assist";
+import { campaignStage } from "@/lib/campaign-stage";
+import { WHY, whyLine } from "@/lib/why";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 export type AgentState = "working" | "waiting" | "idle";
@@ -22,6 +25,27 @@ export function agentStatus(c: ActiveCampaign | null): AgentStatus {
     };
   }
   return { state: "idle", headline: "Nothing running", detail: "No runs are in flight. Plan the next batch when you are ready." };
+}
+
+/**
+ * The next step worked out here, from the campaign alone, for an engine that
+ * has no /api/assist/next yet. Same shape as the engine's guide, so the card
+ * cannot tell the two apart. Blockers: runs still out, in plain words.
+ */
+export function localNextStep(latest: Pick<LatestResult, "has_data"> & { proposals?: readonly unknown[] }, campaign: Campaign): AssistNext {
+  const { next, awaiting, started, measured: done } = campaignStage(latest, campaign);
+  const blockers: AssistNext["blockers"] = [];
+  if (awaiting > 0) {
+    blockers.push({
+      code: "runs_awaiting",
+      text: `${plural(awaiting, "run")} of ${started} ${awaiting === 1 ? "has" : "have"} no result yet.`,
+      why: WHY.run_waiting,
+    });
+  }
+  // The same why-lines as the stage pages (lib/why.ts), keyed by the stage the step points to.
+  const whyKey = next.stage === "setup" ? "setup_no_sheet" : next.stage === "plan" ? "plan_ready" : next.stage === "record" ? (done > 0 ? "record_partial" : "run_waiting") : next.stage === "learn" ? "learn_ready" : null;
+  const why_it_matters = whyKey ? whyLine(whyKey) : null;
+  return { step: `${next.action}.`, why: next.reason, ...(why_it_matters ? { why_it_matters } : {}), action_route: next.href, blockers, action: next.action };
 }
 
 export const awaitingRuns = (c: ActiveCampaign): CampaignRun[] => c.pending.filter((r) => r.awaiting);

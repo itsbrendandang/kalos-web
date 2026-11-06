@@ -3,7 +3,6 @@
 import { Check, ChevronRight, Columns2, TriangleAlert } from "lucide-react";
 import type { FlagKind, RecipeFlag } from "@/components/campaign/plan-view";
 import { formatSetpoint } from "@/components/campaign/plan-view";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { PlanContext, PlanRow, RowState } from "@/components/campaign/plan/types";
 
@@ -20,13 +19,11 @@ export function Flags({ flags, compact = false, shared }: { flags: RecipeFlag[];
   if (flags.length === 0) return <span className="text-caption text-fg-muted">None</span>;
   if (own.length === 0) return <span className="text-caption text-fg-muted">As every recipe (see Before you start)</span>;
   return (
-    <ul className={cn("flex flex-col gap-1", compact && "items-start")}>
+    <ul className={cn("flex min-w-[14rem] flex-col gap-1", compact && "min-w-0 items-start")}>
       {own.map((f) => (
-        <li key={f.kind}>
-          <Badge tone="warn" className="h-auto min-h-6 whitespace-normal py-0.5 text-left" title={f.detail}>
-            <TriangleAlert aria-hidden className="shrink-0" />
-            {f.label}
-          </Badge>
+        <li key={f.kind} className="flex items-start gap-1.5 text-caption text-warn" title={f.detail}>
+          <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span className="min-w-0">{f.label}</span>
         </li>
       ))}
     </ul>

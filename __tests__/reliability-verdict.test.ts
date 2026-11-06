@@ -57,6 +57,12 @@ describe("reliabilityVerdict", () => {
     expect(v.reason).toContain("Too few past runs could be tested");
   });
 
+  it("carries the cv_ci_unavailable caveat only when no interval was reported", () => {
+    expect(reliabilityVerdict({ reliability: rel({}), cv_spearman: 0.5 }).caveat).toBeNull();
+    expect(reliabilityVerdict({ reliability: rel({ ci95: null, ci_excludes_zero: false }), cv_spearman: 0.5 }).caveat).toBe("cv_ci_unavailable");
+    expect(reliabilityVerdict({ reliability: rel({ spearman: null, ci95: null }), cv_spearman: null }).caveat).toBeNull();
+  });
+
   it("falls back to the top-level CV fields on older engines", () => {
     expect(reliabilityVerdict({ cv_spearman: 0.4, cv_ci95: [0.1, 0.6] }).state).toBe("reliable");
     expect(reliabilityVerdict({ cv_spearman: 0.4, cv_ci95: [-0.1, 0.6] }).state).toBe("not-yet");

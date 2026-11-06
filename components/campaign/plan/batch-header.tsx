@@ -46,6 +46,7 @@ export function BatchHeader({
         <div className="mt-3 flex flex-col gap-2">
           <Verdict tone={tone}>{trustSentence(m.verdict)}</Verdict>
           <WhyLine code={m.verdict.state} className="ml-7" />
+          {m.verdict.caveat ? <WhyLine code={m.verdict.caveat} className="ml-7" /> : null}
           <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
             <div className="text-body text-fg-muted">{detail}</div>
           </Disclosure>

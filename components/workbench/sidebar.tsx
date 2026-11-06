@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { Bot, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
+import { MessageCircleQuestion, FileText, FlaskRound, Network, Workflow, Database, FolderKanban, LayoutDashboard, Library, Search, Settings, type LucideIcon } from "lucide-react";
 import { KalosMark } from "@/components/brand/kalos-mark";
 import { StepDot } from "@/components/campaign/step-dot";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
@@ -23,21 +23,22 @@ const ENGINE_LINE = {
 
 const ICON: Record<NavKey, LucideIcon> = {
   campaign: LayoutDashboard,
-  agent: Bot,
+  agent: MessageCircleQuestion,
   review: FlaskRound,
   process: Workflow,
   graph: Network,
   data: Database,
   library: Library,
   projects: FolderKanban,
+  documents: FileText,
   settings: Settings,
 };
 
-function useShortcutLabel(): string {
+function useShortcutLabel(key = "K"): string {
   return useSyncExternalStore(
     () => () => {},
-    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"),
-    () => "⌘K",
+    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl ${key}`),
+    () => `⌘${key}`,
   );
 }
 
@@ -48,10 +49,11 @@ function useShortcutLabel(): string {
  * line, the engine status and the workspace menu at the foot. Groups come from
  * RAIL_GROUPS in lib/routes.ts, which the command palette reads too.
  */
-export function Sidebar({ onSearch, className }: { onSearch: () => void; className?: string }) {
+export function Sidebar({ onSearch, onAsk, className }: { onSearch: () => void; onAsk: () => void; className?: string }) {
   const pathname = usePathname();
   const section = navKeyFor(pathname);
   const shortcut = useShortcutLabel();
+  const askShortcut = useShortcutLabel("J");
   const { stage, status, demo, retry } = useCampaignStage();
   const current = stage?.steps.find((x) => x.state === "current") ?? null;
   const doneCount = stage?.steps.filter((x) => x.state === "done").length ?? 0;
@@ -94,6 +96,18 @@ export function Sidebar({ onSearch, className }: { onSearch: () => void; classNa
                 const isOverview = k === "campaign";
                 // Overview's row lights up on the campaign section only when no stage row claims the path.
                 const active = isOverview ? section === "campaign" && !pathname.startsWith("/campaign/") : section === k;
+                if (k === "agent") {
+                  // Ask Kalos opens the panel over the current page; the full page (/agent) is one click inside it.
+                  return (
+                    <li key={k}>
+                      <button type="button" onClick={onAsk} aria-label={`${n.label} (${askShortcut})`} className={cn(row(active), "w-full")}>
+                        <Icon className="size-[18px] shrink-0" aria-hidden />
+                        <span className="flex-1 text-left">{n.label}</span>
+                        <kbd className="font-sans text-caption font-normal text-fg-muted">{askShortcut}</kbd>
+                      </button>
+                    </li>
+                  );
+                }
                 return (
                   <li key={k}>
                     <Link

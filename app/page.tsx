@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { NextStepCard } from "@/components/assist/next-step-card";
+import { useNextStepCard } from "@/hooks/use-assist";
 import { agentStatus } from "@/lib/agent";
+import type { AssistNext } from "@/lib/assist";
+import { whyLine } from "@/lib/why";
 import { ChartFrame } from "@/components/kit/chart-frame";
 import { Disclosure } from "@/components/kit/disclosure";
 import { KpiCard } from "@/components/kit/kpi-card";
 import { lazyChart } from "@/components/kit/lazy-chart";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
-import { Verdict } from "@/components/kit/verdict";
-import { WhyLine } from "@/components/kit/why-line";
 import { Badge, ExampleBadge, ModeBadge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -45,6 +45,9 @@ export default function OverviewPage() {
   const latest = useLatest();
   const campaign = useCampaign();
   const view = campaignView(campaign.data, campaign.error, DEMO_MODE, DEMO_CAMPAIGN);
+  // The engine's guide (GET /api/assist/next) when it has one; the stage logic below otherwise.
+  const guide = useNextStepCard();
+  const engineNext = guide.source === "engine" ? guide.next : null;
 
   if (view.state === "error" || latest.status === "error") {
     return (
@@ -74,7 +77,7 @@ export default function OverviewPage() {
     return (
       <div className="flex flex-col gap-10">
         <PageHeader title="Start a campaign" />
-        <NextStep tone="accent" sentence={stage.next.reason} why={stage.next.why} action={stage.next.action} href={stage.next.href} />
+        <NextStep tone="accent" sentence={stage.next.reason} why={stage.next.why} action={stage.next.action} href={stage.next.href} next={engineNext} />
       </div>
     );
   }
@@ -100,6 +103,7 @@ export default function OverviewPage() {
   const numbers = verdict ? trustNumbers(verdict) : null;
   const detail = trust ? (
     <div className="flex flex-col gap-2">
+      <p className="text-label text-fg">How the model was scored</p>
       <p>{trust.gloss}</p>
       {numbers ? (
         <p>
@@ -128,6 +132,7 @@ export default function OverviewPage() {
         href={stage.next.href}
         detail={detail}
         trust={trust}
+        next={engineNext}
       />
 
       {planning && analysis ? <Batch analysis={analysis} target={target} round={stage.round} /> : null}
@@ -138,7 +143,7 @@ export default function OverviewPage() {
           <p className="text-body text-fg-muted">
             {agentStatus(active).headline}.{" "}
             <Link href="/agent" className="text-accent hover:underline">
-              Open the assistant
+              Ask Kalos
             </Link>
           </p>
           {trendReady ? (
@@ -198,6 +203,7 @@ function NextStep({
   href,
   detail,
   trust,
+  next,
 }: {
   tone: "accent" | "good" | "warn" | "neutral";
   sentence: string;
@@ -206,30 +212,18 @@ function NextStep({
   href: string;
   detail?: ReactNode;
   trust?: Trust | null;
+  /** The engine's guide, when it sent one: its sentence, route and blockers win over the local ones. */
+  next?: AssistNext | null;
 }) {
-  return (
-    <section aria-label="Next step" className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <Verdict tone={tone}>{sentence}</Verdict>
-        <WhyLine code={why} className="ml-7" />
-        <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
-          <div className="text-body text-fg-muted">{detail}</div>
-        </Disclosure>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <Link href={href} className={buttonVariants({ size: "lg" })}>
-          {action}
-          <ArrowRight aria-hidden />
-        </Link>
-        {trust ? (
-          <p className="flex flex-wrap items-center gap-2 text-label text-fg-muted">
-            Can you trust it?
-            <Badge tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"}>{trust.word}</Badge>
-          </p>
-        ) : null}
-      </div>
-    </section>
-  );
+  const aside = trust ? (
+    <p className="flex flex-wrap items-center gap-2 text-label text-fg-muted">
+      Can you trust it?
+      <Badge tone={trust.level === "good" ? "good" : trust.level === "warn" ? "warn" : "neutral"}>{trust.word}</Badge>
+    </p>
+  ) : null;
+  // Without the engine's guide, the local step carries its own "Why this matters" line from lib/why.ts (never written inline).
+  const card: AssistNext = next ?? { step: sentence, why: "", why_it_matters: whyLine(why) ?? undefined, action_route: href, blockers: [], action };
+  return <NextStepCard next={card} tone={tone} aside={aside} detail={detail} />;
 }
 
 /** The proposed recipes: one row per recipe, the inputs as the lab sets them, the predicted value and the kind of bet. */

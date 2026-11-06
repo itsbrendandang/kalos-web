@@ -344,6 +344,7 @@ describe("dataNotes", () => {
   it("names auto-detected categoricals and asks for the declaration on Setup", () => {
     const [n] = dataNotes({ auto_categorical: ["Strain"] });
     expect(n.tone).toBe("neutral");
+    expect(n.why).toBe("auto_categorical");
     expect(n.text).toContain("Strain was read as a choice between its text values");
     expect(n.text).toContain("Change how the columns are used on Setup");
   });
@@ -351,6 +352,7 @@ describe("dataNotes", () => {
   it("counts missing and censored exclusions separately and says nothing was imputed", () => {
     const [n] = dataNotes({ n_dropped_incomplete: 2, n_censored_excluded: 1 });
     expect(n.tone).toBe("warn");
+    expect(n.why).toBe("dropped_rows");
     expect(n.text).toContain("2 runs with a missing or non-numeric value");
     expect(n.text).toContain("1 run with a value below the detection limit, such as <LOD");
     expect(n.text).toContain("Nothing was filled in");

@@ -4,6 +4,17 @@ import type { ValidationReport } from "@/lib/validation";
 import { recordAudit } from "@/lib/audit-store";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
+import {
+  AssistUnavailableError,
+  assistUnavailableReason,
+  isAssistAnswer,
+  isAssistIndexStatus,
+  isAssistNext,
+  type AssistAnswer,
+  type AssistIndexStatus,
+  type AssistNext,
+} from "@/lib/assist";
+import type { SopDraft, SopSource, SopSummary, SopTemplate } from "@/lib/sop";
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -729,6 +740,8 @@ export type ReliabilityVerdict = {
   ci: [number, number] | null;
   /** The engine's trust floor for `rho`, when reported. */
   floor: number | null;
+  /** The why-line code (lib/why.ts) for a caveat on the score itself, e.g. cv_ci_unavailable when no interval was reported; null when there is none. */
+  caveat: "cv_ci_unavailable" | null;
   /** One plain sentence saying why, with no numbers in it: the Spearman, interval and floor are for a disclosure (see trustNumbers). Never says the model is sure while the interval reaches below the floor. */
   reason: string;
 };
@@ -753,6 +766,7 @@ export function reliabilityVerdict(
       rho,
       ci,
       floor,
+      caveat: null,
       reason: "Too few past runs could be tested to tell whether the model puts them in the right order.",
     };
   }
@@ -764,6 +778,7 @@ export function reliabilityVerdict(
       rho,
       ci,
       floor,
+      caveat: ci ? null : "cv_ci_unavailable",
       reason: reachesBelow
         ? "The model put your past runs in the right order most of the time, so its suggestions are worth running, though we are less sure of that than usual."
         : "The model put your past runs in the right order most of the time, and we are sure enough of that, so its suggestions are worth running.",
@@ -777,6 +792,7 @@ export function reliabilityVerdict(
     rho,
     ci,
     floor,
+    caveat: ci ? null : "cv_ci_unavailable",
     reason: belowFloor
       ? "The model put your past runs in the right order about as often as not, so it cannot yet tell a good recipe from a poor one."
       : rel || ci
@@ -1052,5 +1068,128 @@ export const getProviders = (): Promise<ProvidersResponse> =>
     if (!r.ok) throw new Error(`Kalos answered with an error (${r.status})`);
     return r.json();
   });
+
+// --- The assistant (GET/POST /api/assist/*) ---------------------------------
+// The guide (next step) and the question panel. The shapes live in
+// lib/assist.ts. A 404 means an older engine without the routes ("absent")
+// or, with code assist_disabled, an engine whose assistant is turned off;
+// callers fall back to lib/agent.ts for the guide and show how to turn the
+// assistant on for the panel.
+
+async function assistFailure(r: Response): Promise<never> {
+  const d = await readJsonBody(r);
+  const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" ? d.error : null;
+  const reason = assistUnavailableReason(r.status, code);
+  if (reason) throw new AssistUnavailableError(reason);
+  throw new EngineError(r.status, code ?? codeForStatus(r.status));
+}
+
+/** GET /api/assist/next: the one next step for the tenant's campaign. */
+export const getAssistNext = async (): Promise<AssistNext> => {
+  const r = await fetch(`${API}/api/assist/next`);
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistNext(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** POST /api/assist/ask: a question answered only from your own data and the guide. */
+export const askAssist = async (question: string): Promise<AssistAnswer> => {
+  const r = await fetch(`${API}/api/assist/ask`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ question }),
+  });
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistAnswer(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** GET /api/assist/index/status: which model answers, where it runs, and what is indexed. */
+export const getAssistIndexStatus = async (): Promise<AssistIndexStatus> => {
+  const r = await fetch(`${API}/api/assist/index/status`);
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** POST /api/assist/index/rebuild: index your sheets, rounds and results again. Answers with the new status. */
+export const rebuildAssistIndex = async (): Promise<AssistIndexStatus> => {
+  const r = await fetch(`${API}/api/assist/index/rebuild`, { method: "POST", headers: mutationHeaders() });
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+// --- Procedure drafts (/api/assist/sop/*) ----------------------------------
+// Written by the engine from campaign records; the model only rewords. A
+// revision the model got wrong (a changed number, a filled placeholder, a
+// touched header) comes back as RevisionRefusedError with the plain reasons.
+
+export class RevisionRefusedError extends Error {
+  constructor(public readonly reasons: string[]) {
+    super("revision refused");
+    this.name = "RevisionRefusedError";
+  }
+}
+
+async function readDraft(r: Response): Promise<SopDraft> {
+  if (!r.ok) return assistFailure(r);
+  const v = (await r.json()) as SopDraft;
+  if (!v || typeof v.draft_id !== "string" || typeof v.markdown !== "string" || !Array.isArray(v.placeholders) || !Array.isArray(v.fields_from_record)) throw new EngineError(r.status, "engine_error");
+  return v;
+}
+
+/** POST /api/assist/sop/draft: a new draft (version 1) from a run, a proposal or a round. No model is used. */
+export const draftSop = async (body: { campaign_id?: string; source: SopSource; template: SopTemplate; title?: string }): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/draft`, { method: "POST", headers: mutationHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body) });
+  return readDraft(r);
+};
+
+/** POST /api/assist/sop/{id}/revise: the model rewords the prose; a changed record is refused. */
+export const reviseSop = async (draftId: string, instruction: string): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}/revise`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ instruction }),
+  });
+  if (r.status === 422) {
+    const d = await readJsonBody(r);
+    const reasons = Array.isArray(d?.reasons) ? (d!.reasons as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    throw new RevisionRefusedError(reasons);
+  }
+  return readDraft(r);
+};
+
+/** POST /api/assist/sop/{id}/fill: the lab's own values for the placeholders, saved as a new version. */
+export const fillSop = async (draftId: string, values: Record<string, string>): Promise<SopDraft> => {
+  const r = await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}/fill`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ values }),
+  });
+  return readDraft(r);
+};
+
+/** GET /api/assist/sop: every draft, newest first. */
+export const listSops = async (): Promise<SopSummary[]> => {
+  const r = await fetch(`${API}/api/assist/sop`);
+  if (!r.ok) return assistFailure(r);
+  const body = (await r.json()) as { drafts?: SopSummary[] };
+  return Array.isArray(body?.drafts) ? body.drafts : [];
+};
+
+/** GET /api/assist/sop/{id}?version=N: one version, the latest when omitted. */
+export const getSop = async (draftId: string, version?: number): Promise<SopDraft> => {
+  const q = version != null ? `?version=${encodeURIComponent(String(version))}` : "";
+  return readDraft(await fetch(`${API}/api/assist/sop/${encodeURIComponent(draftId)}${q}`));
+};
+
+/** The download link for a draft (a plain GET the browser follows). */
+export const sopExportHref = (draftId: string, format: "md" | "docx", version?: number): string =>
+  `${API}/api/assist/sop/${encodeURIComponent(draftId)}/export?format=${format}${version != null ? `&version=${encodeURIComponent(String(version))}` : ""}`;
 
 export { API };

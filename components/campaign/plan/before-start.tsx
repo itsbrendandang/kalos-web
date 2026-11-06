@@ -5,6 +5,7 @@ import type { BatchModel } from "@/components/campaign/plan/use-batch-model";
 import { TONE_ICON, TONE_TEXT, type Tone } from "@/components/kit/tone";
 import { WhyLine } from "@/components/kit/why-line";
 import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
 
 /**
  * What to know before starting, one line each. Warnings are things to look at
@@ -21,7 +22,7 @@ export function BeforeStart({ m, notes, diversity }: { m: BatchModel; notes: Dat
       </h2>
       <ul className="flex flex-col gap-1.5">
         {notes.map((n) => (
-          <Note key={n.text} tone={n.tone}>
+          <Note key={n.text} tone={n.tone} why={n.why}>
             {n.text}
           </Note>
         ))}
@@ -38,6 +39,11 @@ export function BeforeStart({ m, notes, diversity }: { m: BatchModel; notes: Dat
         ) : (
           <Note tone="neutral">How far apart the recipes are was not reported.</Note>
         )}
+        {m.band != null && rowCount > 0 ? (
+          <Note tone="neutral" why="coverage_not_guaranteed">
+            The likely range of ± {formatNumber(m.band)} was checked on past runs, not on these recipes.
+          </Note>
+        ) : null}
         {m.band == null && rowCount > 0 ? <Note tone="neutral">No likely range was reported, so predicted gains are shown without one.</Note> : null}
       </ul>
     </section>

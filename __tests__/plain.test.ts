@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { driverLine, trustPlain } from "@/lib/plain";
 import type { Driver, ReliabilityVerdict } from "@/lib/api";
 
-const v = (o: Partial<ReliabilityVerdict>) => ({ state: "reliable", label: "", rho: 0.54, ci: null, floor: null, reason: "", ...o }) as ReliabilityVerdict;
+const v = (o: Partial<ReliabilityVerdict>) => ({ state: "reliable", label: "", rho: 0.54, ci: null, floor: null, caveat: null, reason: "", ...o }) as ReliabilityVerdict;
 describe("trustPlain", () => {
   it("follows the engine's verdict and reuses its label and reason", () => {
     const good = trustPlain(v({ state: "reliable", label: "Reliable", reason: "above the floor" }));

@@ -8,6 +8,7 @@ const verdict = (over: Partial<ReliabilityVerdict>): ReliabilityVerdict => ({
   rho: 0.65,
   ci: [0.41, 0.8],
   floor: 0.5,
+  caveat: null,
   reason: "The model put your past runs in the right order most of the time, and we are sure enough of that, so its suggestions are worth running.",
   ...over,
 });

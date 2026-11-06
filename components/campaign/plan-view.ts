@@ -522,7 +522,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
  * fit (`n_dropped_incomplete`, `n_censored_excluded`, falling back to
  * `data_drops`). Nothing is inferred from the sheet on the client.
  */
-export type DataNote = { tone: "neutral" | "warn"; text: string };
+export type DataNote = { tone: "neutral" | "warn"; text: string; /** The why-line code for this note (lib/why.ts). */ why: string };
 
 const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
@@ -537,6 +537,7 @@ export function dataNotes(d: {
   if (auto.length) {
     notes.push({
       tone: "neutral",
+      why: "auto_categorical",
       text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as a choice between its text values, so proposed recipes pick one of them. Change how the columns are used on Setup to change that.`,
     });
   }
@@ -549,6 +550,7 @@ export function dataNotes(d: {
     ].filter((p): p is string => p != null);
     notes.push({
       tone: "warn",
+      why: censored > 0 && missing === 0 ? "censored_rows" : "dropped_rows",
       text: `${parts.join(" and ")} ${missing + censored === 1 ? "was" : "were"} left out when the model learned. Nothing was filled in.`,
     });
   }

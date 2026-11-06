@@ -159,6 +159,7 @@ export default function LearnPage() {
           <span className="font-semibold">{verdict.label}.</span> {verdict.reason}
         </Verdict>
         <WhyLine code={verdict.state} className="ml-7" />
+        {verdict.caveat ? <WhyLine code={verdict.caveat} className="ml-7" /> : null}
         <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
           <div className="flex flex-col gap-2 text-body text-fg-muted">
             {numbers ? (

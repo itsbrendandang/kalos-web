@@ -4,7 +4,11 @@
 //   web     next standalone server   127.0.0.1:<free port>   KALOS_LOCAL_MODE=1
 //
 // Nothing listens beyond loopback, there is no sign-in (one user, one device),
-// and both processes are stopped when the window closes. The splash page shows
+// and both processes are stopped when the window closes. Two secrets are made
+// per launch: one the web server asks of the window (KALOS_LOCAL_TOKEN), and one
+// the engine asks of the web server (KALOS_AUTH_TOKENS on the engine holds only
+// its SHA-256; the web server gets the plain value as KALOS_ENGINE_TOKEN). A page
+// or program that finds the engine port without the secret gets 401. The splash page shows
 // while they start, then the window navigates to the web server.
 //
 // Paths (override with env): KALOS_ENGINE_DIR (a kalos checkout with .venv),
@@ -35,7 +39,7 @@ fn wait_for(port: u16, secs: u64) -> bool {
     false
 }
 
-/// A fresh secret for this launch. The web server only answers requests that carry it (lib/server/local-guard.ts).
+/// A fresh secret for this launch (48 hex characters from the system's random source).
 fn launch_token() -> Result<String, String> {
     use std::io::Read;
     let mut buf = [0u8; 24];
@@ -43,6 +47,25 @@ fn launch_token() -> Result<String, String> {
         .and_then(|mut f| f.read_exact(&mut buf))
         .map_err(|e| format!("could not make a launch secret: {e}"))?;
     Ok(buf.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// Engine tenant for the desktop app. The engine reserves `default` for open mode
+/// and refuses it on a token, so the desktop app's records live under `local`.
+const ENGINE_TENANT: &str = "local";
+
+/// The engine's KALOS_AUTH_TOKENS value for this launch: one record holding the
+/// SHA-256 of the secret (never the secret), read and write, no admin (the same
+/// rights open mode gave). See kalos-engine docs/HARDENING.md.
+fn engine_auth_config(secret: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let hash: String = Sha256::digest(secret.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
+    serde_json::json!([{
+        "token_sha256": hash,
+        "subject": "desktop-app",
+        "tenant": ENGINE_TENANT,
+        "scopes": ["read", "write"],
+    }])
+    .to_string()
 }
 
 fn kill_all(children: &Children) {
@@ -91,6 +114,7 @@ fn start(children: &Children) -> Result<(u16, String), String> {
     let node = find_node();
     let state = std::env::var("KALOS_STATE_DIR").unwrap_or_else(|_| home().join(".kalos").to_string_lossy().into());
     let token = launch_token()?;
+    let engine_secret = launch_token()?;
 
     let (engine_port, web_port) = (free_port(), free_port());
 
@@ -101,6 +125,11 @@ fn start(children: &Children) -> Result<(u16, String), String> {
         .env("KALOS_HOST", "127.0.0.1")
         .env("KALOS_PORT", engine_port.to_string())
         .env("KALOS_STATE_DIR", &state)
+        .env("KALOS_AUTH_TOKENS", engine_auth_config(&engine_secret))
+        // Only the app's own origin may read engine answers from a browser.
+        .env("KALOS_CORS_ORIGINS", format!("http://127.0.0.1:{web_port}"))
+        .env_remove("KALOS_AUTH_TOKENS_FILE")
+        .env_remove("KALOS_ALLOW_OPEN_ACCESS")
         .stdout(log_file("engine"))
         .stderr(log_file("engine-err"))
         .spawn()
@@ -118,6 +147,7 @@ fn start(children: &Children) -> Result<(u16, String), String> {
         .env("KALOS_LOCAL_TOKEN", &token)
         .env("KALOS_STATE_DIR", &state)
         .env("KALOS_ENGINE_URL", format!("http://127.0.0.1:{engine_port}"))
+        .env("KALOS_ENGINE_TOKEN", &engine_secret)
         .stdout(log_file("web"))
         .stderr(log_file("web-err"))
         .spawn()
@@ -160,4 +190,30 @@ fn main() {
             kill_all(&handle.state::<Children>());
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn engine_config_holds_the_hash_not_the_secret() {
+        let secret = "0123456789abcdef0123456789abcdef0123456789abcdef";
+        let cfg = engine_auth_config(secret);
+        assert!(!cfg.contains(secret));
+        let v: serde_json::Value = serde_json::from_str(&cfg).unwrap();
+        let rec = &v[0];
+        // sha256 of the secret above, computed with `printf %s <secret> | shasum -a 256`
+        assert_eq!(rec["token_sha256"], "34c26e154bab5ff544f29f8747a691d0fedd3b8a51655f27d0f585b1b2753970");
+        assert_eq!(rec["tenant"], "local");
+        assert_eq!(rec["scopes"], serde_json::json!(["read", "write"]));
+        assert_eq!(v.as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn launch_tokens_are_fresh_and_long() {
+        let (a, b) = (launch_token().unwrap(), launch_token().unwrap());
+        assert_eq!(a.len(), 48);
+        assert_ne!(a, b);
+    }
 }

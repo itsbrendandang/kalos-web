@@ -2,8 +2,12 @@ import "server-only";
 
 // Engine forwarder for local (on-device) mode. Same route table, body-type
 // and size rules as the hosted proxy, and CSRF against this host, but no
-// session, tenant or token: the bundled engine only listens on this machine in
-// open mode. The request has already passed proxy.ts (loopback Host + launch secret).
+// session or tenant. The request has already passed proxy.ts (loopback Host +
+// launch secret). The desktop shell starts its engine with a second per-launch
+// secret (KALOS_AUTH_TOKENS on the engine side) and hands the plain value to
+// this server as KALOS_ENGINE_TOKEN; it is sent as `Authorization: Bearer` on
+// every forwarded call, so another page or process that finds the engine port
+// gets 401. Whatever Authorization the browser sent is never forwarded.
 import { proxyBodyCapBytes } from "@/lib/upload-limits";
 import { checkCsrf } from "@/lib/server/csrf";
 import { countedStream, DEFAULT_MAX_JSON_BYTES, engineTarget, MAX_QUERY_LENGTH, planBody, positiveInt } from "@/lib/server/engine-proxy";
@@ -12,6 +16,13 @@ import { hostAllowed } from "@/lib/server/local-guard";
 
 const json = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+
+/** The per-launch engine secret from the desktop shell; unset when the engine runs open (dev). */
+export function localEngineToken(env: Readonly<Record<string, string | undefined>> = process.env): string | null {
+  const t = env.KALOS_ENGINE_TOKEN?.trim();
+  // A bearer token is one header value: refuse anything that could split or fold it.
+  return t && /^[\x21-\x7e]{16,512}$/.test(t) ? t : null;
+}
 
 export async function forwardToLocalEngine(req: Request, segments: string[]): Promise<Response> {
   const method = req.method.toUpperCase();
@@ -42,6 +53,8 @@ export async function forwardToLocalEngine(req: Request, segments: string[]): Pr
   const accept = req.headers.get("accept");
   if (accept) headers.set("accept", accept);
   if (plan.forward && plan.contentType) headers.set("content-type", plan.contentType);
+  const engineToken = localEngineToken();
+  if (engineToken) headers.set("authorization", `Bearer ${engineToken}`);
   const hasBody = plan.forward && req.body;
   const body = hasBody ? countedStream(req.body!, cap, () => { overCap = true; }) : undefined;
   try {

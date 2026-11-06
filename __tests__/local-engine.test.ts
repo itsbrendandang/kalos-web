@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { forwardToLocalEngine } from "@/lib/server/local-engine";
+import { forwardToLocalEngine, localEngineToken } from "@/lib/server/local-engine";
 
 const H = { host: "127.0.0.1:3112", origin: "http://127.0.0.1:3112", "x-kalos-csrf": "1" };
 const saved = { ...process.env };
@@ -22,6 +22,24 @@ describe("forwardToLocalEngine", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:8050/api/campaign");
     expect(new Headers(init.headers).has("authorization")).toBe(false);
+  });
+  it("sends the shell's engine secret as a bearer token, never the browser's Authorization", async () => {
+    process.env.KALOS_ENGINE_TOKEN = "engine-secret-0123456789abcdef";
+    const r = await get("api/campaign", { ...H, authorization: "Bearer forged-by-the-page" });
+    expect(r.status).toBe(200);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(init.headers).get("authorization")).toBe("Bearer engine-secret-0123456789abcdef");
+  });
+  it("drops the browser's Authorization when no engine secret is set", async () => {
+    await get("api/campaign", { ...H, authorization: "Bearer forged-by-the-page" });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(init.headers).has("authorization")).toBe(false);
+  });
+  it("ignores an engine secret that is too short or could split a header", () => {
+    expect(localEngineToken({ KALOS_ENGINE_TOKEN: "short" })).toBeNull();
+    expect(localEngineToken({ KALOS_ENGINE_TOKEN: "a".repeat(20) + "\r\nx: y" })).toBeNull();
+    expect(localEngineToken({})).toBeNull();
+    expect(localEngineToken({ KALOS_ENGINE_TOKEN: " " + "b".repeat(32) + " " })).toBe("b".repeat(32));
   });
   it("404s unknown routes", async () => expect((await get("healthz")).status).toBe(404));
   it("refuses a foreign host even with matching origin", async () => {

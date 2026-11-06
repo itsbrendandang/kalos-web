@@ -294,3 +294,10 @@ export function measuredOnly(profile: SheetProfile): MeasuredSplit | null {
     column: col.name,
   };
 }
+
+/** The replicate groups whose rows sit next to each other in the sheet (a block), in sheet order. */
+export function consecutiveBlocks(groups: readonly ReplicateGroup[]): ReplicateGroup[] {
+  return groups
+    .filter((g) => g.rows.every((r, i) => i === 0 || r === g.rows[i - 1] + 1))
+    .sort((a, b) => a.rows[0] - b.rows[0]);
+}

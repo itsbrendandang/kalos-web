@@ -137,6 +137,20 @@ fn engine_refusal_line() -> Option<String> {
     text.lines().rev().find(|l| l.starts_with("kalos engine: ")).map(|l| l.trim_start_matches("kalos engine: ").to_string())
 }
 
+/// What the splash says when the engine exits while starting (kalos-engine docs/DESKTOP.md,
+/// "Exit codes and messages"): 2 a bad setting, 3 a damaged or unusable data folder (the
+/// engine's own line says what to do), 4 the server could not start but the data is fine
+/// (port in use, another engine on this folder): never the restore-a-backup advice, say retry.
+fn startup_failure_message(code: Option<i32>, line: Option<String>) -> String {
+    let fallback = "the engine stopped while starting; see ~/Library/Logs/Kalos/engine-err.log".to_string();
+    match (code, line) {
+        (Some(4), Some(l)) => format!("{l} Your data is fine. Quit Kalos and open it again to retry on a new port."),
+        (Some(4), None) => "the engine could not start. Your data is fine. Quit Kalos and open it again to retry on a new port.".into(),
+        (_, Some(l)) => l,
+        (_, None) => fallback,
+    }
+}
+
 /// Wait until the engine answers health, exits, or the time runs out.
 fn wait_for_engine(children: &Children, port: u16, secret: &str, secs: u64) -> Result<(), String> {
     let end = Instant::now() + Duration::from_secs(secs);
@@ -146,9 +160,9 @@ fn wait_for_engine(children: &Children, port: u16, secret: &str, secs: u64) -> R
             Health::Refused(msg) => return Err(msg),
             Health::NotYet => {}
         }
-        let exited = children.0.lock().unwrap().first_mut().map(|c| matches!(c.try_wait(), Ok(Some(_)))).unwrap_or(false);
-        if exited {
-            return Err(engine_refusal_line().unwrap_or_else(|| "the engine stopped while starting; see ~/Library/Logs/Kalos/engine-err.log".into()));
+        let exited = children.0.lock().unwrap().first_mut().and_then(|c| c.try_wait().ok().flatten());
+        if let Some(status) = exited {
+            return Err(startup_failure_message(status.code(), engine_refusal_line()));
         }
         std::thread::sleep(Duration::from_millis(250));
     }
@@ -347,6 +361,16 @@ mod tests {
             assert_eq!(start_path(), want, "{input}");
         }
         std::env::remove_var("KALOS_START_PATH");
+    }
+
+    #[test]
+    fn exit_4_says_retry_never_restore() {
+        let m = startup_failure_message(Some(4), Some("the engine could not start: port 5000 is in use.".into()));
+        assert!(m.contains("port 5000") && m.contains("retry") && !m.contains("backup"));
+        assert!(startup_failure_message(Some(4), None).contains("Your data is fine"));
+        let line = "the database in /x is damaged. Restore a backup or move the folder aside.".to_string();
+        assert_eq!(startup_failure_message(Some(3), Some(line.clone())), line);
+        assert!(startup_failure_message(None, None).contains("engine-err.log"));
     }
 
     #[test]

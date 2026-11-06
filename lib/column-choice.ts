@@ -10,8 +10,8 @@ import type { ColumnRolesInput } from "@/lib/api";
 /** Text inputs with more levels than this have too few runs per label to learn from, so they start unticked. */
 export const MAX_INPUT_LEVELS = 10;
 
-/** Column names that usually hold a measured result (mirrors Kalos's own name check), so they start unticked. */
-const RESULT_LIKE = /titer|titre|yield|conc|purity|lipase|biomass|od\d|product|response|output|score|kda|activity/i;
+/** Column names that usually hold a measured result (Kalos's own name check, minus "conc": a concentration is usually something the lab set), so they start unticked. */
+const RESULT_LIKE = /titer|titre|yield|purity|lipase|biomass|od\d|product|response|output|score|kda|activity/i;
 /** Names Kalos prefers as the target when several columns look like results. */
 const TARGET_PREFERRED = /titer|titre|lipase|yield/i;
 /** Names that are run labels, dates or notes, never settings. */

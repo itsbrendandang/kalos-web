@@ -34,7 +34,7 @@ export function Term({ word, children, className }: { word: GlossaryKey; childre
  */
 export function WordsLine({ className }: { className?: string }) {
   return (
-    <p className={cn("max-w-[80ch] text-body text-fg-muted", className)}>
+    <p className={cn("max-w-[90ch] text-caption text-fg-muted", className)}>
       <span className="text-fg">What these words mean.</span>{" "}
       {WORDS_LINE_ORDER.map((k, i) => {
         const g = GLOSSARY[k];

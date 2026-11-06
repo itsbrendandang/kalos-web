@@ -1,150 +1,102 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Pencil, Plus, X } from "lucide-react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import type { Customer, Project, ProjectStatus } from "@/app/projects/data";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjectsStore } from "./store-context";
 
 export type ModalState =
   | { kind: "add-customer" }
   | { kind: "edit-customer"; customer: Customer }
-  | { kind: "add-project"; customerName: string }
+  | { kind: "add-project"; customerName?: string }
   | { kind: "edit-project"; project: Project }
   | null;
 
-function statusValue(s: Project["status"]): string {
-  return { drafting: "Drafting", in_progress: "In Progress", completed: "Completed", terminated: "Terminated" }[s];
-}
+const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
+  { value: "drafting", label: "Drafting" },
+  { value: "in_progress", label: "In progress" },
+  { value: "completed", label: "Completed" },
+  { value: "terminated", label: "Stopped" },
+];
 
-const STATUS_BY_LABEL: Record<string, ProjectStatus> = {
-  Drafting: "drafting",
-  "In Progress": "in_progress",
-  Completed: "completed",
-  Terminated: "terminated",
-};
-
-function statusFromLabel(label: string): ProjectStatus {
-  return STATUS_BY_LABEL[label] ?? "in_progress";
-}
-
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-/**
- * Traps Tab/Shift+Tab focus within the given container while it is mounted,
- * moves focus into it on mount, and restores focus to whatever was focused
- * beforehand on unmount. Also marks the rest of the page inert so screen
- * readers and Tab can't reach it while the modal is open.
- */
-function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>) {
-  // Captured once per mount (lazy initializer), not inside the effect below -
-  // React Strict Mode's dev-only mount/cleanup/remount would otherwise let
-  // the effect's second run capture the modal's own (already-focused) field
-  // as "previously focused" instead of the real trigger element.
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
-  if (previouslyFocusedRef.current === null) {
-    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
-  }
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // The modal renders inline in the page tree (no portal), so the trigger
-    // button and the rest of the page live alongside it under shared
-    // ancestors (e.g. .projects-root). Marking only document.body's direct
-    // children inert would miss all of that. Instead walk up from the modal
-    // to <body>, marking every other sibling inert at each level.
-    const siblings: HTMLElement[] = [];
-    for (let node: HTMLElement | null = container; node && node !== document.body; node = node.parentElement) {
-      const parent = node.parentElement;
-      if (!parent) break;
-      Array.from(parent.children).forEach((el) => {
-        if (el !== node && el instanceof HTMLElement) siblings.push(el);
-      });
-    }
-    siblings.forEach((el) => el.setAttribute("inert", ""));
-
-    const focusables = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
-    // Respect a field's own `autoFocus` (e.g. the name input): React applies
-    // that during the same commit, before this layout effect runs, so if
-    // focus already landed inside the container we leave it alone.
-    if (!container.contains(document.activeElement)) {
-      (focusables()[0] ?? container).focus();
-    }
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Tab" || !container) return;
-      const items = focusables();
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    container.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      container.removeEventListener("keydown", onKeyDown);
-      siblings.forEach((el) => el.removeAttribute("inert"));
-      previouslyFocusedRef.current?.focus();
-    };
-  }, [containerRef]);
-}
-
-function Shell({
+/** The dialog frame shared by the four forms: a title, one sentence, the fields, then Cancel and the one submit button. */
+function Frame({
   title,
-  subtitle,
+  description,
+  submitLabel,
+  valid,
+  onSubmit,
   onClose,
   children,
 }: {
   title: string;
-  subtitle: string;
+  description: string;
+  submitLabel: string;
+  valid: boolean;
+  onSubmit: () => void;
   onClose: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(modalRef);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div className="modal-scrim" onClick={onClose}>
-      <div
-        ref={modalRef}
-        className="modal"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-      >
-        <div className="mhdr">
-          <div>
-            <div className="mt">{title}</div>
-            <div className="ms">{subtitle}</div>
-          </div>
-          <button className="mx" onClick={onClose} aria-label="Close">
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="mbody">{children}</div>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            if (valid) onSubmit();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          {children}
+          <DialogFooter className="mt-1">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!valid}>
+              {submitLabel}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-const STATUS_OPTIONS = ["Drafting", "In Progress", "Completed", "Terminated"];
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-label text-fg">
+      {label}
+      {children}
+      {hint ? <span className="text-caption font-normal text-fg-muted">{hint}</span> : null}
+    </label>
+  );
+}
+
+function StatusField({ value, onChange }: { value: ProjectStatus; onChange: (s: ProjectStatus) => void }) {
+  return (
+    <Field label="Status" hint="You can change this later.">
+      <Select items={STATUS_OPTIONS} value={value} onValueChange={(v) => v && onChange(v as ProjectStatus)}>
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {STATUS_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
 
 function AddCustomerModal({ onClose }: { onClose: () => void }) {
   const { addCustomer } = useProjectsStore();
@@ -152,36 +104,25 @@ function AddCustomerModal({ onClose }: { onClose: () => void }) {
   const [address, setAddress] = useState("");
   const valid = name.trim().length > 0;
 
-  function submit() {
-    if (!valid) return;
-    addCustomer({ name: name.trim(), address: address.trim() });
-    onClose();
-  }
-
   return (
-    <Shell title="Add customer" subtitle="Creates a new customer workspace" onClose={onClose}>
-      <div className="fg">
-        <div className="fl">Customer name</div>
-        <input className="fi" placeholder="e.g. Acme Biopharma" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="fg">
-        <div className="fl">Customer address</div>
-        <input
-          className="fi"
-          placeholder="123 Science Park, Cambridge, MA 02139"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-      </div>
-      <div className="macts">
-        <button className="btn-c" onClick={onClose}>
-          Cancel
-        </button>
-        <button className="btn-s" onClick={submit} disabled={!valid}>
-          Create customer
-        </button>
-      </div>
-    </Shell>
+    <Frame
+      title="Add a customer"
+      description="A customer groups its projects on the Projects page."
+      submitLabel="Add the customer"
+      valid={valid}
+      onSubmit={() => {
+        addCustomer({ name: name.trim(), address: address.trim() });
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      <Field label="Name">
+        <Input placeholder="Acme Biopharma" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Address">
+        <Input placeholder="123 Science Park, Cambridge, MA 02139" value={address} onChange={(e) => setAddress(e.target.value)} />
+      </Field>
+    </Frame>
   );
 }
 
@@ -190,109 +131,74 @@ function EditCustomerModal({ customer, onClose }: { customer: Customer; onClose:
   const [name, setName] = useState(customer.name);
   const [address, setAddress] = useState(customer.address);
   const valid = name.trim().length > 0;
-
-  function submit() {
-    if (!valid) return;
-    updateCustomer(customer.id, { name: name.trim(), address: address.trim() });
-    onClose();
-  }
+  const n = customer.projects.length;
 
   return (
-    <Shell title="Edit customer" subtitle={customer.name} onClose={onClose}>
-      <div className="fg">
-        <div className="fl">Customer name</div>
-        <input className="fi" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="fg">
-        <div className="fl">Customer address</div>
-        <input className="fi" value={address} onChange={(e) => setAddress(e.target.value)} />
-      </div>
-      <div className="my-3 h-px bg-[color:var(--v-border)]" />
-      <div className="mb-1.5 text-[10px] font-medium uppercase text-[color:var(--v-muted)]">Projects</div>
-      {customer.projects.map((p) => (
-        <div
-          key={p.id}
-          className="mb-1.5 flex items-center gap-2 rounded-[7px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-2 py-1.5"
-        >
-          <span
-            className={`size-[5px] shrink-0 rounded-full ${
-              p.stage.kind === "phase2" ? "v-stage-dot--phase2" : "v-stage-dot--phase1"
-            }`}
-          />
-          <span className="flex-1 text-[12px] font-medium text-[color:var(--v-ink)]">{p.name}</span>
-          <span
-            className={`rounded-full px-[5px] py-0.5 text-[9px] font-medium ${
-              p.stage.kind === "phase2" ? "v-stage-pill--phase2" : "v-stage-pill--phase1"
-            }`}
-          >
-            {p.stage.kind === "phase2" ? "Phase 2" : "Phase 1"}
-          </span>
-        </div>
-      ))}
-      <div className="macts mt-3">
-        <button className="btn-c" onClick={onClose}>
-          Cancel
-        </button>
-        <button className="btn-s" onClick={submit} disabled={!valid}>
-          Save changes
-        </button>
-      </div>
-    </Shell>
+    <Frame
+      title="Edit the customer"
+      description={n === 0 ? "No projects yet." : `${n} ${n === 1 ? "project" : "projects"} under this customer.`}
+      submitLabel="Save the changes"
+      valid={valid}
+      onSubmit={() => {
+        updateCustomer(customer.id, { name: name.trim(), address: address.trim() });
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      <Field label="Name">
+        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Address">
+        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+      </Field>
+    </Frame>
   );
 }
 
-function AddProjectModal({ customerName, onClose }: { customerName: string; onClose: () => void }) {
-  const { addProject } = useProjectsStore();
+function AddProjectModal({ customerName, onClose }: { customerName?: string; onClose: () => void }) {
+  const { addProject, customers } = useProjectsStore();
+  const [customer, setCustomer] = useState(customerName ?? customers[0]?.name ?? "");
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("");
-  const [status, setStatus] = useState("In Progress");
-  const valid = name.trim().length > 0;
-
-  function submit() {
-    if (!valid) return;
-    addProject(customerName, { name: name.trim(), objective: objective.trim(), status: statusFromLabel(status) });
-    onClose();
-  }
+  const [status, setStatus] = useState<ProjectStatus>("in_progress");
+  const valid = name.trim().length > 0 && customer.length > 0;
 
   return (
-    <Shell title="Add project" subtitle={customerName} onClose={onClose}>
-      <div className="fg">
-        <div className="fl">Project name</div>
-        <input
-          className="fi"
-          placeholder="e.g. CHO Cell Yield Optimization"
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="fg">
-        <div className="fl">Project objective</div>
-        <input
-          className="fi"
-          placeholder="What is this project trying to achieve?"
-          value={objective}
-          onChange={(e) => setObjective(e.target.value)}
-        />
-      </div>
-      <div className="fg">
-        <div className="fl">Project status</div>
-        <select className="fsel" value={status} onChange={(e) => setStatus(e.target.value)}>
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-        <div className="fhint">Status can be updated at any time.</div>
-      </div>
-      <div className="macts">
-        <button className="btn-c" onClick={onClose}>
-          Cancel
-        </button>
-        <button className="btn-s" onClick={submit} disabled={!valid}>
-          Create project
-        </button>
-      </div>
-    </Shell>
+    <Frame
+      title="Add a project"
+      description={customerName ? `Under ${customerName}.` : "Pick the customer it belongs to."}
+      submitLabel="Add the project"
+      valid={valid}
+      onSubmit={() => {
+        addProject(customer, { name: name.trim(), objective: objective.trim(), status });
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      {customerName ? null : (
+        <Field label="Customer">
+          <Select value={customer} onValueChange={(v) => v && setCustomer(v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {customers.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+      <Field label="Name">
+        <Input placeholder="CHO cell yield" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Objective" hint="What the project is trying to achieve, in one line.">
+        <Input placeholder="Raise IgG titer at pilot scale" value={objective} onChange={(e) => setObjective(e.target.value)} />
+      </Field>
+      <StatusField value={status} onChange={setStatus} />
+    </Frame>
   );
 }
 
@@ -300,43 +206,29 @@ function EditProjectModal({ project, onClose }: { project: Project; onClose: () 
   const { updateProject } = useProjectsStore();
   const [name, setName] = useState(project.name);
   const [objective, setObjective] = useState(project.objective);
-  const [status, setStatus] = useState(statusValue(project.status));
+  const [status, setStatus] = useState<ProjectStatus>(project.status);
   const valid = name.trim().length > 0;
 
-  function submit() {
-    if (!valid) return;
-    updateProject(project.id, { name: name.trim(), objective: objective.trim(), status: statusFromLabel(status) });
-    onClose();
-  }
-
   return (
-    <Shell title="Edit project" subtitle={`${project.customerName} · ${project.name}`} onClose={onClose}>
-      <div className="fg">
-        <div className="fl">Project name</div>
-        <input className="fi" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="fg">
-        <div className="fl">Project objective</div>
-        <input className="fi" value={objective} onChange={(e) => setObjective(e.target.value)} />
-      </div>
-      <div className="fg">
-        <div className="fl">Project status</div>
-        <select className="fsel" value={status} onChange={(e) => setStatus(e.target.value)}>
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-        <div className="fhint">Not permanent; can be changed back.</div>
-      </div>
-      <div className="macts">
-        <button className="btn-c" onClick={onClose}>
-          Cancel
-        </button>
-        <button className="btn-s" onClick={submit} disabled={!valid}>
-          Save changes
-        </button>
-      </div>
-    </Shell>
+    <Frame
+      title="Edit the project"
+      description={`${project.customerName}: ${project.name}.`}
+      submitLabel="Save the changes"
+      valid={valid}
+      onSubmit={() => {
+        updateProject(project.id, { name: name.trim(), objective: objective.trim(), status });
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      <Field label="Name">
+        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Objective">
+        <Input value={objective} onChange={(e) => setObjective(e.target.value)} />
+      </Field>
+      <StatusField value={status} onChange={setStatus} />
+    </Frame>
   );
 }
 
@@ -347,5 +239,3 @@ export function ProjectsModal({ state, onClose }: { state: ModalState; onClose: 
   if (state.kind === "add-project") return <AddProjectModal customerName={state.customerName} onClose={onClose} />;
   return <EditProjectModal project={state.project} onClose={onClose} />;
 }
-
-export { Pencil, Plus };

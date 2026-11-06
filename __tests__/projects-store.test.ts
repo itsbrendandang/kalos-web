@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { CUSTOMERS, getProject as getSeedProject } from "@/app/projects/data";
 import {
-  buildProjectReportCsv,
   findProjectInCustomers,
   getProjectWithFallback,
   initialProjectsState,
@@ -121,31 +120,7 @@ describe("projectsReducer updateProject", () => {
   });
 });
 
-describe("projectsReducer advanceIteration", () => {
-  it("marks the active iteration done and unlocks the next one", () => {
-    const before = initialProjectsState();
-    const mab = findProjectInCustomers(before.customers, "p-mab");
-    expect(mab?.stage.kind).toBe("phase1");
-
-    const after = projectsReducer(before, { type: "advanceIteration", projectId: "p-mab" });
-    const mabAfter = findProjectInCustomers(after.customers, "p-mab");
-
-    expect(mabAfter?.iterations.find((it) => it.n === 2)?.state).toBe("done");
-    expect(mabAfter?.iterations.find((it) => it.n === 3)?.state).toBe("active");
-    if (mabAfter?.stage.kind === "phase1") expect(mabAfter.stage.iteration).toBe(3);
-  });
-});
-
-describe("projectsReducer runPipeline and markProjectComplete", () => {
-  it("transitions the run to complete and marks all stages done", () => {
-    const before = initialProjectsState();
-    const template = [{ n: 1, name: "Stage one", state: "pending" as const, chips: [] }];
-    const after = projectsReducer(before, { type: "runPipeline", projectId: "p-mab", stageTemplate: template });
-    const mabAfter = findProjectInCustomers(after.customers, "p-mab");
-    expect(mabAfter?.run).toEqual({ number: 1, status: "complete" });
-    expect(mabAfter?.pipeline.every((s) => s.state === "done")).toBe(true);
-  });
-
+describe("projectsReducer markProjectComplete", () => {
   it("marks a project completed with the given date", () => {
     const before = initialProjectsState();
     const after = projectsReducer(before, { type: "markProjectComplete", projectId: "p-mab", completedOn: "Jun 1, 2026" });
@@ -173,29 +148,6 @@ describe("getProjectWithFallback", () => {
       patch: { name: "Renamed", objective: "Test", status: "in_progress" },
     });
     expect(getProjectWithFallback(after.customers, "p-mab")?.name).toBe("Renamed");
-  });
-});
-
-describe("buildProjectReportCsv", () => {
-  it("returns well-formed CSV text with a header row for a project with a report", () => {
-    const project = getSeedProject("p-cho");
-    if (!project) throw new Error("expected seed project p-cho to exist");
-
-    const csv = buildProjectReportCsv(project);
-    const lines = csv.split("\n");
-
-    expect(lines[0]).toBe("Section,Name,Value,Detail");
-    expect(lines).toHaveLength(1 + project.report!.stats.length + project.report!.candidates.length + project.report!.drivers.length);
-    // Every data row has exactly 4 comma-separated fields (none of the seed values contain commas to escape).
-    for (const line of lines.slice(1)) {
-      expect(line.split(",")).toHaveLength(4);
-    }
-  });
-
-  it("returns only the header row for a project with no report", () => {
-    const project = getSeedProject("p-mab");
-    if (!project) throw new Error("expected seed project p-mab to exist");
-    expect(buildProjectReportCsv(project)).toBe("Section,Name,Value,Detail");
   });
 });
 

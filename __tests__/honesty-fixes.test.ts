@@ -1,18 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coveragePct, driverSelectionNote, isReliable, type DriverSelection, type Reliability, reliabilityReason } from "@/lib/api";
-import { verdict } from "@/components/projects/phase2-live";
-
-function reliability(overrides: Partial<Reliability>): Reliability {
-  return {
-    spearman: 0.4,
-    ci95: [0.1, 0.7],
-    spearman_floor: 0.2,
-    clears_floor: true,
-    ci_excludes_zero: true,
-    unmodeled: [],
-    ...overrides,
-  };
-}
+import { coveragePct, driverSelectionNote, type DriverSelection, reliabilityReason } from "@/lib/api";
 
 function selection(overrides: Partial<DriverSelection> = {}): DriverSelection {
   return {
@@ -53,42 +40,6 @@ describe("driverSelectionNote", () => {
   it("renders nothing when the engine did not report a selection process", () => {
     expect(driverSelectionNote(undefined)).toBeNull();
     expect(driverSelectionNote(null)).toBeNull();
-  });
-});
-
-describe("verdict (phase2-live)", () => {
-  // The verdict must never disagree with isReliable() - that's the whole point
-  // of routing through it instead of re-deriving the 0.20-floor check locally.
-  it("agrees with isReliable() when reliable", () => {
-    const rel = reliability({ clears_floor: true, ci_excludes_zero: true });
-    const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).tone).toBe("ok");
-    expect(isReliable(d)).toBe(true);
-  });
-
-  it("agrees with isReliable() when clears_floor is false (not reliable)", () => {
-    const rel = reliability({ clears_floor: false, ci_excludes_zero: true });
-    const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).tone).not.toBe("ok");
-    expect(isReliable(d)).toBe(false);
-  });
-
-  it("agrees with isReliable() when ci_excludes_zero is false (not reliable)", () => {
-    const rel = reliability({ clears_floor: true, ci_excludes_zero: false });
-    const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).tone).not.toBe("ok");
-    expect(isReliable(d)).toBe(false);
-  });
-
-  it("reads the floor from the engine's spearman_floor, not a hardcoded value", () => {
-    const rel = reliability({ clears_floor: true, ci_excludes_zero: true, spearman_floor: 0.35 });
-    const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).text).toContain("0.35");
-    expect(verdict(d).text).not.toContain("0.20");
-  });
-
-  it("is bad when there is no reliability block", () => {
-    expect(verdict({ reliability: undefined, cv_ci95: null, cv_spearman: null }).tone).toBe("bad");
   });
 });
 

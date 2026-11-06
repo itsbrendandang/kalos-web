@@ -101,7 +101,7 @@ The rest of the app:
 
 - **Data** (`/data`): a registry of datasets and runs.
 - **Library** (`/library`): Vessels, Plate analysis, Scale-up readout and Simulator, plus a link to Projects.
-- **Projects** (`/projects`): client-facing project workspaces on illustrative seed data.
+- **Projects** (`/projects`): a list of client projects and the stage each is at, on illustrative seed data; one project links to the live campaign.
 - **Settings** (`/settings`): theme, engine connection, and optional integrations.
 
 Earlier routes redirect permanently (`next.config.ts`), so old links and bookmarks still resolve.
@@ -237,7 +237,7 @@ Each rule names the file that carries it.
 | `/data` | Fixtures in `lib/mock/registry.ts`, synthetic, shown only in demo mode. |
 | `/library/vessels` | Fixtures in `lib/vessel-data.ts`, a seeded simulation, shown only in demo mode. |
 | `/library/plate` | Fixtures in `lib/plate-data.ts`, a seeded simulation, always shown with a demo badge. |
-| `/projects/*` | Illustrative seed data in `app/projects/data.ts`, saved per viewer in the browser. One project scores the live engine analysis. |
+| `/projects/*` | Illustrative seed data in `app/projects/data.ts` (name, objective, stage, experiment ids), plus what the viewer adds, in memory for the session. One project links to the live campaign on the Overview. |
 
 
 ## Design system

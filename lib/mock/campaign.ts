@@ -43,10 +43,3 @@ export const DEMO_CAMPAIGN: ActiveCampaign = {
   n_measured: 2,
   analysis_in_sync: true,
 };
-
-/** The demo "next batch", in the proposal shape GET /api/latest returns. */
-export const DEMO_BATCH: { recipe: Record<string, number>; pred: number; std: number; mode: "explore" | "exploit"; why: string }[] = [
-  { recipe: { pH: 7.12, Temp_C: 36.2, Feed_pct: 3.4 }, pred: 5.68, std: 0.26, mode: "exploit", why: "highest predicted titer" },
-  { recipe: { pH: 7.3, Temp_C: 35.6, Feed_pct: 3.9 }, pred: 5.52, std: 0.41, mode: "exploit", why: "extends the best region" },
-  { recipe: { pH: 6.7, Temp_C: 37.6, Feed_pct: 2.9 }, pred: 5.01, std: 0.66, mode: "explore", why: "least-sampled region" },
-];

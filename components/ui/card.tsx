@@ -63,11 +63,6 @@ export function CardFooter({ className, ...props }: React.ComponentProps<"div">)
   );
 }
 
-/** A small heading for a group of controls or rows inside a card. */
-export function SectionLabel({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("mb-2 text-label text-fg", className)} {...props} />;
-}
-
 /**
  * A headline number inside a card. Use `hero` for the one number the page is
  * about (accent fill). Numbers use the title role and tabular figures.

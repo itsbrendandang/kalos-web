@@ -192,8 +192,16 @@ describe("indexVerdict", () => {
   });
 
   it("names the sheet the campaign is working from, with its row count", () => {
-    expect(indexVerdict(held(2), analysis(SHA_A))).toBe("2 sheets held here; the campaign is working from pichia_HSA.csv (213 rows).");
-    expect(indexVerdict(held(1), analysis(null, { n: 1 }))).toBe("1 sheet held here; the campaign is working from pichia_HSA.csv (1 row).");
+    const inUse = (k: number) => {
+      const h = held(k);
+      return { ...h, sheets: h.sheets.map((s, i) => (i === 0 ? { ...s, usedBy: { campaignId: "c", campaignName: "Default campaign" } } : s)) };
+    };
+    expect(indexVerdict(inUse(2), analysis(SHA_A))).toBe("2 sheets held here; the campaign is working from pichia_HSA.csv (213 rows).");
+    expect(indexVerdict(inUse(1), analysis(null, { n: 1 }))).toBe("1 sheet held here; the campaign is working from pichia_HSA.csv (1 row).");
+  });
+
+  it("says when the engine's sheet is not one this browser holds, even if a held sheet has the same name", () => {
+    expect(indexVerdict(held(2), analysis(SHA_A))).toBe("2 sheets held here; the campaign is working from pichia_HSA.csv (213 rows), a copy this browser does not hold.");
   });
 
   it("does not claim the engine's state when it could not be asked", () => {

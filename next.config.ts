@@ -23,8 +23,6 @@ const nextConfig: NextConfig = {
       { source: "/optimize", destination: "/campaign/plan", permanent: true },
       { source: "/planning", destination: "/", permanent: true },
       { source: "/scale-readout", destination: "/library/scale-up", permanent: true },
-      { source: "/vessels", destination: "/library/vessels", permanent: true },
-      { source: "/plate", destination: "/library/plate", permanent: true },
       { source: "/simulate", destination: "/library/simulator", permanent: true },
     ];
   },

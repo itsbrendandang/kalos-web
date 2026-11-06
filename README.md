@@ -40,7 +40,8 @@ Open PRs are in progress, not implemented.
 | Same-origin server-side proxy that attaches the engine bearer token; path allowlist; 120 s timeout | IMPLEMENTED | `app/api/engine/[...path]/route.ts`, `__tests__/engine-proxy.test.ts` |
 | App shell: sidebar with campaign stages, mobile sheet, command palette | IMPLEMENTED | `components/workbench/`, `__tests__/routes.test.ts` |
 | Scale-up readout page, simulator page | IMPLEMENTED (engine-backed; evidence is synthetic) | `app/library/scale-up`, `app/library/simulator`, `__tests__/scale-readout.test.ts` |
-| Data registry, Vessels, Plate analysis, Projects | EXPERIMENTAL (fixtures / seed data, badged) | `lib/mock/registry.ts`, `lib/vessel-data.ts`, `lib/plate-data.ts`, `app/projects/data.ts` |
+| Projects | EXPERIMENTAL (seed data, badged) | `app/projects/data.ts` |
+| Vessels and Plate analysis | REMOVED (fixture-only tools with no engine API; a later version may rebuild them on real data) | - |
 | Fit progress, editable column confirmation, `data_type` counts, edge-of-range flag | in progress, open PR [#65](https://github.com/itsbrendandang/kalos-web/pull/65) | not on `main` |
 | Setup correctness fixes: stale analysis, xlsx row types, sheet selector | in progress, open PR [#69](https://github.com/itsbrendandang/kalos-web/pull/69) (stacked on #65) | not on `main` |
 | Security headers, Next 16.4.2, no project data in `localStorage` | in progress, open PR [#68](https://github.com/itsbrendandang/kalos-web/pull/68) | not on `main` |
@@ -97,7 +98,7 @@ It moves through five stages, each with one primary action:
 The rest of the app:
 
 - **Data** (`/data`): a registry of datasets and runs.
-- **Library** (`/library`): Vessels, Plate analysis, Scale-up readout and Simulator, plus a link to Projects.
+- **Library** (`/library`): the Scale-up readout and the optimizer benchmark, the two tools that use the engine without touching the campaign.
 - **Projects** (`/projects`): a list of client projects and the stage each is at, on illustrative seed data; one project links to the live campaign.
 - **Settings** (`/settings`): theme, engine connection, and optional integrations.
 
@@ -110,8 +111,6 @@ Earlier routes redirect permanently (`next.config.ts`), so old links and bookmar
 | `/analyze`, `/validate` | `/campaign/setup` |
 | `/planning` | `/` |
 | `/scale-readout` | `/library/scale-up` |
-| `/vessels` | `/library/vessels` |
-| `/plate` | `/library/plate` |
 | `/simulate` | `/library/simulator` |
 
 ## Local development
@@ -195,7 +194,7 @@ The UI's reliability verdict is a transparent rule on the engine's held-out metr
 ## Current limitations
 
 - One live campaign; no multi-user or multi-organisation support.
-- Data, Vessels, Plate and Projects are fixtures or seed data.
+- Projects are seed data. The former Vessels and Plate tools were removed because they only showed fixtures.
 - Everything the UI can do depends on a running engine; there is no offline mode.
 - A few older pages still show internal engine vocabulary.
 
@@ -232,8 +231,6 @@ Each rule names the file that carries it.
 | `/library/simulator` | Engine (`/api/single`, `/api/multi`), which runs a synthetic benchmark surface. |
 | `/settings` | Engine (`/api/providers`, and the connection check). |
 | `/data` | Fixtures in `lib/mock/registry.ts`, synthetic, shown only in demo mode. |
-| `/library/vessels` | Fixtures in `lib/vessel-data.ts`, a seeded simulation, shown only in demo mode. |
-| `/library/plate` | Fixtures in `lib/plate-data.ts`, a seeded simulation, always shown with a demo badge. |
 | `/projects/*` | Illustrative seed data in `app/projects/data.ts` (name, objective, stage, experiment ids), plus what the viewer adds, in memory for the session. One project links to the live campaign on the Overview. |
 
 

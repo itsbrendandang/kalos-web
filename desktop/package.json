@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build"
+    "web": "./prepare-web.sh",
+    "build": "./prepare-web.sh && tauri build --bundles app",
+    "check-engine-auth": "./check-engine-auth.sh"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

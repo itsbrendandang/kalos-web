@@ -19,5 +19,10 @@
     ],
     "security": { "csp": null }
   },
-  "bundle": { "active": true, "targets": ["app", "dmg"], "icon": ["icons/icon.png"] }
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.png"],
+    "resources": ["resources/web/"]
+  }
 }

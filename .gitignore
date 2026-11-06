@@ -53,3 +53,4 @@ __tests__/vectors/.local-private-keys.json
 desktop/node_modules
 desktop/src-tauri/target
 desktop/src-tauri/gen
+desktop/src-tauri/resources/

@@ -111,7 +111,7 @@ Format: technical term → plain replacement. "Disclosure only" means the term m
 | Looks right / Confirmed | Keep these columns / Columns confirmed |
 | Save as entered | Save these results |
 | Review values | Go back and check |
-| Replace and continue | Replace the runs and upload |
+| Replace and continue | Drop the runs and upload (the dialog offers Copy and Download first) |
 | Learn from round 1 | See what round 1 taught the model |
 | Plan round 2 | Plan round 2 (keep) |
 | View runs in flight | See the runs in the lab |

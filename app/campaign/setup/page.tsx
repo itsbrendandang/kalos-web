@@ -163,6 +163,9 @@ export default function SetupPage() {
 
       <ReplaceRunsDialog
         refusal={pending?.refusal ?? null}
+        runs={campaign.data?.has_campaign ? campaign.data.pending : []}
+        inputs={analysis?.features ?? (campaign.data?.has_campaign ? campaign.data.features : [])}
+        target={campaign.data?.has_campaign ? campaign.data.target : (analysis?.target ?? "")}
         onCancel={() => setPending(null)}
         onConfirm={() => {
           const p = pending;
@@ -229,6 +232,9 @@ export default function SetupPage() {
       {analysis && !busy ? (
         <div className="flex flex-col gap-8" role={stale ? "group" : undefined} aria-label={stale ? "The previous sheet (not the file you just uploaded)" : undefined}>
           <div className="flex flex-col gap-2">
+            {dropped && dropped !== file ? (
+              <p className="text-body text-fg-muted">Everything below is still about {analysis.dataset}, the last sheet Kalos read. Build the model from {dropped.name} above to replace it.</p>
+            ) : null}
             <p className="text-body text-fg">
               {analysis.dataset}: <span className="tabular-nums">{formatNumber(analysis.n, "count")}</span> runs, <span className="tabular-nums">{formatNumber(analysis.d, "count")}</span> inputs. Target{" "}
               <span className="font-mono text-code">{analysis.target}</span>; inputs {analysis.features.join(", ")}.

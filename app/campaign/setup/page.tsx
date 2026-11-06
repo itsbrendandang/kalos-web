@@ -27,6 +27,7 @@ import { formatNumber } from "@/lib/format";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
 import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
+import { rememberSheet } from "@/lib/sheet-store";
 import { canActOnAnalysis, canChangeTarget, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice } from "@/lib/setup-attempt";
 
 /**
@@ -102,6 +103,12 @@ export default function SetupPage() {
       if (nextRoles === undefined) setBaseline(d.provenance ?? []);
       setCandidates((prev) => mergeTargets(fresh ? [] : prev, d.targets ?? [], nextRoles !== undefined));
       dispatch({ type: "success", file: f, sheets: sheetsFrom(d), sheetUsed: d.sheet_used ?? null });
+      // Keep a copy of the accepted sheet in this browser so the Data pages can show its rows (lib/sheet-store.ts).
+      // Fire-and-forget: a browser that refuses storage (private mode) changes nothing on this page.
+      void rememberSheet(f, {
+        worksheet: d.sheet_used ?? sheetArg ?? null,
+        engine: { target: d.target, features: d.features, n: d.n, d: d.d, dataset: d.run?.filename ?? f.name },
+      }).catch(() => null);
       // Scan the worksheet the engine actually read, so the row-type check describes the fitted data.
       if (fresh) void scanSheet(f, d.sheet_used ?? sheetArg).then((r) => setScanned({ file: f, scan: r }));
     } catch (err) {

@@ -24,6 +24,16 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
     ["POST", `api/campaigns/${CMP}/runs`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/runs/${RUN}/result`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/reanalyze`, ["campaigns:write"]],
+    ["GET", "api/assist/next", ["campaigns:read"]],
+    ["POST", "api/assist/ask", ["campaigns:write"]],
+    ["GET", "api/assist/index/status", ["campaigns:read"]],
+    ["POST", "api/assist/index/rebuild", ["campaigns:write"]],
+    ["GET", "api/assist/sop", ["campaigns:read"]],
+    ["POST", "api/assist/sop/draft", ["campaigns:write"]],
+    ["GET", `api/assist/sop/sop_${RUN}`, ["campaigns:read"]],
+    ["POST", `api/assist/sop/sop_${RUN}/revise`, ["campaigns:write"]],
+    ["POST", `api/assist/sop/sop_${RUN}/fill`, ["campaigns:write"]],
+    ["GET", `api/assist/sop/sop_${RUN}/export`, ["campaigns:read"]],
   ])("%s /%s -> %j", (method, path, scopes) => {
     const m = matchEngineRoute(method, path.split("/"));
     expect(m.kind).toBe("ok");
@@ -51,6 +61,9 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
     ["api/scaley"],
     ["api/latest/extra"],
     ["api/campaign/start/x"],
+    ["api/assist"],
+    ["api/assist/index"],
+    ["api/assist/sop/draft/x"],
     ["api/campaigns/a/b/c/d/e/f"],
     ["api"],
     [""],

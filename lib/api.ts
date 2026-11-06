@@ -4,6 +4,16 @@ import type { ValidationReport } from "@/lib/validation";
 import { recordAudit } from "@/lib/audit-store";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
+import {
+  AssistUnavailableError,
+  assistUnavailableReason,
+  isAssistAnswer,
+  isAssistIndexStatus,
+  isAssistNext,
+  type AssistAnswer,
+  type AssistIndexStatus,
+  type AssistNext,
+} from "@/lib/assist";
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -1230,5 +1240,60 @@ export const getProviders = (): Promise<ProvidersResponse> =>
     if (!r.ok) throw new Error(`engine responded ${r.status}`);
     return r.json();
   });
+
+// --- The assistant (GET/POST /api/assist/*) ---------------------------------
+// The guide (next step) and the question panel. The shapes live in
+// lib/assist.ts. A 404 means an older engine without the routes ("absent")
+// or, with code assist_disabled, an engine whose assistant is turned off;
+// callers fall back to lib/agent.ts for the guide and show how to turn the
+// assistant on for the panel.
+
+async function assistFailure(r: Response): Promise<never> {
+  const d = await readJsonBody(r);
+  const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" ? d.error : null;
+  const reason = assistUnavailableReason(r.status, code);
+  if (reason) throw new AssistUnavailableError(reason);
+  throw new EngineError(r.status, code ?? codeForStatus(r.status));
+}
+
+/** GET /api/assist/next: the one next step for the tenant's campaign. */
+export const getAssistNext = async (): Promise<AssistNext> => {
+  const r = await fetch(`${API}/api/assist/next`);
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistNext(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** POST /api/assist/ask: a question answered only from your own data and the guide. */
+export const askAssist = async (question: string): Promise<AssistAnswer> => {
+  const r = await fetch(`${API}/api/assist/ask`, {
+    method: "POST",
+    headers: mutationHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ question }),
+  });
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistAnswer(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** GET /api/assist/index/status: which model answers, where it runs, and what is indexed. */
+export const getAssistIndexStatus = async (): Promise<AssistIndexStatus> => {
+  const r = await fetch(`${API}/api/assist/index/status`);
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
+
+/** POST /api/assist/index/rebuild: index your sheets, rounds and results again. Answers with the new status. */
+export const rebuildAssistIndex = async (): Promise<AssistIndexStatus> => {
+  const r = await fetch(`${API}/api/assist/index/rebuild`, { method: "POST", headers: mutationHeaders() });
+  if (!r.ok) return assistFailure(r);
+  const v: unknown = await r.json();
+  if (!isAssistIndexStatus(v)) throw new EngineError(r.status, "engine_error");
+  return v;
+};
 
 export { API };

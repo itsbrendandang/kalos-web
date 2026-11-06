@@ -11,6 +11,7 @@ import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
 import { ProjectsStoreProvider } from "@/components/projects/store-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EngineDataProvider } from "@/hooks/use-engine";
+import { AssistProvider } from "@/hooks/use-assist";
 
 const MAIN_ID = "main";
 
@@ -23,11 +24,13 @@ const MAIN_ID = "main";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <EngineDataProvider>
-      <ProjectsStoreProvider>
-        <TooltipProvider delay={300}>
-          <Frame>{children}</Frame>
-        </TooltipProvider>
-      </ProjectsStoreProvider>
+      <AssistProvider>
+        <ProjectsStoreProvider>
+          <TooltipProvider delay={300}>
+            <Frame>{children}</Frame>
+          </TooltipProvider>
+        </ProjectsStoreProvider>
+      </AssistProvider>
     </EngineDataProvider>
   );
 }

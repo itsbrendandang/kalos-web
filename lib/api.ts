@@ -1,4 +1,13 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+//
+// The response types below (the AnalyzeResult family) are hand-maintained on
+// purpose: they carry version-tolerance (?/Partial<> for fields absent on older
+// engine builds) and documentation the engine's OpenAPI cannot - FastAPI types
+// the request bodies but leaves the analysis RESPONSE an untyped object. The
+// engine guards against silently dropping a field this file reads with a
+// contract test on its side: kalos-engine tests/test_web_contract.py asserts
+// every top-level /api/run field listed here is still returned. Keep that
+// field list and these types in sync when the web starts or stops using a field.
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";

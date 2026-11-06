@@ -1,5 +1,5 @@
 import type { ProvenanceEntry } from "@/lib/api";
-import { ROLE_WHY, type WhyCode } from "@/lib/why";
+import { ROLE_WHY, whyLine, type WhyCode } from "@/lib/why";
 
 /**
  * Plain words for each column status the engine emits in its provenance list: how each column was read.
@@ -32,7 +32,8 @@ export function roleLabel(status: string): string {
  */
 export function roleWhy(status: string, sparse = true): WhyCode {
   if (status === "dropped_sparse" && !sparse) return "unknown_role";
-  return ROLE_WHY[status] ?? "unknown_role";
+  // A status the glossary already has words for (row_number_like, outcome_like, ...) keeps its own line.
+  return ROLE_WHY[status] ?? (whyLine(status) ? (status as WhyCode) : "unknown_role");
 }
 
 /** A column with fewer filled cells than half the fullest column's is sparse (the same gate as lib/sheet-roles.ts). */

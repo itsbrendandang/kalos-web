@@ -35,5 +35,6 @@ describe("roleWhy", () => {
     expect(roleWhy("dropped_sparse", true)).toBe("dropped_sparse");
     expect(roleWhy("kept_feature")).toBe("kept_feature");
     expect(roleWhy("dropped_something_new")).toBe("unknown_role");
+    expect(roleWhy("row_number_like")).toBe("row_number_like"); // a status the glossary has words for keeps its own line
   });
 });

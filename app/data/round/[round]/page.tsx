@@ -14,6 +14,7 @@ import { Verdict } from "@/components/kit/verdict";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { WhyLine } from "@/components/kit/why-line";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { roundState, roundVerdict, runsOfRound } from "@/components/data/rows";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
@@ -181,6 +182,7 @@ export default function DataRoundPage() {
           These runs come from Kalos, which keeps the campaign&apos;s runs until the model is next updated and they become part of the runs it learns from. Predictions
           are the model&apos;s at the time the round was started; the ± beside each is the likely range (the conformal band of that analysis).
         </p>
+        {band ? <WhyLine code="coverage_not_guaranteed" /> : null}
       </Disclosure>
     </div>
   );

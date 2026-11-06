@@ -60,6 +60,7 @@ export function TheModel({ analysis }: { analysis: PopulatedResult }) {
             </p>
             <p className="text-body text-fg">{ranges.sentence}</p>
             <WhyLine code={ranges.state} />
+            {rho != null && ci == null ? <WhyLine code="cv_ci_unavailable" /> : null}
             <Disclosure summary="How the model was scored" className="border-t-0">
               <div className="flex flex-col gap-2 text-body text-fg-muted">
                 <p>{trust.gloss}</p>

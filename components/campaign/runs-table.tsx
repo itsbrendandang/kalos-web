@@ -52,7 +52,7 @@ export function RunsTable({
                 {c}
               </TableHead>
             ))}
-            {head("pred", "Predicted", true)}
+            {head("pred", band ? `Predicted (${likelyRange(band.halfWidth)})` : "Predicted", true)}
             {head("result", "Measured", true)}
             {head("status", "Status")}
             <TableHead className="print:hidden">Actions</TableHead>
@@ -74,7 +74,6 @@ export function RunsTable({
               ))}
               <TableCell numeric className="whitespace-nowrap">
                 {formatNumber(r.pred)}
-                {band ? <span className="ml-2 text-caption text-fg-muted">{likelyRange(band.halfWidth)}</span> : null}
               </TableCell>
               <TableCell numeric>{r.result == null ? <span className="text-fg-muted">not yet</span> : formatNumber(r.result)}</TableCell>
               <TableCell>

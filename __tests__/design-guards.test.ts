@@ -35,6 +35,12 @@ describe("design-language burn-down (count may only decrease)", () => {
     { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 19 },
     { what: "rounded-2xl", re: /\brounded-2xl\b/g, ceiling: 0 },
     { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
+    // Compatibility aliases (globals.css "COMPATIBILITY ALIASES"): old token
+    // names kept only so not-yet-rebuilt pages still resolve. New code uses the
+    // canonical tokens (bg-surface not bg-card, text-fg-muted not text-muted,
+    // --accent not --blue*, text-heading not font-head). Burn these down; when
+    // the count hits 0 the alias block in globals.css can be deleted.
+    { what: "compatibility alias reads (bg-card/text-muted/--blue*/font-head/...)", re: /\b(?:bg-card|text-muted|border-input|bg-background|text-foreground|font-head|--blue[a-z-]*|--primary-foreground|--card\b|--muted\b)\b/g, ceiling: 125 },
   ];
   for (const { what, re, ceiling } of CEILINGS) {
     it(`${what}: at most ${ceiling} (lower the ceiling when you remove some; never raise it)`, () => {

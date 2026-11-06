@@ -33,15 +33,15 @@ export function StatTile({
     <Card
       className={cn(
         "flex h-[76px] items-center gap-3 rounded-xl border border-border px-3.5 py-2",
-        tone === "accent" ? "bg-accent-soft" : "bg-card",
+        tone === "accent" ? "bg-accent-soft" : "bg-surface",
         className,
       )}
     >
       {Icon ? (
         <span
           className={cn(
-            "grid size-7 shrink-0 place-items-center rounded-lg bg-card",
-            tone === "accent" ? "text-accent-text" : "text-muted",
+            "grid size-7 shrink-0 place-items-center rounded-lg bg-surface",
+            tone === "accent" ? "text-accent-text" : "text-fg-muted",
           )}
         >
           <Icon className="size-3.5" />
@@ -53,7 +53,7 @@ export function StatTile({
           {tooltip ? (
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex shrink-0 rounded-full text-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="inline-flex shrink-0 rounded-full text-fg-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/50"
                 aria-label={typeof label === "string" ? `${label} definition` : "Definition"}
               >
                 <Info className="size-3" aria-hidden />

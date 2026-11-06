@@ -16,12 +16,12 @@ export type RouteItem = { href: string; label: string; description: string };
  */
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Overview", description: "The live campaign: where the round is and what to do next." },
-  { key: "agent", href: "/agent", label: "Agent", description: "Running experiments and digital twin simulations." },
+  { key: "agent", href: "/agent", label: "Agent", description: "What is in the lab now, and how the model's forecasts held up." },
   { key: "review", href: "/review", label: "Review", description: "See where an experiment went differently and ask what happened." },
   { key: "process", href: "/process", label: "Process", description: "The whole workflow: steps, SOPs and partner data." },
   { key: "graph", href: "/graph", label: "Graph", description: "How your inputs, result and proposed recipes connect." },
   { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
-  { key: "library", href: "/library", label: "Library", description: "Standalone tools: vessels, plates, scale-up, simulator." },
+  { key: "library", href: "/library", label: "Library", description: "Tools that use the engine outside the campaign: scale-up readout, benchmark." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
   { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
@@ -52,12 +52,10 @@ export const CAMPAIGN_STAGES = [
   { key: "learn", href: "/campaign/learn", label: "Learn", description: "What the round taught the model, then plan the next one." },
 ] as const satisfies readonly (RouteItem & { key: StageKey })[];
 
+/** The Library's tools. Both call the engine; neither touches the campaign. (Plate analysis and Vessels, which ran on seeded fixtures only, were removed.) */
 export const LIBRARY_ITEMS: readonly RouteItem[] = [
-  { href: "/library/vessels", label: "Vessels", description: "Bioreactor kinetics across vessels." },
-  { href: "/library/plate", label: "Plate analysis", description: "96-well plate QC and growth curves." },
-  { href: "/library/scale-up", label: "Scale-up readout", description: "Predict a recipe at a larger scale from your data." },
-  { href: "/library/simulator", label: "Simulator", description: "A synthetic optimization benchmark to try the method." },
-  { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
+  { href: "/library/scale-up", label: "Scale-up readout", description: "Ask what a recipe would do at a larger scale, from your run sheet." },
+  { href: "/library/simulator", label: "Benchmark", description: "Watch the optimizer search a made-up surface with a known answer." },
 ];
 
 const PAGES: readonly RouteItem[] = [EXPERIMENTS_ROUTE, ...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];

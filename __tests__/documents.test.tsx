@@ -42,9 +42,9 @@ const DRAFT: SopDraft = {
   created_at: "2026-05-01T10:00:00Z",
   sha256: "ab".repeat(32),
   model: null,
-  source_ids: ["proposal:1.1", "analysis:target"],
+  source_ids: ["proposal:0.1", "analysis:target"],
   markdown: `${HEADER}\n\n# Run recipe 2 of round 1\n\n## Steps\n1. Set SP to **6.57 g/L**.\n2. Run until [[TO FILL: run_duration_h]] hours have passed.\n3. Prepared by [[TO FILL: prepared_by]].\n`,
-  fields_from_record: [{ section: "Steps", field: "SP", value: "6.57 g/L", source_id: "proposal:1.1" }],
+  fields_from_record: [{ section: "Steps", field: "SP", value: "6.57 g/L", source_id: "proposal:0.1" }],
   placeholders: [
     { name: "run_duration_h", section: "Steps", why: "Run length is not in your records." },
     { name: "prepared_by", section: "Steps", why: "A person, not Kalos, prepares the run." },

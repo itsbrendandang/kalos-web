@@ -99,7 +99,8 @@ describe("sources and templates", () => {
     expect(sopSourceHref("round:2")).toBe("/data/round/2");
     expect(sopSourceHref("other:1")).toBeNull();
     expect(sopSourceLabel("run:0123456789abcdef")).toBe("Run 0123456");
-    expect(sopSourceLabel("proposal:1.1")).toBe("Recipe 2 of round 1");
+    expect(sopSourceLabel("proposal:0.1")).toBe("Recipe 2 of round 1");
+    expect(sopSourceLabel("proposal:1.1")).toBe("Recipe 2 of round 2");
     expect(sopSourceLabel("analysis:feature_ranges")).toBe("Model results: feature ranges");
     expect(sopSourceLabel(`sheet:${SHA}`)).toBe("Sheet ccccccc");
   });

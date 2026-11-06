@@ -100,8 +100,9 @@ export function sopSourceLabel(sourceId: string): string {
     case "run":
       return `Run ${rest.slice(0, 7)}`;
     case "proposal": {
+      // The engine writes its own 0-based round; people count from 1 (displayRound in lib/campaign-stage.ts).
       const [round, index] = rest.split(".");
-      return index != null ? `Recipe ${Number(index) + 1} of round ${round}` : `Recipe ${rest}`;
+      return index != null && /^\d+$/.test(round) ? `Recipe ${Number(index) + 1} of round ${Number(round) + 1}` : `Recipe ${rest}`;
     }
     case "analysis":
       return `Model results: ${rest.replace(/_/g, " ")}`;

@@ -20,7 +20,7 @@ export function SheetPicker({ selector, busy, onPick }: { selector: SheetSelecto
           </option>
         ))}
       </select>
-      <span className="text-caption font-normal text-fg-muted">This workbook has {selector.sheets.length} sheets. Choosing one re-fits the model from that sheet.</span>
+      <span className="text-caption font-normal text-fg-muted">This workbook has {selector.sheets.length} sheets. Choosing one builds the model from that sheet.</span>
     </label>
   );
 }

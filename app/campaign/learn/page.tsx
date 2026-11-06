@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { CorrelationHeatmap } from "@/components/campaign/correlation-heatmap";
 import { DriversList } from "@/components/campaign/drivers-list";
-import { bandCalibration, calibrationSentence, canPlanNext, promotionLine, verdictImpact } from "@/components/campaign/learn";
+import { bandCalibration, calibrationSentence, canPlanNext, promotionLine, rankWords, verdictImpact } from "@/components/campaign/learn";
 import { targetName } from "@/components/campaign/target";
 import { ChartFrame } from "@/components/kit/chart-frame";
 import { Callout } from "@/components/kit/callout";
@@ -15,13 +15,15 @@ import { Metric } from "@/components/kit/metric";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
 import { Verdict } from "@/components/kit/verdict";
+import { WhyLine } from "@/components/kit/why-line";
+import { RANK_AGREEMENT_GLOSS, trustNumbers } from "@/components/campaign/trust-numbers";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { coveragePct, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
 import { learnFailure, type EngineMessage } from "@/lib/engine-error";
-import { formatNumber, formatRange } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
 import { measured, type ActiveCampaign } from "@/lib/workbench";
@@ -29,9 +31,9 @@ import { lazyChart } from "@/components/kit/lazy-chart";
 
 /**
  * Learn: can the model be trusted, and what does that change? One verdict
- * leads, then at most three numbers, then the process drivers. Method detail
- * and the raw engine values sit one click down. "Plan round N+1" re-analyzes
- * with the measured results and opens the next batch on Plan.
+ * leads, then at most three numbers, then what went with the target. Method
+ * detail and the raw engine values sit one click down. "Plan round N+1" updates
+ * the model with the measured results and opens the next round on Plan.
  */
 const BestSoFarChart = lazyChart(() => import("@/components/campaign/best-so-far-chart").then((m) => m.BestSoFarChart));
 const PredVsMeasured = lazyChart(() => import("@/components/campaign/pred-vs-measured").then((m) => m.PredVsMeasured));
@@ -43,7 +45,7 @@ export default function LearnPage() {
   const { reanalyze } = useEngineWrites();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  // The engine's reason for a failed re-analysis, in plain words (lib/engine-error.ts). Null when nothing failed.
+  // Kalos's reason for a failed model update, in plain words (lib/engine-error.ts). Null when nothing failed.
   const [failure, setFailure] = useState<EngineMessage | null>(null);
 
   const header = (action?: React.ReactNode, title = "Learn") => (
@@ -79,7 +81,7 @@ export default function LearnPage() {
         {header()}
         <EmptyState
           title="Nothing to learn from yet"
-          description="Learning starts once a run sheet is analyzed and a batch has been run."
+          description="Learning starts once Kalos has read a run sheet and a round of runs has been run."
           action={
             <Link href="/campaign/setup" className={buttonVariants({ variant: "outline", size: "sm" })}>
               Upload a run sheet
@@ -103,6 +105,8 @@ export default function LearnPage() {
   const promotion = promotionLine(d.promotion);
   const calibration = bandCalibration(runs, d.conformal_q);
   const coverage = coveragePct(d.conformal_coverage);
+  const numbers = trustNumbers(verdict);
+  const rank = rankWords(verdict.state);
   const drivers = topDrivers(d.drivers, 8);
   const enabled = canPlanNext(c);
   // Results recorded this round join `c.best` only when the model is re-analyzed, so say so instead of letting two numbers disagree.
@@ -143,7 +147,7 @@ export default function LearnPage() {
           <p>{failure.message}</p>
           <p className="mt-1 text-fg-muted">Your recorded results are safe.</p>
           {failure.engineText ? (
-            <Disclosure summary={<span className="text-caption text-fg-muted">Engine message</span>} className="mt-2 border-border">
+            <Disclosure summary={<span className="text-caption text-fg-muted">As Kalos wrote it</span>} className="mt-2 border-border">
               <p className="break-words text-caption text-fg-muted">{failure.engineText}</p>
             </Disclosure>
           ) : null}
@@ -151,26 +155,29 @@ export default function LearnPage() {
       ) : null}
 
       <section className="flex flex-col gap-3" aria-label="Verdict">
-        <Verdict
-          tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}
-          detailLabel="How the model was scored"
-          detail={
-            <div className="flex flex-col gap-2">
-              {verdict.rho != null ? (
-                <p>
-                  Ranking agreement on held-out runs: {formatNumber(verdict.rho, "corr")}
-                  {verdict.ci ? `, 95% range ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}` : ""}
-                  {verdict.floor != null ? `. The trust floor is ${formatNumber(verdict.floor, "corr")}.` : "."}
-                </p>
-              ) : (
-                <p>The model could not be scored on held-out runs.</p>
-              )}
-              {promotion ? <p>{promotion}</p> : null}
-            </div>
-          }
-        >
+        <Verdict tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}>
           <span className="font-semibold">{verdict.label}.</span> {verdict.reason}
         </Verdict>
+        <WhyLine code={verdict.state} className="ml-7" />
+        {verdict.caveat ? <WhyLine code={verdict.caveat} className="ml-7" /> : null}
+        <Disclosure summary="How the model was scored" className="ml-7 border-t-0">
+          <div className="flex flex-col gap-2 text-body text-fg-muted">
+            {numbers ? (
+              <p>
+                {numbers} {RANK_AGREEMENT_GLOSS}
+              </p>
+            ) : (
+              <p>The model could not be scored on held-out runs.</p>
+            )}
+            {promotion ? (
+              <>
+                <p>{promotion.sentence}</p>
+                <p>{promotion.fix}</p>
+                {promotion.why ? <WhyLine code={promotion.why} /> : null}
+              </>
+            ) : null}
+          </div>
+        </Disclosure>
         <p className="ml-7 text-body text-fg">{verdictImpact(verdict.state, promotion == null, nextRound)}</p>
       </section>
 
@@ -184,28 +191,20 @@ export default function LearnPage() {
             (roundBestPending ? ` This round's best, ${formatNumber(roundBest)}${unit ? ` ${unit}` : ""}, counts once you plan round ${nextRound}.` : "")
           }
         />
+        <Metric label="Puts past runs in the right order" value={rank.word} qualifier={rank.qualifier} />
         <Metric
-          label="Ranking on held-out runs"
-          value={verdict.rho}
-          quantity="corr"
-          qualifier={verdict.ci ? `95% range ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}` : "Not enough runs to measure yet"}
-        />
-        <Metric
-          label="Measured runs inside their predicted band"
+          label="Measured results inside their likely range"
           value={calibration == null ? "Not reported" : calibration.total === 0 ? "None yet" : `${formatNumber(calibration.inside, "count")} of ${formatNumber(calibration.total, "count")}`}
-          qualifier={coverage ? `The band is meant to hold ${coverage} of runs.` : undefined}
+          qualifier={coverage ? `The range is meant to hold ${coverage} of results.` : undefined}
         />
       </div>
 
-      <Section
-        title="What moves the target"
-        description={`Associations in these runs, strongest first. They are not proof of cause.`}
-      >
-        {drivers.length ? <DriversList drivers={drivers} targetName={name} /> : <p className="text-body text-fg-muted">This analysis reported no drivers.</p>}
+      <Section title={`What went with higher ${name}`} description="Patterns in these runs, strongest first. They show what went together, not proof of cause.">
+        {drivers.length ? <DriversList drivers={drivers} targetName={name} /> : <p className="text-body text-fg-muted">Kalos found nothing that went with the result in these runs.</p>}
         <Disclosure summary="How to read this chart">
           <p>
-            Each bar is the rank correlation between an input and {name}. The whisker is its 95% range. A solid bar is significant: the range excludes zero, and the input still
-            stands after correcting for testing many inputs at once. An outline bar is not significant.
+            Each bar is the rank correlation (Spearman) between an input and {name}. The whisker is its 95% interval. A solid bar is a clear signal (significant): the
+            interval excludes zero, and the input still stands after correcting for testing many inputs at once. An outline bar could be chance (not significant).
           </p>
         </Disclosure>
       </Section>
@@ -217,29 +216,29 @@ export default function LearnPage() {
             <ul className="text-caption text-fg-muted">
               {c.history.map((h) => (
                 <li key={h.round} id={`round-${h.round}`} className="scroll-mt-4 py-0.5 tabular-nums">
-                  {h.round === 0 ? "Uploaded data" : `After round ${h.round}`}: best {formatNumber(h.best)}
+                  {h.round === 0 ? "Uploaded sheet" : `After round ${h.round}`}: best {formatNumber(h.best)}
                   {unit ? ` ${unit}` : ""}, {formatNumber(h.n_base, "count")} runs
                 </li>
               ))}
             </ul>
           </div>
         </Disclosure>
-        <Disclosure summary="Predicted against measured" meta="held-out runs">
+        <Disclosure summary="Predicted against measured" meta="runs the model had not seen">
           <div className="flex flex-col gap-4">
             <p className="text-body text-fg">
               {calibration == null
-                ? "The engine did not report a prediction band, so this cannot be checked."
+                ? "Kalos did not report a likely range, so this cannot be checked."
                 : calibration.total === 0
                   ? "No measured results to compare with their predictions yet."
                   : calibrationSentence(calibration, d.conformal_coverage)}
             </p>
             <ChartFrame
-              title="Held-out predictions"
+              title="Predictions for runs the model had not seen"
               unit={unit || undefined}
               n={d.oof.length}
-              method="Each dot is a run the model did not see when it predicted it. Dots on the dashed line were predicted exactly."
+              method="Held-out (out-of-fold) predictions: each dot is a run the model did not see when it predicted it. Dots on the dashed line were predicted exactly."
               state={d.oof.length ? "ready" : "empty"}
-              emptyText="Not enough held-out runs to compare yet."
+              emptyText="Not enough runs to compare yet."
             >
               <PredVsMeasured oof={d.oof} targetName={name} unit={unit} />
             </ChartFrame>
@@ -251,7 +250,7 @@ export default function LearnPage() {
           </Disclosure>
         ) : null}
         {d.correlation && d.correlation.labels.length > 1 ? (
-          <Disclosure summary="Input correlations" meta="how the inputs relate">
+          <Disclosure summary="How the inputs go together" meta="each pair of inputs">
             <CorrelationHeatmap labels={d.correlation.labels} matrix={d.correlation.matrix} />
           </Disclosure>
         ) : null}

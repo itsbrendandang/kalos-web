@@ -10,15 +10,17 @@ import type { BatchDiversity, ObservedRange, ProposalNotice } from "@/components
 import type { ReliabilityVerdict } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 
+export { trustNumbers } from "@/components/campaign/trust-numbers";
+
 /** The one trust sentence the page leads with. */
 export function trustSentence(v: ReliabilityVerdict): string {
   switch (v.state) {
     case "reliable":
-      return "The model ranks past runs reliably, so its order for this batch is worth following.";
+      return "The model put your past runs in the right order most of the time, so the order of these recipes is worth following.";
     case "not-yet":
-      return "The model has not yet shown that it ranks past runs reliably, so treat this order as a rough guide.";
+      return "The model has not yet shown that it puts past runs in the right order, so treat this order as a rough guide.";
     default:
-      return "There are too few measured runs to tell how well the model ranks them.";
+      return "There are too few measured runs to tell whether the model puts them in the right order.";
   }
 }
 
@@ -28,26 +30,17 @@ export function trustTone(v: ReliabilityVerdict): Tone {
   return "neutral";
 }
 
-/** The numbers behind the trust sentence, for the disclosure under it. */
-export function trustNumbers(v: ReliabilityVerdict): string | null {
-  if (v.rho == null) return null;
-  const parts = [`Rank agreement ${formatNumber(v.rho, "corr")}`];
-  if (v.ci) parts.push(`95% interval ${formatNumber(v.ci[0], "corr")} to ${formatNumber(v.ci[1], "corr")}`);
-  if (v.floor != null) parts.push(`trust floor ${formatNumber(v.floor, "corr")}`);
-  return `${parts.join(", ")}.`;
-}
-
 /** How far apart the proposals are, in plain words. The engine's metric definition stays under Method. */
 export function spreadSentences(div: BatchDiversity | null | undefined, notice: ProposalNotice | null | undefined): string[] {
   const out: string[] = [];
   const sep = div?.min_separation ?? notice?.min_separation;
-  if (sep != null && Number.isFinite(sep)) out.push(`Kalos keeps proposals at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
+  if (sep != null && Number.isFinite(sep)) out.push(`Kalos keeps proposed recipes at least ${formatNumber(sep, "pct")} apart on the input ranges.`);
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
-    out.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
+    out.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "recipe" : "recipes"}.`);
   }
-  if (notice?.code === "fewer_distinct_candidates") out.push("No further candidate was far enough from the others, so the batch is shorter than requested.");
-  else if (notice) out.push("The model sent a notice about this batch. Its details are under Method.");
+  if (notice?.code === "fewer_distinct_candidates") out.push("No further recipe was far enough from the others, so this round has fewer than you asked for.");
+  else if (notice) out.push("Kalos sent a note about this round. Its details are under Method.");
   return out;
 }
 

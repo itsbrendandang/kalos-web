@@ -32,16 +32,16 @@ export function FitProgress({ elapsed }: { elapsed: number }) {
     <div className="flex items-center gap-3 rounded-2xl glass px-4 py-3.5">
       <Loader2 className="size-4 shrink-0 animate-spin text-accent" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-label text-fg">Fitting the model to your runs</p>
+        <p className="text-label text-fg">Learning from your runs</p>
         <p className="text-caption text-fg-muted">
-          Checking the sheet, then fitting and cross-validating. This can take up to 2 minutes on a large sheet; keep this tab open.
+          Checking the sheet, then building the model and checking it on runs it has not seen. This can take up to 2 minutes on a large sheet; keep this tab open.
         </p>
       </div>
       <span className="text-label tabular-nums text-fg" aria-hidden>
         {formatElapsed(elapsed)}
       </span>
       <span role="status" className="sr-only">
-        Still fitting, {announced} seconds so far
+        Still learning, {announced} seconds so far
       </span>
     </div>
   );

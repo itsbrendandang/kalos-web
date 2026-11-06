@@ -63,11 +63,11 @@ describe("Learn failure state", () => {
     expect(screen.getByText("Your recorded results are safe.")).toBeTruthy();
     // The engine's sentence is not visible until the disclosure is opened.
     expect(screen.queryByText(/surrogate/)).toBeNull();
-    fireEvent.click(screen.getByText("Engine message"));
+    fireEvent.click(screen.getByText("As Kalos wrote it"));
     await waitFor(() => expect(screen.getByText(/surrogate/)).toBeTruthy());
     // Plain copy comes before the engine line in reading order.
     const plain = screen.getByText(/2,000 complete rows/);
-    const engine = screen.getByText("Engine message");
+    const engine = screen.getByText("As Kalos wrote it");
     expect(plain.compareDocumentPosition(engine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -78,9 +78,9 @@ describe("Run table helpers", () => {
 describe("Run verdict", () => {
   const runs = [run("a", { pred: 60 }), run("b", { pred: 62, result: 61, awaiting: false })];
   it("counts what is still out and says what the model expects, with the band", () => {
-    expect(runVerdict(runs, 1, "Titer", { halfWidth: 3.5, coverage: 0.9 })).toBe("1 of 2 runs is still in the lab; the model expects Titer around 61.00 ± 3.50 (90% band).");
+    expect(runVerdict(runs, 1, "Titer", { halfWidth: 3.5, coverage: 0.9 })).toBe("1 of 2 runs is still in the lab; the model predicts Titer around 61.00, likely range ± 3.50.");
   });
   it("drops the band when the analysis has none and says when all are back", () => {
-    expect(runVerdict(runs, 0, "Titer", null)).toBe("All 2 runs are back; the model expects Titer around 61.00.");
+    expect(runVerdict(runs, 0, "Titer", null)).toBe("All 2 runs are back; the model predicts Titer around 61.00.");
   });
 });

@@ -1,14 +1,17 @@
 import { Badge } from "@/components/ui/badge";
+import { Disclosure } from "@/components/kit/disclosure";
 import { formatNumber, formatRange } from "@/lib/format";
 import type { DriverBar } from "@/lib/overview";
 import { cn } from "@/lib/utils";
 
 /**
- * Drivers as a ranked list, strongest first. Plain HTML so names wrap instead
- * of truncating. Each row: the rank correlation as a bar from zero with its
- * 95% interval as a whisker, a word for significance (solid bar and
- * "Significant" vs outline bar and "Not significant", never colour alone),
- * and what the sign means as an association in these runs, not a cause.
+ * What went with the target, as a ranked list, strongest first. Plain HTML so
+ * names wrap instead of truncating. Each row: how strongly the input went with
+ * the target as a bar from zero with its uncertainty as a whisker, a word for
+ * it (solid bar and "Clear signal" vs outline bar and "Could be chance", never
+ * colour alone), and what the sign means as an association in these runs, not
+ * a cause. The numbers behind each row (the rank correlation and its 95%
+ * interval) sit one click down.
  */
 export function DriversList({ drivers, targetName }: { drivers: DriverBar[]; targetName: string }) {
   // The axis fits the data (the widest interval, padded), so small correlations stay readable; capped at the +-1 a correlation can reach.
@@ -31,7 +34,7 @@ export function DriversList({ drivers, targetName }: { drivers: DriverBar[]; tar
             <div className="min-w-0">
               <div
                 role="img"
-                aria-label={`${d.name}: correlation ${formatNumber(d.rho, "corr")}, 95% interval ${formatRange(d.lo, d.hi, "corr")}, ${d.significant ? "significant" : "not significant"}`}
+                aria-label={`${d.name} went with ${targetName} ${formatNumber(d.rho, "corr", { sign: true })} on a scale from -1 to +1; ${d.significant ? "a clear signal" : "it could be chance"}`}
                 className="relative h-5"
               >
                 <div className="absolute inset-y-0 left-1/2 w-px bg-border-strong" />
@@ -43,13 +46,18 @@ export function DriversList({ drivers, targetName }: { drivers: DriverBar[]; tar
                 <div className="absolute top-[12px] h-[7px] w-px bg-fg-muted" style={{ left: `${pos(d.lo)}%` }} />
                 <div className="absolute top-[12px] h-[7px] w-px bg-fg-muted" style={{ left: `${pos(d.hi)}%` }} />
               </div>
-              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-fg-muted">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-fg-muted">
                 <span className="text-fg tabular-nums">{formatNumber(d.rho, "corr", { sign: true })}</span>
-                <span className="tabular-nums">95% CI {formatRange(d.lo, d.hi, "corr")}</span>
                 <Badge tone={d.significant ? "accent" : "neutral"} variant={d.significant ? "soft" : "outline"}>
-                  {d.significant ? "Significant" : "Not significant"}
+                  {d.significant ? "Clear signal" : "Could be chance"}
                 </Badge>
-              </p>
+                <Disclosure summary={<span className="text-caption text-fg-muted">The numbers</span>} className="w-full border-t-0 [&>summary]:py-1">
+                  <p className="tabular-nums">
+                    Rank correlation (Spearman) {formatNumber(d.rho, "corr")}, 95% interval {formatRange(d.lo, d.hi, "corr")}, {d.significant ? "significant" : "not significant"} after
+                    correcting for testing many inputs at once.
+                  </p>
+                </Disclosure>
+              </div>
             </div>
           </li>
         ))}
@@ -62,7 +70,7 @@ export function DriversList({ drivers, targetName }: { drivers: DriverBar[]; tar
             <span className="absolute left-1/2 -translate-x-1/2">0</span>
             <span className="absolute right-0">{formatNumber(scale, "corr", { sign: true })}</span>
           </div>
-          <p className="text-center">Rank correlation with {targetName} (no unit)</p>
+          <p className="text-center">How strongly it went with {targetName} (-1 to +1, no unit)</p>
         </div>
       </div>
     </div>

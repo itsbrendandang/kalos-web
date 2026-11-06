@@ -27,10 +27,10 @@ describe("ResponseSurface2D", () => {
     }
   });
 
-  it("says it shows the predicted mean only and that uncertainty is not shown", () => {
+  it("says it shows the model's best guess only and that how sure it is is not shown", () => {
     render(<ResponseSurface2D surface={surface} target="titer (g/L)" proposals={proposals} />);
-    expect(screen.getByText("Predicted mean only, uncertainty not shown. Other inputs held at the best recipe so far.")).toBeTruthy();
-    expect(screen.getByText("Predicted mean only: uncertainty is not shown.", { exact: false })).toBeTruthy();
+    expect(screen.getByText("The model's best guess only; how sure it is is not shown. The other inputs are held at your best recipe so far.")).toBeTruthy();
+    expect(screen.getByText("The model's best guess only: how sure it is is not shown.", { exact: false })).toBeTruthy();
   });
 
   it("draws one cell per grid point, sized from the payload (5 x 4 here, not 21 x 21)", () => {
@@ -56,7 +56,7 @@ describe("ResponseSurface2D", () => {
     fireEvent.keyDown(group, { key: "ArrowLeft" });
     const moved = cells(container).find((c) => c.getAttribute("tabindex") === "0")!;
     expect(moved.getAttribute("aria-label")).toContain("Temperature (C) 45.00, pH 7.00");
-    expect(container.querySelector("p[aria-hidden]")?.textContent).toContain("Temperature (C) 45.00, pH 7.00: predicted mean");
+    expect(container.querySelector("p[aria-hidden]")?.textContent).toContain("Temperature (C) 45.00, pH 7.00: predicted");
   });
 
   it("keeps Home and End inside the grid and does not step past an edge", () => {
@@ -74,7 +74,7 @@ describe("ResponseSurface2D", () => {
     expect(labels).toContain("P1");
     expect(labels).toContain("P2");
     expect(labels).not.toContain("P3");
-    expect(screen.getByText(/1 proposed experiment lies outside the plotted range and is not drawn/)).toBeTruthy();
+    expect(screen.getByText(/1 proposed recipe lies outside the plotted range and is not drawn/)).toBeTruthy();
   });
 
   it("draws the measured runs as dots, separate from the proposal rings", () => {

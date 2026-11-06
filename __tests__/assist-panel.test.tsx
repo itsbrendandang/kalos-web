@@ -135,8 +135,8 @@ describe("the next-step card", () => {
     mount(<NextStepFromEngine />);
     const card = await screen.findByRole("region", { name: "What to do next" });
     // plan-campaign.json: an analysed sheet with 5 recipes proposed and nothing started.
-    expect(within(card).getByText("Review and start round 1.")).toBeTruthy();
-    expect(within(card).getByRole("link", { name: /Review and start round 1/ }).getAttribute("href")).toBe("/campaign/plan");
+    expect(within(card).getByText("Review the proposed runs.")).toBeTruthy();
+    expect(within(card).getByRole("link", { name: /Review the proposed runs/ }).getAttribute("href")).toBe("/campaign/plan");
   });
 
   it("is one compact line at the foot of a stage page, hidden on the page it points to", async () => {
@@ -170,7 +170,7 @@ describe("the question panel", () => {
     mockEngine({});
     mount(<AssistChat />);
     expect(await screen.findByText(/The assistant is off/)).toBeTruthy();
-    expect(await screen.findByText("Review and start round 1.")).toBeTruthy();
+    expect(await screen.findByText("Review the proposed runs.")).toBeTruthy();
     expect(screen.queryByLabelText("Your question")).toBeNull();
   });
 

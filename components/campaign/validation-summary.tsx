@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Verdict } from "@/components/kit/verdict";
+import { WhyLine } from "@/components/kit/why-line";
 import type { Tone } from "@/components/kit/tone";
 import { formatNumber } from "@/lib/format";
 import {
@@ -17,6 +18,7 @@ import {
   type ValidationStatus,
 } from "@/lib/validation";
 import { capFindings } from "@/components/campaign/stage-logic";
+import { whyLine } from "@/lib/why";
 
 const TONE: Record<ValidationStatus, Tone> = { pass: "good", pass_with_warnings: "warn", fail: "bad" };
 
@@ -29,7 +31,7 @@ function sentence(report: ValidationReport): string {
   return checks > 0 ? `This run sheet passed all ${formatNumber(checks, "count")} checks.` : "This run sheet passed every check.";
 }
 
-/** The data check as one verdict: at most three findings up front, unit conversions in plain words, raw checks one click down. */
+/** The sheet check as one verdict: at most three findings up front, each with its why-line one click down; unit conversions in plain words; the engine's own check names and messages one click down. */
 export function ValidationSummary({ report }: { report: ValidationReport }) {
   const [all, setAll] = useState(false);
   const { shown, hidden } = capFindings(report.findings, all ? Infinity : undefined);
@@ -49,6 +51,11 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
               <span className="text-caption text-fg-muted">
                 {[f.column, rowListCaption(f)].filter(Boolean).join(" - ")}
               </span>
+              {whyLine(f.check) ? (
+                <Disclosure summary={<span className="text-caption text-fg-muted">Why</span>} className="border-t-0 [&>summary]:py-1">
+                  <WhyLine code={f.check} className="text-caption" />
+                </Disclosure>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -71,17 +78,18 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
         )}
       </Disclosure>
 
-      <Disclosure summary="Method details" meta={names.length > 0 ? `${formatNumber(names.length, "count")} checks` : undefined}>
+      <Disclosure summary="What was checked" meta={names.length > 0 ? `${formatNumber(names.length, "count")} checks` : undefined}>
         <dl className="flex flex-col gap-3">
           {(names.length > 0 ? names : [...groups.keys()]).map((check) => (
             <div key={check}>
               <dt className="text-label text-fg">
                 {getCheckLabel(check)} <span className="text-fg-muted">({groups.get(check)?.length ?? 0} found)</span>
+                <span className="ml-2 font-mono text-code font-normal text-fg-muted">{check}</span>
               </dt>
               <dd className="text-body text-fg-muted">{getCheckExplanation(check)}</dd>
               {groups.get(check)?.map((f, i) => (
                 <dd key={i} className="text-caption text-fg-muted">
-                  Engine message{f.column ? ` (${f.column})` : ""}: {f.message}
+                  As Kalos wrote it{f.column ? ` (${f.column})` : ""}: {f.message}
                 </dd>
               ))}
             </div>

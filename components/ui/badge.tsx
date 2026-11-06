@@ -58,17 +58,19 @@ function Badge({
 }
 
 /**
- * The one Explore/Exploit label, identical everywhere: Exploit is the model's
- * confident bet (accent), Explore is information-gathering (neutral outline).
+ * The one label for the kind of bet a proposed recipe is, identical everywhere:
+ * "Best bet" (the engine's exploit mode: the model expects a high value, accent)
+ * or "New ground" (its explore mode: a recipe the model is unsure about, run to
+ * learn from, neutral outline).
  */
 function ModeBadge({ mode, className }: { mode: "explore" | "exploit"; className?: string }) {
   return mode === "exploit" ? (
     <Badge tone="accent" className={className}>
-      Exploit
+      Best bet
     </Badge>
   ) : (
     <Badge tone="neutral" variant="outline" className={className}>
-      Explore
+      New ground
     </Badge>
   );
 }

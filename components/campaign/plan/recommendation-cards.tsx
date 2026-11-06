@@ -11,7 +11,7 @@ import { RecipeDetails } from "@/components/campaign/plan/recipe-details";
 import { CompareToggle, Flags, MODE_HINT, SetpointText } from "@/components/campaign/plan/row-parts";
 import type { PlanContext, PlanRow, SetRowState } from "@/components/campaign/plan/types";
 
-/** Narrow containers: one card per proposal, the prediction first and the setpoints beneath. */
+/** Narrow containers: one card per recipe, the prediction first and the recipe's values beneath. */
 export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx: PlanContext; state: SetRowState }) {
   return (
     <ul className="flex flex-col gap-3">
@@ -44,7 +44,7 @@ export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx
               </dl>
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border pt-3">
                 <PredictedValue value={formatNumber(p.pred)} unit={ctx.unit || undefined} className="text-heading" />
-                <span className="text-caption text-fg-muted tabular-nums">{interval ? `${bandLabel(ctx.coverage)} ${interval}` : "no band reported"}</span>
+                <span className="text-caption text-fg-muted tabular-nums">{interval ? `${bandLabel(ctx.coverage).toLowerCase()} ${interval}` : "no likely range reported"}</span>
                 {row.gain != null && ctx.incumbent != null ? (
                   <p className="flex w-full flex-wrap items-center gap-x-1.5 text-caption text-fg-muted tabular-nums">
                     {formatGain(row.gain)} over

@@ -51,10 +51,10 @@ export function ColumnConfirm({
     <Disclosure summary="Check the columns" meta={confirmed ? "Confirmed" : "Optional"} defaultOpen={false}>
       <div className="flex flex-col gap-4">
         <p className="text-body text-fg">
-          Kalos read these columns from your sheet. Confirm them, or re-fit with your own choices. Untick IDs, dates, and anything measured after the run.
+          Kalos read these columns from your sheet. Keep them, or build the model with your own choices. Untick IDs, dates, and anything measured after the run.
         </p>
         <label className="flex flex-col gap-1 text-label text-fg sm:max-w-sm">
-          Maximize (target)
+          Target to raise
           <select
             className="rounded-md border border-border-input bg-surface px-2 py-1.5 text-body"
             value={tgt}
@@ -88,18 +88,18 @@ export function ColumnConfirm({
         <div className="flex flex-wrap items-center gap-3">
           {changed ? (
             <Button size="sm" disabled={busy || picked.size === 0} onClick={() => onRefit({ target: tgt, features: candidates.map((c) => c.name).filter((c) => picked.has(c)) })}>
-              Re-fit with these columns
+              Build the model with these columns
             </Button>
           ) : (
             <Button size="sm" variant="outline" disabled={busy || confirmed} onClick={onConfirm}>
-              {confirmed ? "Confirmed" : "Looks right"}
+              {confirmed ? "Columns confirmed" : "Keep these columns"}
             </Button>
           )}
         </div>
         <p className="text-caption text-fg-muted">
           {changed
-            ? "Re-fitting with your own choices uses the engine's generic column profile, which may skip bioprocess-specific name checks and unit conversions."
-            : "Optional. Kalos has already saved this fit, so the next step stays available without confirming. Reloading the page skips this."}
+            ? "With your own choices Kalos reads the columns as plain settings, so it may skip the bioprocess name checks and unit conversions."
+            : "Optional. Kalos has already saved this model, so the next step stays available without confirming. Reloading the page skips this."}
         </p>
       </div>
     </Disclosure>

@@ -16,7 +16,7 @@ const plural = (n: number, one: string) => `${formatNumber(n, "count")} ${n === 
 /** Shown while the first analysis and campaign reads are in flight. */
 export function PlanSkeleton() {
   return (
-    <div className="flex flex-col gap-6" role="status" aria-live="polite" aria-label="Loading the proposed batch">
+    <div className="flex flex-col gap-6" role="status" aria-live="polite" aria-label="Loading the proposed recipes">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-3.5 w-40" />
         <h1 className="text-display text-fg">Plan</h1>
@@ -41,8 +41,8 @@ export function NoProposals({ rejection }: { rejection: UploadRejection | null }
         <RejectedUploadCallout rejection={rejection} />
       ) : (
         <EmptyState
-          title="No proposals yet"
-          description="Upload a run sheet. Kalos fits a model to the runs you already have, then proposes the first batch of experiments here."
+          title="No proposed recipes yet"
+          description="Upload a run sheet. Kalos learns from the runs you already have, then proposes the first recipes to try here."
           action={
             <Link href="/campaign/setup" className={buttonVariants({ variant: "outline", size: "sm" })}>
               Upload a run sheet
@@ -75,7 +75,7 @@ export function RejectedUploadCallout({ rejection }: { rejection: UploadRejectio
   );
 }
 
-/** The Callout for a rejected upload while the batch is still the previous dataset's. Keeping it is an explicit choice. */
+/** The Callout for a rejected upload while the recipes are still the previous sheet's. Keeping it is an explicit choice. */
 export function KeepPreviousCallout({ rejection, dataset, onKeep }: { rejection: UploadRejection; dataset: string; onKeep: () => void }) {
   return (
     <Callout
@@ -92,12 +92,12 @@ export function KeepPreviousCallout({ rejection, dataset, onKeep }: { rejection:
         </div>
       }
     >
-      {rejectionCopy(rejection).body} The proposals below are still from {dataset}. Choose whether to keep planning from it.
+      {rejectionCopy(rejection).body} The recipes below are still from {dataset}. Choose whether to keep planning from it.
     </Callout>
   );
 }
 
-/** After a start: the runs are in flight, so the old batch is not offered again. */
+/** After a start: the runs are in the lab, so the old recipes are not offered again. */
 export function Started({
   dataset,
   round,
@@ -116,16 +116,16 @@ export function Started({
         eyebrow={<DatasetEyebrow name={dataset} />}
         action={
           <Link href="/campaign/run" className={buttonVariants()}>
-            View runs in flight
+            See the runs in the lab
           </Link>
         }
       />
       <Verdict tone="good">
-        {plural(pending, "run")} started for round {round}. {awaiting > 0 ? `${formatNumber(awaiting, "count")} awaiting results.` : "All have results."}
+        {plural(pending, "run")} started for round {round}. {awaiting > 0 ? `${formatNumber(awaiting, "count")} ${awaiting === 1 ? "is" : "are"} waiting for a result.` : "All have results."}
       </Verdict>
       <p className="text-body text-fg-muted">Follow them on Run, and record each result as it comes back. Planning the next round happens on Learn.</p>
       <Link href="/campaign/run" className={cn(buttonVariants(), "w-full sm:hidden")}>
-        View runs in flight
+        See the runs in the lab
       </Link>
     </PlanFrame>
   );

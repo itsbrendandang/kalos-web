@@ -24,9 +24,9 @@ import { MarkLegend } from "@/components/campaign/plan/marks";
 import type { PlanRow, RowState } from "@/components/campaign/plan/types";
 
 /**
- * One round's proposed batch: what to run next, in a table; the one action,
- * Approve batch; and the detail (comparison, response surface, method) under
- * secondary tabs. Nothing starts without the explicit approval step.
+ * One round's proposed recipes: what to run next, in a table; the one action,
+ * "Start these N runs"; and the detail (comparison, predicted surface, method)
+ * under secondary tabs. Nothing starts without the explicit confirmation step.
  */
 export function Batch({
   d,
@@ -43,7 +43,7 @@ export function Batch({
   const m = useBatchModel(d);
   const { rows, ctx } = m;
 
-  // Unticked proposals, by the engine's index: empty means every proposal is selected to run.
+  // Unticked recipes, by the engine's index: empty means every recipe is selected to run.
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
   const [compare, setCompare] = useState<number[]>([]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -51,7 +51,7 @@ export function Batch({
   const [tab, setTab] = useState<PlanTab>("compare");
   const panelsRef = useRef<HTMLElement>(null);
   // Set once the engine confirmed a start. If the campaign refresh after it failed, the page would still show
-  // this batch; keeping Approve disabled here prevents starting the same runs twice.
+  // these recipes; keeping Start disabled here prevents starting the same runs twice.
   const [startedHere, setStartedHere] = useState(false);
 
   const chosen = rows.filter((r) => !skipped.has(r.item.index));
@@ -59,11 +59,11 @@ export function Batch({
   const blocked = rejection != null;
   const canStart = chosen.length > 0 && !blocked && !startedHere;
   const startHint = startedHere
-    ? "Runs started; check Run before approving more"
+    ? "Runs started; check Run before starting more"
     : blocked
       ? "Choose an option in the upload note first"
       : chosen.length === 0
-        ? "Select at least one proposal to run"
+        ? "Tick at least one recipe to run"
         : null;
   // Announce selection changes once the user pauses, not on every tick.
   const selectionText = `${formatNumber(chosen.length, "count")} of ${formatNumber(rows.length, "count")} selected to run${compare.length ? `, ${formatNumber(compare.length, "count")} in comparison` : ""}`;
@@ -112,7 +112,7 @@ export function Batch({
 
   const approve = (
     <Button onClick={() => setApproving(true)} disabled={!canStart}>
-      Approve batch
+      Start these {formatNumber(chosen.length, "count")} {chosen.length === 1 ? "run" : "runs"}
     </Button>
   );
 
@@ -124,11 +124,11 @@ export function Batch({
 
       {startedHere ? (
         <Verdict tone="good">
-          Runs started. If this page has not switched to the runs in flight, check{" "}
+          Runs started. If this page has not switched to the runs in the lab, check{" "}
           <Link href="/campaign/run" className="text-accent underline underline-offset-4">
             Run
           </Link>{" "}
-          before approving anything again.
+          before starting anything again.
         </Verdict>
       ) : null}
 
@@ -139,18 +139,18 @@ export function Batch({
       <section aria-labelledby="plan-batch-title" className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <h2 id="plan-batch-title" className="text-heading text-fg">
-            Proposed experiments
+            Proposed recipes for round {round}
           </h2>
           <p className="max-w-[72ch] text-body text-fg-muted">
-            Model-generated proposals for {m.name}, sorted by predicted value. Untick any you will not run. Compare {COMPARE_MIN} to {COMPARE_MAX} to see them side by side.
+            Recipes the model proposed to raise {m.name}, highest predicted value first. Untick any you will not run. Compare {COMPARE_MIN} to {COMPARE_MAX} to see them side by side.
           </p>
           <MarkLegend className="mt-1" />
         </div>
 
         {rows.length === 0 ? (
           <EmptyState
-            title="The model proposed no experiments"
-            description={m.diversity?.short ? `${m.diversity.headline} ${m.spread.join(" ")}` : "This analysis returned an empty batch."}
+            title="The model proposed no recipes"
+            description={m.diversity?.short ? `${m.diversity.headline} ${m.spread.join(" ")}` : "Kalos sent back no recipes for this round."}
           />
         ) : (
           <>
@@ -185,7 +185,7 @@ export function Batch({
       />
 
       <p className="max-w-[72ch] text-caption text-fg-muted">
-        Predicted values are the model&apos;s estimates, not measurements. How well the model ranked held-out runs is on{" "}
+        Predicted values are the model&apos;s estimates, not measurements. How the model was scored on past runs is on{" "}
         <Link href="/campaign/learn" className="text-accent underline underline-offset-4">
           Learn
         </Link>

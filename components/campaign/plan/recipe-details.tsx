@@ -3,21 +3,23 @@
 import { TriangleAlert } from "lucide-react";
 import { MeasuredValue, PredictedValue } from "@/components/campaign/plan/marks";
 import { RangeBar } from "@/components/campaign/plan/strips";
-import { BAND_CAVEAT, bandLabel, constraintPrediction, exactSetpoint, formatGain, formatInterval, formatSetpoint, type BoundaryCheck } from "@/components/campaign/plan-view";
+import { BAND_CAVEAT, bandLabel, bandSentence, constraintPrediction, exactSetpoint, formatGain, formatInterval, formatSetpoint, type BoundaryCheck } from "@/components/campaign/plan-view";
+import { Disclosure } from "@/components/kit/disclosure";
+import { WhyLine } from "@/components/kit/why-line";
 import { formatNumber } from "@/lib/format";
 import type { PlanContext, PlanRow } from "@/components/campaign/plan/types";
 
 const WHERE_TEXT: Record<BoundaryCheck["where"], string> = {
-  below: "Below the range tried",
+  below: "Below what you have tried",
   "at-min": "At the low edge",
   inside: "",
   "at-max": "At the high edge",
-  above: "Above the range tried",
+  above: "Above what you have tried",
 };
 
 /**
- * Everything the engine said about one proposal, and where each setpoint sits
- * in its range. Plain words first; the engine's own note is kept verbatim
+ * Everything the engine said about one recipe, and where each of its values
+ * sits in its range. Plain words first; the engine's own note is kept verbatim
  * one click down.
  */
 export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
@@ -28,8 +30,8 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
   const c = constraintPrediction(p, ctx.constraint);
   return (
     <div className="grid gap-x-8 gap-y-5 pt-2 @3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <section aria-label={`Setpoints of ${row.id}`}>
-        <h3 className="text-label text-fg">Setpoints</h3>
+      <section aria-label={`Recipe ${row.id}`}>
+        <h3 className="text-label text-fg">Recipe</h3>
         <ul className="mt-2 divide-y divide-border border-y border-border">
           {keys.map((k) => {
             const v = row.recipe[k];
@@ -67,7 +69,7 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
           })}
         </ul>
         <p className="mt-2 text-caption text-fg-muted">
-          Values are exactly what Start sends; the table rounds them to the sheet&apos;s precision. Ranges are the lowest and highest values in the measured runs
+          Values are exactly what Start sends; the table rounds them to the sheet&apos;s precision. Tried ranges are the lowest and highest values in the measured runs
           {missing.length ? `. No range is reported for ${missing.join(", ")}, so their edges are not checked` : ""}.
         </p>
       </section>
@@ -86,17 +88,12 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
                 <>
                   {interval}
                   <span className="block text-caption text-fg-muted">
-                    ± {formatNumber(ctx.band)}, one width for the whole batch. {BAND_CAVEAT}
+                    ± {formatNumber(ctx.band)}, one width for every recipe this round. {bandSentence(ctx.coverage) ?? BAND_CAVEAT}
                   </span>
                 </>
               ) : (
                 <span className="text-fg-muted">Not reported</span>
               )}
-            </dd>
-            <dt className="text-fg-muted">Model spread (SD)</dt>
-            <dd className="tabular-nums">
-              {formatNumber(p.std)}
-              <span className="block text-caption text-fg-muted">The model&apos;s own spread. Judge the prediction by the band, not this.</span>
             </dd>
             {row.gain != null && ctx.incumbent != null ? (
               <>
@@ -108,7 +105,7 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
             ) : null}
             {p.p_feasible != null ? (
               <>
-                <dt className="text-fg-muted">Likely feasible</dt>
+                <dt className="text-fg-muted">Chance it works</dt>
                 <dd className="tabular-nums">{formatNumber(p.p_feasible, "pct")}</dd>
               </>
             ) : null}
@@ -116,24 +113,27 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
               <>
                 <dt className="text-fg-muted">{ctx.constraint.column}</dt>
                 <dd>
-                  <PredictedValue value={`${formatNumber(c.mean)}${c.std != null ? ` ± ${formatNumber(c.std)} SD` : ""}`} />
+                  <PredictedValue value={formatNumber(c.mean)} />
                 </dd>
               </>
             ) : null}
           </dl>
+          <Disclosure summary={<span className="text-caption text-fg-muted">How sure the model is here</span>} className="mt-2 border-t-0 [&>summary]:py-1">
+            <p className="text-caption text-fg-muted tabular-nums">
+              Model spread (posterior SD) {formatNumber(p.std)}{c?.std != null && ctx.constraint?.column ? `; ${ctx.constraint.column} ± ${formatNumber(c.std)} SD` : ""}. The model&apos;s own
+              spread; judge the prediction by the likely range, not this.
+            </p>
+          </Disclosure>
         </div>
 
         <div>
           <h3 className="text-label text-fg">Why it was proposed</h3>
           <p className="mt-1 text-body text-fg">
-            {p.mode === "exploit" ? "Exploit: the model expects a high value here." : "Explore: chosen to learn where the model is unsure, or to spread the batch out."}
+            {p.mode === "exploit" ? "Best bet: the model expects a high value here." : "New ground: chosen to learn where the model is unsure, or to spread the round out."}
           </p>
-          <details className="group mt-2">
-            <summary className="cursor-pointer text-caption text-fg-muted select-none hover:text-accent [&::-webkit-details-marker]:hidden">
-              Raw note from the engine
-            </summary>
-            <p className="mt-1 font-mono text-code break-words text-fg-muted">{p.reason}</p>
-          </details>
+          <Disclosure summary={<span className="text-caption text-fg-muted">As Kalos wrote it</span>} className="mt-2 border-t-0 [&>summary]:py-1">
+            <p className="font-mono text-code break-words text-fg-muted">{p.reason}</p>
+          </Disclosure>
         </div>
 
         {row.flags.length ? (
@@ -143,7 +143,10 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
               {row.flags.map((f) => (
                 <li key={f.kind} className="flex items-start gap-2 text-body text-fg">
                   <TriangleAlert className="mt-1 size-3.5 shrink-0 text-warn" aria-hidden />
-                  {f.detail}
+                  <span className="min-w-0">
+                    {f.detail}
+                    <WhyLine code={f.kind} className="text-caption" />
+                  </span>
                 </li>
               ))}
             </ul>

@@ -15,7 +15,7 @@ export function PredVsMeasured({ oof, targetName, unit }: { oof: [number, number
   const hi = Math.max(...vals);
   const suffix = unit ? ` (${unit})` : "";
   return (
-    <div role="img" aria-label={`Predicted against measured ${targetName} for ${data.length} held-out runs`} className="h-72 w-full">
+    <div role="img" aria-label={`Predicted against measured ${targetName} for ${data.length} runs the model had not seen`} className="h-72 w-full">
       <ResponsiveContainer initialDimension={{ width: 320, height: 200 }}>
         <ScatterChart margin={{ top: 8, right: 16, bottom: 28, left: 16 }}>
           <CartesianGrid className="stroke-chart-grid stroke-1" />
@@ -34,7 +34,7 @@ export function PredVsMeasured({ oof, targetName, unit }: { oof: [number, number
               const d = payload[0].payload as { measured: number; predicted: number };
               return (
                 <ChartTooltipBox
-                  label="Held-out run"
+                  label="A run the model had not seen"
                   rows={[
                     { name: "Measured", value: formatNumber(d.measured), color: "accent" },
                     { name: "Predicted", value: formatNumber(d.predicted), color: "muted" },

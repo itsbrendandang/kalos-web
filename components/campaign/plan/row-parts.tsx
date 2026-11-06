@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { PlanContext, PlanRow, RowState } from "@/components/campaign/plan/types";
 
-/** What each mode means, in plain words, for the card layout. */
-export const MODE_HINT = { exploit: "high predicted value", explore: "chosen to learn" } as const;
+/** What each kind of bet means, in plain words, for the card layout. */
+export const MODE_HINT = { exploit: "the model expects a high value", explore: "run to learn from" } as const;
 
-/** The warnings for one proposal. Each is a warn badge with its explanation on hover and in Details. */
+/** The warnings for one recipe. Each is a warn badge with its explanation on hover and in Details. */
 export function Flags({ flags, compact = false }: { flags: RecipeFlag[]; compact?: boolean }) {
   if (flags.length === 0) return <span className="text-caption text-fg-muted">None</span>;
   return (
@@ -63,7 +63,7 @@ export function ExpandButton({ row, state, controls }: { row: PlanRow; state: Ro
   );
 }
 
-/** A setpoint at the sheet's precision, with an edge marker when it sits at or past the range tried. */
+/** One value of the recipe at the sheet's precision, with an edge marker when it sits at or past what has been tried. */
 export function SetpointText({ row, input, ctx }: { row: PlanRow; input: string; ctx: PlanContext }) {
   const check = row.checks.find((c) => c.input === input);
   const edge = check && check.where !== "inside";
@@ -71,7 +71,7 @@ export function SetpointText({ row, input, ctx }: { row: PlanRow; input: string;
     <span className={cn("inline-flex items-center gap-1", edge && "text-warn")}>
       {edge ? <TriangleAlert className="size-3.5" aria-hidden /> : null}
       <span className="text-fg">{formatSetpoint(row.recipe[input], ctx.ranges[input]?.decimals)}</span>
-      {edge ? <span className="sr-only">{check.where === "below" || check.where === "above" ? "(outside the range tried)" : "(at the edge of the range tried)"}</span> : null}
+      {edge ? <span className="sr-only">{check.where === "below" || check.where === "above" ? "(outside what you have tried)" : "(at the edge of what you have tried)"}</span> : null}
     </span>
   );
 }

@@ -72,7 +72,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
   // Names come from the engine as the sheet has them, units included in the name (e.g. "Temperature (C)").
   const targetUnit = parseUnit(target);
   const cellLabel = (r: number, c: number) =>
-    `${model.x.name} ${fmt(model.x.vals[c])}, ${model.y.name} ${fmt(model.y.vals[r])}: predicted mean ${fmt(model.z[r][c])}${targetUnit ? ` ${targetUnit}` : ""}`;
+    `${model.x.name} ${fmt(model.x.vals[c])}, ${model.y.name} ${fmt(model.y.vals[r])}: predicted ${fmt(model.z[r][c])}${targetUnit ? ` ${targetUnit}` : ""}`;
 
   function move(r: number, c: number) {
     const row = Math.min(ny - 1, Math.max(0, r));
@@ -109,7 +109,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
         <span id={titleId} className="text-heading text-fg">
           Predicted {target} across two inputs
         </span>
-        <span className="text-caption text-fg-muted">Predicted mean only, uncertainty not shown. Other inputs held at the best recipe so far.</span>
+        <span className="text-caption text-fg-muted">The model&apos;s best guess only; how sure it is is not shown. The other inputs are held at your best recipe so far.</span>
       </figcaption>
 
       <div className="w-full max-w-[520px] overflow-x-auto">
@@ -189,7 +189,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
       </div>
 
       <p id={readoutId} className="min-h-5 text-caption text-fg tabular-nums" aria-hidden="true">
-        {model.x.name} {fmt(model.x.vals[active.col])}, {model.y.name} {fmt(model.y.vals[active.row])}: predicted mean {fmt(activeZ)}
+        {model.x.name} {fmt(model.x.vals[active.col])}, {model.y.name} {fmt(model.y.vals[active.row])}: predicted {fmt(activeZ)}
       </p>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption text-fg-muted">
@@ -201,10 +201,10 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
             ))}
           </span>
           <span>{fmt(model.zMax)}</span>
-          <span>predicted {targetUnit ? `(${targetUnit})` : "mean"}, lower to higher</span>
+          <span>predicted {target}{targetUnit ? ` (${targetUnit})` : ""}, lower to higher</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <PredictedMark /> proposed experiment (ring, label P1..Pn)
+          <PredictedMark /> proposed recipe (ring, label P1..Pn)
         </span>
         <span className="inline-flex items-center gap-1.5">
           <MeasuredMark /> measured run
@@ -217,7 +217,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
 
       <table className="sr-only">
         <caption>
-          Predicted mean {target} by {model.x.name} (columns) and {model.y.name} (rows). Predicted mean only.
+          Predicted {target} by {model.x.name} (columns) and {model.y.name} (rows). The model&apos;s best guess only.
         </caption>
         <thead>
           <tr>

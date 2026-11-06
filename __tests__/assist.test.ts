@@ -125,7 +125,7 @@ describe("localNextStep (the fallback for an engine without the guide)", () => {
 
   it("points to Setup with no sheet, Plan with a proposed round, Record while runs are out, Learn when all are back", () => {
     expect(localNextStep({ has_data: false }, { has_campaign: false })).toMatchObject({ action_route: "/campaign/setup", blockers: [] });
-    expect(localNextStep({ has_data: true, proposals: [1, 2] }, base)).toMatchObject({ action_route: "/campaign/plan", step: "Review and start round 1." });
+    expect(localNextStep({ has_data: true, proposals: [1, 2] }, base)).toMatchObject({ action_route: "/campaign/plan", step: "Review the proposed runs." });
     const out: Campaign = { ...base, pending: [run("a", true), run("b", false)], n_awaiting: 1, n_measured: 1 };
     const rec = localNextStep({ has_data: true }, out);
     expect(rec.action_route).toBe("/campaign/record");

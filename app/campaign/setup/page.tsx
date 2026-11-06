@@ -28,6 +28,7 @@ import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-colu
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
 import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
 import { rememberSheet } from "@/lib/sheet-store";
+import { WhyLine } from "@/components/kit/why-line";
 import { canActOnAnalysis, canChangeTarget, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice } from "@/lib/setup-attempt";
 
 /**
@@ -155,7 +156,7 @@ export default function SetupPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Set up the campaign"
-        description="Upload the runs you already have and choose what to maximize. Kalos checks the sheet, then fits the model."
+        description="Upload the runs you already have and choose what to raise. Kalos checks the sheet, then learns from your runs."
         action={
           action.visible ? (
             <div className="flex flex-col items-end gap-1">
@@ -185,7 +186,7 @@ export default function SetupPage() {
       {failed ? (
         <Callout
           tone="bad"
-          title={`${failed.name} could not be analyzed`}
+          title={`Kalos could not read ${failed.name}`}
           action={
             stale && file && analysis ? (
               <Button size="sm" variant="outline" onClick={() => dispatch({ type: "keepPrevious" })}>
@@ -197,7 +198,7 @@ export default function SetupPage() {
           <p>{failed.error}</p>
           {stale && notice && !busy ? (
             <p className="mt-1 text-fg-muted">
-              {notice} Nothing below belongs to {failed.name}. It cannot be confirmed or re-fitted until you upload another file{file ? " or keep working with the previous one" : ""}.
+              {notice} Nothing below belongs to {failed.name}. Its columns cannot be confirmed or changed until you upload another file{file ? " or keep working with the previous one" : ""}.
             </p>
           ) : null}
         </Callout>
@@ -218,14 +219,14 @@ export default function SetupPage() {
       ) : null}
 
       {analysis && !busy ? (
-        <div className="flex flex-col gap-8" role={stale ? "group" : undefined} aria-label={stale ? "Previous analysis (not the file you just uploaded)" : undefined}>
+        <div className="flex flex-col gap-8" role={stale ? "group" : undefined} aria-label={stale ? "The previous sheet (not the file you just uploaded)" : undefined}>
           <div className="flex flex-col gap-2">
             <p className="text-body text-fg">
               {analysis.dataset}: <span className="tabular-nums">{formatNumber(analysis.n, "count")}</span> runs, <span className="tabular-nums">{formatNumber(analysis.d, "count")}</span> inputs.
             </p>
             {roomSentence ? <p className="text-body text-fg">{roomSentence}</p> : null}
             <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
-              Maximize
+              Target to raise
               <Select
                 value={analysis.target}
                 onValueChange={(t) => canTarget && file && t && void analyze(file, t, roles ? { target: t, features: roles.features.filter((c) => c !== t) } : undefined)}
@@ -243,7 +244,7 @@ export default function SetupPage() {
                 </SelectContent>
               </Select>
               <span className="text-caption font-normal text-fg-muted">
-                {stale ? "Unavailable: this is the previous analysis." : file ? "Choosing another column re-fits the model without a new upload." : "Upload the sheet again to change the target."}
+                {stale ? "Unavailable: this is the previous sheet." : file ? "Choosing another column builds the model again without a new upload." : "Upload the sheet again to change the target."}
               </span>
             </label>
             {directionWarning(analysis.target) ? (
@@ -255,12 +256,15 @@ export default function SetupPage() {
           </div>
           {picker && !failed ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
           <div className="flex flex-col gap-3">
-            <h2 className="text-heading text-fg">{stale ? "Data check for the previous file" : "Data check"}</h2>
+            <h2 className="text-heading text-fg">{stale ? "Sheet check for the previous sheet" : "Sheet check"}</h2>
             {scan?.dataType && isMixedRowTypes(scan.dataType) && !failed ? <MixedRowsCallout counts={scan.dataType} /> : null}
             {report ? (
               <ValidationSummary report={report} />
             ) : (
-              <p className="text-body text-fg-muted">This analysis came without a data check, so nothing here should be read as a pass.</p>
+              <div className="flex flex-col gap-1">
+                <p className="text-body text-fg-muted">Kalos read this sheet without checking it, so nothing here should be read as a pass.</p>
+                <WhyLine code="no_data_check" />
+              </div>
             )}
             {scan?.dataType && !isMixedRowTypes(scan.dataType) ? <RowTypeLine counts={scan.dataType} /> : null}
             {file && scan && !scan.scanned ? (
@@ -283,7 +287,7 @@ export default function SetupPage() {
             ) : (
               <p className="text-body text-fg-muted">
                 Inputs used: {analysis.features.join(", ")}.
-                {file ? "" : " From the last analysis; upload the sheet again to change them."}
+                {file ? "" : " From the last sheet Kalos read; upload the sheet again to change them."}
               </p>
             )}
           </div>
@@ -295,7 +299,7 @@ export default function SetupPage() {
   );
 }
 
-/** A data_type column with anything other than real or measured rows: those rows are pooled into the fit. */
+/** A data_type column with anything other than real or measured rows: those rows are pooled into the model. */
 const isMixedRowTypes = (counts: DataTypeCounts): boolean => counts.counts.some((c) => !/^(real|measured)$/i.test(c.value));
 
 const rowTypeList = (counts: DataTypeCounts): string => counts.counts.map((c) => `${c.value} ${formatNumber(c.n, "count")}`).join(", ");
@@ -304,7 +308,8 @@ const rowTypeList = (counts: DataTypeCounts): string => counts.counts.map((c) =>
 function MixedRowsCallout({ counts }: { counts: DataTypeCounts }) {
   return (
     <Callout tone="warn" title={`This sheet mixes row types (${counts.column}: ${rowTypeList(counts)})`}>
-      The model is fitted on every row. Rows that are not real measurements can make results look better than the lab would see.
+      <p>The model learns from every row. Rows that are not real measurements can make results look better than the lab would see.</p>
+      <WhyLine code="mixed_row_types" />
     </Callout>
   );
 }

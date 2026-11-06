@@ -55,7 +55,7 @@ export function CardTitle({ className, ...props }: React.ComponentProps<"div">) 
   return (
     <div
       data-slot="card-title"
-      className={cn("font-head text-[15px] leading-snug font-semibold text-fg", className)}
+      className={cn("font-head text-heading leading-snug font-semibold text-fg", className)}
       {...props}
     />
   );
@@ -65,7 +65,7 @@ export function CardDescription({ className, ...props }: React.ComponentProps<"d
   return (
     <div
       data-slot="card-description"
-      className={cn("text-[12px] leading-5 text-muted", className)}
+      className={cn("text-caption leading-5 text-muted", className)}
       {...props}
     />
   );
@@ -97,7 +97,7 @@ export function CardFooter({ className, ...props }: React.ComponentProps<"div">)
 }
 
 export function SectionLabel({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("mb-2 text-[12px] font-semibold text-fg", className)} {...props} />;
+  return <div className={cn("mb-2 text-caption font-semibold text-fg", className)} {...props} />;
 }
 
 export function Kpi({

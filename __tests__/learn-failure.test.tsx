@@ -57,7 +57,7 @@ describe("Learn failure state", () => {
         <LearnPage />
       </EngineDataProvider>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: /^Plan round/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /plan round/ }));
     await screen.findByText("Could not plan the next round");
     expect(screen.getByText(/2,000 complete runs/)).toBeTruthy();
     expect(screen.getByText("Your recorded results are safe.")).toBeTruthy();

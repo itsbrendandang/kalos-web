@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
@@ -28,12 +28,19 @@ import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
 import { measured, type ActiveCampaign } from "@/lib/workbench";
 import { lazyChart } from "@/components/kit/lazy-chart";
+import { RoundResults } from "@/components/campaign/round-results";
+import { campaignKey, learnedRound, rememberRound, snapshotOf, type RoundRecord } from "@/lib/learn-record";
+import { recipeColumns, runLabels } from "@/lib/recipe-identity";
+import { displayRound } from "@/lib/campaign-stage";
 
 /**
- * Learn: can the model be trusted, and what does that change? One verdict
- * leads, then at most three numbers, then what went with the target. Method
- * detail and the raw engine values sit one click down. "Plan round N+1" updates
- * the model with the measured results and opens the next round on Plan.
+ * Learn: what this round measured (the recorded runs first, with their recipe,
+ * prediction and result), what changed since the previous round, then whether
+ * the model can be trusted and what went with the target. Method detail and the
+ * raw engine values sit one click down. "Plan round N+1" updates the model with
+ * the measured results and opens the next round on Plan; the runs it learned
+ * from and the model before and after are kept in this browser (lib/learn-record.ts),
+ * because Kalos drops a round's runs once it has learned from them.
  */
 const BestSoFarChart = lazyChart(() => import("@/components/campaign/best-so-far-chart").then((m) => m.BestSoFarChart));
 const PredVsMeasured = lazyChart(() => import("@/components/campaign/pred-vs-measured").then((m) => m.PredVsMeasured));
@@ -47,6 +54,16 @@ export default function LearnPage() {
   const [busy, setBusy] = useState(false);
   // Kalos's reason for a failed model update, in plain words (lib/engine-error.ts). Null when nothing failed.
   const [failure, setFailure] = useState<EngineMessage | null>(null);
+  // The record of the last learned round, read from this browser once the campaign is known (an effect, so the server render and the first client render agree).
+  const [record, setRecord] = useState<{ key: string; round: number; record: RoundRecord | null } | null>(null);
+  const c0 = campaign.data?.has_campaign ? campaign.data : null;
+  const recordKey = c0 ? campaignKey(c0) : null;
+  const recordRound = c0 ? displayRound(c0.round) - 1 : null;
+  useEffect(() => {
+    if (recordKey == null || recordRound == null) return;
+    const t = setTimeout(() => setRecord({ key: recordKey, round: recordRound, record: recordRound >= 1 ? learnedRound(recordKey, recordRound) : null }), 0);
+    return () => clearTimeout(t);
+  }, [recordKey, recordRound]);
 
   const header = (action?: React.ReactNode, title = "Learn") => (
     <PageHeader title={title} description="What the results taught the model, and whether to trust it." action={action} />
@@ -96,9 +113,17 @@ export default function LearnPage() {
   const c: ActiveCampaign = campaign.data;
   const round = campaignStage(d, c).round ?? 1;
   const runs = measured(c);
+  const awaiting = c.pending.filter((r) => r.awaiting).length;
   // The round just learned from; once results are folded in it is the one before the current round.
   const learned = runs.length > 0 ? round : round - 1;
   const nextRound = learned + 1;
+  // The recipe identity shared with Plan, Run and Record (lib/recipe-identity.ts).
+  const columns = recipeColumns(c.pending.map((r) => r.recipe), d.features, c.features);
+  const labels = runLabels(c.pending);
+  // Results recorded but not yet learned from: the next update uses them. After the update they live in the browser's record.
+  const unlearned = runs.length > 0;
+  const stored = record && record.key === recordKey && record.round === recordRound ? record.record : null;
+  const shownRecord = unlearned ? null : stored && stored.round === learned ? stored : null;
   const unit = parseUnit(d.target);
   const name = targetName(d.target);
   const verdict = reliabilityVerdict(d);
@@ -116,8 +141,20 @@ export default function LearnPage() {
   async function planNext() {
     setBusy(true);
     setFailure(null);
+    // What this update learns from and what it starts from, so Learn can still show them after Kalos drops the runs.
+    const pendingRecord: RoundRecord = {
+      campaign: campaignKey(c),
+      round,
+      target: d.target,
+      columns,
+      runs: runs.map((r) => ({ id: r.id, label: labels.get(r.id) ?? r.id, recipe: r.recipe, pred: r.pred, result: r.result as number, mode: r.mode })),
+      before: snapshotOf(d),
+      after: null,
+      at: new Date().toISOString(),
+    };
     try {
-      await reanalyze();
+      const out = await reanalyze();
+      rememberRound({ ...pendingRecord, after: out.analysis.has_data ? snapshotOf(out.analysis) : null });
       router.push("/campaign/plan");
     } catch (err) {
       const copy = learnFailure(err);
@@ -132,11 +169,27 @@ export default function LearnPage() {
     <div className="flex flex-col gap-8">
       {header(
         <div className="flex flex-col items-end gap-1">
-          <Button onClick={planNext} disabled={!enabled || busy}>
-            {busy ? "Planning..." : `Plan round ${nextRound}`}
-            {busy ? null : <ArrowRight aria-hidden />}
-          </Button>
-          {enabled ? null : <p className="text-caption text-fg-muted">Record at least one result first.</p>}
+          {enabled ? (
+            <Button onClick={planNext} disabled={busy}>
+              {busy ? "Updating the model..." : `Update the model and plan round ${nextRound}`}
+              {busy ? null : <ArrowRight aria-hidden />}
+            </Button>
+          ) : learned >= 1 ? (
+            <Link href="/campaign/plan" className={buttonVariants({ variant: "outline" })}>
+              See the plan for round {round}
+              <ArrowRight aria-hidden />
+            </Link>
+          ) : (
+            <Link href="/campaign/record" className={buttonVariants({ variant: "outline" })}>
+              Record results for round {round}
+              <ArrowRight aria-hidden />
+            </Link>
+          )}
+          {enabled ? (
+            <p className="text-caption text-fg-muted">Learns from the {formatNumber(runs.length, "count")} {runs.length === 1 ? "result" : "results"} recorded below.</p>
+          ) : awaiting > 0 ? (
+            <p className="text-caption text-fg-muted">{formatNumber(awaiting, "count")} {awaiting === 1 ? "run is" : "runs are"} still waiting for a result.</p>
+          ) : null}
         </div>,
         learned > 0 ? `Learn from round ${learned}` : "Learn",
       )}
@@ -153,6 +206,20 @@ export default function LearnPage() {
           ) : null}
         </Callout>
       ) : null}
+
+      <RoundResults
+        round={learned >= 1 ? learned : round}
+        target={name}
+        unit={unit}
+        band={d.conformal_q ?? null}
+        columns={columns}
+        unlearned={unlearned ? runs.map((r) => ({ id: r.id, label: labels.get(r.id) ?? r.id, recipe: r.recipe, pred: r.pred, result: r.result as number, mode: r.mode })) : null}
+        record={shownRecord}
+        awaiting={awaiting}
+        nextRound={nextRound}
+        history={c.history}
+        engineRound={c.round}
+      />
 
       <section className="flex flex-col gap-3" aria-label="Verdict">
         <Verdict tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}>

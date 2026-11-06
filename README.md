@@ -16,6 +16,14 @@ The engine does the modelling; this app presents it and keeps predicted and meas
 
 Intended users (the product is not available to external users yet): process-development scientists running iterative media or process optimisation campaigns, and small teams that want a propose-measure-re-propose loop with an honest read on model reliability.
 
+## Related repositories
+
+Kalos is three repositories with a clear split:
+
+- **kalos-web** (here) — the scientist-facing workbench (Next.js + Tailwind v4).
+- **[kalos-engine](https://github.com/itsbrendandang/kalos-engine)** — the optimization engine and FastAPI service this app reads over an authenticated same-origin proxy. Run it first; it serves the API on `http://127.0.0.1:8050`.
+- **kalos-workspace** (private) — the project hub: working notes, reviews, research, plans, and the cross-machine handoff. No product code.
+
 ## Screenshots
 
 Synthetic demo data from the current development build, not a release. No real or private data is shown.

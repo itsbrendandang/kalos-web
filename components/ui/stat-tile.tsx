@@ -33,27 +33,27 @@ export function StatTile({
     <Card
       className={cn(
         "flex h-[76px] items-center gap-3 rounded-xl border border-border px-3.5 py-2",
-        tone === "accent" ? "bg-accent-soft" : "bg-card",
+        tone === "accent" ? "bg-accent-soft" : "bg-surface",
         className,
       )}
     >
       {Icon ? (
         <span
           className={cn(
-            "grid size-7 shrink-0 place-items-center rounded-lg bg-card",
-            tone === "accent" ? "text-accent-text" : "text-muted",
+            "grid size-7 shrink-0 place-items-center rounded-lg bg-surface",
+            tone === "accent" ? "text-accent-text" : "text-fg-muted",
           )}
         >
           <Icon className="size-3.5" />
         </span>
       ) : null}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-[10.5px] font-semibold tracking-wide text-muted uppercase">
+        <div className="flex items-center gap-1 text-caption font-semibold text-fg-muted">
           <span className="truncate">{label}</span>
           {tooltip ? (
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex shrink-0 rounded-full text-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="inline-flex shrink-0 rounded-full text-fg-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/50"
                 aria-label={typeof label === "string" ? `${label} definition` : "Definition"}
               >
                 <Info className="size-3" aria-hidden />
@@ -62,10 +62,10 @@ export function StatTile({
             </Tooltip>
           ) : null}
         </div>
-        <div className="tabular truncate font-mono text-[19px] leading-tight font-semibold text-fg">
+        <div className="tabular-nums truncate text-title leading-tight font-semibold text-fg">
           {value}
         </div>
-        {hint ? <div className="truncate text-[10.5px] leading-tight text-muted">{hint}</div> : null}
+        {hint ? <div className="truncate text-caption leading-tight text-fg-muted">{hint}</div> : null}
       </div>
     </Card>
   );

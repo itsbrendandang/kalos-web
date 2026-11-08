@@ -30,7 +30,7 @@ export function SummaryStrip({ model }: { model: CampaignOverview }) {
   const best = model.bestMeasured.value;
   return (
     <section aria-label="Measured summary" className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-6 md:grid-cols-3">
         <Fact
           label="Best measured"
           detail={
@@ -56,14 +56,13 @@ export function SummaryStrip({ model }: { model: CampaignOverview }) {
           <span className="text-overview-heading">Baseline unavailable</span>
         </Fact>
         <Fact
-          className="col-span-2 md:col-span-1"
           label="Measured change"
           detail="Versus a control. Suppressed because the baseline is unavailable. This is not a significance claim."
         >
           <span className="text-overview-heading">Baseline unavailable</span>
         </Fact>
       </div>
-      <div className="grid grid-cols-1 gap-4 border-t border-overview-divider pt-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 border-t border-overview-divider pt-4 md:grid-cols-2 xl:grid-cols-4">
         <Fact
           label={model.round.display == null ? "Round" : `Round ${model.round.display}`}
           detail={`Draft batch ${model.draft.proposals == null ? "unavailable" : formatNumber(model.draft.proposals, "count") + " proposals"}. Candidate and control counts are not separate fields. ${FAILED_RUNS_UNAVAILABLE}`}

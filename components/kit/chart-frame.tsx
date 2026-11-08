@@ -28,6 +28,7 @@ export function ChartFrame({
   height = 260,
   children,
   className,
+  variant = "card",
 }: {
   title: ReactNode;
   unit?: ReactNode;
@@ -41,10 +42,18 @@ export function ChartFrame({
   height?: number;
   children: ReactNode;
   className?: string;
+  /** `card` is the shared frame. `rule` is the campaign-home hairline section. */
+  variant?: "card" | "rule";
 }) {
   const sub = [unit, n != null ? `n = ${formatNumber(n, "count")}` : null].filter(Boolean);
   return (
-    <figure className={cn("flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5", className)}>
+    <figure
+      className={cn(
+        "flex min-w-0 flex-col gap-3",
+        variant === "rule" ? "border-t border-overview-divider pt-4" : "rounded-xl border border-border bg-surface p-5",
+        className,
+      )}
+    >
       <figcaption className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="flex items-center gap-1.5 text-heading text-fg">

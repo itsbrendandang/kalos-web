@@ -200,7 +200,7 @@ function Results({ model, campaign, onRetry, busy }: { model: CampaignOverview; 
         ))}
         {model.results.awaiting.length === 0 && model.results.measured.length === 0 ? <li>Run rows were not included in this response.</li> : null}
       </ul>
-      {campaign ? <BestSoFarChart campaign={campaign} unit={model.objective.unit ?? ""} /> : null}
+      {campaign ? <BestSoFarChart campaign={campaign} unit={model.objective.unit ?? ""} series="measured" frame="rule" /> : null}
     </div>
   );
 }

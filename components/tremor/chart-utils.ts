@@ -19,6 +19,16 @@ export const chartColors = {
   chart5: { bg: "bg-chart-5", stroke: "stroke-chart-5", fill: "fill-chart-5", text: "text-chart-5" },
   chart6: { bg: "bg-chart-6", stroke: "stroke-chart-6", fill: "fill-chart-6", text: "text-chart-6" },
   muted: { bg: "bg-fg-muted", stroke: "stroke-fg-muted", fill: "fill-fg-muted", text: "text-fg-muted" },
+  /**
+   * Campaign-home opt-in. Resolves only inside `.campaign-overview`
+   * (`--overview-measured`, the pilot foreground). Not part of the default palette.
+   */
+  overviewMeasured: {
+    bg: "bg-overview-measured",
+    stroke: "stroke-overview-measured",
+    fill: "fill-overview-measured",
+    text: "text-overview-measured",
+  },
 } as const satisfies Record<string, Record<ColorUtility, string>>;
 
 export type ChartColor = keyof typeof chartColors;

@@ -1,26 +1,10 @@
 /*
- * Direction C campaign home view-model. UI names only: every value is read
- * from GET /api/latest, GET /api/campaign, or the session upload rejection the
- * Plan page already keeps. Absent fields stay null. A missing count is never
- * zero. Promotion never changes permission to start.
- *
- * Open contracts (do not invent answers):
- * - No control run, replicate type, or replicate aggregation is on either
- *   payload. History best-so-far is not a baseline. Measured change versus a
- *   control stays unavailable.
- * - No organization permission or other server start-eligibility field is
- *   read. Start mirrors app/campaign/plan/page.tsx canStart (rejected upload,
- *   empty selection, already started, in-flight) and ignores promotion.
- * - `promotion` is an aggregate (`passed`, `failures`, finite `metrics`,
- *   `summary`, `meaning`). Per-gate threshold, population, and frozen
- *   prediction-time intervals are not on the payload. `conformal_q` is the
- *   latest half-width, not a model standard deviation.
- * - No objective-direction field. This module does not label the target as
- *   maximize or minimize.
+ * View-model for the campaign home. Values come from GET /api/latest,
+ * GET /api/campaign, and the session upload rejection. Absent fields stay null.
  */
 
 import type { Campaign, CampaignRun, LatestResult, PopulatedResult, Proposal, Promotion } from "@/lib/api";
-import { coveragePct, isUnmeasuredFailure, reliabilityVerdict, type ReliabilityVerdict } from "@/lib/api";
+import { constraintNote, coveragePct, isUnmeasuredFailure, reliabilityVerdict, type ReliabilityVerdict } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage, displayRound } from "@/lib/campaign-stage";
 import { activeRejection, type UploadRejection } from "@/components/campaign/plan-view";
 import { promotionLine } from "@/components/campaign/learn";
@@ -396,12 +380,7 @@ function roundCounts(campaign: ActiveCampaign | null): { completed: number | nul
   const measured = runs
     .filter((r): r is CampaignRun => isRecord(r) && r.awaiting === false && typeof r.id === "string" && typeof r.result === "number" && Number.isFinite(r.result))
     .map((r) => ({ id: r.id, result: r.result as number }));
-  return {
-    completed: completed ?? (Array.isArray(campaign.pending) ? measured.length : null),
-    pending: pending ?? (Array.isArray(campaign.pending) ? awaiting.length : null),
-    awaiting,
-    measured,
-  };
+  return { completed, pending, awaiting, measured };
 }
 
 function bestMeasured(campaign: ActiveCampaign | null, analysis: PopulatedResult | null): CampaignOverview["bestMeasured"] {
@@ -425,14 +404,6 @@ function searchRange(analysis: PopulatedResult | null, name: string): [number, n
   const [lo, hi] = pair;
   if (typeof lo !== "number" || typeof hi !== "number" || !Number.isFinite(lo) || !Number.isFinite(hi)) return null;
   return [lo, hi];
-}
-
-function constraintSentence(analysis: PopulatedResult | null): string | null {
-  const c = analysis?.constraint;
-  if (!c || c.reason === "no constraint requested") return null;
-  if (c.applied && c.column && c.floor != null) return `Constrained by ${c.column} >= ${c.floor}.`;
-  if (c.reason) return `Constraint not applied. ${c.reason}`;
-  return null;
 }
 
 function rankingOf(analysis: PopulatedResult | null): CampaignOverview["ranking"] {
@@ -474,14 +445,27 @@ function promotionOf(analysis: PopulatedResult | null): CampaignOverview["promot
       detail: "Not evaluated",
     };
   }
+  if (typeof promotion.passed !== "boolean") {
+    return {
+      passed: null,
+      verdict: "not-evaluated",
+      passedCount: null,
+      failureCount: null,
+      unmeasuredFailureCount: null,
+      line: null,
+      summary: typeof promotion.summary === "string" ? promotion.summary : null,
+      meaning: typeof promotion.meaning === "string" ? promotion.meaning : null,
+      detail: "Not evaluated",
+    };
+  }
   const failures = Array.isArray(promotion.failures) ? promotion.failures.filter((f): f is string => typeof f === "string") : [];
   return {
-    passed: promotion.passed === true ? true : promotion.passed === false ? false : null,
-    verdict: promotion.passed === true ? "eligible" : "not-eligible",
+    passed: promotion.passed,
+    verdict: promotion.passed ? "eligible" : "not-eligible",
     passedCount: null,
     failureCount: Array.isArray(promotion.failures) ? failures.length : null,
     unmeasuredFailureCount: failures.filter((f) => isUnmeasuredFailure(f)).length,
-    line: promotionLine(promotion),
+    line: promotion.passed ? null : promotionLine(promotion),
     summary: typeof promotion.summary === "string" ? promotion.summary : null,
     meaning: typeof promotion.meaning === "string" ? promotion.meaning : null,
     detail: "Some checks unavailable",
@@ -632,7 +616,7 @@ export function buildCampaignOverview(input: OverviewInput): CampaignOverview {
       fromPreviousRound: previous
         ? {
             delta: previous.delta,
-            context: previous.previousRound === 0 ? "vs uploaded data" : `vs round ${previous.previousRound}`,
+            context: previous.previousRound === 0 ? "vs uploaded data" : `vs round ${displayRound(previous.previousRound)}`,
           }
         : null,
     },
@@ -664,7 +648,7 @@ export function buildCampaignOverview(input: OverviewInput): CampaignOverview {
       }),
       factors: factorNames.map((name) => ({ name, searchRange: searchRange(analysis, name) })),
       heldFixed: null,
-      constraintNote: constraintSentence(analysis),
+      constraintNote: constraintNote(analysis?.constraint),
       validationStatus: analysis?.validation?.status ?? null,
       missing,
       blockedReason: rejection ? rejection.error : null,
@@ -673,8 +657,7 @@ export function buildCampaignOverview(input: OverviewInput): CampaignOverview {
       fetch: campaignFetch,
       panel: panelFrom(campaignFetch, {
         empty: campaignFetch !== "error" && campaignFetch !== "loading" && campaignFetch !== "idle" && !campaign,
-        // Failed-run count is never on the payload, so a loaded campaign is partial.
-      partial: Boolean(campaign) || resultsPartial,
+        partial: resultsPartial,
         blocked: false,
       }),
       completed: counts.completed,
@@ -767,6 +750,7 @@ export function stageStatus(model: CampaignOverview, stage: OverviewStage): stri
     if (model.proposals.panel === "loading") return "Loading the batch";
     if (model.proposals.panel === "error") return "Couldn't load the batch";
     if (model.proposals.panel === "empty") return "No draft batch";
+    if (model.start.label === "Already started") return "Already started";
     if (model.proposals.blockedReason) return "Review required";
     return "Draft · Review required";
   }

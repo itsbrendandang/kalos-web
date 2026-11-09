@@ -46,9 +46,11 @@ export function CampaignHome() {
   const orientation = useStageOrientation();
 
   const pending = latest.status === "loading" || campaign.status === "loading";
-  const hardError = !pending && (latest.status === "error" || campaign.status === "error");
+  const latestMissing = latest.data == null;
+  const campaignMissing = campaign.data == null;
+  const hardError = !pending && latestMissing && campaignMissing && (latest.status === "error" || campaign.status === "error");
   const view = campaignView(campaign.data, false, DEMO_MODE, DEMO_CAMPAIGN);
-  const illustrative = !hardError && view.state === "data" && view.demo;
+  const illustrative = !latest.error && !campaign.error && view.state === "data" && view.demo;
   const campaignPayload = illustrative ? view.campaign : campaign.data;
 
   const model = useMemo(
@@ -126,9 +128,9 @@ export function CampaignHome() {
           if (typeof value === "string" && (OVERVIEW_STAGES as readonly string[]).includes(value)) select(value as OverviewStage);
         }}
       >
-        <StageTabs model={model} stage={stage} attention={attention} onSelect={select} pathname={pathname} search={searchParams} />
+        <StageTabs model={model} stage={stage} attention={attention} onSelect={select} pathname={pathname} search={searchParams} orientation={orientation} />
         {OVERVIEW_STAGES.map((id) => (
-          <TabsContent key={id} value={id}>
+          <TabsContent key={id} value={id} keepMounted>
             <StagePanel model={model} stage={id} campaign={active} onRetry={retry} busy={latest.refreshing || campaign.refreshing} />
           </TabsContent>
         ))}

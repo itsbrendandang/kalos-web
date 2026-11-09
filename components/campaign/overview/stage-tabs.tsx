@@ -4,19 +4,6 @@ import { useEffect, useState } from "react";
 import { OVERVIEW_STAGES, OVERVIEW_STAGE_LABEL, stageStatus, withStageParam, type CampaignOverview, type OverviewStage } from "@/lib/campaign-overview";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-function useNarrowScreen(): boolean {
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia("(max-width: 767px)");
-    const apply = () => setNarrow(query.matches);
-    apply();
-    query.addEventListener("change", apply);
-    return () => query.removeEventListener("change", apply);
-  }, []);
-  return narrow;
-}
-
 export function StageTabs({
   model,
   stage,
@@ -24,6 +11,7 @@ export function StageTabs({
   onSelect,
   pathname,
   search,
+  orientation,
 }: {
   model: CampaignOverview;
   stage: OverviewStage | null;
@@ -31,8 +19,9 @@ export function StageTabs({
   onSelect: (stage: OverviewStage) => void;
   pathname: string;
   search: { toString(): string };
+  orientation: "horizontal" | "vertical";
 }) {
-  const vertical = useNarrowScreen();
+  const vertical = orientation === "vertical";
   useEffect(() => {
     if (!stage) return;
     const tab = document.getElementById(`campaign-stage-${stage}`);
@@ -74,6 +63,19 @@ export function StageTabs({
       ) : null}
     </div>
   );
+}
+
+function useNarrowScreen(): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(max-width: 767px)");
+    const apply = () => setNarrow(query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+  return narrow;
 }
 
 export function useStageOrientation(): "horizontal" | "vertical" {

@@ -31,6 +31,9 @@ vi.mock("next/dynamic", () => ({
 vi.mock("@/lib/demo", () => ({ DEMO_MODE: false }));
 
 import { CampaignHome } from "@/components/campaign/overview/campaign-home";
+import { StagePanel } from "@/components/campaign/overview/stage-panel";
+import { SummaryStrip } from "@/components/campaign/overview/summary-strip";
+import { buildCampaignOverview } from "@/lib/campaign-overview";
 import { EngineDataProvider, useLatest } from "@/hooks/use-engine";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -183,6 +186,63 @@ describe("campaign home states", () => {
     expect(href).toContain("org=acme");
     expect(href).toContain("stage=promotion");
     expect(push.mock.calls.at(-1)?.[1]).toMatchObject({ scroll: false });
+  });
+
+  it("keeps a loaded campaign when the analysis request fails", async () => {
+    latestBody = () => json({ error: "nope" }, 503);
+    renderHome();
+    expect(await screen.findByText("2.40")).toBeTruthy();
+    expect(screen.queryByText("Could not reach the analysis service")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Model learning/ }).getAttribute("aria-selected")).toBe("true"));
+    expect(screen.getAllByText("Couldn't load model evidence").length).toBeGreaterThan(0);
+  });
+
+  it("keeps a loaded analysis when the campaign request fails", async () => {
+    campaignBody = () => json({ error: "nope" }, 503);
+    renderHome();
+    expect(await screen.findByText("2.40")).toBeTruthy();
+    expect(screen.queryByText("Could not reach the analysis service")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Measured results/ }).getAttribute("aria-selected")).toBe("true"));
+    expect(screen.getAllByText("Couldn't load runs").length).toBeGreaterThan(0);
+  });
+
+  it("keeps every stage panel mounted so aria-controls resolves", async () => {
+    renderHome();
+    const tab = await screen.findByRole("tab", { name: /Conditions/ });
+    const id = tab.getAttribute("aria-controls");
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id as string)).toBeTruthy();
+  });
+
+  it("marks the conditions skeleton aria-busy", () => {
+    const model = buildCampaignOverview({
+      latest: { data: null, error: false, loading: true },
+      campaign: { data: null, error: false, loading: true },
+      rejection: null,
+      selectedCount: null,
+      startedHere: false,
+      startInFlight: false,
+      illustrative: false,
+    });
+    render(<StagePanel model={model} stage="conditions" campaign={null} onRetry={() => {}} busy={false} />);
+    expect(screen.getByRole("status", { name: "Loading conditions" }).getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("does not print a missing pending count as zero", () => {
+    const campaign = loop();
+    delete (campaign as { n_awaiting?: number }).n_awaiting;
+    const model = buildCampaignOverview({
+      latest: { data: fit(), error: false, loading: false },
+      campaign: { data: { ...campaign, pending: [] } as Campaign, error: false, loading: false },
+      rejection: null,
+      selectedCount: null,
+      startedHere: false,
+      startInFlight: false,
+      illustrative: false,
+    });
+    render(<SummaryStrip model={model} />);
+    expect(screen.getByText(/pending unavailable/)).toBeTruthy();
+    expect(screen.queryByText(/0 pending/)).toBeNull();
   });
 
   it("does not move off a chosen stage when a new promotion failure arrives", async () => {

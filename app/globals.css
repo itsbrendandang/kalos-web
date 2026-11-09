@@ -389,18 +389,3 @@ body {
     content: "↓";
   }
 }
-
-/* Uncertainty fill. Do not put text on the hatch. */
-.campaign-overview .overview-hatch {
-  background-color: var(--overview-uncertainty);
-  background-image: repeating-linear-gradient(-45deg, var(--overview-border) 0 1px, transparent 1px 6px);
-}
-
-/* Disabled actions inside the pilot: full-opacity ink, dashed boundary, reason beside the control. */
-.campaign-overview .overview-disabled {
-  border-style: dashed;
-  border-color: var(--overview-border);
-  background: var(--overview-muted);
-  color: var(--overview-fg-muted);
-  opacity: 1;
-}

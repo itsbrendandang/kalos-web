@@ -9,6 +9,7 @@ import {
   planCanStart,
   reduceStageNav,
   resolveAttention,
+  stageStatus,
   withStageParam,
   type OverviewInput,
   type OverviewStage,
@@ -98,6 +99,40 @@ describe("missing counts are not zero", () => {
     expect(model.round.pending).not.toBe(0);
     expect(model.round.failed).toBeNull();
     expect(model.results.failed).toBeNull();
+    expect(model.round.completed).toBe(4);
+  });
+
+  it("does not turn a missing count into the length of pending", () => {
+    const emptyRows = campaign();
+    delete (emptyRows as { n_awaiting?: number }).n_awaiting;
+    delete (emptyRows as { n_measured?: number }).n_measured;
+    const none = buildCampaignOverview(input({ campaign: { data: { ...emptyRows, pending: [] } as Campaign, error: false, loading: false } }));
+    expect(none.round.pending).toBeNull();
+    expect(none.round.completed).toBeNull();
+    expect(none.results.panel).toBe("partial");
+
+    const waiting = {
+      id: "r1",
+      recipe: {},
+      pred: 1,
+      std: 0.1,
+      mode: "explore" as const,
+      reason: "x",
+      result: null,
+      awaiting: true,
+    };
+    const two = buildCampaignOverview(
+      input({
+        campaign: {
+          data: { ...emptyRows, pending: [waiting, { ...waiting, id: "r2" }] } as Campaign,
+          error: false,
+          loading: false,
+        },
+      }),
+    );
+    expect(two.round.pending).toBeNull();
+    expect(two.round.completed).toBeNull();
+    expect(two.results.awaiting.map((run) => run.id)).toEqual(["r1", "r2"]);
   });
 
   it("keeps a reported zero", () => {
@@ -122,6 +157,28 @@ describe("baseline, promotion, and start stay separate", () => {
     expect(model.baseline.replicateCount).toBeNull();
     expect(model.measuredChange.versusControl).toBeNull();
     expect(model.measuredChange.fromPreviousRound?.context).toBe("vs uploaded data");
+  });
+
+  it("labels the previous round with the same display round as the heading", () => {
+    const model = buildCampaignOverview(
+      input({
+        campaign: {
+          data: campaign({
+            round: 2,
+            history: [
+              { round: 0, best: 1.6, n_base: 8 },
+              { round: 1, best: 2, n_base: 10 },
+              { round: 2, best: 2.4, n_base: 12 },
+            ],
+          }),
+          error: false,
+          loading: false,
+        },
+      }),
+    );
+    expect(model.round.display).toBe(3);
+    expect(model.measuredChange.fromPreviousRound?.context).toBe("vs round 2");
+    expect(model.measuredChange.fromPreviousRound?.delta).toBeCloseTo(0.4);
     expect(model.objective.direction).toBeNull();
     expect(model.interval.provenance).toBe("unavailable");
   });
@@ -145,6 +202,62 @@ describe("baseline, promotion, and start stay separate", () => {
     expect(model.start.blocks).not.toContain("rejected-upload");
     expect(model.start.reason).toMatch(/separate decision/);
     expect(resolveAttention(model)).toBe("promotion");
+  });
+
+  it("does not treat a non-boolean promotion.passed as a failed verdict", () => {
+    const broken = buildCampaignOverview(
+      input({
+        latest: {
+          data: latest({ promotion: { passed: "no", failures: ["ece"], metrics: {}, summary: "no", meaning: "no" } }),
+          error: false,
+          loading: false,
+        },
+      }),
+    );
+    expect(broken.promotion.passed).toBeNull();
+    expect(broken.promotion.verdict).toBe("not-evaluated");
+    expect(broken.promotion.line).toBeNull();
+
+    const failed = buildCampaignOverview(
+      input({
+        latest: {
+          data: latest({ promotion: { passed: false, failures: ["ece unmeasured"], metrics: {}, summary: "no", meaning: "no" } }),
+          error: false,
+          loading: false,
+        },
+      }),
+    );
+    expect(failed.promotion.verdict).toBe("not-eligible");
+    expect(failed.promotion.line).toMatch(/Not cleared to promote/);
+  });
+
+  it("says the batch is already started, and keeps an applied constraint applied when the floor is absent", () => {
+    const started = buildCampaignOverview(
+      input({
+        campaign: {
+          data: campaign({
+            analysis_in_sync: false,
+            n_awaiting: 1,
+            pending: [{ id: "r1", recipe: {}, pred: 1, std: 0.1, mode: "explore", reason: "x", result: null, awaiting: true }],
+          }),
+          error: false,
+          loading: false,
+        },
+      }),
+    );
+    expect(stageStatus(started, "experiments")).toBe("Already started");
+
+    const constrained = buildCampaignOverview(
+      input({
+        latest: {
+          data: latest({ constraint: { column: "pH", floor: null, n_rows_with_value: 4, applied: true, reason: "floor missing" } }),
+          error: false,
+          loading: false,
+        },
+      }),
+    );
+    expect(constrained.conditions.constraintNote).toMatch(/^Constrained by pH/);
+    expect(constrained.conditions.constraintNote).not.toMatch(/not applied/);
   });
 
   it("matches plan canStart for a known selection and ignores promotion", () => {
@@ -189,7 +302,7 @@ describe("resource states", () => {
     const ready = buildCampaignOverview(input());
     expect(ready.fit.fetch).toBe("ready");
     expect(ready.ranking.state).toBe("not-yet");
-    expect(ready.results.panel).toBe("partial");
+    expect(ready.results.panel).toBe("ready");
     expect(ready.conditions.panel).toBe("partial");
     expect(ready.conditions.missing).toContain("baseline");
     expect(ready.promotion.verdict).toBe("not-evaluated");

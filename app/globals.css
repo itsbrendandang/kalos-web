@@ -109,7 +109,7 @@
  * Direction C pilot tokens. Scoped to the campaign home root so library,
  * projects, auth, and the rest of the workbench keep the palette above.
  * Values are opaque OKLCH conversions of the approved sRGB preview
- * (light ink #202020 on white, action #2457A7; dark ink #F2F2F2 on #1C1C1C,
+ * (light ink #202020 on white, action #2457A7; dark ink #F2F2F2 on #141414,
  * action #99BCF0). Do not replace --bg, --fg, --muted, or --accent.
  */
 .campaign-overview {
@@ -122,7 +122,7 @@
   --overview-measured: var(--overview-fg);
   --overview-predicted: var(--overview-fg-muted);
   --overview-uncertainty: var(--overview-muted);
-  --overview-action: oklch(0.4678 0.14 259.28);
+  --overview-action: oklch(0.4678 0.14 259.3);
   --overview-on-action: oklch(1 0 0);
   --overview-ring: var(--overview-action);
   background: var(--overview-bg);
@@ -130,13 +130,13 @@
 }
 
 .dark .campaign-overview {
-  --overview-bg: oklch(0.2264 0 0);
+  --overview-bg: oklch(0.1913 0 0);
   --overview-fg: oklch(0.9612 0 0);
   --overview-fg-muted: oklch(0.7572 0 0);
-  --overview-muted: oklch(0.1913 0 0);
+  --overview-muted: oklch(0.2264 0 0);
   --overview-divider: oklch(0.3211 0 0);
   --overview-border: oklch(0.6268 0 0);
-  --overview-action: oklch(0.7884 0.0837 258.13);
+  --overview-action: oklch(0.7884 0.0837 258.1);
   --overview-on-action: oklch(0.1913 0 0);
 }
 
@@ -314,6 +314,9 @@
   --text-overview-heading: 1rem;
   --text-overview-heading--line-height: 1.5rem;
   --text-overview-heading--font-weight: 500;
+  --text-overview-focal: 2.5rem;
+  --text-overview-focal--line-height: 3rem;
+  --text-overview-focal--font-weight: 400;
 
   /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
    * are Tailwind's defaults, so the scale is not overridden. */
@@ -377,15 +380,14 @@ body {
 
 /* Pilot focus and marks. The global ring stays violet outside this root. */
 .campaign-overview :focus-visible {
-  outline-color: var(--overview-ring);
+  outline: 3px solid var(--overview-ring);
+  outline-offset: 3px;
 }
 
-.campaign-overview .overview-stage-arrow::before {
-  content: "→";
+.campaign-overview .overview-tabs {
+  scrollbar-width: none;
 }
 
-@media (max-width: 767px) {
-  .campaign-overview .overview-stage-arrow::before {
-    content: "↓";
-  }
+.campaign-overview .overview-tabs::-webkit-scrollbar {
+  display: none;
 }

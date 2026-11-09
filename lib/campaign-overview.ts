@@ -5,6 +5,7 @@
 
 import type { Campaign, CampaignRun, LatestResult, PopulatedResult, Proposal, Promotion } from "@/lib/api";
 import { constraintNote, coveragePct, isUnmeasuredFailure, reliabilityVerdict, type ReliabilityVerdict } from "@/lib/api";
+import { formatNumber } from "@/lib/format";
 import { bestDeltaFromPreviousRound, campaignStage, displayRound } from "@/lib/campaign-stage";
 import { activeRejection, type UploadRejection } from "@/components/campaign/plan-view";
 import { promotionLine } from "@/components/campaign/learn";
@@ -723,6 +724,41 @@ export function resolveAttention(model: CampaignOverview): OverviewStage {
   return "results";
 }
 
+/** Caveats for the single Details disclosure. Surface status lines stay short. */
+export function overviewDetails(model: CampaignOverview): string {
+  const parts: string[] = ["Failed-run status is not reported."];
+  if (model.ranking.rho == null) {
+    parts.push(model.ranking.reason);
+  } else {
+    const ci = model.ranking.ci
+      ? `95% CI ${formatNumber(model.ranking.ci[0], "corr")} to ${formatNumber(model.ranking.ci[1], "corr")}`
+      : "no interval reported";
+    const groups = model.ranking.groupCount == null ? "group count not reported" : `n=${formatNumber(model.ranking.groupCount, "count")} held-out groups`;
+    const crossesZero = model.ranking.ci != null && model.ranking.ci[0] <= 0 && model.ranking.ci[1] >= 0 ? " The interval includes zero." : "";
+    parts.push(`Ranking: Spearman ρ ${formatNumber(model.ranking.rho, "corr")}, ${ci}, ${groups}.${crossesZero}`);
+  }
+  if (model.promotion.verdict === "not-evaluated") {
+    parts.push("Promotion has not been evaluated. No checks is not approval.");
+  } else {
+    const n = model.promotion.failureCount;
+    const failed = n == null ? "Failed-check count is not reported." : `Promotion has ${formatNumber(n, "count")} failed ${n === 1 ? "check" : "checks"}.`;
+    parts.push(`${failed} Some checks are unavailable and a passed count is not inferred.`);
+  }
+  if (model.start.label === "Review required") parts.push("No recipes are reviewed or selected.");
+  else if (model.start.label === "Already started") parts.push("Runs from this analysis are already started.");
+  else if (model.start.label === "Not available") parts.push("Start is not available.");
+  parts.push("Ranking reliability, promotion checks and permission to start are separate. Promotion evidence is model promotion, not scale-up approval.");
+  parts.push("Change vs control cannot be calculated because no control is named.");
+  const previous = model.measuredChange.fromPreviousRound;
+  if (previous) {
+    const verb = previous.delta >= 0 ? "rose" : "fell";
+    const unit = model.objective.unit ? ` ${model.objective.unit}` : "";
+    parts.push(`Round-to-round best measured ${verb} ${formatNumber(Math.abs(previous.delta))}${unit} ${previous.context.replace(/^vs /, "from ")}; that is not a significance claim.`);
+  }
+  if (model.conditions.constraintNote) parts.push(model.conditions.constraintNote);
+  return parts.join(" ");
+}
+
 export function stageStatus(model: CampaignOverview, stage: OverviewStage): string {
   if (stage === "conditions") {
     if (model.conditions.panel === "loading") return "Loading conditions";
@@ -752,7 +788,7 @@ export function stageStatus(model: CampaignOverview, stage: OverviewStage): stri
     if (model.proposals.panel === "empty") return "No draft batch";
     if (model.start.label === "Already started") return "Already started";
     if (model.proposals.blockedReason) return "Review required";
-    return "Draft · Review required";
+    return "Draft · Review";
   }
   if (model.gates.panel === "loading") return "Loading promotion checks";
   if (model.gates.panel === "error") return "Couldn't load promotion checks";

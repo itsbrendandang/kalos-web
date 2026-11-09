@@ -210,6 +210,13 @@ describe("constraintNote", () => {
     expect(note).toContain("0.9");
   });
 
+  it("says the floor is not reported when a constraint is applied without one", () => {
+    const c: ConstraintReport = { column: "purity", floor: null, n_rows_with_value: 4, applied: true, reason: null };
+    const note = constraintNote(c);
+    expect(note).toBe("The purity constraint is applied, but its floor is not reported.");
+    expect(note).not.toContain("null");
+  });
+
   it("explains why a requested constraint was not applied", () => {
     const c: ConstraintReport = { column: "purity", floor: 0.9, n_rows_with_value: 2, applied: false, reason: "only 2 rows have a numeric value" };
     expect(constraintNote(c)).toContain("only 2 rows have a numeric value");

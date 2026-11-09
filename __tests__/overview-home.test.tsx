@@ -164,8 +164,11 @@ describe("campaign home states", () => {
     campaignBody = () => json({ has_campaign: false });
     renderHome();
     expect(await screen.findByRole("heading", { level: 1, name: "Campaign" })).toBeTruthy();
-    expect(screen.getAllByText("Baseline unavailable").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Not evaluated").length).toBeGreaterThan(0);
+    expect(screen.getByText("Best measured")).toBeTruthy();
+    expect(screen.getByText("Baseline — · no control named")).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByText("Details")).toBeTruthy();
+    expect(screen.queryByText("Synthetic fixture")).toBeNull();
     expect(screen.getByRole("tab", { name: /Conditions/ })).toBeTruthy();
     expect(screen.queryByText("Example data")).toBeNull();
     await waitFor(() => expect(replace).toHaveBeenCalled());
@@ -191,7 +194,7 @@ describe("campaign home states", () => {
   it("keeps a loaded campaign when the analysis request fails", async () => {
     latestBody = () => json({ error: "nope" }, 503);
     renderHome();
-    expect(await screen.findByText("2.40")).toBeTruthy();
+    expect((await screen.findAllByText("2.40")).length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not reach the analysis service")).toBeNull();
     await waitFor(() => expect(screen.getByRole("tab", { name: /Model learning/ }).getAttribute("aria-selected")).toBe("true"));
     expect(screen.getAllByText("Couldn't load model evidence").length).toBeGreaterThan(0);
@@ -200,7 +203,7 @@ describe("campaign home states", () => {
   it("keeps a loaded analysis when the campaign request fails", async () => {
     campaignBody = () => json({ error: "nope" }, 503);
     renderHome();
-    expect(await screen.findByText("2.40")).toBeTruthy();
+    expect((await screen.findAllByText("2.40")).length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not reach the analysis service")).toBeNull();
     await waitFor(() => expect(screen.getByRole("tab", { name: /Measured results/ }).getAttribute("aria-selected")).toBe("true"));
     expect(screen.getAllByText("Couldn't load runs").length).toBeGreaterThan(0);
@@ -241,7 +244,7 @@ describe("campaign home states", () => {
       illustrative: false,
     });
     render(<SummaryStrip model={model} />);
-    expect(screen.getByText(/pending unavailable/)).toBeTruthy();
+    expect(screen.getByText(/— pending/)).toBeTruthy();
     expect(screen.queryByText(/0 pending/)).toBeNull();
   });
 

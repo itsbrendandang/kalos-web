@@ -1,91 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
 import { MeasuredMark, PredictedValue } from "@/components/campaign/plan/marks";
+import { MeasuredTrend } from "@/components/campaign/overview/measured-trend";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
-import { lazyChart } from "@/components/kit/lazy-chart";
-import {
-  formatOverviewTimestamp,
-  OVERVIEW_STAGE_LABEL,
-  overviewStageForLoop,
-  stageStatus,
-  type CampaignOverview,
-  type OverviewStage,
-} from "@/lib/campaign-overview";
+import { OVERVIEW_STAGE_LABEL, overviewStageForLoop, type CampaignOverview, type OverviewStage } from "@/lib/campaign-overview";
 import { formatNumber } from "@/lib/format";
 import type { ActiveCampaign } from "@/lib/workbench";
 
-const BestSoFarChart = lazyChart(() => import("@/components/campaign/best-so-far-chart").then((m) => m.BestSoFarChart));
-
-const subscribeNoop = () => () => {};
-
-function LocalTime({ epoch }: { epoch: number | null }) {
-  const zone = useSyncExternalStore(subscribeNoop, () => Intl.DateTimeFormat().resolvedOptions().timeZone, () => "UTC");
-  if (epoch == null) return <>Time unavailable</>;
-  const ms = epoch < 1e12 ? epoch * 1000 : epoch;
-  return <time dateTime={new Date(ms).toISOString()}>{formatOverviewTimestamp(epoch, zone)}</time>;
-}
-
-function SourceLine({ model }: { model: CampaignOverview }) {
+function NextAction({ href, label }: { href: string; label: string }) {
+  const filled = label.startsWith("Record");
   return (
-    <p className="text-caption text-overview-fg-muted">
-      {model.versions.dataset ? <span className="font-mono">{model.versions.dataset}</span> : "Dataset unavailable"}
-      {" · "}
-      {model.versions.engineVersion ? `Engine ${model.versions.engineVersion}` : "Engine version not reported"}
-      {" · "}
-      <LocalTime epoch={model.versions.updatedAt} />
-      {model.versions.inputSha256 ? (
-        <>
-          {" · "}
-          <span className="font-mono">{model.versions.inputSha256.slice(0, 12)}</span>
-        </>
-      ) : null}
-    </p>
-  );
-}
-
-function NextAction({ href, label, note }: { href: string; label: string; note: string }) {
-  return (
-    <div className="flex flex-col items-start gap-2">
-      <p className="max-w-[68ch] text-body text-overview-fg-muted">{note}</p>
-      <Link href={href} className={cn(buttonVariants(), "bg-overview-action text-overview-on-action hover:bg-overview-action")}>
+    <div className="mt-10">
+      <Link
+        href={href}
+        className={cn(
+          buttonVariants(),
+          "min-h-11",
+          filled
+            ? "rounded bg-overview-action text-overview-on-action hover:bg-overview-action"
+            : "rounded border-overview-border bg-transparent text-overview-fg hover:bg-transparent",
+        )}
+      >
         {label}
       </Link>
     </div>
   );
 }
 
-function actionFor(model: CampaignOverview, stage: OverviewStage): { href: string; label: string; note: string } {
+function actionFor(model: CampaignOverview, stage: OverviewStage): { href: string; label: string } {
   if (model.loopNext && overviewStageForLoop(model.loopNext.stage) === stage) {
-    return { href: model.loopNext.href, label: model.loopNext.action, note: model.loopNext.reason };
+    return { href: model.loopNext.href, label: model.loopNext.action };
   }
   if (stage === "conditions") {
     return {
       href: "/campaign/setup",
       label: model.conditions.panel === "empty" ? "Upload data" : "Review setup",
-      note: model.conditions.panel === "empty" ? "Define the campaign before a baseline or factors can be known." : "Open setup to review the sheet, roles, and target.",
     };
   }
   if (stage === "results") {
     if (model.results.pending != null && model.results.pending > 0) {
-      return { href: "/campaign/record", label: "Record results", note: "Pending runs need a measured result. They are not cancelled from here." };
+      return { href: "/campaign/record", label: `Record ${formatNumber(model.results.pending, "count")} results` };
     }
-    return { href: model.hasCampaign ? "/campaign/run" : "/campaign/plan", label: model.hasCampaign ? "Review runs" : "Review plan", note: "Measured results stay on Run and Record." };
+    return { href: model.hasCampaign ? "/campaign/run" : "/campaign/plan", label: model.hasCampaign ? "Review runs" : "Review plan" };
   }
   if (stage === "learning") {
-    return { href: "/campaign/learn", label: model.fit.panel === "empty" ? "Review data" : "View model evidence", note: model.ranking.reason };
+    return { href: "/campaign/learn", label: model.fit.panel === "empty" ? "Review data" : "View model evidence" };
   }
   if (stage === "experiments") {
-    return {
-      href: "/campaign/plan",
-      label: "Review batch",
-      note: "Review and select recipes before starting. Promotion failure is not the execution gate.",
-    };
+    return { href: "/campaign/plan", label: "Review batch" };
   }
-  return { href: "/campaign/learn", label: "View model evidence", note: "Promotion is a separate decision. This page does not promote the model." };
+  return { href: "/campaign/learn", label: "View model evidence" };
 }
 
 export function StagePanel({
@@ -103,11 +70,14 @@ export function StagePanel({
 }) {
   const action = actionFor(model, stage);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mt-8 flex flex-col">
       <div className="flex flex-col gap-1">
         <h2 className="text-overview-heading text-overview-fg">{OVERVIEW_STAGE_LABEL[stage]}</h2>
-        <p className="text-body text-overview-fg">{stageStatus(model, stage)}</p>
-        <SourceLine model={model} />
+        <p className="text-caption text-overview-fg-muted">
+          {model.round.display == null ? "Round" : `Round ${model.round.display}`}
+          {" · "}
+          {model.versions.dataset ?? "Dataset unavailable"}
+        </p>
       </div>
       <StageBody model={model} stage={stage} campaign={campaign} onRetry={onRetry} busy={busy} />
       <NextAction {...action} />
@@ -168,7 +138,6 @@ function Conditions({ model, onRetry, busy }: { model: CampaignOverview; onRetry
         <p>Factors not reported.</p>
       )}
       <p>Held-fixed values are not a field on the campaign response.</p>
-      <p>{model.conditions.constraintNote ?? "Constraints not reported."}</p>
       <p>{model.conditions.validationStatus ? `Column-role validation ${model.conditions.validationStatus.replaceAll("_", " ")}.` : "Column roles not reported."}</p>
       <p>Missing: {model.conditions.missing.join(", ")}.</p>
     </div>
@@ -185,9 +154,9 @@ function Results({ model, campaign, onRetry, busy }: { model: CampaignOverview; 
     <div className="flex flex-col gap-4">
       <ul className="flex flex-col gap-2 text-body">
         {model.results.awaiting.map((run) => (
-          <li key={run.id} className="flex items-baseline gap-2">
-            <span className="font-mono text-caption">{run.id}</span>
-            <span>Not recorded</span>
+          <li key={run.id} className="flex max-w-[360px] items-baseline justify-between gap-4 py-2">
+            <span className="font-mono">{run.id}</span>
+            <span className="text-overview-fg-muted">○ Pending</span>
           </li>
         ))}
         {model.results.measured.map((run) => (
@@ -200,7 +169,7 @@ function Results({ model, campaign, onRetry, busy }: { model: CampaignOverview; 
         ))}
         {model.results.awaiting.length === 0 && model.results.measured.length === 0 ? <li>Run rows were not included in this response.</li> : null}
       </ul>
-      {campaign ? <BestSoFarChart campaign={campaign} unit={model.objective.unit ?? ""} series="measured" frame="rule" /> : null}
+      {campaign ? <MeasuredTrend campaign={campaign} unit={model.objective.unit ?? ""} /> : null}
     </div>
   );
 }

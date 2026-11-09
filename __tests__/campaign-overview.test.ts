@@ -8,6 +8,7 @@ import {
   parseStageParam,
   planCanStart,
   reduceStageNav,
+  overviewDetails,
   resolveAttention,
   stageStatus,
   withStageParam,
@@ -231,7 +232,7 @@ describe("baseline, promotion, and start stay separate", () => {
     expect(failed.promotion.line).toMatch(/Not cleared to promote/);
   });
 
-  it("says the batch is already started, and keeps an applied constraint applied when the floor is absent", () => {
+  it("says the batch is already started", () => {
     const started = buildCampaignOverview(
       input({
         campaign: {
@@ -246,18 +247,21 @@ describe("baseline, promotion, and start stay separate", () => {
       }),
     );
     expect(stageStatus(started, "experiments")).toBe("Already started");
+  });
 
+  it("says an applied constraint's missing floor is not reported", () => {
     const constrained = buildCampaignOverview(
       input({
         latest: {
-          data: latest({ constraint: { column: "pH", floor: null, n_rows_with_value: 4, applied: true, reason: "floor missing" } }),
+          data: latest({ constraint: { column: "purity", floor: null, n_rows_with_value: 4, applied: true, reason: null } }),
           error: false,
           loading: false,
         },
       }),
     );
-    expect(constrained.conditions.constraintNote).toMatch(/^Constrained by pH/);
-    expect(constrained.conditions.constraintNote).not.toMatch(/not applied/);
+    expect(constrained.conditions.constraintNote).toBe("The purity constraint is applied, but its floor is not reported.");
+    expect(constrained.conditions.constraintNote).not.toContain("null");
+    expect(overviewDetails(constrained)).toContain("its floor is not reported");
   });
 
   it("matches plan canStart for a known selection and ignores promotion", () => {

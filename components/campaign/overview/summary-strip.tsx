@@ -1,108 +1,67 @@
-import type { ReactNode } from "react";
-import { MeasuredMark } from "@/components/campaign/plan/marks";
-import { cn } from "@/lib/utils";
+"use client";
+
+import { useSyncExternalStore } from "react";
 import type { CampaignOverview } from "@/lib/campaign-overview";
-import { FAILED_RUNS_UNAVAILABLE } from "@/lib/campaign-overview";
+import { formatOverviewTimestamp, overviewDetails } from "@/lib/campaign-overview";
 import { formatNumber } from "@/lib/format";
 
-function countText(n: number | null, label: string): string {
-  if (n == null) return `${label} unavailable`;
-  return `${formatNumber(n, "count")} ${label}`;
+const subscribeNoop = () => () => {};
+
+function LocalTime({ epoch }: { epoch: number | null }) {
+  const zone = useSyncExternalStore(subscribeNoop, () => Intl.DateTimeFormat().resolvedOptions().timeZone, () => "UTC");
+  if (epoch == null) return null;
+  const ms = epoch < 1e12 ? epoch * 1000 : epoch;
+  return <time dateTime={new Date(ms).toISOString()}> {formatOverviewTimestamp(epoch, zone)}</time>;
 }
 
-function Fact({ label, children, detail, className }: { label: string; children: ReactNode; detail?: ReactNode; className?: string }) {
-  return (
-    <div className={cn("min-w-0", className)}>
-      <div className="text-label text-overview-fg-muted">{label}</div>
-      <div className="mt-1 text-overview-fg">{children}</div>
-      {detail ? <div className="mt-1 text-caption text-overview-fg-muted">{detail}</div> : null}
-    </div>
-  );
+function quiet(label: string): string {
+  return label.length === 0 ? label : label.charAt(0).toLowerCase() + label.slice(1);
+}
+
+function countPart(count: number | null, word: string): string {
+  return count == null ? `— ${word}` : `${formatNumber(count, "count")} ${word}`;
 }
 
 /**
- * Persistent measured summary. It stays above the stages and does not repeat
- * inside the selected panel. Baseline is unavailable until a control contract
- * exists, so the control delta is suppressed.
+ * One measured number, one baseline line, four status facts, and a single
+ * Details disclosure. Unknown counts stay an em dash.
  */
 export function SummaryStrip({ model }: { model: CampaignOverview }) {
-  const unit = model.objective.unit;
   const best = model.bestMeasured.value;
+  const unit = model.objective.unit;
+  const round = model.round.display == null ? "Round" : `Round ${model.round.display}`;
+  const promotion =
+    model.promotion.verdict === "eligible" ? "eligible" : model.promotion.verdict === "not-eligible" ? "not eligible" : "not evaluated";
   return (
-    <section aria-label="Measured summary" className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-x-4 gap-y-6 md:grid-cols-3">
-        <Fact
-          label="Best measured"
-          detail={
-            <>
-              Measured, not predicted. Replicate type and count for this value are not reported.
-              {model.measuredChange.fromPreviousRound ? (
-                <>
-                  {" "}
-                  Measured change {formatNumber(model.measuredChange.fromPreviousRound.delta, "value", { sign: true })}
-                  {unit ? ` ${unit}` : ""} {model.measuredChange.fromPreviousRound.context}. Not a control comparison.
-                </>
-              ) : null}
-            </>
-          }
-        >
-          <span className="inline-flex items-baseline gap-2">
-            <MeasuredMark ink="neutral" className="self-center" />
-            <span className={best == null ? "text-overview-heading" : "font-mono text-overview-metric tabular-nums"}>{best == null ? "Unavailable" : formatNumber(best)}</span>
-            {best != null && unit ? <span className="text-body text-overview-fg-muted">{unit}</span> : null}
-          </span>
-        </Fact>
-        <Fact label="Baseline" detail={model.baseline.reason}>
-          <span className="text-overview-heading">Baseline unavailable</span>
-        </Fact>
-        <Fact
-          label="Measured change"
-          detail="Versus a control. Suppressed because the baseline is unavailable. This is not a significance claim."
-        >
-          <span className="text-overview-heading">Baseline unavailable</span>
-        </Fact>
-      </div>
-      <div className="grid grid-cols-1 gap-4 border-t border-overview-divider pt-4 md:grid-cols-2 xl:grid-cols-4">
-        <Fact
-          label={model.round.display == null ? "Round" : `Round ${model.round.display}`}
-          detail={`Draft batch ${model.draft.proposals == null ? "unavailable" : formatNumber(model.draft.proposals, "count") + " proposals"}. Candidate and control counts are not separate fields. ${FAILED_RUNS_UNAVAILABLE}`}
-        >
-          <p className="flex flex-wrap gap-x-2 text-body">
-            <span>{countText(model.round.completed, "completed")}</span>
-            <span aria-hidden>·</span>
-            <span>{countText(model.round.pending, "pending")}</span>
-            <span aria-hidden>·</span>
-            <span>Failed unavailable</span>
-          </p>
-        </Fact>
-        <Fact
-          label="Ranking reliability"
-          detail={
-            model.ranking.rho == null
-              ? model.ranking.reason
-              : `${model.ranking.reason} Held-out Spearman ${formatNumber(model.ranking.rho, "corr")}${
-                  model.ranking.ci ? `, 95% CI ${formatNumber(model.ranking.ci[0], "corr")} to ${formatNumber(model.ranking.ci[1], "corr")}` : ", no interval reported"
-                }. ${model.ranking.groupCount == null ? "Group count not reported." : `${formatNumber(model.ranking.groupCount, "count")} groups.`}`
-          }
-        >
-          <p className="text-overview-heading">{model.ranking.label}</p>
-        </Fact>
-        <Fact
-          label="Promotion checks"
-          detail={
-            model.promotion.verdict === "not-evaluated"
-              ? "Promotion not evaluated. No checks is not approval."
-              : `${model.promotion.detail}. ${model.promotion.failureCount == null ? "" : `${formatNumber(model.promotion.failureCount, "count")} failed. `}Passed count is not inferred. Promotion is a separate decision.`
-          }
-        >
-          <p className="text-overview-heading">
-            {model.promotion.verdict === "not-evaluated" ? "Not evaluated" : model.promotion.verdict === "eligible" ? "Eligible" : "Not eligible"}
-          </p>
-        </Fact>
-        <Fact label="Permission to start" detail={model.start.reason}>
-          <p className="text-overview-heading">{model.start.label}</p>
-        </Fact>
-      </div>
+    <section aria-label="Measured summary" className="mt-8">
+      <p className="text-caption text-overview-fg-muted">Best measured</p>
+      <p className="mt-1 flex items-baseline gap-2">
+        <span className="font-mono text-overview-focal tabular-nums">{best == null ? "—" : formatNumber(best)}</span>
+        {best != null && unit ? <span className="text-body text-overview-fg-muted">{unit}</span> : null}
+      </p>
+      <p className="mt-2 text-caption text-overview-fg-muted">Measured · replicates unknown</p>
+      <p className="mt-3 text-body text-overview-fg-muted">Baseline — · no control named</p>
+      <ul aria-label="Campaign status" className="mt-12 list-none p-0">
+        <li className="py-0.5 text-body">
+          <span className="text-overview-fg-muted">{round}</span> · {countPart(model.round.completed, "done")} · {countPart(model.round.pending, "pending")}
+        </li>
+        <li className="py-0.5 text-body">
+          <span className="text-overview-fg-muted">Ranking</span> · {quiet(model.ranking.label)}
+        </li>
+        <li className="py-0.5 text-body">
+          <span className="text-overview-fg-muted">Promotion</span> · {promotion}
+        </li>
+        <li className="py-0.5 text-body">
+          <span className="text-overview-fg-muted">Start</span> · {quiet(model.start.label)}
+        </li>
+      </ul>
+      <details className="mt-3">
+        <summary className="inline-flex min-h-8 cursor-pointer items-center text-caption text-overview-fg-muted">Details</summary>
+        <p className="mt-2 max-w-[640px] text-caption text-overview-fg-muted">
+          {overviewDetails(model)}
+          <LocalTime epoch={model.versions.updatedAt} />
+        </p>
+      </details>
     </section>
   );
 }

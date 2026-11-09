@@ -106,6 +106,41 @@
 }
 
 /*
+ * Direction C pilot tokens. Scoped to the campaign home root so library,
+ * projects, auth, and the rest of the workbench keep the palette above.
+ * Values are opaque OKLCH conversions of the approved sRGB preview
+ * (light ink #202020 on white, action #2457A7; dark ink #F2F2F2 on #141414,
+ * action #99BCF0). Do not replace --bg, --fg, --muted, or --accent.
+ */
+.campaign-overview {
+  --overview-bg: oklch(1 0 0);
+  --overview-fg: oklch(0.2435 0 0);
+  --overview-fg-muted: oklch(0.4962 0 0);
+  --overview-muted: oklch(0.9702 0 0);
+  --overview-divider: oklch(0.928 0 0);
+  --overview-border: oklch(0.5999 0 0);
+  --overview-measured: var(--overview-fg);
+  --overview-predicted: var(--overview-fg-muted);
+  --overview-uncertainty: var(--overview-muted);
+  --overview-action: oklch(0.4678 0.14 259.3);
+  --overview-on-action: oklch(1 0 0);
+  --overview-ring: var(--overview-action);
+  background: var(--overview-bg);
+  color: var(--overview-fg);
+}
+
+.dark .campaign-overview {
+  --overview-bg: oklch(0.1913 0 0);
+  --overview-fg: oklch(0.9612 0 0);
+  --overview-fg-muted: oklch(0.7572 0 0);
+  --overview-muted: oklch(0.2264 0 0);
+  --overview-divider: oklch(0.3211 0 0);
+  --overview-border: oklch(0.6268 0 0);
+  --overview-action: oklch(0.7884 0.0837 258.1);
+  --overview-on-action: oklch(0.1913 0 0);
+}
+
+/*
  * COMPATIBILITY ALIASES - temporary. The old token names below are read by
  * pages that have not been rebuilt yet (app/data, the library tools, the
  * campaign stage pages, components/dashboard, components/projects and
@@ -181,6 +216,18 @@
   --color-chart-predicted: var(--chart-predicted);
   --color-chart-measured: var(--chart-measured);
   --color-chart-grid: var(--chart-grid);
+  --color-overview-bg: var(--overview-bg);
+  --color-overview-fg: var(--overview-fg);
+  --color-overview-fg-muted: var(--overview-fg-muted);
+  --color-overview-muted: var(--overview-muted);
+  --color-overview-divider: var(--overview-divider);
+  --color-overview-border: var(--overview-border);
+  --color-overview-measured: var(--overview-measured);
+  --color-overview-predicted: var(--overview-predicted);
+  --color-overview-uncertainty: var(--overview-uncertainty);
+  --color-overview-action: var(--overview-action);
+  --color-overview-on-action: var(--overview-on-action);
+  --color-overview-ring: var(--overview-ring);
 
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -257,6 +304,19 @@
   --text-metric--letter-spacing: -0.02em;
   --text-code: 0.8125rem;
   --text-code--line-height: 1.125rem;
+  /* Pilot summary only. 28/36, weight 500, upright. Not the global metric. */
+  --text-overview-metric: 1.75rem;
+  --text-overview-metric--line-height: 2.25rem;
+  --text-overview-metric--font-weight: 500;
+  --text-overview-title: 1.375rem;
+  --text-overview-title--line-height: 1.75rem;
+  --text-overview-title--font-weight: 500;
+  --text-overview-heading: 1rem;
+  --text-overview-heading--line-height: 1.5rem;
+  --text-overview-heading--font-weight: 500;
+  --text-overview-focal: 2.5rem;
+  --text-overview-focal--line-height: 3rem;
+  --text-overview-focal--font-weight: 400;
 
   /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
    * are Tailwind's defaults, so the scale is not overridden. */
@@ -316,4 +376,18 @@ body {
 }
 .surface-cell:focus-visible {
   stroke: var(--ring);
+}
+
+/* Pilot focus and marks. The global ring stays violet outside this root. */
+.campaign-overview :focus-visible {
+  outline: 3px solid var(--overview-ring);
+  outline-offset: 3px;
+}
+
+.campaign-overview .overview-tabs {
+  scrollbar-width: none;
+}
+
+.campaign-overview .overview-tabs::-webkit-scrollbar {
+  display: none;
 }

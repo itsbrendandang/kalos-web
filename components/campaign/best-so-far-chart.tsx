@@ -8,7 +8,7 @@ import type { ActiveCampaign } from "@/lib/workbench";
 
 const roundName = (r: string | number) => (Number(r) === 0 ? "Upload" : `Round ${r}`);
 
-/** Measured best-so-far by round, as on the Overview: never a prediction, gaps stay gaps. */
+/** Measured best-so-far by round, as on Learn: never a prediction, gaps stay gaps. */
 export function BestSoFarChart({ campaign, unit }: { campaign: ActiveCampaign; unit: string }) {
   const series = bestSoFarSeries(campaign);
   const measuredRounds = series.filter((p) => p.best != null).length;

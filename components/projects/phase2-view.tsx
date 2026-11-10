@@ -104,7 +104,7 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
             </div>
           ) : null}
           {c.note ? (
-            <div className="mt-1 text-[11px] text-[color:var(--v-muted)]">
+            <div className="mt-1 text-caption text-[color:var(--v-muted)]">
               <Info className="mr-1 inline size-3 align-[-2px] text-[color:var(--v-blue)]" />
               {c.note}
             </div>
@@ -128,7 +128,7 @@ function Pipeline({ stages, badge }: { stages: PipelineStage[]; badge: { text: s
       <div className="pipe-box">
         <div className="pipe-hd">
           AI pipeline
-          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${PIPELINE_BADGE_CLASS[badge.tone]}`}>
+          <span className={`rounded-full px-1.5 py-0.5 text-caption font-medium ${PIPELINE_BADGE_CLASS[badge.tone]}`}>
             {badge.text}
           </span>
         </div>
@@ -252,7 +252,7 @@ function ResultsView({ project }: { project: Project }) {
           <div className="sh">Candidate decisions · run #{project.run?.number ?? 1}</div>
           {project.candidates.length > 0 ? (
             <>
-              <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
+              <div className="mb-2 text-caption text-[color:var(--v-muted)]">
                 Click a candidate to view full analysis before taking any lab action.
               </div>
               {project.candidates.map((c, i) => (
@@ -260,7 +260,7 @@ function ResultsView({ project }: { project: Project }) {
               ))}
             </>
           ) : (
-            <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
+            <div className="mb-2 text-caption text-[color:var(--v-muted)]">
               No candidates yet for this project - upload experiments and re-run the pipeline.
             </div>
           )}

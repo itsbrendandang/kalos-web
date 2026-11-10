@@ -9,8 +9,8 @@ const STATUS_DOT = { pass: "bg-green", warn: "bg-amber", fail: "bg-red" } as con
 function MetricBox({ k, v }: { k: string; v: string }) {
   return (
     <div>
-      <div className="mb-0.5 text-[10.5px] font-semibold tracking-[0.03em] text-muted uppercase">{k}</div>
-      <div className="tabular font-mono text-[17px] font-bold text-fg">{v}</div>
+      <div className="mb-0.5 text-caption font-semibold text-fg-muted">{k}</div>
+      <div className="tabular-nums text-heading font-semibold text-fg">{v}</div>
     </div>
   );
 }
@@ -18,15 +18,15 @@ function MetricBox({ k, v }: { k: string; v: string }) {
 function StatusLine({ well }: { well: Well }) {
   if (well.isControl || well.status === null) {
     return (
-      <div className="mb-3 flex items-center gap-2 text-[13px] font-bold">
+      <div className="mb-3 flex items-center gap-2 text-label font-semibold">
         <span className="inline-block size-2 rounded-[2px] bg-muted" />
-        <span className="text-muted">Control well (not scored Pass/Warn/Fail)</span>
+        <span className="text-fg-muted">Control well (not scored Pass/Warn/Fail)</span>
       </div>
     );
   }
   const status = well.status;
   return (
-    <div className={cn("mb-3 flex items-center gap-2 text-[13px] font-bold", STATUS_TEXT[status])}>
+    <div className={cn("mb-3 flex items-center gap-2 text-label font-semibold", STATUS_TEXT[status])}>
       <span className={cn("inline-block size-2 rounded-[2px]", STATUS_DOT[status])} />
       {STATUS_LABEL[status]}
     </div>
@@ -47,7 +47,7 @@ export function WellDetail({ well: w }: WellDetailProps) {
       <DialogHeader>
         <DialogTitle>
           Well detail{" "}
-          <span className="rounded-lg bg-blue-tint px-2 py-0.5 font-mono text-[15px] text-blue-deep">{w.id}</span>
+          <span className="rounded-lg bg-accent-soft px-2 py-0.5 text-heading text-accent">{w.id}</span>
         </DialogTitle>
         <DialogDescription>
           {w.condition}
@@ -66,25 +66,25 @@ export function WellDetail({ well: w }: WellDetailProps) {
           <MetricBox k="SGT (h)" v={m.sgtReached ? m.sgt.toFixed(1) : "> 24"} />
           <MetricBox k="AUC (ΔOD)" v={m.auc.toFixed(2)} />
         </div>
-        <p className="mb-3 text-[10.5px] leading-relaxed text-muted">
+        <p className="mb-3 text-caption leading-relaxed text-fg-muted">
           SGT = time to first cross ΔOD ≥ 0.05 above t₀. AUC = trapezoidal integral of ΔOD over 0-24 h.
         </p>
 
-        <div className="mb-1.5 text-[11.5px] font-bold text-muted">Flags</div>
+        <div className="mb-1.5 text-caption font-semibold text-fg-muted">Flags</div>
         {w.flags.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {w.flags.map((f, i) => (
               <span
                 key={i}
-                className="rounded-full border border-border bg-bg px-2.5 py-1 text-[11px] font-bold text-fg"
+                className="rounded-full border border-border bg-bg px-2.5 py-1 text-caption font-semibold text-fg"
               >
-                <span className="mr-1 font-semibold text-muted">{f.cat}</span>
+                <span className="mr-1 font-semibold text-fg-muted">{f.cat}</span>
                 {f.label}
               </span>
             ))}
           </div>
         ) : (
-          <span className="text-[12px] text-muted">No flags on this well.</span>
+          <span className="text-caption text-fg-muted">No flags on this well.</span>
         )}
       </div>
     </div>

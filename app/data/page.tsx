@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Download, PlugZap, Search, X } from "lucide-react";
-import { Card, Kpi, SectionLabel } from "@/components/ui/card";
+import { SortableHead, type SortDirection } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/honest-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, DemoBadge } from "@/components/page-header";
+import { formatNumber } from "@/lib/format";
 import {
   DATASETS,
   DATASET_COUNT,
@@ -18,7 +19,6 @@ import {
   outputUnit,
   type DatasetRecord,
 } from "@/lib/mock/registry";
-import { cn } from "@/lib/utils";
 import { DEMO_MODE } from "@/lib/demo";
 
 type SortKey = "runs-desc" | "runs-asc" | "name" | "added";
@@ -50,16 +50,9 @@ function sortDatasets(rows: DatasetRecord[], key: SortKey): DatasetRecord[] {
 }
 
 function StatusPill({ status }: { status: DatasetRecord["status"] }) {
-  const active = status === "active";
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "rounded-full text-[10px] font-semibold whitespace-nowrap",
-        active ? "border-green/30 bg-green-soft text-green" : "border-border bg-card text-muted",
-      )}
-    >
-      {status}
+    <Badge tone={status === "active" ? "good" : "neutral"} variant={status === "active" ? "soft" : "outline"}>
+      {status === "active" ? "Active" : "Archived"}
     </Badge>
   );
 }
@@ -69,7 +62,7 @@ function StatusPill({ status }: { status: DatasetRecord["status"] }) {
  *  model that consumes the registry gets attributed rather than in chrome
  *  that's visible on every route. */
 function EngineCredit() {
-  return <p className="text-center font-mono text-[10px] tracking-wide text-muted">powered by BoTorch + ESM-2</p>;
+  return <p className="text-center text-caption text-fg-muted">powered by BoTorch + ESM-2</p>;
 }
 
 /** Honest empty state: the registry has no live source yet, so with demo mode off
@@ -116,6 +109,8 @@ export default function DataPage() {
 
   const selectedDataset = selected ? (DATASETS.find((d) => d.barcode === selected) ?? null) : null;
 
+  const dir = (k: SortKey): SortDirection => (sortKey === k ? (k === "added" ? "descending" : "ascending") : "none");
+
   function toggleSelect(barcode: string) {
     setSelected((cur) => (cur === barcode ? null : barcode));
   }
@@ -130,49 +125,56 @@ export default function DataPage() {
         desc="Example datasets and runs, shown because example data is on."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Kpi hero label="Datasets" value={DATASET_COUNT} />
-        <Kpi label="Runs tracked" value={TOTAL_RUNS} />
-        <Kpi label="Outputs tracked" value={outputsTracked} />
-      </div>
+      <dl className="grid gap-x-8 gap-y-4 border-y border-border py-5 sm:grid-cols-3">
+        {[
+          ["Datasets", DATASET_COUNT],
+          ["Runs tracked", TOTAL_RUNS],
+          ["Outputs tracked", outputsTracked],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-label text-fg-muted">{label}</dt>
+            <dd className="mt-1 text-metric tabular-nums text-fg">{formatNumber(Number(value), "count")}</dd>
+          </div>
+        ))}
+      </dl>
 
-      <Card>
-        <SectionLabel>Runs per dataset</SectionLabel>
-        <div className="flex flex-col gap-2">
+      <section>
+        <h2 className="mb-3 text-heading text-fg">Runs per dataset</h2>
+        <ul className="flex flex-col gap-2">
           {DATASETS.map((d) => (
-            <div key={d.barcode} className="flex items-center gap-3">
-              <span className="w-[150px] shrink-0 truncate font-mono text-[11px] text-muted" title={d.name}>
+            <li key={d.barcode} className="flex items-center gap-3">
+              <span className="w-40 shrink-0 truncate font-mono text-code text-fg-muted" title={d.name}>
                 {d.name}
               </span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-soft">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-subtle">
                 <div className="h-full rounded-full bg-chart-1" style={{ width: `${(d.runs / maxRuns) * 100}%` }} />
               </div>
-              <span className="tabular w-10 shrink-0 text-right font-mono text-[11px] text-fg">{d.runs}</span>
-            </div>
+              <span className="w-12 shrink-0 text-right text-body tabular-nums text-fg">{formatNumber(d.runs, "count")}</span>
+            </li>
           ))}
-        </div>
-      </Card>
+        </ul>
+      </section>
 
-      <Card>
+      <section>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <SectionLabel className="mr-auto mb-0">Registry</SectionLabel>
+          <h2 className="mr-auto text-heading text-fg">Registry</h2>
           <DemoBadge />
         </div>
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] max-w-sm flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-fg-muted" aria-hidden />
             <Input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search datasets, barcodes, outputs..."
               aria-label="Search datasets"
-              className="h-9 rounded-[10px] pr-3 pl-8 text-[13px]"
+              className="pl-8"
             />
           </div>
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger aria-label="Sort datasets" className="h-9 rounded-[10px] text-[13px]">
+            <SelectTrigger aria-label="Sort datasets">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -183,91 +185,79 @@ export default function DataPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={() => {}}>
+          <Button variant="outline" onClick={() => {}}>
             <Download />
             Export training table
           </Button>
         </div>
 
-        <div className="overflow-x-auto">
-          <Table className="tabular w-full border-collapse text-sm">
-            <TableHeader>
-              <TableRow className="border-none text-[10px] text-muted uppercase hover:bg-transparent">
-                <TableHead className="border-b border-border px-3 py-2 text-left">Barcode</TableHead>
-                <TableHead
-                  className="cursor-pointer border-b border-border px-3 py-2 text-left select-none hover:text-fg"
-                  onClick={() => setSortKey("name")}
-                >
-                  Dataset{sortKey === "name" ? " ▲" : ""}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer border-b border-border px-3 py-2 text-right select-none hover:text-fg"
-                  onClick={() => setSortKey(sortKey === "runs-desc" ? "runs-asc" : "runs-desc")}
-                >
-                  Runs{sortKey === "runs-desc" ? " ▼" : sortKey === "runs-asc" ? " ▲" : ""}
-                </TableHead>
-                <TableHead className="border-b border-border px-3 py-2 text-left">Outputs</TableHead>
-                <TableHead className="border-b border-border px-3 py-2 text-right">Features</TableHead>
-                <TableHead
-                  className="cursor-pointer border-b border-border px-3 py-2 text-left select-none hover:text-fg"
-                  onClick={() => setSortKey("added")}
-                >
-                  Added{sortKey === "added" ? " ▼" : ""}
-                </TableHead>
-                <TableHead className="border-b border-border px-3 py-2 text-left">Status</TableHead>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Barcode</TableHead>
+              <SortableHead direction={dir("name")} onSort={() => setSortKey("name")}>
+                Dataset
+              </SortableHead>
+              <SortableHead
+                numeric
+                direction={sortKey === "runs-desc" ? "descending" : sortKey === "runs-asc" ? "ascending" : "none"}
+                onSort={() => setSortKey(sortKey === "runs-desc" ? "runs-asc" : "runs-desc")}
+              >
+                Runs
+              </SortableHead>
+              <TableHead>Outputs</TableHead>
+              <TableHead numeric>Features</TableHead>
+              <SortableHead direction={dir("added")} onSort={() => setSortKey("added")}>
+                Added
+              </SortableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((d) => (
+              <TableRow
+                key={d.barcode}
+                tabIndex={0}
+                aria-selected={selected === d.barcode}
+                onClick={() => toggleSelect(d.barcode)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleSelect(d.barcode);
+                  }
+                }}
+                className="cursor-pointer"
+              >
+                <TableCell className="font-mono text-code text-accent">{d.barcode}</TableCell>
+                <TableCell className="font-mono text-code">{d.name}</TableCell>
+                <TableCell numeric>{formatNumber(d.runs, "count")}</TableCell>
+                <TableCell className="text-fg-muted">{d.outputs.join(" / ")}</TableCell>
+                <TableCell numeric>{d.features}</TableCell>
+                <TableCell className="text-fg-muted">{d.addedLabel}</TableCell>
+                <TableCell>
+                  <StatusPill status={d.status} />
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((d) => (
-                <TableRow
-                  key={d.barcode}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selected === d.barcode}
-                  onClick={() => toggleSelect(d.barcode)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      toggleSelect(d.barcode);
-                    }
-                  }}
-                  className={cn("cursor-pointer border-none", selected === d.barcode && "bg-blue-soft")}
-                >
-                  <TableCell className="border-b border-border/60 px-3 py-2 font-mono text-[12px] text-chart-1-ink">
-                    {d.barcode}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2 font-mono text-[12px]">{d.name}</TableCell>
-                  <TableCell className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]">
-                    {d.runs}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2 text-[12px] text-muted">
-                    {d.outputs.join(" / ")}
-                  </TableCell>
-                  <TableCell className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]">
-                    {d.features}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2 text-[12px] text-muted">
-                    {d.addedLabel}
-                  </TableCell>
-                  <TableCell className="border-b border-border/60 px-3 py-2">
-                    <StatusPill status={d.status} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </Table>
         {rows.length === 0 ? (
           <EmptyState
-            className="border-none py-8"
+            icon={Search}
+            className="py-8"
             title="No datasets match your search"
             description={`No dataset, barcode, or output matched “${query}”.`}
+            action={
+              <Button variant="outline" onClick={() => setQuery("")}>
+                Clear search
+              </Button>
+            }
           />
         ) : null}
-        <p className="mt-3 text-[12px] text-muted">
-          {TOTAL_RUNS} runs across {DATASET_COUNT} dataset{DATASET_COUNT === 1 ? "" : "s"}. New uploads appear here after analysis.
+        <p className="mt-3 text-caption text-fg-muted">
+          {formatNumber(TOTAL_RUNS, "count")} runs across {DATASET_COUNT} dataset{DATASET_COUNT === 1 ? "" : "s"}. New uploads appear here after analysis.
         </p>
-      </Card>
+      </section>
 
       {selectedDataset ? <DatasetDetail dataset={selectedDataset} onClose={() => setSelected(null)} /> : null}
 
@@ -288,24 +278,24 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
   });
 
   return (
-    <Card className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5 border-t border-border pt-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-head text-[15px] font-semibold text-fg">{dataset.name}</span>
-            <span className="font-mono text-[12px] text-chart-1-ink">{dataset.barcode}</span>
+            <span className="text-heading text-fg">{dataset.name}</span>
+            <span className="font-mono text-code text-accent">{dataset.barcode}</span>
           </div>
-          <p className="mt-1 text-[12px] leading-snug text-muted">
+          <p className="mt-1 text-caption text-fg-muted">
             {dataset.rows} rows / {dataset.features} features / {dataset.sizeLabel} / added {dataset.addedLabel} / campaign{" "}
             <span className="font-mono text-fg">{dataset.campaignHash}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => {}}>
+          <Button variant="outline" onClick={() => {}}>
             <Download />
             Export CSV
           </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dataset detail">
+          <Button variant="ghost" onClick={onClose} aria-label="Close dataset detail">
             <X />
             Close
           </Button>
@@ -313,18 +303,14 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
       </div>
 
       {runs.length === 0 ? (
-        <EmptyState className="border-none py-8" title="No sample runs on file for this dataset yet." />
+        <EmptyState className="py-8" title="No sample runs on file for this dataset yet." />
       ) : (
         <>
           <div>
-            <SectionLabel>Output ranges (sample)</SectionLabel>
+            <h3 className="mb-2 text-label text-fg">Output ranges (sample)</h3>
             <div className="flex flex-wrap gap-2">
               {ranges.map((r) => (
-                <Badge
-                  key={r.name}
-                  variant="outline"
-                  className="rounded-full border-border bg-blue-soft px-2.5 py-1 font-mono text-[11px] text-fg"
-                >
+                <Badge key={r.name} tone="neutral" className="tabular-nums">
                   {r.name} {r.min != null ? r.min : "-"}–{r.max != null ? r.max : "-"}
                   {r.unit ? ` ${r.unit}` : ""}
                 </Badge>
@@ -333,19 +319,19 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
           </div>
 
           <div>
-            <SectionLabel>Sample runs</SectionLabel>
-            <div className="overflow-x-auto">
-              <Table className="tabular w-full border-collapse text-sm">
+            <h3 className="mb-2 text-label text-fg">Sample runs</h3>
+            <div>
+              <Table>
                 <TableHeader>
-                  <TableRow className="border-none text-[10px] text-muted uppercase hover:bg-transparent">
-                    <TableHead className="border-b border-border px-3 py-2 text-left">Run</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Run</TableHead>
                     {inputKeys.map((k) => (
-                      <TableHead key={k} className="border-b border-border px-3 py-2 text-right">
+                      <TableHead key={k} numeric>
                         {k}
                       </TableHead>
                     ))}
                     {dataset.outputs.map((k) => (
-                      <TableHead key={k} className="border-b border-border px-3 py-2 text-right text-chart-1-ink">
+                      <TableHead key={k} numeric className="text-fg">
                         {k}
                       </TableHead>
                     ))}
@@ -353,23 +339,15 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
                 </TableHeader>
                 <TableBody>
                   {runs.map((r) => (
-                    <TableRow key={r.barcode} className="border-none hover:bg-transparent">
-                      <TableCell className="border-b border-border/60 px-3 py-2 font-mono text-[12px] text-chart-1-ink">
-                        {r.barcode}
-                      </TableCell>
+                    <TableRow key={r.barcode}>
+                      <TableCell className="font-mono text-code text-accent">{r.barcode}</TableCell>
                       {inputKeys.map((k) => (
-                        <TableCell
-                          key={k}
-                          className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px]"
-                        >
+                        <TableCell key={k} numeric>
                           {r.inputs[k]}
                         </TableCell>
                       ))}
                       {dataset.outputs.map((k) => (
-                        <TableCell
-                          key={k}
-                          className="tabular border-b border-border/60 px-3 py-2 text-right font-mono text-[12px] font-semibold text-fg"
-                        >
+                        <TableCell key={k} numeric className="font-medium text-fg">
                           {r.outputs[k] ?? "-"}
                         </TableCell>
                       ))}
@@ -381,6 +359,6 @@ function DatasetDetail({ dataset, onClose }: { dataset: DatasetRecord; onClose: 
           </div>
         </>
       )}
-    </Card>
+    </section>
   );
 }

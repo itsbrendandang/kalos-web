@@ -44,7 +44,7 @@ function IterationCard({
               In progress
             </div>
           ) : (
-            <div className="flex items-center gap-1 text-[11px] text-[color:var(--v-muted)]">
+            <div className="flex items-center gap-1 text-caption text-[color:var(--v-muted)]">
               <Lock className="size-[11px]" />
               Locked
             </div>
@@ -84,7 +84,7 @@ function IterationCard({
                   </tr>
                 ))}
                 <tr>
-                  <td colSpan={it.file.cols.length} className="text-center text-[10px] text-[color:var(--v-faint)]">
+                  <td colSpan={it.file.cols.length} className="text-center text-caption text-[color:var(--v-faint)]">
                     {it.file.moreNote}
                   </td>
                 </tr>
@@ -137,7 +137,7 @@ export function Phase1View({ project }: { project: Project }) {
 
   if (project.iterations.length === 0) {
     return (
-      <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
+      <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-caption text-[color:var(--v-muted)]">
         {project.live
           ? "This project is scored live by the engine. See the Phase 2 tab for the engine's recommended next experiments."
           : "No Phase 1 iterations for this project. It began directly in Phase 2 scale-up."}

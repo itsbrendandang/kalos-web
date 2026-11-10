@@ -19,13 +19,13 @@ export function StatusChip({ status, count }: { status: WellStatus; count?: Reac
     <Badge
       variant="outline"
       className={cn(
-        "h-auto gap-1.5 rounded-full bg-card px-2 py-0.5 text-[13px] font-bold",
+        "h-auto gap-1.5 rounded-full bg-surface px-2 py-0.5 text-label font-semibold",
         STATUS_TEXT[status],
         STATUS_BORDER[status],
       )}
     >
       <span className={cn("size-2 shrink-0 rounded-[2px]", STATUS_DOT[status])} />
-      {count != null ? <span className="tabular font-mono">{count}</span> : null} {STATUS_LABEL[status]}
+      {count != null ? <span className="tabular-nums">{count}</span> : null} {STATUS_LABEL[status]}
     </Badge>
   );
 }

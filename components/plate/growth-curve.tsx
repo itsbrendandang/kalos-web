@@ -13,8 +13,8 @@ interface GrowthCurveProps {
 }
 
 const LEGEND_ITEMS = [
-  { label: "replicate A", color: "#9aa7c7" },
-  { label: "replicate B", color: "#c3cbe3" },
+  { label: "replicate A", color: "var(--chart-measured)" },
+  { label: "replicate B", color: "var(--fg-muted)" },
   { label: "Gompertz fit", color: CHART_THEME.series },
 ];
 
@@ -26,7 +26,7 @@ const LEGEND_ITEMS = [
  */
 function GrowthLegend() {
   return (
-    <ul className="mt-1.5 flex justify-end gap-4 text-[11px]" style={{ color: CHART_THEME.axis }}>
+    <ul className="mt-1.5 flex justify-end gap-4 text-caption" style={{ color: CHART_THEME.axis }}>
       {LEGEND_ITEMS.map((it) => (
         <li key={it.label} className="flex items-center gap-1.5">
           <span className="inline-block h-0 w-[18px] border-t-2" style={{ borderColor: it.color }} />
@@ -68,7 +68,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
           type="monotone"
           dataKey="repA"
           name="replicate A"
-          stroke="#9aa7c7"
+          stroke="var(--chart-measured)"
           strokeWidth={1.5}
           dot={false}
           isAnimationActive={false}
@@ -78,7 +78,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
           type="monotone"
           dataKey="repB"
           name="replicate B"
-          stroke="#c3cbe3"
+          stroke="var(--fg-muted)"
           strokeWidth={1.5}
           dot={false}
           isAnimationActive={false}

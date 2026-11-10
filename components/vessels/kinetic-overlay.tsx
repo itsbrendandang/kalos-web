@@ -20,12 +20,12 @@ const TICKS = [0, 48, 96, 144, 192, 240, 288, 336];
 // repeats). Assigned from the vessel's own `idx` (not selection order), so a
 // given vessel keeps the same signature across all five kinetic panels.
 const SERIES_COLORS = [
-  "var(--series-1)",
-  "var(--series-2)",
-  "var(--series-3)",
-  "var(--series-4)",
-  "var(--series-5)",
-  "var(--series-6)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
 ] as const;
 
 const DASH_PATTERNS = [
@@ -81,8 +81,8 @@ export function KineticOverlay({ title, sub, channel, vessels, selectedIds, yTic
 
   return (
     <div>
-      <h3 className="text-[12px] font-bold text-fg">{title}</h3>
-      <p className="mb-1.5 text-[10.5px] text-muted">{sub}</p>
+      <h3 className="text-caption font-semibold text-fg">{title}</h3>
+      <p className="mb-1.5 text-caption text-fg-muted">{sub}</p>
       <ResponsiveContainer width="100%" height={190}>
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 8, left: -14 }}>
           <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />
@@ -122,7 +122,7 @@ export function KineticOverlay({ title, sub, channel, vessels, selectedIds, yTic
           })}
         </LineChart>
       </ResponsiveContainer>
-      <p className="mt-1 text-[9.5px] leading-snug text-muted">
+      <p className="mt-1 text-caption leading-snug text-fg-muted">
         {hasSelection ? `${selectedIds.size} selected vessel${selectedIds.size === 1 ? "" : "s"}` : "All vessels"} -
         each line is a distinct vessel, identified by color and dash pattern (not color alone).
       </p>

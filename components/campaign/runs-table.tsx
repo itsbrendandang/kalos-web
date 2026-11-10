@@ -55,7 +55,7 @@ export function RunsTable({
             {head("pred", "Predicted", true)}
             {head("result", "Measured", true)}
             {head("status", "Status")}
-            <TableHead>Actions</TableHead>
+            <TableHead>Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

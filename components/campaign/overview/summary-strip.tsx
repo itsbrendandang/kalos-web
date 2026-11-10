@@ -36,7 +36,7 @@ export function SummaryStrip({ model }: { model: CampaignOverview }) {
     <section aria-label="Measured summary" className="mt-8">
       <p className="text-caption text-overview-fg-muted">Best measured</p>
       <p className="mt-1 flex items-baseline gap-2">
-        <span className="font-mono text-overview-focal tabular-nums">{best == null ? "—" : formatNumber(best)}</span>
+        <span className="text-overview-focal tabular-nums">{best == null ? "—" : formatNumber(best)}</span>
         {best != null && unit ? <span className="text-body text-overview-fg-muted">{unit}</span> : null}
       </p>
       <p className="mt-2 text-caption text-overview-fg-muted">Measured · replicates unknown</p>

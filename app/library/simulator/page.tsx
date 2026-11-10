@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Info, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { runSingle, runMulti, type MultiRun, type SingleRun } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { Callout } from "@/components/kit/callout";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { PageHeader } from "@/components/page-header";
 import { Proposals } from "@/components/proposals";
 import { formatNumber } from "@/lib/format";
@@ -84,16 +86,13 @@ export default function Simulate() {
         }
       />
 
-      <div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface p-4 text-[13px] leading-relaxed text-muted">
-        <Info className="mt-0.5 size-4 shrink-0" />
-        <p>
+      <p className="max-w-[68ch] text-body text-fg-muted">
           This runs the engine&apos;s real Bayesian optimization loop, but against a{" "}
-          <span className="font-semibold">synthetic in-silico benchmark surface</span> - a deterministic function
+          <span className="font-medium text-fg">synthetic in-silico benchmark surface</span> - a deterministic function
           with a known optimum, not a real bioprocess or any client data. It exists to show how the optimizer
           searches and converges, not to predict a real outcome. Nothing on this page is a validated model or a
           recommendation to run.
         </p>
-      </div>
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-fit gap-0">
         <TabsList>
@@ -111,7 +110,7 @@ export default function Simulate() {
         />
       ) : loading ? (
         <div className="py-6">
-          <p className="mb-3 text-center font-mono text-[11px] text-muted">Running the optimizer…</p>
+          <p className="mb-3 text-center text-caption text-fg-muted">Running the optimizer…</p>
           <LoadingSkeleton variant="rows" rows={4} label="Running the optimizer" className="mx-auto max-w-md" />
         </div>
       ) : mode === "single" ? (
@@ -126,9 +125,9 @@ export default function Simulate() {
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">{label}</div>
-      <div className="tabular mt-0.5 font-mono text-[20px] font-semibold text-fg">{value}</div>
-      {sub ? <div className="text-[11px] text-muted">{sub}</div> : null}
+      <div className="text-label text-fg-muted">{label}</div>
+      <div className="mt-0.5 text-title tabular-nums text-fg">{value}</div>
+      {sub ? <div className="text-caption text-fg-muted">{sub}</div> : null}
     </div>
   );
 }
@@ -136,8 +135,8 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 function SectionHead({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="mb-3 flex items-center gap-3">
-      <h2 className="text-[13px] font-semibold whitespace-nowrap text-fg">{title}</h2>
-      {sub ? <span className="hidden min-w-0 truncate text-[12px] text-muted md:block">{sub}</span> : null}
+      <h2 className="text-heading whitespace-nowrap text-fg">{title}</h2>
+      {sub ? <span className="hidden min-w-0 truncate text-caption text-fg-muted md:block">{sub}</span> : null}
       <div className="h-px flex-1 bg-border" />
     </div>
   );
@@ -175,9 +174,7 @@ function SingleView({
   return (
     <div className="flex flex-col gap-6">
       {err ? (
-        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
-          Refresh failed. Showing the last run.
-        </Card>
+        <Callout tone="warn" title="Refresh failed. Showing the last run." />
       ) : null}
 
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -200,49 +197,43 @@ function SingleView({
 
       <section>
         <SectionHead title="Best recipe found vs. the known optimum" />
-        <Card className="p-3.5">
-          <div className="overflow-x-auto">
-            <table className="tabular w-full min-w-[420px] border-separate border-spacing-y-1 font-mono text-xs">
-              <thead>
-                <tr className="text-[10px] text-muted uppercase">
-                  <th className="px-2 py-1.5 text-left"></th>
-                  {cols.map((c) => (
-                    <th key={c} className="px-2 py-1.5 text-right">
-                      {c}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-fg">
-                    Found by search
-                  </td>
-                  {data.best_recipe.map((v, i) => (
-                    <td key={i} className="border-y border-border/70 bg-card px-2 py-2 text-right text-fg">
-                      {formatNumber(v)}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="rounded-l-xl border-y border-l border-border/70 bg-card px-2 py-2 text-left text-muted">
-                    Known optimum
-                  </td>
-                  {data.optimum.map((v, i) => (
-                    <td key={i} className="rounded-r-xl border-y border-r border-border/70 bg-card px-2 py-2 text-right text-muted">
-                      {formatNumber(v)}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <Card padding="none">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead></TableHead>
+                {cols.map((c) => (
+                  <TableHead key={c} numeric>
+                    {c}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>Found by search</TableCell>
+                {data.best_recipe.map((v, i) => (
+                  <TableCell key={i} numeric>
+                    {formatNumber(v)}
+                  </TableCell>
+                ))}
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-fg-muted">Known optimum</TableCell>
+                {data.optimum.map((v, i) => (
+                  <TableCell key={i} numeric className="text-fg-muted">
+                    {formatNumber(v)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableBody>
+          </Table>
         </Card>
       </section>
 
       <section>
         <SectionHead title="Next proposed batch" sub="Unlabeled unit-cube dimensions - a synthetic benchmark, not a real recipe." />
-        <Card className="p-3.5">
+        <Card padding="none">
           {data.proposals.length ? (
             <Proposals
               cols={cols}
@@ -251,7 +242,7 @@ function SingleView({
               predFn={(r) => `${formatNumber(r.pred)} ± ${formatNumber(r.std)}`}
             />
           ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
+            <EmptyState className="py-10" title="No proposals" description="The optimizer returned no next batch for this run." />
           )}
         </Card>
       </section>
@@ -289,9 +280,7 @@ function MultiView({
   return (
     <div className="flex flex-col gap-6">
       {err ? (
-        <Card className="border-amber/30 bg-amber-soft text-sm text-amber">
-          Refresh failed. Showing the last run.
-        </Card>
+        <Callout tone="warn" title="Refresh failed. Showing the last run." />
       ) : null}
 
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -310,7 +299,7 @@ function MultiView({
 
       <section>
         <SectionHead title="Next proposed batch" sub="Unlabeled unit-cube dimensions - a synthetic benchmark, not a real recipe." />
-        <Card className="p-3.5">
+        <Card padding="none">
           {data.proposals.length ? (
             <Proposals
               cols={cols}
@@ -319,7 +308,7 @@ function MultiView({
               predFn={(r) => `${formatNumber(r.pred_titer)} / ${formatNumber(r.pred_purity, "count")}%`}
             />
           ) : (
-            <p className="py-10 text-center text-[12px] text-muted">no proposals</p>
+            <EmptyState className="py-10" title="No proposals" description="The optimizer returned no next batch for this run." />
           )}
         </Card>
       </section>

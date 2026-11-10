@@ -208,7 +208,7 @@ function EditCustomerModal({ customer, onClose }: { customer: Customer; onClose:
         <input className="fi" value={address} onChange={(e) => setAddress(e.target.value)} />
       </div>
       <div className="my-3 h-px bg-[color:var(--v-border)]" />
-      <div className="mb-1.5 text-[10px] font-medium uppercase text-[color:var(--v-muted)]">Projects</div>
+      <div className="mb-1.5 text-caption font-medium text-[color:var(--v-muted)]">Projects</div>
       {customer.projects.map((p) => (
         <div
           key={p.id}
@@ -219,9 +219,9 @@ function EditCustomerModal({ customer, onClose }: { customer: Customer; onClose:
               p.stage.kind === "phase2" ? "v-stage-dot--phase2" : "v-stage-dot--phase1"
             }`}
           />
-          <span className="flex-1 text-[12px] font-medium text-[color:var(--v-ink)]">{p.name}</span>
+          <span className="flex-1 text-caption font-medium text-[color:var(--v-ink)]">{p.name}</span>
           <span
-            className={`rounded-full px-[5px] py-0.5 text-[9px] font-medium ${
+            className={`rounded-full px-[5px] py-0.5 text-caption font-medium ${
               p.stage.kind === "phase2" ? "v-stage-pill--phase2" : "v-stage-pill--phase1"
             }`}
           >

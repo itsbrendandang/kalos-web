@@ -32,13 +32,13 @@ export function PlateHeatmap({
       <div className="grid gap-1.5" style={{ gridTemplateColumns: "28px repeat(12, minmax(0, 1fr))" }}>
         <div />
         {COLS.map((c) => (
-          <div key={c} className="text-center font-mono text-[11px] font-semibold text-muted">
+          <div key={c} className="text-center font-mono text-caption font-semibold text-fg-muted">
             {c}
           </div>
         ))}
         {ROWS.map((r) => (
           <Fragment key={r}>
-            <div className="flex items-center justify-center font-mono text-[11px] font-semibold text-muted">{r}</div>
+            <div className="flex items-center justify-center font-mono text-caption font-semibold text-fg-muted">{r}</div>
             {COLS.map((c) => {
               const id = `${r}${c}`;
               const w = wells[id];
@@ -53,7 +53,7 @@ export function PlateHeatmap({
                     className="aspect-square rounded-[6px] ring-1 ring-border"
                     style={{
                       background:
-                        "repeating-linear-gradient(45deg, var(--border), var(--border) 3px, var(--card) 3px, var(--card) 6px)",
+                        "repeating-linear-gradient(45deg, var(--border), var(--border) 3px, var(--surface) 3px, var(--surface) 6px)",
                     }}
                   />
                 );
@@ -97,7 +97,7 @@ export function PlateHeatmap({
                     {w.isControl ? (
                       <span
                         aria-hidden
-                        className="absolute top-0.5 left-1 font-mono text-[13px] leading-none font-bold"
+                        className="absolute top-0.5 left-1 font-mono text-label leading-none font-semibold"
                         style={{ color: markColor }}
                       >
                         {w.controlType === "positive" ? "+" : "−"}
@@ -107,7 +107,7 @@ export function PlateHeatmap({
                       <span
                         role="img"
                         aria-label="flagged"
-                        className="absolute top-0.5 right-1 text-[9px] leading-none"
+                        className="absolute top-0.5 right-1 text-caption leading-none"
                         style={{ color: markColor }}
                       >
                         ⚑
@@ -116,7 +116,7 @@ export function PlateHeatmap({
                     {showValues ? (
                       <span
                         aria-hidden
-                        className="absolute inset-0 flex items-center justify-center font-mono text-[9.5px] font-bold tabular-nums"
+                        className="absolute inset-0 flex items-center justify-center text-caption font-semibold tabular-nums"
                         style={{ color: valueColor }}
                       >
                         {w.metrics.deltaOD.toFixed(2)}
@@ -139,7 +139,7 @@ export function PlateHeatmap({
         ))}
       </div>
 
-      <div className="mt-2.5 flex items-center gap-2.5 text-[11.5px] text-muted">
+      <div className="mt-2.5 flex items-center gap-2.5 text-caption text-fg-muted">
         <span>Δ OD (max − t₀) · low</span>
         <span className="h-2.5 flex-1 rounded-full border border-border" style={{ background: SEQ_GRADIENT_CSS }} />
         <span>

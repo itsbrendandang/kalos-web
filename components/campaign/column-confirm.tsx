@@ -63,7 +63,7 @@ export function ColumnConfirm({
         <label className="flex flex-col gap-1 text-label text-fg sm:max-w-sm">
           Maximize (target)
           <select
-            className="rounded-md border border-border-strong bg-surface px-2 py-1.5 text-body"
+            className="h-10 rounded-lg border border-border-strong bg-surface px-3 text-body"
             value={tgt}
             onChange={(e) => setTgt(e.target.value)}
             disabled={busy}

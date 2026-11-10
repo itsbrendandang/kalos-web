@@ -42,7 +42,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
         <button className="bb" onClick={() => router.push("/projects")}>
           <ArrowLeft className="size-3" /> All projects
         </button>
-        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
+        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-caption text-[color:var(--v-muted)]">
           Project not found.
         </div>
       </div>
@@ -61,12 +61,12 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
           <div className="flex items-center gap-2">
             <h1 className="v-title">{project.name}</h1>
             {project.live ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--v-blue-tint)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--v-blue-7-text)]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--v-blue-tint)] px-2 py-0.5 text-caption font-medium text-[color:var(--v-blue-7-text)]">
                 <Activity className="size-2.5" /> Live · engine
               </span>
             ) : null}
           </div>
-          <div className="mt-0.5 text-[12px] text-[color:var(--v-muted)]">{subtitle(project)}</div>
+          <div className="mt-0.5 text-caption text-[color:var(--v-muted)]">{subtitle(project)}</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <button className="gbtn" onClick={() => setModal({ kind: "edit-project", project })}>

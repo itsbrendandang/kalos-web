@@ -18,17 +18,18 @@ export function MeasuredTrend({ campaign, unit }: { campaign: ActiveCampaign; un
   const yOf = (value: number) => 10 + ((high - value) / span) * 80;
   const ticks = tickValues(values);
   const last = points[points.length - 1];
+  const labelStep = Math.ceil(points.length / 5);
   const label = points.map((point) => `${roundName(point.round)} ${formatNumber(point.best)}${unit ? ` ${unit}` : ""}`).join(", ");
   return (
     <figure className="mt-8">
       <figcaption className="mb-4 text-caption text-overview-fg-muted">Best so far, by round</figcaption>
       <div className="relative h-40 text-overview-fg" role="img" aria-label={`Best measured by round: ${label}`}>
         {ticks.map((tick) => (
-          <span key={tick} className="absolute left-0 -translate-y-1/2 font-mono text-caption text-overview-fg-muted" style={{ top: `${yOf(tick)}%` }}>
+          <span key={tick} className="absolute left-0 -translate-y-1/2 text-caption tabular-nums text-overview-fg-muted" style={{ top: `${yOf(tick)}%` }}>
             {formatNumber(tick)}
           </span>
         ))}
-        <div className="absolute top-0 right-0 bottom-0 left-10">
+        <div className="absolute top-0 right-0 bottom-0 left-14">
           <div className="absolute right-0 bottom-0 left-0 border-t border-overview-divider" />
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
             <polyline
@@ -46,15 +47,19 @@ export function MeasuredTrend({ campaign, unit }: { campaign: ActiveCampaign; un
               style={{ left: `${xOf(index, points.length)}%`, top: `${yOf(point.best)}%`, transform: "translate(-50%, -50%)" }}
             />
           ))}
-          <span className="absolute font-mono text-caption text-overview-fg" style={{ right: 0, top: `${yOf(last.best)}%`, transform: "translateY(-120%)" }}>
+          <span className="absolute text-caption tabular-nums text-overview-fg" style={{ right: 0, top: `${yOf(last.best)}%`, transform: "translateY(-120%)" }}>
             {formatNumber(last.best)}
           </span>
         </div>
       </div>
-      <div className="mt-2 ml-10 flex justify-between text-caption text-overview-fg-muted">
-        {points.map((point) => (
-          <span key={point.round}>{roundName(point.round)}</span>
-        ))}
+      <div className="relative mt-2 ml-14 h-5 text-caption text-overview-fg-muted" aria-hidden>
+        {points.map((point, index) =>
+          index % labelStep === 0 || index === points.length - 1 ? (
+            <span key={point.round} className="absolute whitespace-nowrap tabular-nums" style={{ left: `${xOf(index, points.length)}%`, transform: "translateX(-50%)" }}>
+              {roundName(point.round)}
+            </span>
+          ) : null,
+        )}
       </div>
     </figure>
   );

@@ -16,8 +16,9 @@ const step = (v: number, min: number, max: number) => (max > min ? Math.min(5, 1
  * stay, as hollow rings, so they read without colour.
  */
 export function RunLandscape({ embedding, targetName, unit }: { embedding: Embedding; targetName: string; unit: string }) {
-  const points = embedding.points.map(([x, y, target]) => ({ x, y, target }));
-  const positive = points.filter((p) => p.target > 0).map((p) => p.target);
+  const points = embedding.points.map(([x, y, target]) => ({ x, y, target })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (!points.length) return <p className="text-caption text-fg-muted">No runs to place yet.</p>;
+  const positive = points.filter((p) => Number.isFinite(p.target) && p.target > 0).map((p) => p.target);
   const min = positive.length ? Math.min(...positive) : 0;
   const max = positive.length ? Math.max(...positive) : 0;
   const zeros = points.length - positive.length;

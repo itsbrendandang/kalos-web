@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +23,12 @@ export function NextCard({
   className?: string;
 }) {
   return (
-    <section
+    <Card
+      bordered
+      padding="panel"
+      role="region"
       aria-label="Next step"
-      className={cn("flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between", className)}
+      className={cn("flex flex-col gap-stack bg-surface sm:flex-row sm:items-center sm:justify-between", className)}
     >
       <div className="min-w-0">
         <p className="text-label text-accent">{eyebrow}</p>
@@ -35,6 +39,6 @@ export function NextCard({
         {action}
         <ArrowRight />
       </Link>
-    </section>
+    </Card>
   );
 }

@@ -81,7 +81,7 @@ export function ProjectReport({ projectId }: { projectId: string }) {
         <button className="bb" onClick={() => router.push("/projects")}>
           <ArrowLeft className="size-3" /> All projects
         </button>
-        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-[12px] text-[color:var(--v-muted)]">
+        <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center text-caption text-[color:var(--v-muted)]">
           Report not found.
         </div>
       </div>

@@ -71,7 +71,7 @@ export function RecordForm({
         eyebrow={`Round ${displayRound(round)}`}
         title="Record results"
         description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
-      action={
+        action={
           <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
             {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
           </Button>

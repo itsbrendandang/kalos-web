@@ -33,11 +33,14 @@ export function UploadDropzone({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) onFile(f);
+          // Clear so choosing the same file again still fires onChange.
+          e.target.value = "";
         }}
       />
       <div
         role="button"
-        tabIndex={0}
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
         aria-label="Upload a run sheet (CSV, TSV, or Excel)"
         onClick={() => {
           if (!disabled) inputRef.current?.click();
@@ -62,17 +65,15 @@ export function UploadDropzone({
           if (f) onFile(f);
         }}
         className={cn(
-          "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors",
-          drag ? "border-accent bg-accent-soft" : "border-border bg-card hover:bg-blue-soft",
-          disabled && "pointer-events-none opacity-60",
+          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-6 py-16 text-center transition-colors",
+          drag ? "border-accent bg-accent-soft" : "border-border-strong bg-surface hover:bg-subtle",
+          disabled && "pointer-events-none bg-subtle",
           className,
         )}
       >
-        <Upload className="size-7 text-accent" />
-        <div className="text-sm font-semibold">
-          Drop a run sheet here <span className="font-normal text-muted">or click to choose</span>
-        </div>
-        <div className="font-mono text-[11px] text-muted">CSV / TSV / XLSX / parsed for this analysis</div>
+        <Upload className="size-5 text-fg-muted" aria-hidden />
+        <p className="text-label text-fg">Drop a run sheet here, or click to choose</p>
+        <p className="text-caption text-fg-muted">CSV, TSV or Excel, one run per row</p>
       </div>
     </>
   );

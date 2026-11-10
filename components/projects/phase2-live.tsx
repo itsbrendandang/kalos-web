@@ -65,15 +65,15 @@ function Reliability_({ d }: { d: AnalyzeResult }) {
     <div className={`rounded-[10px] border-[0.5px] px-3.5 py-3 ${toneClass}`}>
       <div className="mb-1.5 flex items-center gap-2">
         <Gauge className="v-tone-accent size-3.5" />
-        <span className="text-[12px] font-medium">Model reliability</span>
+        <span className="text-caption font-medium">Model reliability</span>
         {r?.spearman != null ? (
-          <span className="v-tone-accent ml-auto font-mono text-[12px] font-semibold">
+          <span className="v-tone-accent ml-auto text-caption font-semibold">
             Spearman {formatNumber(r.spearman, "corr")}
             {r.ci95 ? ` · 95% CI [${formatNumber(r.ci95[0], "corr")}, ${formatNumber(r.ci95[1], "corr")}]` : ""}
           </span>
         ) : null}
       </div>
-      <div className="text-[11px] leading-[1.55]">{v.text}</div>
+      <div className="text-caption leading-[1.55]">{v.text}</div>
     </div>
   );
 }
@@ -118,8 +118,8 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-[9px] border-[0.5px] border-[color:var(--v-blue-border)] bg-[var(--v-blue-tint)] px-3 py-2">
           <Activity className="size-3.5 text-[color:var(--v-blue-7-text)]" />
-          <span className="text-[12px] font-medium text-[color:var(--v-blue-7-text)]">Live · scored by the kalos engine</span>
-          <span className="font-mono text-[11px] text-[color:var(--v-blue-7-text)]">
+          <span className="text-caption font-medium text-[color:var(--v-blue-7-text)]">Live · scored by the kalos engine</span>
+          <span className="font-mono text-caption text-[color:var(--v-blue-7-text)]">
             {d.n} runs · {d.d} inputs · maximize {d.target}
           </span>
           <button className="uplr ml-auto inline-flex items-center gap-1" onClick={onRefresh} disabled={busy}>
@@ -128,7 +128,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
         </div>
 
         {offline ? (
-          <div className="v-tone-warn mb-2 rounded-[8px] border-[0.5px] px-3 py-2 text-[11px]">
+          <div className="v-tone-warn mb-2 rounded-[8px] border-[0.5px] px-3 py-2 text-caption">
             Could not reach the engine just now; showing the last successful result. Retry with Refresh.
           </div>
         ) : null}
@@ -136,7 +136,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
         <Reliability_ d={d} />
 
         <div className="sh mt-3.5">Recommended next experiments</div>
-        <div className="mb-2 text-[11px] text-[color:var(--v-muted)]">
+        <div className="mb-2 text-caption text-[color:var(--v-muted)]">
           The engine&apos;s actual output: the batch to run next, each with a predicted {d.target} and a distribution-free
           uncertainty band. These are experiments to run, not scale-up promotions.
         </div>
@@ -148,11 +148,11 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
       <div>
         <div className="sh">What correlates with {d.target}</div>
         <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] p-3">
-          <div className="mb-2 text-[10px] text-[color:var(--v-muted)]">
+          <div className="mb-2 text-caption text-[color:var(--v-muted)]">
             Global signed rank correlation across all runs. Faded bars are not statistically significant.
           </div>
           {driverSelectionNote(d.driver_selection) ? (
-            <div className="mb-2 text-[10px] text-[color:var(--v-muted)]">{driverSelectionNote(d.driver_selection)}</div>
+            <div className="mb-2 text-caption text-[color:var(--v-muted)]">{driverSelectionNote(d.driver_selection)}</div>
           ) : null}
           {d.drivers.map((dr) => {
             const w = Math.min(100, Math.abs(dr.rho) * 100);
@@ -181,10 +181,10 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
           <>
             <div className="sh mt-3.5">Not modeled by this engine</div>
             <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] p-3">
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[color:var(--v-muted)]">
+              <div className="mb-1.5 flex items-center gap-1.5 text-caption font-medium text-[color:var(--v-muted)]">
                 <Info className="size-3 text-[color:var(--v-blue)]" /> Shown elsewhere in the mock, absent here on purpose
               </div>
-              <ul className="space-y-1 text-[11px] text-[color:var(--v-muted)]">
+              <ul className="space-y-1 text-caption text-[color:var(--v-muted)]">
                 {d.reliability.unmodeled.map((u) => (
                   <li key={u} className="flex gap-1.5">
                     <span className="text-[color:var(--v-faint)]">•</span>
@@ -192,7 +192,7 @@ function Body({ d, onRefresh, busy, offline }: { d: Live; onRefresh: () => void;
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 text-[10px] leading-[1.5] text-[color:var(--v-muted)]">
+              <div className="mt-2 text-caption leading-[1.5] text-[color:var(--v-muted)]">
                 Success-probability % and the Bench→2000L scale-up curve need a feasibility classifier and multi-scale data
                 the current engine does not have, so they are omitted rather than fabricated.
               </div>
@@ -208,7 +208,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-[10px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-surface)] px-4 py-10 text-center">
       <FlaskConical className="mx-auto mb-2 size-5 text-[color:var(--v-ink)]/20" />
-      <div className="text-[12px] text-[color:var(--v-muted)]">{children}</div>
+      <div className="text-caption text-[color:var(--v-muted)]">{children}</div>
     </div>
   );
 }

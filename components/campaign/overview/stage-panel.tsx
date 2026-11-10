@@ -13,7 +13,7 @@ import type { ActiveCampaign } from "@/lib/workbench";
 function NextAction({ href, label }: { href: string; label: string }) {
   const filled = label.startsWith("Record");
   return (
-    <div className="mt-10">
+    <div className="mt-8">
       <Link
         href={href}
         className={cn(
@@ -138,7 +138,7 @@ function Conditions({ model, onRetry, busy }: { model: CampaignOverview; onRetry
         <p>Factors not reported.</p>
       )}
       <p>Held-fixed values are not a field on the campaign response.</p>
-      <p>{model.conditions.validationStatus ? `Column-role validation ${model.conditions.validationStatus.replaceAll("_", " ")}.` : "Column roles not reported."}</p>
+      <p>{model.conditions.validationStatus ? "Column roles were checked." : "Column roles not reported."}</p>
       <p>Missing: {model.conditions.missing.join(", ")}.</p>
     </div>
   );
@@ -154,16 +154,17 @@ function Results({ model, campaign, onRetry, busy }: { model: CampaignOverview; 
     <div className="flex flex-col gap-4">
       <ul className="flex flex-col gap-2 text-body">
         {model.results.awaiting.map((run) => (
-          <li key={run.id} className="flex max-w-[360px] items-baseline justify-between gap-4 py-2">
+          <li key={run.id} className="flex items-baseline gap-2">
             <span className="font-mono">{run.id}</span>
-            <span className="text-overview-fg-muted">○ Pending</span>
+            <span aria-hidden className="text-overview-fg-muted">○</span>
+            <span className="text-overview-fg-muted">pending</span>
           </li>
         ))}
         {model.results.measured.map((run) => (
           <li key={run.id} className="flex items-baseline gap-2">
             <MeasuredMark ink="neutral" className="self-center" />
             <span className="font-mono text-caption">{run.id}</span>
-            <span className="font-mono tabular-nums">{formatNumber(run.result)}</span>
+            <span className="tabular-nums">{formatNumber(run.result)}</span>
             <span className="text-overview-fg-muted">measured</span>
           </li>
         ))}

@@ -5,10 +5,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 /**
- * Dense KPI tile - 72-80px tall (down from the 96-132px `Kpi`/`StatCard`
+ * Dense KPI tile - about 76px tall (down from the 96-132px `Kpi`/`StatCard`
  * composites in components/ui/card.tsx), so a KPI row reads at a glance
  * instead of eating a full screen's worth of vertical space. Built on the
- * `Card` slot, mono tabular figures via the shared `.tabular` class, and an
+ * `Card` slot, tabular figures, and an
  * optional `tooltip` that spells out the statistic's definition instead of
  * relying on the reader already knowing it.
  */
@@ -32,8 +32,8 @@ export function StatTile({
   return (
     <Card
       className={cn(
-        "flex h-[76px] items-center gap-3 rounded-xl border border-border px-3.5 py-2",
-        tone === "accent" ? "bg-accent-soft" : "bg-surface",
+        "flex min-h-[76px] items-center gap-3 rounded-xl border border-border bg-surface px-tight py-2",
+        tone === "accent" && "bg-accent-soft",
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function StatTile({
         </span>
       ) : null}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-caption font-semibold text-fg-muted">
+        <div className="flex items-center gap-1 text-label text-fg-muted">
           <span className="truncate">{label}</span>
           {tooltip ? (
             <Tooltip>
@@ -62,10 +62,10 @@ export function StatTile({
             </Tooltip>
           ) : null}
         </div>
-        <div className="tabular-nums truncate text-title leading-tight font-semibold text-fg">
+        <div className="truncate text-title text-fg tabular-nums">
           {value}
         </div>
-        {hint ? <div className="truncate text-caption leading-tight text-fg-muted">{hint}</div> : null}
+        {hint ? <div className="truncate text-caption text-fg-muted">{hint}</div> : null}
       </div>
     </Card>
   );

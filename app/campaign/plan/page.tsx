@@ -367,7 +367,7 @@ function Batch({
               {verdict.rho != null ? <span className="tabular-nums">(ρ {formatNumber(verdict.rho, "corr")})</span> : null}
             </li>
             <li>
-              Target <span className="font-mono text-code text-fg">{d.target}</span>
+              Target <span className="text-fg">{name}{unit ? ` (${unit})` : ""}</span>
             </li>
           </ul>
         }
@@ -378,6 +378,23 @@ function Batch({
           </>
         }
       />
+
+      {rows.length > 0 ? (
+        <Verdict
+          tone={rows.length === 0 ? "neutral" : verdict.state === "reliable" ? (grouped.length ? "warn" : "good") : verdictTone}
+          detailLabel="Why"
+          detail={<p>{verdict.reason}</p>}
+        >
+          {plural(rows.length, "experiment")} proposed for round {round}.{" "}
+          {verdict.state === "reliable"
+            ? grouped.length
+              ? `The model ranks recipes reliably, but ${plural(new Set(grouped.flatMap((g) => g.ranks)).size, "proposal")} need a look before you start.`
+              : "The model ranks recipes reliably and no proposal was flagged."
+            : verdict.state === "not-yet"
+              ? "The model does not yet rank recipes reliably, so treat these as exploratory."
+              : "There is not enough held-out data to say how well the model ranks recipes."}
+        </Verdict>
+      ) : null}
 
       {rejection ? (
         <Callout

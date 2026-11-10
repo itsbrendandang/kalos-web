@@ -423,9 +423,9 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
     notes.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") {
-    notes.push("It found no further candidate at least that far from the others (code fewer_distinct_candidates).");
+    notes.push("It found no further candidate at least that far from the others.");
   } else if (notice) {
-    notes.push(`Engine notice code: ${notice.code}.`);
+    notes.push("The engine attached a notice about this batch.");
   }
   return { headline, notes, short };
 }

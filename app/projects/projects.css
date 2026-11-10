@@ -9,144 +9,67 @@
  * repo root for the full token reference.
  */
 .projects-root {
-  /* Aliases onto the shared root tokens (app/globals.css) */
+  /* Aliases onto the shared design tokens (app/globals.css). Light and dark
+     values come from the tokens themselves, so there is no .dark block. */
   --v-ink: var(--fg);
   --v-border: var(--border);
-  --v-blue: var(--blue);
-  /* --v-blue / --v-blue-7 / --v-blue-9 are FILLS (buttons, active tabs,
-     step numbers, bars) and pair with var(--primary-foreground) for their
-     label. --v-blue-7-text (--b7) is the accent-colored TEXT alias, split off
-     for the same reason the main app split --accent-text from --accent-hover
-     (app/globals.css): in dark mode the mid-blue fill reads only ~3.5-3.9:1
-     as text on the dark surfaces. Blue text, including hover text, always
-     uses --v-blue-7-text; in light mode it resolves to --blue, so light is
-     unchanged. */
-  --v-blue-7: var(--blue-hover);
-  --v-blue-7-text: var(--accent-text);
-  --v-blue-9: var(--blue-deep);
+  --v-blue: var(--accent);
+  --v-blue-7: var(--accent-hover);
+  --v-blue-7-text: var(--accent);
+  --v-blue-9: var(--accent-hover);
   --v-bg: var(--bg);
-  --v-surface: var(--card);
-  --v-green: var(--green);
-  --v-blue-soft: var(--blue-soft);
-  --v-blue-border: var(--blue-border);
-  --v-blue-tint: var(--blue-tint);
-  --v-hover: var(--blue-hover-bg);
+  --v-surface: var(--surface);
+  --v-green: var(--good);
+  --v-blue-soft: var(--accent-soft);
+  --v-blue-border: var(--border-strong);
+  --v-blue-tint: var(--accent-soft);
+  --v-hover: var(--subtle);
+  --v-muted: var(--fg-muted);
+  --v-faint: var(--fg-muted);
 
-  /* Accessible secondary text. Low-opacity ink (rgba(17,17,17,.28-.6)) reads
-     1.9-4.1:1 on the light surfaces and ~1:1 in dark mode, where the ink stays
-     near-black on a near-black page; these clear 4.5:1 on every surface they
-     land on in both modes (dark values in the .dark block below). Muted text
-     uses these, never a raw low-opacity ink. */
-  --v-muted: #5b6470;
-  --v-faint: #6b7280;
-
-  /* Aliases used by the ported prototype rules below */
   --ink: var(--v-ink);
   --p2: var(--v-border);
   --b5: var(--v-blue);
   --b7: var(--v-blue-7-text);
   --b9: var(--v-blue-9);
-  /* NOTE: do NOT re-alias --bg here. `--v-bg: var(--bg)` above already captures
-     the app's page background; adding `--bg: var(--v-bg)` created a cycle
-     (--bg -> --v-bg -> --bg) that CSS resolves to an invalid value, so every
-     `background: var(--bg)` in the rules below rendered transparent (the
-     add-project modal was an invisible panel). Letting --bg inherit the global
-     token fixes all of them. */
+  /* Do not re-alias --bg here: --bg -> --v-bg -> --bg is a cycle. */
   --sf: var(--v-surface);
 
-  /* Status tones. Light mode tints whole rows and banners; dark mode keeps
-     them on the neutral card and leaves the color to the small marks (chips,
-     borders, bars, a banner's icon and key value). Every token has a .dark
-     override below.
-     - ok / warn / bad banners: -bg fill, -border, -ink body text, -accent for
-       the icon, key value and small pills (the same as -ink in light mode).
-     - -wash: the row fill behind promote (ok), hold and retire decisions and
-       exploit proposals; -border doubles as the solid decision chip fill,
-       with -chip-ink as its text. */
-  --v-ok-bg: var(--green-soft);
-  --v-ok-wash: #f4fbf4;
-  --v-ok-border: #a5d6a7;
-  --v-ok-ink: #1b5e20;
-  --v-ok-accent: #1b5e20;
-  --v-ok-chip-ink: #1b5e20;
-  --v-warn-bg: #fff9f0;
-  --v-warn-border: #ffd580;
-  --v-warn-ink: #5d4037;
-  --v-warn-accent: #5d4037;
-  --v-hold-wash: #fffef2;
-  --v-hold-border: #ffe082;
-  --v-hold-chip-ink: #5d4037;
-  --v-retire-wash: #fff9f2;
-  --v-retire-border: #ffcc80;
-  /* Was #e65100, 2.56:1 on its #ffcc80 chip. */
-  --v-retire-chip-ink: #9a3600;
-  --v-bad-bg: #fdf3f3;
-  --v-bad-border: #f0b4b4;
-  --v-bad-ink: #8a2b2b;
-  --v-bad-accent: #8a2b2b;
-  --v-explore-bg: var(--blue-soft);
-  --v-explore-badge-bg: var(--blue-border);
-  --v-explore-badge-ink: var(--blue-deep);
-  --v-done-badge-bg: var(--green);
-  --v-done-badge-ink: #ffffff;
-  /* Neutral chip fill (customer project count, idle pipeline badge). */
-  --v-chip-bg: #f0f0f0;
+  /* Status tones, all from the shared status tokens. */
+  --v-ok-bg: var(--good-soft);
+  --v-ok-wash: var(--good-soft);
+  --v-ok-border: color-mix(in oklch, var(--good) 30%, var(--surface));
+  --v-ok-ink: var(--fg);
+  --v-ok-accent: var(--good);
+  --v-ok-chip-ink: var(--fg);
+  --v-warn-bg: var(--warn-soft);
+  --v-warn-border: color-mix(in oklch, var(--warn) 30%, var(--surface));
+  --v-warn-ink: var(--fg);
+  --v-warn-accent: var(--warn);
+  --v-hold-wash: var(--warn-soft);
+  --v-hold-border: color-mix(in oklch, var(--warn) 30%, var(--surface));
+  --v-hold-chip-ink: var(--fg);
+  --v-retire-wash: var(--bad-soft);
+  --v-retire-border: color-mix(in oklch, var(--bad) 30%, var(--surface));
+  --v-retire-chip-ink: var(--fg);
+  --v-bad-bg: var(--bad-soft);
+  --v-bad-border: color-mix(in oklch, var(--bad) 30%, var(--surface));
+  --v-bad-ink: var(--fg);
+  --v-bad-accent: var(--bad);
+  --v-explore-bg: var(--accent-soft);
+  --v-explore-badge-bg: var(--accent-soft);
+  --v-explore-badge-ink: var(--accent);
+  --v-done-badge-bg: var(--good);
+  --v-done-badge-ink: var(--bg);
+  --v-chip-bg: var(--subtle);
 
   background: var(--v-bg);
   color: var(--v-ink);
-  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }
 
-/*
- * Dark mode. The aliases above follow the shared tokens on their own; these
- * are the Projects-only values that would otherwise stay light. Every pair
- * was measured on the rendered page (WCAG 2.x relative luminance) against
- * the dark surfaces it lands on: --bg #0a0a0a, --card #18181b, --blue-soft
- * #182031, --blue-tint #20293a, the tone fills below.
- */
-.dark .projects-root {
-  /* --muted (#a1a1aa): 5.7-7.7:1 on every surface it renders on.
-     --v-faint keeps --muted's hue one step dimmer: 5.7-6.4:1 where it renders
-     (bg, card), and still >= 4.6:1 on --blue-tint. */
-  --v-muted: var(--muted);
-  --v-faint: oklch(0.66 0.013 286.067);
-
-  /* Rows and banners sit on the neutral card with page ink (16.98:1, muted
-     6.91:1); status color stays in the marks. Accents on --card: --green
-     8.10:1, --amber 8.09:1, --red 5.61:1. */
-  --v-ok-bg: var(--card);
-  --v-ok-wash: var(--card);
-  --v-ok-border: #1a5434;
-  --v-ok-ink: var(--v-ink);
-  --v-ok-accent: var(--green);
-  /* on the --v-ok-border chip 5.64:1 */
-  --v-ok-chip-ink: #7ee2a8;
-  --v-warn-bg: var(--card);
-  --v-warn-border: #5c4710;
-  --v-warn-ink: var(--v-ink);
-  --v-warn-accent: var(--amber);
-  --v-hold-wash: var(--card);
-  --v-hold-border: #4a3a0c;
-  /* on the --v-hold-border chip 7.41:1 */
-  --v-hold-chip-ink: #f5cf7a;
-  --v-retire-wash: var(--card);
-  --v-retire-border: #55300f;
-  /* on the --v-retire-border chip 6.45:1 */
-  --v-retire-chip-ink: #ffb074;
-  --v-bad-bg: var(--card);
-  --v-bad-border: #6e2c2c;
-  --v-bad-ink: var(--v-ink);
-  --v-bad-accent: var(--red);
-  --v-explore-bg: var(--card);
-  /* --blue-deep is a fill-strength blue in dark mode (1.78:1 on the badge);
-     --accent-text on --blue-border is 4.83:1. */
-  --v-explore-badge-ink: var(--accent-text);
-  /* white on the dark-mode --green fill is 2.19:1; page ink on it is 9.04:1 */
-  --v-done-badge-ink: var(--bg);
-  --v-chip-bg: var(--secondary);
-}
 
 .projects-root ::selection {
   background: var(--v-blue-tint);
@@ -157,12 +80,11 @@
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 1.2px;
-  text-transform: uppercase;
   color: var(--v-faint);
 }
 .v-title {
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.4px;
   color: var(--v-ink);
 }
@@ -226,12 +148,11 @@
 }
 .v-card--done {
   background: var(--v-surface);
-  border-color: #a5d6a7;
+  border-color: var(--v-ok-border);
 }
 .v-phase {
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.7px;
 }
 .v-phase--p1 {
@@ -308,7 +229,6 @@
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 1.2px;
-  text-transform: uppercase;
   color: var(--v-faint);
   margin-bottom: 7px;
 }
@@ -446,7 +366,6 @@
 .projects-root .iclabel {
   font-size: 9px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--v-faint);
 }
@@ -473,7 +392,7 @@
 }
 .projects-root .icct {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   line-height: 1;
 }
@@ -588,7 +507,6 @@
   text-align: left;
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--v-muted);
   padding: 5px 11px;
@@ -663,7 +581,7 @@
 .projects-root .bok {
   font-size: 9px;
   font-weight: 500;
-  background: #e8f5e9;
+  background: var(--good-soft);
   color: var(--v-green);
   padding: 2px 5px;
   border-radius: 20px;
@@ -837,7 +755,6 @@
   border-bottom: 0.5px solid var(--p2);
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.7px;
   color: var(--v-faint);
 }
@@ -896,7 +813,6 @@
 .projects-root .dcb {
   font-size: 9px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.7px;
   padding: 2px 6px;
   border-radius: 20px;
@@ -927,7 +843,7 @@
 }
 .projects-root .dcp {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   line-height: 1;
   flex-shrink: 0;
@@ -944,13 +860,13 @@
   overflow: hidden;
 }
 .projects-root .pro .dcf {
-  background: #4caf50;
+  background: var(--good);
 }
 .projects-root .hld .dcf {
-  background: #ffc107;
+  background: var(--warn);
 }
 .projects-root .ret .dcf {
-  background: #ff9800;
+  background: var(--chart-2);
 }
 .projects-root .dcf {
   height: 100%;
@@ -974,7 +890,6 @@
 .projects-root .dc-detail-label {
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.7px;
   color: var(--v-muted);
   margin-bottom: 5px;
@@ -1045,10 +960,10 @@
   border-radius: 2px;
 }
 .projects-root .pro-fill {
-  background: #4caf50;
+  background: var(--good);
 }
 .projects-root .hld-fill {
-  background: #ffc107;
+  background: var(--warn);
 }
 .projects-root .scale-trend {
   font-size: 10px;
@@ -1068,8 +983,8 @@
 
 /* ---- Banners ---- */
 .projects-root .compl-banner {
-  background: #f4fbf4;
-  border: 0.5px solid #a5d6a7;
+  background: var(--good-soft);
+  border: 0.5px solid var(--v-ok-border);
   border-radius: 9px;
   padding: 11px 14px;
   margin-bottom: 14px;
@@ -1081,7 +996,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #e8f5e9;
+  background: var(--good-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1099,7 +1014,6 @@
   text-align: left;
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--v-muted);
   padding: 5px 9px;
@@ -1127,7 +1041,7 @@
 .projects-root .pri-md {
   font-size: 9px;
   font-weight: 500;
-  background: #f0f0f0;
+  background: var(--subtle);
   color: rgba(17, 17, 17, 0.5);
   padding: 1px 6px;
   border-radius: 20px;
@@ -1204,7 +1118,7 @@
 }
 .projects-root .cond-val {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   line-height: 1;
 }
@@ -1239,7 +1153,7 @@
 }
 .projects-root .r-stat-v {
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   line-height: 1;
 }
@@ -1323,7 +1237,7 @@
 }
 .projects-root .rcp {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
 }
 .projects-root .rcu {
@@ -1359,7 +1273,7 @@
 }
 .projects-root .mt {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.2px;
   margin-bottom: 2px;
@@ -1390,7 +1304,6 @@
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.7px;
-  text-transform: uppercase;
   color: var(--v-muted);
 }
 .projects-root .fi,

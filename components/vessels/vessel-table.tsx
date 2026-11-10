@@ -26,9 +26,9 @@ const CHANNEL_GROUPS: { label: string; key: "titer" | "via" | "vcd" | "lac" | "g
 // Fixed row heights (26px / 24px) so the second sticky header row's `top` offset
 // lines up exactly under the first, with no gap or overlap while scrolling.
 const HEAD_TH =
-  "sticky top-0 z-10 h-[26px] border-r border-b border-border bg-blue-tint px-2.5 text-left align-middle text-[10px] leading-none font-semibold tracking-[0.03em] text-muted uppercase";
+  "sticky top-0 z-10 h-[26px] border-r border-b border-border bg-accent-soft px-2.5 text-left align-middle text-caption leading-none font-semibold text-fg-muted";
 const SUBHEAD_TH =
-  "sticky top-[26px] z-10 h-[24px] border-r border-b border-border bg-card px-2.5 text-left align-middle text-[10px] leading-none font-semibold text-muted";
+  "sticky top-[26px] z-10 h-[24px] border-r border-b border-border bg-surface px-2.5 text-left align-middle text-caption leading-none font-semibold text-fg-muted";
 
 /**
  * One row per ambr vessel: metadata + inline per-channel kinetic sparklines.
@@ -92,28 +92,28 @@ export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle
                 // aria-pressed, which would otherwise override the implicit row role.
                 tabIndex={0}
                 aria-selected={selected}
-                className={cn("cursor-pointer border-b border-grid", selected && "bg-blue-tint hover:bg-blue-tint")}
+                className={cn("cursor-pointer border-b border-border", selected && "bg-accent-soft hover:bg-accent-soft")}
               >
                 <TableCell
-                  className="border-r border-grid px-2.5 py-1 font-mono text-[11px] text-muted"
+                  className="border-r border-border px-2.5 py-1 font-mono text-caption text-fg-muted"
                 >
                   {v.idx}
                 </TableCell>
-                <TableCell className="border-r border-grid px-2.5 py-1 text-[11.5px] text-fg">{v.cellLine}</TableCell>
-                <TableCell className="border-r border-grid px-2.5 py-1 text-[11.5px] text-fg">{v.protein}</TableCell>
-                <TableCell className="border-r border-grid px-2.5 py-1 text-[11.5px] text-fg">{v.vesselId}</TableCell>
-                <TableCell className="border-r border-grid px-2.5 py-1 text-[11.5px] text-fg">{v.csi}</TableCell>
-                <TableCell className="border-r border-grid px-2.5 py-1 text-[11.5px] text-muted">{v.system}</TableCell>
-                <TableCell className="border-r border-grid px-2.5 py-1 text-[11.5px] text-muted">{v.medium}</TableCell>
-                <TableCell className="tabular border-r border-grid px-2.5 py-1 font-mono text-[11.5px] font-semibold text-fg">
+                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.cellLine}</TableCell>
+                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.protein}</TableCell>
+                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.vesselId}</TableCell>
+                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.csi}</TableCell>
+                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg-muted">{v.system}</TableCell>
+                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg-muted">{v.medium}</TableCell>
+                <TableCell className="tabular-nums border-r border-border px-2.5 py-1 font-mono text-caption font-semibold text-fg">
                   {v.volumeMl}
                 </TableCell>
                 {CHANNEL_GROUPS.map((g) => (
                   <Fragment key={g.key}>
-                    <TableCell className="tabular border-r border-grid px-2.5 py-1 font-mono text-[11.5px] font-semibold text-fg">
+                    <TableCell className="tabular-nums border-r border-border px-2.5 py-1 font-mono text-caption font-semibold text-fg">
                       {v.endpoints[g.key].toFixed(g.key === "vcd" ? 2 : g.key === "via" ? 1 : 2)}
                     </TableCell>
-                    <TableCell className="border-r border-grid px-2.5 py-1">
+                    <TableCell className="border-r border-border px-2.5 py-1">
                       <Sparkline values={v.series[g.key]} color={color} />
                     </TableCell>
                   </Fragment>

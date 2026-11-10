@@ -61,7 +61,7 @@ export function AddProjectCard({ onClick }: { onClick?: () => void }) {
   return (
     <button type="button" onClick={onClick} className="v-add-card">
       <Plus className="size-[17px]" />
-      <span className="text-[11px] font-medium">Add project</span>
+      <span className="text-caption font-medium">Add project</span>
     </button>
   );
 }

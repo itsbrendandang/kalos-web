@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
+import { ExampleBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useCampaign, useLastRejection, useLatest } from "@/hooks/use-engine";
@@ -18,7 +19,7 @@ import { useOverviewStage } from "@/components/campaign/overview/use-overview-st
 
 export function OverviewSkeleton() {
   return (
-    <div className="campaign-overview flex flex-col gap-6" role="status" aria-label="Loading the campaign">
+    <div className="campaign-overview flex max-w-[880px] flex-col gap-6" role="status" aria-label="Loading the campaign">
       <div className="space-y-2">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-7 w-72 max-w-full" />
@@ -70,8 +71,8 @@ export function CampaignHome() {
   if (pending) return <OverviewSkeleton />;
   if (hardError) {
     return (
-      <div className="flex flex-col gap-6">
-        <h1 className="text-overview-title text-fg">Campaign</h1>
+      <div className="campaign-overview flex max-w-[880px] flex-col gap-6 text-overview-fg">
+        <h1 className="text-overview-title text-overview-fg">Campaign</h1>
         <ErrorState
           title="Could not reach the analysis service"
           description="The campaign could not be loaded because the engine did not answer. This is a connection problem, not an empty campaign. Your data is unchanged."
@@ -97,12 +98,12 @@ export function CampaignHome() {
     <div className="campaign-overview max-w-[880px] text-overview-fg">
       <div className="mb-8 flex items-start justify-between gap-4">
         <h1 className="text-overview-title text-overview-fg">{title}</h1>
-        {illustrative ? <p className="text-caption text-overview-fg-muted">Synthetic fixture</p> : null}
+        {illustrative ? <ExampleBadge className="shrink-0" /> : null}
       </div>
       {model.staleResources.length ? (
-        <p role="alert" className="mb-4 text-body">
+        <p role="alert" className="mb-6 text-body">
           Couldn&apos;t refresh {model.staleResources.join(" and ")}. Showing the last loaded data. Your data is unchanged.{" "}
-          <button type="button" className="underline-offset-4 hover:underline" onClick={retry}>
+          <button type="button" className="min-h-8 underline underline-offset-4" onClick={retry}>
             Retry
           </button>
         </p>

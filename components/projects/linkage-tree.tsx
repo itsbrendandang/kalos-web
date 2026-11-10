@@ -35,23 +35,23 @@ interface Band {
 // constant (rather than CSS classes) because each node type maps to a fixed
 // fill/stroke/text/badge combination that is only ever read here, and the SVG
 // nodes are drawn imperatively - see DESIGN.md ("Linkage tree" exception).
-// The pastel fills are the same in both themes, so each `text` only has to
-// clear AA against its own fill (all >= 4.5:1); it also inks the detail badge.
+// Fills use design tokens (the sequential ramp for iteration order, status
+// soft fills for decisions), so both themes follow; `text` is page ink.
 const STYLE: Record<NodeType, { fill: string; stroke: string; text: string; badge: string; badgeLabel: string }> = {
-  root: { fill: "#C5CAE9", stroke: "#9FA8DA", text: "#283593", badge: "#C5CAE9", badgeLabel: "LHS batch" },
-  "bo-exp": { fill: "#C8E6C9", stroke: "#A5D6A7", text: "#1B5E20", badge: "#C8E6C9", badgeLabel: "BO Explore" },
-  "bo-expl": { fill: "#B2DFDB", stroke: "#80CBC4", text: "#004D40", badge: "#B2DFDB", badgeLabel: "BO Explore II" },
-  "bo-expl2": { fill: "#BBDEFB", stroke: "#90CAF9", text: "#0D47A1", badge: "#BBDEFB", badgeLabel: "BO Exploit" },
-  val: { fill: "#FFF9C4", stroke: "#F9A825", text: "#BF360C", badge: "#FFF9C4", badgeLabel: "Phase 2 validation" },
-  promote: { fill: "#A5D6A7", stroke: "#4CAF50", text: "#1B5E20", badge: "#A5D6A7", badgeLabel: "Promote" },
-  hold: { fill: "#FFE082", stroke: "#FFC107", text: "#5D4037", badge: "#FFE082", badgeLabel: "Hold" },
+  root: { fill: "var(--subtle)", stroke: "var(--border-strong)", text: "var(--fg)", badge: "var(--subtle)", badgeLabel: "LHS batch" },
+  "bo-exp": { fill: "var(--chart-seq-1)", stroke: "var(--border-strong)", text: "var(--fg)", badge: "var(--chart-seq-1)", badgeLabel: "BO Explore" },
+  "bo-expl": { fill: "var(--chart-seq-2)", stroke: "var(--chart-seq-3)", text: "var(--fg)", badge: "var(--chart-seq-2)", badgeLabel: "BO Explore II" },
+  "bo-expl2": { fill: "var(--accent-soft)", stroke: "var(--accent)", text: "var(--fg)", badge: "var(--accent-soft)", badgeLabel: "BO Exploit" },
+  val: { fill: "var(--surface)", stroke: "var(--accent)", text: "var(--fg)", badge: "var(--surface)", badgeLabel: "Phase 2 validation" },
+  promote: { fill: "var(--good-soft)", stroke: "var(--good)", text: "var(--fg)", badge: "var(--good-soft)", badgeLabel: "Promote" },
+  hold: { fill: "var(--warn-soft)", stroke: "var(--warn)", text: "var(--fg)", badge: "var(--warn-soft)", badgeLabel: "Hold" },
 };
 
 const P1_BANDS: Band[] = [
-  { y: 15, lineY: 20, text: "ITER 1 - LHS" },
-  { y: 105, lineY: 110, text: "ITER 2 - BO EXPLORE" },
-  { y: 215, lineY: 220, text: "ITER 3 - BO EXPLORE" },
-  { y: 340, lineY: 345, text: "ITER 4 - BO EXPLOIT" },
+  { y: 15, lineY: 20, text: "Iteration 1 · LHS" },
+  { y: 105, lineY: 110, text: "Iteration 2 · BO explore" },
+  { y: 215, lineY: 220, text: "Iteration 3 · BO explore" },
+  { y: 340, lineY: 345, text: "Iteration 4 · BO exploit" },
 ];
 
 const P1_NODES: TNode[] = [
@@ -72,15 +72,15 @@ const P1_NODES: TNode[] = [
 ];
 
 const P1_LEGEND = [
-  { c: "#C5CAE9", t: "LHS (iter 1)" },
-  { c: "#C8E6C9", t: "BO Explore (iter 2)" },
-  { c: "#B2DFDB", t: "BO Explore (iter 3)" },
-  { c: "#BBDEFB", t: "BO Exploit · ★ best", border: "#204AF4" },
+  { c: "var(--subtle)", t: "LHS (iter 1)" },
+  { c: "var(--chart-seq-1)", t: "BO Explore (iter 2)" },
+  { c: "var(--chart-seq-2)", t: "BO Explore (iter 3)" },
+  { c: "var(--accent-soft)", t: "BO Exploit · ★ best", border: "var(--accent)" },
 ];
 
 const P2_BANDS: Band[] = [
-  { y: 15, lineY: 20, text: "PHASE 1 - ITERATIONS 1–4" },
-  { y: 385, lineY: 391, text: "PHASE 2 - SCALE-UP VALIDATION", blue: true, dashed: true },
+  { y: 15, lineY: 20, text: "Phase 1 · iterations 1–4" },
+  { y: 385, lineY: 391, text: "Phase 2 · scale-up validation", blue: true, dashed: true },
 ];
 
 const P2_NODES: TNode[] = [
@@ -105,12 +105,12 @@ const P2_NODES: TNode[] = [
 ];
 
 const P2_LEGEND = [
-  { c: "#C5CAE9", t: "LHS" },
-  { c: "#C8E6C9", t: "BO Explore" },
-  { c: "#BBDEFB", t: "BO Exploit ★", border: "#204AF4" },
-  { c: "#FFF9C4", t: "P2 validation", border: "#F9A825" },
-  { c: "#A5D6A7", t: "Promote", border: "#4CAF50" },
-  { c: "#FFE082", t: "Hold", border: "#FFC107" },
+  { c: "var(--subtle)", t: "LHS" },
+  { c: "var(--chart-seq-1)", t: "BO Explore" },
+  { c: "var(--accent-soft)", t: "BO Exploit ★", border: "var(--accent)" },
+  { c: "var(--surface)", t: "P2 validation", border: "var(--accent)" },
+  { c: "var(--good-soft)", t: "Promote", border: "var(--good)" },
+  { c: "var(--warn-soft)", t: "Hold", border: "var(--warn)" },
 ];
 
 function Edge({ from, to }: { from: TNode; to: TNode }) {
@@ -147,7 +147,7 @@ function TreeSvg({
     <svg viewBox={`0 0 360 ${height}`} xmlns="http://www.w3.org/2000/svg" className="block w-full">
       {bands.map((b) => (
         <g key={b.text}>
-          <text x={8} y={b.y} fontSize={9} fontWeight={500} fill={b.blue ? "var(--v-blue-7-text)" : "var(--v-faint)"} letterSpacing={1}>
+          <text x={8} y={b.y} fontSize={9} fontWeight={500} fill={b.blue ? "var(--v-blue-7-text)" : "var(--v-faint)"} >
             {b.text}
           </text>
           <line
@@ -221,12 +221,12 @@ function Detail({ n }: { n: TNode | null }) {
   const st = STYLE[n.type];
   return (
     <div>
-      <div className="mb-1 text-[10px] font-medium uppercase text-[color:var(--v-muted)]">
+      <div className="mb-1 text-caption font-medium uppercase text-[color:var(--v-muted)]">
         {n.key === "ROOT" ? "EXP-ROOT" : n.key.startsWith("V-") || n.key.startsWith("VAL") || n.key.startsWith("C-") ? n.key : `EXP-${n.key}`}
       </div>
-      <div className="mb-1.5 text-[13px] font-bold text-[color:var(--v-ink)]">{n.name}</div>
+      <div className="mb-1.5 text-caption font-bold text-[color:var(--v-ink)]">{n.name}</div>
       <span
-        className="mb-2.5 inline-flex rounded-full px-[7px] py-0.5 text-[10px] font-medium"
+        className="mb-2.5 inline-flex rounded-full px-[7px] py-0.5 text-caption font-medium"
         style={{ background: st.badge, color: st.text }}
       >
         {st.badgeLabel}
@@ -246,13 +246,13 @@ function Detail({ n }: { n: TNode | null }) {
       ) : null}
       {n.result ? (
         <div className="mb-2 flex items-baseline gap-1.5 rounded-[7px] border-[0.5px] border-[color:var(--v-border)] bg-[var(--v-bg)] px-2 py-2">
-          <span className="text-[11px] text-[color:var(--v-muted)]">Yield</span>
-          <span className="text-[19px] font-bold leading-none text-[color:var(--v-blue-7-text)]">{n.result}</span>
-          <span className="text-[11px] text-[color:var(--v-muted)]">%</span>
+          <span className="text-caption text-[color:var(--v-muted)]">Yield</span>
+          <span className="text-caption font-bold leading-none text-[color:var(--v-blue-7-text)]">{n.result}</span>
+          <span className="text-caption text-[color:var(--v-muted)]">%</span>
         </div>
       ) : null}
       <div className="dc-detail-label mt-1">Notes</div>
-      <div className="mb-2.5 text-[11px] leading-[1.6] text-[color:var(--v-muted)]">{n.notes}</div>
+      <div className="mb-2.5 text-caption leading-[1.6] text-[color:var(--v-muted)]">{n.notes}</div>
       {n.lineageParent || n.lineageChildren ? (
         <>
           <div className="dc-detail-label">Lineage</div>
@@ -260,7 +260,7 @@ function Detail({ n }: { n: TNode | null }) {
             <div className="lin-item">
               <span className="lin-dot" style={{ background: STYLE.root.fill }} />
               <span className="flex-1 font-medium text-[color:var(--v-ink)]">{n.lineageParent}</span>
-              <span className="text-[10px] text-[color:var(--v-muted)]">Parent</span>
+              <span className="text-caption text-[color:var(--v-muted)]">Parent</span>
             </div>
           ) : null}
           {n.lineageChildren
@@ -268,7 +268,7 @@ function Detail({ n }: { n: TNode | null }) {
                 <div key={c} className="lin-item">
                   <span className="lin-dot" style={{ background: STYLE["bo-expl2"].fill }} />
                   <span className="flex-1 font-medium text-[color:var(--v-ink)]">{c.trim()}</span>
-                  <span className="text-[10px] text-[color:var(--v-muted)]">Child</span>
+                  <span className="text-caption text-[color:var(--v-muted)]">Child</span>
                 </div>
               ))
             : null}
@@ -297,7 +297,7 @@ export function LinkageTree({ variant }: { variant: "p1" | "p1p2" }) {
           ))}
         </div>
         {variant === "p1p2" ? (
-          <div className="mb-2 text-[11px] italic text-[color:var(--v-blue-7-text)]">- - promoted to Phase 2</div>
+          <div className="mb-2 text-caption italic text-[color:var(--v-blue-7-text)]">- - promoted to Phase 2</div>
         ) : null}
         <TreeSvg nodes={nodes} bands={bands} height={height} onSelect={setSel} selectedKey={sel?.key ?? null} />
       </div>

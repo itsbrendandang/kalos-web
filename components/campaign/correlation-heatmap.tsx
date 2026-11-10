@@ -2,6 +2,7 @@ import { formatNumber } from "@/lib/format";
 
 /** Fill for a correlation: accent for positive, neutral grey for negative, capped so ink text stays legible on it in both themes. */
 const fill = (v: number) => {
+  if (!Number.isFinite(v)) return "var(--surface)";
   const pct = Math.round(Math.min(1, Math.abs(v)) * 60);
   return `color-mix(in oklch, ${v >= 0 ? "var(--accent)" : "var(--fg-muted)"} ${pct}%, var(--surface))`;
 };
@@ -13,6 +14,7 @@ const fill = (v: number) => {
  * told by the "+" or "-" in the number as well as by the fill.
  */
 export function CorrelationHeatmap({ labels, matrix }: { labels: string[]; matrix: number[][] }) {
+  if (!labels.length || !matrix.length) return <p className="text-caption text-fg-muted">No correlations to show yet.</p>;
   return (
     <div>
       <p className="mb-2 text-caption text-fg-muted">

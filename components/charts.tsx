@@ -35,7 +35,7 @@ const fmtTick = (v: number) => formatNumber(v);
  */
 export const CHART_THEME = {
   series: "var(--accent)",
-  seriesDown: "var(--explore)",
+  seriesDown: "var(--fg-muted)",
   grid: "var(--grid)",
   axis: "var(--muted)",
   hoverCursor: "color-mix(in oklch, var(--accent) 6%, transparent)",
@@ -48,7 +48,7 @@ export const CHART_THEME = {
 
 const ACCENT = CHART_THEME.series;
 const CLAY = CHART_THEME.seriesDown;
-const GRAY = CHART_THEME.seriesDown;
+const GRAY = CHART_THEME.seriesDown; // neutral background series; --explore (border-strong) is too pale to read as a mark
 const GRID = CHART_THEME.grid;
 const INK = CHART_THEME.axis;
 
@@ -68,8 +68,13 @@ export const axisTitle = (value: string, side: "x" | "y") =>
     ? { value, position: "insideBottom" as const, offset: -4, style: { fontSize: 11, fill: INK } }
     : { value, angle: -90, position: "insideLeft" as const, style: { fontSize: 11, fill: INK } };
 
+function ChartEmpty() {
+  return <p className="py-8 text-center text-caption text-fg-muted">No data to chart yet.</p>;
+}
+
 export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: number }[]; yLabel: string }) {
   const config = { best: { label: yLabel, color: ACCENT } } satisfies ChartConfig;
+  if (!data.length) return <ChartEmpty />;
   return (
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
       <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
@@ -81,7 +86,7 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
         </defs>
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey="n" tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("experiments", "x")} />
-        <YAxis tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle(yLabel, "y")} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={44} tickFormatter={fmtTick} label={axisTitle(yLabel, "y")} />
         <ChartTooltip cursor={{ stroke: GRID }} content={<ChartTooltipContent indicator="line" />} />
         <Area type="linear" dataKey="best" stroke={ACCENT} strokeWidth={2.5} fill="url(#cg)" dot={false} isAnimationActive={false} />
       </AreaChart>
@@ -97,6 +102,7 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
  */
 export function ProgressChart({ data }: { data: { round: number; best: number | null }[] }) {
   const config = { best: { label: "best", color: ACCENT } } satisfies ChartConfig;
+  if (!data.some((d) => d.best != null)) return <ChartEmpty />;
   return (
     <ChartContainer config={config} className="aspect-auto h-full w-full">
       <AreaChart data={data} margin={{ top: 4, right: 10, bottom: 0, left: 0 }}>
@@ -149,11 +155,11 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
     <ChartContainer config={config} className="aspect-auto h-[280px] w-full">
       <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <CartesianGrid stroke={GRID} />
-        <XAxis type="number" dataKey="titer" name="titer" tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("titer (mg/L)", "x")} />
-        <YAxis type="number" dataKey="purity" name="purity" tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("purity (%)", "y")} />
+        <XAxis type="number" dataKey="titer" name="titer" tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("titer (mg/L)", "x")} />
+        <YAxis type="number" dataKey="purity" name="purity" tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("purity (%)", "y")} />
         <ChartTooltip cursor={{ strokeDasharray: "3 3", stroke: GRID }} content={<ChartTooltipContent indicator="dot" />} />
         <ChartLegend content={<ChartLegendContent />} />
-        <Scatter name="all runs" data={all} fill={GRAY} shape="circle" isAnimationActive={false} />
+        <Scatter name="all runs" data={all} fill={GRAY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
         <Scatter name="Pareto front" data={pareto} fill={ACCENT} line={{ stroke: ACCENT, strokeWidth: 2 }} isAnimationActive={false} />
       </ScatterChart>
     </ChartContainer>
@@ -168,13 +174,14 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
  * passed - see the caption the caller renders alongside this chart.
  */
 export function DriversBar({ drivers }: { drivers: { name: string; rho: number; significant: boolean }[] }) {
+  if (!drivers.length) return <ChartEmpty />;
   const data = [...drivers].reverse();
   const config = { rho: { label: "correlation" } } satisfies ChartConfig;
   return (
     <ChartContainer config={config} className="aspect-auto h-[230px] w-full">
       <BarChart layout="vertical" data={data} margin={{ top: 4, right: 14, bottom: 8, left: 8 }}>
         <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" domain={[-0.6, 0.7]} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
+        <XAxis type="number" domain={[-1, 1]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
         <YAxis type="category" dataKey="name" width={118} tick={{ ...tick, fontSize: 10 }} tickLine={false} axisLine={false} />
         <ChartTooltip cursor={{ fill: CHART_THEME.hoverCursor }} content={<ChartTooltipContent indicator="dot" />} />
         <Bar dataKey="rho" radius={[0, 4, 4, 0]} isAnimationActive={false}>

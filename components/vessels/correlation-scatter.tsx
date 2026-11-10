@@ -43,7 +43,7 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
         cy={cy}
         r={selected ? 3.4 : 2.4}
         fill={selected ? seqColor(point.finalTiter, titerMin, titerMax) : "var(--border)"}
-        stroke={selected ? "#ffffff" : "none"}
+        stroke={selected ? "var(--surface)" : "none"}
         strokeWidth={selected ? 0.8 : 0}
       />
     );
@@ -51,8 +51,8 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
 
   return (
     <div>
-      <h3 className="text-[12px] font-bold text-fg">Correlation</h3>
-      <p className="mb-1.5 text-[10.5px] text-muted">Final titer vs. specific productivity (qP)</p>
+      <h3 className="text-caption font-semibold text-fg">Correlation</h3>
+      <p className="mb-1.5 text-caption text-fg-muted">Final titer vs. specific productivity (qP)</p>
       <ResponsiveContainer width="100%" height={190}>
         <ScatterChart margin={{ top: 4, right: 8, bottom: 8, left: -8 }}>
           <CartesianGrid stroke={CHART_THEME.grid} />
@@ -80,7 +80,7 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
                 { x: xMin, y: fit.slope * xMin + fit.intercept },
                 { x: xMax, y: fit.slope * xMax + fit.intercept },
               ]}
-              stroke="var(--blue-deep)"
+              stroke="var(--accent-hover)"
               strokeDasharray="4 3"
               ifOverflow="extendDomain"
             />
@@ -89,7 +89,7 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
           <Scatter data={data} shape={renderDot} isAnimationActive={false} />
         </ScatterChart>
       </ResponsiveContainer>
-      <div className="tabular mt-1 font-mono text-[10px] text-muted">
+      <div className="tabular-nums mt-1 text-caption text-fg-muted">
         {fit.degenerate ? (
           "R² n/a - no variance in qP or titer for this selection"
         ) : (
@@ -98,7 +98,7 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
           </>
         )}
       </div>
-      <p className="mt-1 text-[10px] leading-snug text-muted">
+      <p className="mt-1 text-caption leading-snug text-fg-muted">
         Descriptive OLS fit on simulated data - a within-plot correlation, not the Dashboard&rsquo;s held-out
         cross-validated model.
       </p>

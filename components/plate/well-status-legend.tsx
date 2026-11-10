@@ -12,7 +12,7 @@ export function WellStatusLegend() {
   return (
     <div>
       {BANDS.map((b) => (
-        <div key={b.label} className="flex items-center gap-2.5 py-1 text-[12.5px]">
+        <div key={b.label} className="flex items-center gap-2.5 py-1 text-caption">
           <span
             className="size-4 shrink-0 rounded border border-border"
             style={{ background: seqColor(b.t, 0, 1) }}
@@ -20,29 +20,29 @@ export function WellStatusLegend() {
           {b.label}
         </div>
       ))}
-      <div className="flex items-center gap-2.5 py-1 text-[12.5px]">
+      <div className="flex items-center gap-2.5 py-1 text-caption">
         <span
           className="size-4 shrink-0 rounded border border-border"
           style={{
             background:
-              "repeating-linear-gradient(45deg, var(--border), var(--border) 3px, var(--card) 3px, var(--card) 6px)",
+              "repeating-linear-gradient(45deg, var(--border), var(--border) 3px, var(--surface) 3px, var(--surface) 6px)",
           }}
         />
         No data
       </div>
-      <div className="flex items-center gap-2.5 py-1 text-[12.5px]">
-        <span className="w-4 text-center font-mono font-bold text-blue-deep">+</span>
+      <div className="flex items-center gap-2.5 py-1 text-caption">
+        <span className="w-4 text-center font-mono font-semibold text-accent">+</span>
         MRS positive control
       </div>
-      <div className="flex items-center gap-2.5 py-1 text-[12.5px]">
-        <span className="w-4 text-center font-mono font-bold text-blue-deep">−</span>
+      <div className="flex items-center gap-2.5 py-1 text-caption">
+        <span className="w-4 text-center font-mono font-semibold text-accent">−</span>
         Control / blank
       </div>
-      <div className="flex items-center gap-2.5 py-1 text-[12.5px]">
-        <span className="w-4 text-center font-mono font-bold text-fg">⚑</span>
+      <div className="flex items-center gap-2.5 py-1 text-caption">
+        <span className="w-4 text-center font-mono font-semibold text-fg">⚑</span>
         Flagged well
       </div>
-      <div className="mt-1.5 text-[11px] text-muted">
+      <div className="mt-1.5 text-caption text-fg-muted">
         &ldquo;No data&rdquo; is a reserved category for missing reads - not present in this simulated run.
       </div>
     </div>

@@ -261,7 +261,7 @@ describe("diversitySummary", () => {
     )!;
     expect(s.short).toBe(true);
     expect(s.headline).toBe("The engine returned 3 of the 5 proposals requested.");
-    expect(s.notes.at(-1)).toMatch(/no further candidate.*fewer_distinct_candidates/);
+    expect(s.notes.at(-1)).toMatch(/no further candidate/);
   });
 });
 

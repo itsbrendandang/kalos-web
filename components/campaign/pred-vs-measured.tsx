@@ -9,10 +9,14 @@ import { formatNumber } from "@/lib/format";
  * "perfect agreement" diagonal dashed. `oof` pairs are [measured, predicted].
  */
 export function PredVsMeasured({ oof, targetName, unit }: { oof: [number, number][]; targetName: string; unit: string }) {
-  const data = oof.map(([measured, predicted]) => ({ measured, predicted }));
+  const data = oof.map(([measured, predicted]) => ({ measured, predicted })).filter((d) => Number.isFinite(d.measured) && Number.isFinite(d.predicted));
+  if (!data.length) return <p className="text-caption text-fg-muted">No held-out predictions to plot yet.</p>;
   const vals = data.flatMap((d) => [d.measured, d.predicted]);
-  const lo = Math.min(...vals);
-  const hi = Math.max(...vals);
+  const rawLo = Math.min(...vals);
+  const rawHi = Math.max(...vals);
+  const pad = (rawHi - rawLo || Math.abs(rawHi) || 1) * 0.05;
+  const lo = rawLo - pad;
+  const hi = rawHi + pad;
   const suffix = unit ? ` (${unit})` : "";
   return (
     <div role="img" aria-label={`Predicted against measured ${targetName} for ${data.length} held-out runs`} className="h-72 w-full">
@@ -43,7 +47,7 @@ export function PredVsMeasured({ oof, targetName, unit }: { oof: [number, number
               );
             }}
           />
-          <Scatter data={data} fill="var(--chart-predicted)" fillOpacity={0.55} isAnimationActive={false} />
+          <Scatter data={data} fill="var(--chart-predicted)" fillOpacity={0.6} isAnimationActive={false} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

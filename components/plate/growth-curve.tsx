@@ -64,7 +64,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
           axisLine={{ stroke: CHART_THEME.grid }}
           label={axisTitle("time", "x")}
         />
-        <YAxis tick={tick} tickLine={false} axisLine={false} width={52} label={axisTitle("OD", "y")} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={64} label={axisTitle("OD", "y")} />
         <Tooltip {...tip} />
         <Legend content={<GrowthLegend />} />
         <Line

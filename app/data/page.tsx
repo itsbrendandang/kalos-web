@@ -74,9 +74,9 @@ function NoLiveRegistry() {
         desc="The datasets and runs the engine has seen." />
       <EmptyState
         icon={PlugZap}
-        title="No live datasets"
+        title="The data registry is not connected yet"
         description={
-          "No datasets have been uploaded yet. Upload a run sheet to see it here, or turn on the example data to look around first."
+          "This registry does not list live datasets yet. Your campaign's uploaded run sheet is on the Overview page, or turn on the example data to see how this registry will look."
         }
       />
       <EngineCredit />

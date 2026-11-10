@@ -22,6 +22,8 @@ const tabsListVariants = cva("group/tabs-list inline-flex w-fit items-center tex
     variant: {
       default: "h-9 gap-1 rounded-lg bg-subtle p-1",
       line: "h-9 gap-4 border-b border-border",
+      /* Campaign home only. Default and line are unchanged. */
+      overview: "overview-tabs h-auto w-full justify-start gap-6 overflow-x-auto bg-transparent p-0 max-md:gap-4 max-[340px]:gap-3",
     },
   },
   defaultVariants: { variant: "default" },
@@ -40,6 +42,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "group-data-[variant=default]/tabs-list:rounded-md group-data-[variant=default]/tabs-list:px-3 group-data-[variant=default]/tabs-list:data-active:bg-surface",
         // Line variant: the active tab gets an underline (shape, not just colour).
         "group-data-[variant=line]/tabs-list:after:absolute group-data-[variant=line]/tabs-list:after:inset-x-0 group-data-[variant=line]/tabs-list:after:-bottom-px group-data-[variant=line]/tabs-list:after:h-0.5 group-data-[variant=line]/tabs-list:data-active:after:bg-accent",
+        "group-data-[variant=overview]/tabs-list:h-auto group-data-[variant=overview]/tabs-list:min-h-11 group-data-[variant=overview]/tabs-list:shrink-0 group-data-[variant=overview]/tabs-list:flex-col group-data-[variant=overview]/tabs-list:items-start group-data-[variant=overview]/tabs-list:justify-center group-data-[variant=overview]/tabs-list:border-b-2 group-data-[variant=overview]/tabs-list:border-transparent group-data-[variant=overview]/tabs-list:bg-transparent group-data-[variant=overview]/tabs-list:px-0 group-data-[variant=overview]/tabs-list:py-2 group-data-[variant=overview]/tabs-list:text-left group-data-[variant=overview]/tabs-list:font-normal group-data-[variant=overview]/tabs-list:whitespace-nowrap group-data-[variant=overview]/tabs-list:text-overview-fg-muted group-data-[variant=overview]/tabs-list:data-active:border-overview-fg group-data-[variant=overview]/tabs-list:data-active:text-overview-fg",
         className,
       )}
       {...props}

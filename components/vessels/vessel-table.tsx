@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useLayoutEffect, useRef } from "react";
 import { seqColor } from "@/components/dashboard/heat-scale";
 import { Sparkline } from "@/components/vessels/sparkline";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { Vessel } from "@/lib/vessel-data";
 
@@ -23,24 +24,46 @@ const CHANNEL_GROUPS: { label: string; key: "titer" | "via" | "vcd" | "lac" | "g
   { label: "Final glucose", key: "glu", unit: "g/L" },
 ];
 
-// Fixed row heights (26px / 24px) so the second sticky header row's `top` offset
-// lines up exactly under the first, with no gap or overlap while scrolling.
-const HEAD_TH =
-  "sticky top-0 z-10 h-[26px] border-r border-b border-border bg-accent-soft px-2.5 text-left align-middle text-caption leading-none font-semibold text-fg-muted";
-const SUBHEAD_TH =
-  "sticky top-[26px] z-10 h-[24px] border-r border-b border-border bg-surface px-2.5 text-left align-middle text-caption leading-none font-semibold text-fg-muted";
+// Both header rows are 40px (TableHead's own h-10). The second row's sticky
+// offset is the first row's measured height (a CSS variable set in a layout
+// effect), so nothing is hard-coded and the rows cannot drift apart.
+const HEAD_TH = "border-r border-b border-border bg-accent-soft px-2.5 text-caption font-medium";
+const SUBHEAD_TH = "top-[var(--vessel-head-h,2.5rem)] border-r border-b border-border bg-surface px-2.5 text-caption font-medium";
+const CELL = "border-r border-border px-2.5 py-1 text-caption";
 
 /**
  * One row per ambr vessel: metadata + inline per-channel kinetic sparklines.
  * Click a row to toggle it into/out of the selection (traces + scatter follow).
  */
 export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle }: VesselTableProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const firstHeadRow = useRef<HTMLTableRowElement>(null);
+
+  useLayoutEffect(() => {
+    const row = firstHeadRow.current;
+    const box = scrollRef.current;
+    if (!row || !box) return;
+    const sync = () => box.style.setProperty("--vessel-head-h", `${row.getBoundingClientRect().height}px`);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div className="max-h-[420px] overflow-auto rounded-[10px] border border-border">
-      <Table className="w-full border-collapse whitespace-nowrap">
+    <div
+      ref={scrollRef}
+      role="region"
+      aria-label="Vessels table, scrollable"
+      tabIndex={0}
+      className="max-h-[420px] overflow-auto rounded-lg border border-border"
+    >
+      <Table containerClassName="overflow-visible" className="w-full border-collapse whitespace-nowrap">
         <TableHeader>
-          <TableRow className="border-none hover:bg-transparent">
-            <TableHead className={HEAD_TH}></TableHead>
+          <TableRow ref={firstHeadRow} className="border-none hover:bg-transparent">
+            <TableHead className={HEAD_TH}>
+              <span className="sr-only">Selection</span>
+            </TableHead>
             <TableHead className={HEAD_TH} colSpan={2}>
               Cell info
             </TableHead>
@@ -81,36 +104,33 @@ export function VesselTable({ vessels, titerMin, titerMax, selectedIds, onToggle
               <TableRow
                 key={v.idx}
                 onClick={() => onToggle(v.idx)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onToggle(v.idx);
-                  }
-                }}
-                // Native <tr> role kept (no role="button") so screen readers still get table-row
-                // navigation; aria-selected (valid on a row) conveys the toggle state instead of
-                // aria-pressed, which would otherwise override the implicit row role.
-                tabIndex={0}
-                aria-selected={selected}
-                className={cn("cursor-pointer border-b border-border", selected && "bg-accent-soft hover:bg-accent-soft")}
+                data-state={selected ? "selected" : undefined}
+                className="cursor-pointer"
               >
-                <TableCell
-                  className="border-r border-border px-2.5 py-1 font-mono text-caption text-fg-muted"
-                >
-                  {v.idx}
+                {/* The checkbox is the keyboard and screen-reader control (checked
+                    state is valid on it); row clicks are a pointer convenience. */}
+                <TableCell className={cn(CELL, "tabular-nums text-fg-muted")}>
+                  <label className="flex cursor-pointer items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selected}
+                      onChange={() => onToggle(v.idx)}
+                      aria-label={`Select vessel ${v.vesselId}`}
+                    />
+                    {v.idx}
+                  </label>
                 </TableCell>
-                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.cellLine}</TableCell>
-                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.protein}</TableCell>
-                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.vesselId}</TableCell>
-                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg">{v.csi}</TableCell>
-                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg-muted">{v.system}</TableCell>
-                <TableCell className="border-r border-border px-2.5 py-1 text-caption text-fg-muted">{v.medium}</TableCell>
-                <TableCell className="tabular-nums border-r border-border px-2.5 py-1 font-mono text-caption font-semibold text-fg">
+                <TableCell className={cn(CELL, "text-fg")}>{v.cellLine}</TableCell>
+                <TableCell className={cn(CELL, "text-fg")}>{v.protein}</TableCell>
+                <TableCell className={cn(CELL, "text-fg")}>{v.vesselId}</TableCell>
+                <TableCell className={cn(CELL, "text-fg")}>{v.csi}</TableCell>
+                <TableCell className={cn(CELL, "text-fg-muted")}>{v.system}</TableCell>
+                <TableCell className={cn(CELL, "text-fg-muted")}>{v.medium}</TableCell>
+                <TableCell numeric className={cn(CELL, "text-fg")}>
                   {v.volumeMl}
                 </TableCell>
                 {CHANNEL_GROUPS.map((g) => (
                   <Fragment key={g.key}>
-                    <TableCell className="tabular-nums border-r border-border px-2.5 py-1 font-mono text-caption font-semibold text-fg">
+                    <TableCell numeric className={cn(CELL, "text-fg")}>
                       {v.endpoints[g.key].toFixed(g.key === "vcd" ? 2 : g.key === "via" ? 1 : 2)}
                     </TableCell>
                     <TableCell className="border-r border-border px-2.5 py-1">

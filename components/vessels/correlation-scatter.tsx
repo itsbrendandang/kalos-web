@@ -28,6 +28,9 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
   const hasSelection = selectedIds.size > 0;
+  const label = `Final titer vs. specific productivity (qP) for ${vessels.length} vessels${
+    fit.degenerate ? "" : `, fit R² ${fit.r2!.toFixed(3)}`
+  }`;
 
   function renderDot(props: ScatterShapeProps) {
     // `props.payload` is `any`-typed by Recharts and can be undefined mid-render
@@ -53,6 +56,7 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
     <div>
       <h3 className="text-caption font-semibold text-fg">Correlation</h3>
       <p className="mb-1.5 text-caption text-fg-muted">Final titer vs. specific productivity (qP)</p>
+      <div role="img" aria-label={label}>
       <ResponsiveContainer width="100%" height={190}>
         <ScatterChart margin={{ top: 4, right: 8, bottom: 8, left: -8 }}>
           <CartesianGrid stroke={CHART_THEME.grid} />
@@ -60,7 +64,7 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
             type="number"
             dataKey="qP"
             name="qP"
-            tick={{ ...tick, fontSize: 9 }}
+            tick={{ ...tick, fontSize: 11 }}
             tickLine={false}
             axisLine={{ stroke: CHART_THEME.grid }}
             label={axisTitle("qP", "x")}
@@ -69,10 +73,10 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
             type="number"
             dataKey="finalTiter"
             name="final titer"
-            tick={{ ...tick, fontSize: 9 }}
+            tick={{ ...tick, fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            width={34}
+            width={40}
           />
           {!fit.degenerate ? (
             <ReferenceLine
@@ -89,6 +93,26 @@ export function CorrelationScatter({ vessels, titerMin, titerMax, selectedIds }:
           <Scatter data={data} shape={renderDot} isAnimationActive={false} />
         </ScatterChart>
       </ResponsiveContainer>
+      </div>
+      <table className="sr-only">
+        <caption>{label}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Vessel</th>
+            <th scope="col">qP</th>
+            <th scope="col">Final titer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((d) => (
+            <tr key={d.idx}>
+              <th scope="row">{d.idx}</th>
+              <td>{d.qP.toFixed(3)}</td>
+              <td>{d.finalTiter.toFixed(3)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <div className="tabular-nums mt-1 text-caption text-fg-muted">
         {fit.degenerate ? (
           "R² n/a - no variance in qP or titer for this selection"

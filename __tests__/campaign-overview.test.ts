@@ -343,6 +343,9 @@ describe("resource states", () => {
 
     const blocked = buildCampaignOverview(input({ rejection }));
     expect(blocked.conditions.panel).toBe("blocked");
+    expect(blocked.conditions.blockedReason).not.toContain("target does not vary");
+    expect(blocked.conditions.blockedDetail).toBe("target does not vary");
+    expect(overviewDetails(blocked)).toContain("target does not vary");
     expect(blocked.start.canStart).toBe(false);
     expect(blocked.start.blocks).toContain("rejected-upload");
     expect(resolveAttention(blocked)).toBe("conditions");

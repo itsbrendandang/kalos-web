@@ -77,7 +77,7 @@
 
 /* ---- Home: eyebrow / title / buttons / cards ---- */
 .v-eyebrow {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 1.2px;
   color: var(--v-faint);
@@ -103,7 +103,7 @@
 }
 .v-btn-primary {
   background: var(--v-blue);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
   border: none;
   font-size: 12px;
   padding: 7px 13px;
@@ -115,7 +115,7 @@
   background: transparent;
   color: var(--v-muted);
   border: 0.5px solid var(--v-border);
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 8px;
 }
 .v-btn-ghost:hover {
@@ -123,7 +123,7 @@
   border-color: var(--v-blue-border);
 }
 .v-tag {
-  font-size: 10px;
+  font-size: 12px;
   background: var(--v-chip-bg);
   color: var(--v-muted);
   padding: 2px 6px;
@@ -151,7 +151,7 @@
   border-color: var(--v-ok-border);
 }
 .v-phase {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.7px;
 }
@@ -172,7 +172,7 @@
   line-height: 1.3;
 }
 .v-card-obj {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
   line-height: 1.4;
 }
@@ -182,7 +182,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .v-add-card {
@@ -226,7 +226,7 @@
   color: var(--b7);
 }
 .projects-root .sh {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 1.2px;
   color: var(--v-faint);
@@ -244,7 +244,7 @@
   gap: 5px;
 }
 .projects-root .phtab {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 5px 10px;
   border-radius: 20px;
@@ -255,7 +255,7 @@
 }
 .projects-root .phtab.on {
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
   border-color: var(--b5);
 }
 .projects-root .two {
@@ -273,7 +273,7 @@
   align-items: center;
   gap: 5px;
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
   font-size: 12px;
   font-weight: 500;
   padding: 7px 13px;
@@ -288,7 +288,7 @@
   border: 0.5px solid var(--p2);
   background: transparent;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 5px 11px;
   border-radius: 7px;
@@ -300,9 +300,9 @@
 }
 .projects-root .rbtn {
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
   border: none;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 6px 13px;
   border-radius: 7px;
@@ -344,17 +344,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   flex-shrink: 0;
 }
 .projects-root .done .icnum {
   background: var(--b9);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
 }
 .projects-root .active .icnum {
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
 }
 .projects-root .locked .icnum {
   background: var(--p2);
@@ -364,7 +364,7 @@
   flex: 1;
 }
 .projects-root .iclabel {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.6px;
   color: var(--v-faint);
@@ -380,7 +380,7 @@
   margin: 2px 0;
 }
 .projects-root .icsub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .projects-root .icright {
@@ -397,14 +397,14 @@
   line-height: 1;
 }
 .projects-root .icctl {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .projects-root .scdone {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--v-green);
 }
@@ -412,7 +412,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--b7);
 }
@@ -449,7 +449,7 @@
   margin-bottom: 2px;
 }
 .projects-root .dzs {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .projects-root .dzb {
@@ -458,7 +458,7 @@
   gap: 3px;
   border: 0.5px solid var(--b5);
   color: var(--b7);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   padding: 3px 8px;
   border-radius: 5px;
@@ -486,12 +486,12 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
 }
 .projects-root .pbbadge {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--v-blue-tint);
   color: var(--b7);
@@ -501,11 +501,11 @@
 .projects-root .pbtbl {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 12px;
 }
 .projects-root .pbtbl th {
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.6px;
   color: var(--v-muted);
@@ -526,9 +526,9 @@
   font-weight: 500;
 }
 .projects-root .ac {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
-  background: var(--green-soft);
+  background: var(--good-soft);
   color: var(--v-green);
   padding: 2px 5px;
   border-radius: 20px;
@@ -544,14 +544,14 @@
   margin-top: 9px;
 }
 .projects-root .advtxt {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--b7);
 }
 .projects-root .advbtn {
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
   border: none;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 5px 12px;
   border-radius: 6px;
@@ -579,7 +579,7 @@
   color: var(--ink);
 }
 .projects-root .bok {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--good-soft);
   color: var(--v-green);
@@ -587,10 +587,10 @@
   border-radius: 20px;
 }
 .projects-root .breq {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
-  background: var(--amber-soft);
-  color: var(--amber);
+  background: var(--warn-soft);
+  color: var(--warn);
   padding: 2px 5px;
   border-radius: 20px;
 }
@@ -607,18 +607,18 @@
   border-radius: 7px;
 }
 .projects-root .upln {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
   flex: 1;
 }
 .projects-root .upls {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-top: 1px;
 }
 .projects-root .uplr {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--b7);
   cursor: pointer;
   background: none;
@@ -641,7 +641,7 @@
   color: var(--b7);
 }
 .projects-root .rbs {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--b7);
   margin-top: 1px;
 }
@@ -698,30 +698,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   margin-top: 1px;
 }
 .projects-root .done .snum {
   background: var(--b9);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
 }
 .projects-root .run .snum {
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
 }
 .projects-root .pend .snum {
   background: var(--p2);
   color: var(--v-muted);
 }
 .projects-root .sn {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
 }
 .projects-root .chip {
   display: inline-flex;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--v-blue-tint);
   color: var(--b7);
@@ -733,7 +733,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--b7);
   font-weight: 500;
   margin-top: 2px;
@@ -753,7 +753,7 @@
 .projects-root .hist-hd {
   padding: 7px 10px;
   border-bottom: 0.5px solid var(--p2);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.7px;
   color: var(--v-faint);
@@ -764,7 +764,7 @@
   gap: 7px;
   padding: 6px 10px;
   border-bottom: 0.5px solid var(--p2);
-  font-size: 11px;
+  font-size: 12px;
 }
 .projects-root .hrow:last-child {
   border-bottom: none;
@@ -811,7 +811,7 @@
   background: var(--v-retire-wash);
 }
 .projects-root .dcb {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.7px;
   padding: 2px 6px;
@@ -837,7 +837,7 @@
   color: var(--ink);
 }
 .projects-root .dcsub {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-top: 1px;
 }
@@ -850,7 +850,7 @@
   text-align: right;
 }
 .projects-root .dcu {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-top: 1px;
 }
@@ -888,14 +888,14 @@
   }
 }
 .projects-root .dc-detail-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.7px;
   color: var(--v-muted);
   margin-bottom: 5px;
 }
 .projects-root .dc-rationale {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
   line-height: 1.5;
   margin-bottom: 8px;
@@ -907,7 +907,7 @@
   margin-bottom: 4px;
 }
 .projects-root .mini-bar-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink);
   font-weight: 500;
   width: 90px;
@@ -926,7 +926,7 @@
   border-radius: 2px;
 }
 .projects-root .mini-bar-pct {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   min-width: 26px;
   text-align: right;
@@ -935,7 +935,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 3px;
 }
 .projects-root .scale-label {
@@ -966,7 +966,7 @@
   background: var(--warn);
 }
 .projects-root .scale-trend {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   min-width: 48px;
   text-align: right;
@@ -976,7 +976,7 @@
   border: 0.5px solid var(--v-warn-border);
   border-radius: 7px;
   padding: 7px 9px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-warn-ink);
   margin-top: 6px;
 }
@@ -1008,11 +1008,11 @@
 .projects-root .exp-tbl {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 12px;
 }
 .projects-root .exp-tbl th {
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.6px;
   color: var(--v-muted);
@@ -1031,7 +1031,7 @@
   background: var(--v-hover);
 }
 .projects-root .pri-hi {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--v-blue-tint);
   color: var(--b7);
@@ -1039,7 +1039,7 @@
   border-radius: 20px;
 }
 .projects-root .pri-md {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--subtle);
   color: rgba(17, 17, 17, 0.5);
@@ -1080,7 +1080,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .projects-root .leg-d {
@@ -1112,7 +1112,7 @@
   padding: 6px 8px;
 }
 .projects-root .cond-lbl {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-bottom: 2px;
 }
@@ -1126,7 +1126,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
   padding: 5px 7px;
   border: 0.5px solid var(--p2);
   border-radius: 6px;
@@ -1147,7 +1147,7 @@
   padding: 9px 10px;
 }
 .projects-root .r-stat-l {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-bottom: 2px;
 }
@@ -1158,7 +1158,7 @@
   line-height: 1;
 }
 .projects-root .r-stat-s {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-top: 1px;
 }
@@ -1171,7 +1171,7 @@
   border-bottom: 0.5px solid var(--p2);
 }
 .projects-root .r-prose {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
   line-height: 1.7;
 }
@@ -1182,7 +1182,7 @@
   margin-bottom: 5px;
 }
 .projects-root .r-driver-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
   width: 100px;
@@ -1201,13 +1201,13 @@
   border-radius: 2px;
 }
 .projects-root .r-driver-pct {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
   min-width: 26px;
   text-align: right;
 }
 .projects-root .r-driver-range {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   min-width: 78px;
   text-align: right;
@@ -1231,7 +1231,7 @@
 }
 .projects-root .rcn {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
 }
@@ -1241,7 +1241,7 @@
   color: var(--ink);
 }
 .projects-root .rcu {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 
@@ -1279,7 +1279,7 @@
   margin-bottom: 2px;
 }
 .projects-root .ms {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .projects-root .mx {
@@ -1290,9 +1290,16 @@
   border: none;
   line-height: 1;
   padding: 2px;
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
 }
 .projects-root .mbody {
   padding: 16px 18px;
+  max-height: calc(100vh - 220px);
+  max-height: calc(100dvh - 220px);
+  overflow-y: auto;
 }
 .projects-root .fg {
   display: flex;
@@ -1301,7 +1308,7 @@
   margin-bottom: 10px;
 }
 .projects-root .fl {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.7px;
   color: var(--v-muted);
@@ -1318,7 +1325,6 @@
   background: var(--v-surface);
   font-size: 12px;
   padding: 0 9px;
-  outline: none;
   width: 100%;
   color: var(--ink);
 }
@@ -1326,12 +1332,81 @@
 .projects-root .fsel:focus {
   border-color: var(--b5);
 }
+.projects-root .fi:focus-visible,
+.projects-root .fsel:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.projects-root .btn-c,
+.projects-root .btn-s,
+.projects-root .rbtn,
+.projects-root .v-card-edit {
+  min-height: 24px;
+}
+.projects-root .linkage-node:focus-visible {
+  outline: none;
+}
+.projects-root .linkage-node:focus-visible circle {
+  stroke: var(--ring);
+  stroke-width: 3;
+}
+.projects-root .v-card-wrap {
+  position: relative;
+}
+.projects-root .v-card-link {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 10px;
+}
+.projects-root .v-card-link:focus-visible,
+.projects-root .dc-row:focus-visible,
+.projects-root .v-card-edit:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.projects-root .v-card-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 24px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.projects-root .dc-row {
+  text-align: left;
+  width: 100%;
+}
+@media (pointer: coarse) {
+  .projects-root .mx {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .projects-root .btn-c,
+  .projects-root .btn-s,
+  .projects-root .rbtn,
+  .projects-root .v-card-edit {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .projects-root .fi,
+  .projects-root .fsel {
+    height: 44px;
+  }
+}
 /* Tailwind's preflight placeholder is 50% of the field ink: 3.4:1 on white. */
 .projects-root .fi::placeholder {
   color: var(--v-faint);
 }
 .projects-root .fhint {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
   margin-top: 3px;
   line-height: 1.5;
@@ -1346,7 +1421,7 @@
   border: 0.5px solid var(--p2);
   background: transparent;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 6px 13px;
   border-radius: 7px;
@@ -1354,9 +1429,9 @@
 }
 .projects-root .btn-s {
   background: var(--b5);
-  color: var(--primary-foreground);
+  color: var(--accent-fg);
   border: none;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 6px 14px;
   border-radius: 7px;
@@ -1429,8 +1504,8 @@
   font-weight: 500;
 }
 .projects-root .v-pipeline-badge--complete {
-  background: var(--green-soft);
-  color: var(--green);
+  background: var(--good-soft);
+  color: var(--good);
 }
 .projects-root .v-pipeline-badge--run {
   background: var(--v-blue-tint);
@@ -1451,11 +1526,11 @@
   color: var(--v-blue-7-text);
 }
 .projects-root .v-stage-pill--phase1 {
-  background: var(--green-soft);
+  background: var(--good-soft);
   color: var(--v-ok-accent);
 }
 .projects-root .v-scale-warn {
-  color: var(--amber);
+  color: var(--warn);
 }
 .projects-root .v-report-accent {
   color: var(--v-blue-7-text);

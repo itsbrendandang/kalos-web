@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { FlaskConical } from "lucide-react";
+import { EmptyState } from "@/components/ui/honest-state";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlateHeatmap } from "@/components/plate/plate-heatmap";
@@ -50,15 +53,16 @@ export default function PlatePage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-4">
-              <div className="inline-flex gap-0.5 rounded-[10px] border border-border bg-card p-0.5">
+              <div className="inline-flex gap-0.5 rounded-lg border border-border bg-surface p-0.5">
                 {(["1", "2"] as const).map((p) => (
                   <button
                     key={p}
                     type="button"
                     onClick={() => setActivePlate(p)}
+                    aria-pressed={activePlate === p}
                     className={cn(
-                      "rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
-                      activePlate === p ? "bg-accent text-[color:var(--primary-foreground)]" : "text-muted hover:text-fg",
+                      "h-8 rounded-md px-3 text-label transition-colors",
+                      activePlate === p ? "bg-accent text-accent-fg" : "text-fg-muted hover:text-fg",
                     )}
                   >
                     Plate {p === "1" ? "01" : "02"}
@@ -71,7 +75,7 @@ export default function PlatePage() {
               </TabsList>
             </div>
             {activePlate === "2" ? (
-              <p className="mt-2 text-[11.5px] text-muted">Plate 02 data is not included in this demo.</p>
+              <p className="mt-2 text-caption text-fg-muted">Plate 02 data is not included in this demo.</p>
             ) : null}
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -79,7 +83,7 @@ export default function PlatePage() {
               Export plate report
             </Button>
             {exported ? (
-              <span className="text-[11px] text-muted">Export queued - demo only, no backend attached.</span>
+              <span className="text-caption text-fg-muted">Export queued - demo only, no backend attached.</span>
             ) : null}
           </div>
         </div>
@@ -98,39 +102,17 @@ export default function PlatePage() {
           <div className="grid gap-3.5 lg:grid-cols-[1.62fr_1fr]">
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-[13px] font-bold text-fg">
+                <h2 className="text-label text-fg">
                   96-well plate heatmap{" "}
-                  <span className="ml-1.5 text-[11.5px] font-medium text-muted">colored by ΔOD (max − t₀)</span>
+                  <span className="ml-1.5 text-caption text-fg-muted">colored by ΔOD (max − t₀)</span>
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  <label
-                    className={cn(
-                      "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-semibold select-none",
-                      showFlags ? "border-blue-border bg-blue-tint text-blue-deep" : "border-border text-muted",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={showFlags}
-                      onChange={(e) => setShowFlags(e.target.checked)}
-                      className="size-3.5"
-                      style={{ accentColor: "var(--blue)" }}
-                    />
+                  <label className="inline-flex h-10 cursor-pointer items-center gap-1 text-label text-fg select-none">
+                    <Checkbox checked={showFlags} onChange={(e) => setShowFlags(e.target.checked)} />
                     Show flags
                   </label>
-                  <label
-                    className={cn(
-                      "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-semibold select-none",
-                      showValues ? "border-blue-border bg-blue-tint text-blue-deep" : "border-border text-muted",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={showValues}
-                      onChange={(e) => setShowValues(e.target.checked)}
-                      className="size-3.5"
-                      style={{ accentColor: "var(--blue)" }}
-                    />
+                  <label className="inline-flex h-10 cursor-pointer items-center gap-1 text-label text-fg select-none">
+                    <Checkbox checked={showValues} onChange={(e) => setShowValues(e.target.checked)} />
                     Show values
                   </label>
                 </div>
@@ -148,11 +130,11 @@ export default function PlatePage() {
 
             <div className="flex flex-col gap-3.5">
               <Card>
-                <h2 className="mb-3 text-[13px] font-bold text-fg">Well status</h2>
+                <h2 className="mb-3 text-label text-fg">Well status</h2>
                 <WellStatusLegend />
               </Card>
               <Card>
-                <h2 className="mb-3 text-[13px] font-bold text-fg">Well flag summary</h2>
+                <h2 className="mb-3 text-label text-fg">Well flag summary</h2>
                 <FlagSummary
                   flagCatCounts={PLATE.flagCatCounts}
                   flaggedWellCount={PLATE.flaggedWellCount}
@@ -160,7 +142,7 @@ export default function PlatePage() {
                 />
               </Card>
               <Card>
-                <h2 className="mb-3 text-[13px] font-bold text-fg">Control summary</h2>
+                <h2 className="mb-3 text-label text-fg">Control summary</h2>
                 <ControlSummary
                   zPrime={PLATE.zPrime}
                   controlCV={PLATE.controlCV}
@@ -174,11 +156,11 @@ export default function PlatePage() {
           <Card>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-[13px] font-bold text-fg">
-                  Growth curve <span className="ml-1.5 text-[11.5px] font-medium text-muted">OD vs time (0-24 h)</span>
+                <h2 className="text-label text-fg">
+                  Growth curve <span className="ml-1.5 text-caption text-fg-muted">OD vs time (0-24 h)</span>
                 </h2>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-                  <span className="font-mono font-semibold text-fg">{well.id}</span>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-caption text-fg-muted">
+                  <span className="font-mono text-code text-fg">{well.id}</span>
                   <span>{well.condition}</span>
                   {well.status ? <StatusChip status={well.status} /> : null}
                 </div>
@@ -195,9 +177,12 @@ export default function PlatePage() {
         </TabsContent>
 
         <TabsContent value="dose" className="mt-5">
-          <Card className="py-16 text-center text-[13px] text-muted">
-            Dose-response view is not included in this demo - this screen would plot ΔOD vs. dose per nitrogen
-            source, pulled from the full kalos plate-analysis pipeline.
+          <Card>
+            <EmptyState
+              icon={FlaskConical}
+              title="Dose-response is not in this demo"
+              description="This screen would plot ΔOD vs. dose per nitrogen source, pulled from the full kalos plate-analysis pipeline."
+            />
           </Card>
         </TabsContent>
       </Tabs>

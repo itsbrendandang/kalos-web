@@ -31,8 +31,8 @@ function countMatches(re: RegExp): number {
 
 describe("design-language burn-down (count may only decrease)", () => {
   const CEILINGS: Array<{ what: string; re: RegExp; ceiling: number }> = [
-    { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 172 },
-    { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 19 },
+    { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 4 },
+    { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 1 },
     { what: "rounded-2xl", re: /\brounded-2xl\b/g, ceiling: 0 },
     { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
     // Compatibility aliases (globals.css "COMPATIBILITY ALIASES"): old token
@@ -40,7 +40,7 @@ describe("design-language burn-down (count may only decrease)", () => {
     // canonical tokens (bg-surface not bg-card, text-fg-muted not text-muted,
     // --accent not --blue*, text-heading not font-head). Burn these down; when
     // the count hits 0 the alias block in globals.css can be deleted.
-    { what: "compatibility alias reads (bg-card/text-muted/--blue*/font-head/...)", re: /\b(?:bg-card|text-muted|border-input|bg-background|text-foreground|font-head|--blue[a-z-]*|--primary-foreground|--card\b|--muted\b)\b/g, ceiling: 125 },
+    { what: "compatibility alias reads (bg-card/text-muted/--blue*/font-head/...)", re: /\b(?:bg-card|text-muted|border-input|bg-background|text-foreground|font-head|--blue[a-z-]*|--primary-foreground|--card\b|--muted\b)\b/g, ceiling: 22 },
   ];
   for (const { what, re, ceiling } of CEILINGS) {
     it(`${what}: at most ${ceiling} (lower the ceiling when you remove some; never raise it)`, () => {

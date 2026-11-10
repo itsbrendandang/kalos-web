@@ -53,7 +53,7 @@ export function StatTile({
           {tooltip ? (
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex shrink-0 rounded-full text-fg-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="inline-flex shrink-0 rounded-full text-fg-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={typeof label === "string" ? `${label} definition` : "Definition"}
               >
                 <Info className="size-3" aria-hidden />

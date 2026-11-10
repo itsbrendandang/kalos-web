@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { OVERVIEW_STAGE_LABEL, overviewStageForLoop, type CampaignOverview, type OverviewStage } from "@/lib/campaign-overview";
 import { formatNumber } from "@/lib/format";
+import { bestSoFarSeries } from "@/lib/overview";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 function NextAction({ href, label }: { href: string; label: string }) {
@@ -170,7 +171,12 @@ function Results({ model, campaign, onRetry, busy }: { model: CampaignOverview; 
         ))}
         {model.results.awaiting.length === 0 && model.results.measured.length === 0 ? <li>Run rows were not included in this response.</li> : null}
       </ul>
-      {campaign ? <MeasuredTrend campaign={campaign} unit={model.objective.unit ?? ""} /> : null}
+      {campaign ? (
+        <>
+          <MeasuredTrend campaign={campaign} unit={model.objective.unit ?? ""} />
+          <TrendTable campaign={campaign} unit={model.objective.unit ?? ""} />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -240,5 +246,32 @@ function Promotion({ model, onRetry, busy }: { model: CampaignOverview; onRetry:
       {model.promotion.meaning ? <p>{model.promotion.meaning}</p> : null}
       <p>Per-check thresholds, populations, and timestamps were not returned. A passed count is not inferred. Ranking reliability and permission to start stay separate.</p>
     </div>
+  );
+}
+
+/** Screen-reader table with the same points the trend draws. */
+function TrendTable({ campaign, unit }: { campaign: ActiveCampaign; unit: string }) {
+  const points = bestSoFarSeries(campaign).filter((point) => point.best != null) as { round: number; best: number; runs: number }[];
+  if (points.length < 2) return null;
+  return (
+    <table className="sr-only">
+      <caption>Best measured so far, by round</caption>
+      <thead>
+        <tr>
+          <th scope="col">Round</th>
+          <th scope="col">Best so far{unit ? ` (${unit})` : ""}</th>
+          <th scope="col">Runs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {points.map((point) => (
+          <tr key={point.round}>
+            <th scope="row">{point.round === 0 ? "Upload" : `Round ${point.round}`}</th>
+            <td>{formatNumber(point.best)}</td>
+            <td>{formatNumber(point.runs, "count")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

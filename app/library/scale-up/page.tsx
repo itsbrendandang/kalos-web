@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertCircle, AlertTriangle, Info, RefreshCw, Printer, ShieldAlert, X } from "lucide-react";
+import { RefreshCw, Printer, ShieldAlert, X } from "lucide-react";
 import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { Card, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Callout } from "@/components/kit/callout";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DEMO_MODE } from "@/lib/demo";
 import {
@@ -64,7 +65,7 @@ function NumericField({
   placeholder?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted">
+    <label className="flex flex-col gap-1 text-label text-fg-muted">
       {label}
       <Input
         type="number"
@@ -73,7 +74,7 @@ function NumericField({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         placeholder={placeholder}
-        className="font-mono text-[13px]"
+        className="tabular-nums"
       />
     </label>
   );
@@ -235,17 +236,15 @@ export default function ScaleReadoutPage() {
       />
 
       {DEMO_MODE ? (
-        <Alert variant="default" className="items-start gap-2.5 border-amber/30 bg-amber-soft px-3.5 py-3">
-          <ShieldAlert className="size-4 text-amber" aria-hidden />
-          <div className="min-w-0 flex-1">
-            <AlertTitle className="text-[13px] text-fg">Live engine required</AlertTitle>
-            <AlertDescription className="mt-1 text-[12.5px] leading-5 text-muted">
-              A readout is a decision page built from your own uploaded run sheet, so there is no honest way to
-              fabricate one in demo mode. Set <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=false</code> and run
-              against a live Kalos engine to submit one. The form below is shown for reference and is disabled.
-            </AlertDescription>
-          </div>
-        </Alert>
+        <Callout
+          tone="warn"
+          icon={ShieldAlert}
+          title="Live engine required"
+        >
+          A readout is a decision page built from your own uploaded run sheet, so there is no honest way to
+          fabricate one in demo mode. Set <code className="font-mono text-code">NEXT_PUBLIC_DEMO_MODE=false</code> and run
+          against a live Kalos engine to submit one. The form below is shown for reference and is disabled.
+        </Callout>
       ) : null}
 
       {!result && !busy ? (
@@ -254,8 +253,8 @@ export default function ScaleReadoutPage() {
             <SectionLabel>1. Run sheet</SectionLabel>
             <UploadDropzone key={resetCount} onFile={handleFile} disabled={disabled} />
             {file ? (
-              <p className="mt-2 text-[12px] text-muted">
-                <span className="font-mono font-semibold text-fg">{file.name}</span>
+              <p className="mt-2 text-caption text-fg-muted">
+                <span className="font-mono text-code text-fg">{file.name}</span>
                 {mode.kind === "manual" ? " - XLSX sheets aren't parsed in the browser, so name the columns below." : null}
               </p>
             ) : null}
@@ -266,14 +265,14 @@ export default function ScaleReadoutPage() {
               <SectionLabel>2. Target scale and process values</SectionLabel>
 
               {mode.kind === "csv" ? (
-                <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted">
+                <label className="flex flex-col gap-1 text-label text-fg-muted">
                   Target column
                   <Select
                     value={targetColumn || undefined}
                     onValueChange={(v) => v && setTargetColumn(v)}
                     disabled={disabled}
                   >
-                    <SelectTrigger className="w-full font-mono text-[13px]">
+                    <SelectTrigger className="w-full font-mono text-code">
                       <SelectValue placeholder="Select the measured response column" />
                     </SelectTrigger>
                     <SelectContent>
@@ -288,38 +287,36 @@ export default function ScaleReadoutPage() {
                   </Select>
                 </label>
               ) : (
-                <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted">
+                <label className="flex flex-col gap-1 text-label text-fg-muted">
                   Target column name
                   <Input
                     value={targetColumn}
                     onChange={(e) => setTargetColumn(e.target.value)}
                     placeholder="e.g. titer_g_per_L"
                     disabled={disabled}
-                    className="font-mono text-[13px]"
+                    className="font-mono text-code"
                   />
                 </label>
               )}
 
               {mode.kind === "csv" ? (
                 <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-semibold text-muted">Process columns (planned value at the target scale)</span>
+                  <span className="text-label text-fg-muted">Process columns (planned value at the target scale)</span>
                   {csvProcessOptions.length === 0 ? (
-                    <p className="text-[12px] text-muted">No process columns left in this sheet&apos;s header.</p>
+                    <p className="text-caption text-fg-muted">No process columns left in this sheet&apos;s header.</p>
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2">
                       {csvProcessOptions.map((col) => {
                         const checked = checkedProcessColumns.has(col);
                         return (
-                          <div key={col} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2">
-                            <input
-                              type="checkbox"
+                          <div key={col} className="flex items-center gap-2 min-h-10 rounded-lg border border-border bg-surface px-2.5 py-1">
+                            <Checkbox
                               checked={checked}
                               onChange={() => toggleProcessColumn(col)}
                               disabled={disabled}
-                              className="size-3.5 shrink-0"
-                              style={{ accentColor: "var(--blue)" }}
+                              aria-label={`Use ${col} as a process column`}
                             />
-                            <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg">{col}</span>
+                            <span className="min-w-0 flex-1 truncate font-mono text-code text-fg">{col}</span>
                             {checked ? (
                               <Input
                                 type="number"
@@ -328,7 +325,7 @@ export default function ScaleReadoutPage() {
                                 onChange={(e) => setProcessValues((prev) => ({ ...prev, [col]: e.target.value }))}
                                 disabled={disabled}
                                 placeholder="value"
-                                className="h-7 w-24 shrink-0 text-right font-mono text-[12px]"
+                                className="h-8 w-24 shrink-0 text-right tabular-nums"
                               />
                             ) : null}
                           </div>
@@ -339,21 +336,21 @@ export default function ScaleReadoutPage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted">
+                  <label className="flex flex-col gap-1 text-label text-fg-muted">
                     Process column names (comma separated)
                     <Input
                       value={manualProcessRaw}
                       onChange={(e) => setManualProcessRaw(e.target.value)}
                       placeholder="ph_setpoint, temperature_C"
                       disabled={disabled}
-                      className="font-mono text-[13px]"
+                      className="font-mono text-code"
                     />
                   </label>
                   {manualProcessColumns.length > 0 ? (
                     <div className="grid gap-2 sm:grid-cols-2">
                       {manualProcessColumns.map((col) => (
-                        <div key={col} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2">
-                          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg">{col}</span>
+                        <div key={col} className="flex items-center gap-2 min-h-10 rounded-lg border border-border bg-surface px-2.5 py-1">
+                          <span className="min-w-0 flex-1 truncate font-mono text-code text-fg">{col}</span>
                           <Input
                             type="number"
                             inputMode="decimal"
@@ -361,7 +358,7 @@ export default function ScaleReadoutPage() {
                             onChange={(e) => setProcessValues((prev) => ({ ...prev, [col]: e.target.value }))}
                             disabled={disabled}
                             placeholder="value"
-                            className="h-7 w-24 shrink-0 text-right font-mono text-[12px]"
+                            className="h-8 w-24 shrink-0 text-right tabular-nums"
                           />
                         </div>
                       ))}
@@ -373,14 +370,11 @@ export default function ScaleReadoutPage() {
               <NumericField label="Target scale (L)" value={scaleLRaw} onChange={setScaleLRaw} disabled={disabled} placeholder="7500" />
 
               {mode.kind === "manual" ? (
-                <label className="flex items-center gap-2 text-[12px] text-muted">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 text-body text-fg-muted">
+                  <Checkbox
                     checked={manualHasPhysics}
                     onChange={(e) => setManualHasPhysics(e.target.checked)}
                     disabled={disabled}
-                    className="size-3.5"
-                    style={{ accentColor: "var(--blue)" }}
                   />
                   This sheet records agitation_rpm and airflow_L_per_min
                 </label>
@@ -392,16 +386,13 @@ export default function ScaleReadoutPage() {
                   <NumericField label="Airflow (L/min)" value={airflowRaw} onChange={setAirflowRaw} disabled={disabled} placeholder="300" />
                 </div>
               ) : (
-                <Alert variant="default" className="items-start gap-2.5 border-border bg-blue-soft px-3.5 py-3">
-                  <Info className="size-4 text-muted" aria-hidden />
-                  <AlertDescription className="text-[12.5px] leading-5 text-muted">
-                    This sheet does not record agitation and airflow, so the engine will run a scale-only model.
-                  </AlertDescription>
-                </Alert>
+                <p className="text-body text-fg-muted">
+                  This sheet does not record agitation and airflow, so the engine will run a scale-only model.
+                </p>
               )}
 
               {!targetAttempt.ok && targetAttempt.message ? (
-                <p className="text-[12.5px] text-red">{targetAttempt.message}</p>
+                <p className="text-body text-bad" role="alert">{targetAttempt.message}</p>
               ) : null}
 
               <div>
@@ -423,7 +414,7 @@ export default function ScaleReadoutPage() {
       {result?.kind === "html" ? (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[12.5px] text-muted">{file?.name}</p>
+            <p className="text-body text-fg-muted">{file?.name}</p>
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => printReadout(result.html)}>
                 <Printer />
@@ -439,50 +430,42 @@ export default function ScaleReadoutPage() {
             srcDoc={result.html}
             sandbox=""
             title="Scale-up readout"
-            className="w-full rounded-xl border border-border bg-white"
+            className="w-full rounded-xl border border-border bg-surface"
             style={{ height: "1400px" }}
           />
-          <p className="text-[11px] leading-snug text-muted">Printed readouts are development decision support only.</p>
+          <p className="text-caption text-fg-muted">Printed readouts are development decision support only.</p>
         </div>
       ) : null}
 
       {result?.kind === "gate" ? (
-        <Alert variant="default" className="flex flex-col gap-3 border-red/30 bg-red/10 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-red">
-              <AlertCircle className="size-5" />
-            </span>
-            <div>
-              <AlertTitle className="font-head text-[16px] font-semibold text-fg">Gate check failed: {result.failedCheck}</AlertTitle>
-              <AlertDescription className="mt-1 max-w-[62ch] text-[13px] leading-5 text-fg">{result.detail}</AlertDescription>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={reset}>
-            <X />
-            Try another sheet
-          </Button>
-        </Alert>
+        <Callout
+          tone="bad"
+          title={`Gate check failed: ${result.failedCheck}`}
+          action={
+            <Button variant="outline" size="sm" onClick={reset}>
+              <X />
+              Try another sheet
+            </Button>
+          }
+        >
+          {result.detail}
+        </Callout>
       ) : null}
 
       {result?.kind === "busy" ? (
-        <Alert variant="default" className="flex flex-col items-start gap-4 border-amber/30 bg-amber-soft px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-amber">
-              <AlertTriangle className="size-5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <AlertTitle className="font-head text-[16px] font-normal text-fg">Engine busy</AlertTitle>
-              <AlertDescription className="mt-1 max-w-[62ch] text-[13px] leading-5 text-explore-deep">
-                The engine is running another analysis; try again in{" "}
-                {result.retryAfterSeconds != null ? `${result.retryAfterSeconds} s` : "a moment"}.
-              </AlertDescription>
-            </div>
-          </div>
-          <Button variant="outline" onClick={submit} disabled={busy}>
-            <RefreshCw />
-            Try again
-          </Button>
-        </Alert>
+        <Callout
+          tone="warn"
+          title="Engine busy"
+          action={
+            <Button variant="outline" onClick={submit} disabled={busy}>
+              <RefreshCw />
+              Try again
+            </Button>
+          }
+        >
+          The engine is running another analysis; try again in{" "}
+          {result.retryAfterSeconds != null ? `${result.retryAfterSeconds} s` : "a moment"}.
+        </Callout>
       ) : null}
 
       {result?.kind === "auth" ? (
@@ -495,21 +478,18 @@ export default function ScaleReadoutPage() {
       ) : null}
 
       {result?.kind === "upload" ? (
-        <Alert variant="default" className="flex flex-col gap-3 border-red/30 bg-red/10 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-red">
-              <AlertCircle className="size-5" />
-            </span>
-            <div>
-              <AlertTitle className="font-head text-[16px] font-semibold text-fg">Upload rejected</AlertTitle>
-              <AlertDescription className="mt-1 max-w-[62ch] text-[13px] leading-5 text-fg">{result.message}</AlertDescription>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={reset}>
-            <X />
-            Try another file
-          </Button>
-        </Alert>
+        <Callout
+          tone="bad"
+          title="Upload rejected"
+          action={
+            <Button variant="outline" size="sm" onClick={reset}>
+              <X />
+              Try another file
+            </Button>
+          }
+        >
+          {result.message}
+        </Callout>
       ) : null}
 
       {result?.kind === "unavailable" ? (

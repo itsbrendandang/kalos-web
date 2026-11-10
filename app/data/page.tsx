@@ -191,7 +191,8 @@ export default function DataPage() {
           </Button>
         </div>
 
-        <Table>
+        <div role="region" aria-label="Dataset registry, scrollable" tabIndex={0} className="max-h-[480px] overflow-auto rounded-lg">
+        <Table containerClassName="overflow-visible">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Barcode</TableHead>
@@ -217,18 +218,23 @@ export default function DataPage() {
             {rows.map((d) => (
               <TableRow
                 key={d.barcode}
-                tabIndex={0}
-                aria-selected={selected === d.barcode}
                 onClick={() => toggleSelect(d.barcode)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleSelect(d.barcode);
-                  }
-                }}
+                data-state={selected === d.barcode ? "selected" : undefined}
                 className="cursor-pointer"
               >
-                <TableCell className="font-mono text-code text-accent">{d.barcode}</TableCell>
+                <TableCell>
+                  <button
+                    type="button"
+                    aria-pressed={selected === d.barcode}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelect(d.barcode);
+                    }}
+                    className="rounded-sm font-mono text-code text-accent hover:underline"
+                  >
+                    {d.barcode}
+                  </button>
+                </TableCell>
                 <TableCell className="font-mono text-code">{d.name}</TableCell>
                 <TableCell numeric>{formatNumber(d.runs, "count")}</TableCell>
                 <TableCell className="text-fg-muted">{d.outputs.join(" / ")}</TableCell>
@@ -241,6 +247,7 @@ export default function DataPage() {
             ))}
           </TableBody>
         </Table>
+        </div>
         {rows.length === 0 ? (
           <EmptyState
             icon={Search}

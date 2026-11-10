@@ -111,7 +111,7 @@ function Frame({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={toggleExplorer}
                 aria-label="Show explorer"
-                className="-ml-1 hidden size-6 place-items-center rounded text-fg-muted hover:bg-subtle hover:text-fg md:grid"
+                className="-ml-1 hidden size-6 min-h-6 min-w-6 place-items-center rounded text-fg-muted hover:bg-subtle hover:text-fg md:grid"
               >
                 <PanelLeftOpen className="size-4" aria-hidden />
               </button>
@@ -220,7 +220,7 @@ function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; on
         type="button"
         onClick={onSearch}
         aria-label={`Search pages and actions (${shortcut})`}
-        className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-caption text-fg-muted hover:bg-surface hover:text-fg"
+        className="inline-flex h-7 min-w-6 items-center gap-1 rounded-md px-1.5 text-caption text-fg-muted hover:bg-surface hover:text-fg"
       >
         <Search className="size-3.5" aria-hidden />
         <kbd className="font-sans">{shortcut}</kbd>
@@ -229,7 +229,7 @@ function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; on
         type="button"
         onClick={onCollapse}
         aria-label="Hide explorer"
-        className="grid size-7 place-items-center rounded-md text-fg-muted hover:bg-surface hover:text-fg"
+        className="grid size-7 min-h-6 min-w-6 place-items-center rounded-md text-fg-muted hover:bg-surface hover:text-fg"
       >
         <PanelLeftClose className="size-4" aria-hidden />
       </button>

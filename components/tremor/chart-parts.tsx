@@ -61,3 +61,43 @@ export function ChartTooltipBox({ label, rows, children }: { label: ReactNode; r
 export const AXIS_LABEL_CLASS = "fill-fg-muted text-caption";
 /** Tick text: Geist, tabular, muted. */
 export const AXIS_TICK_CLASS = "fill-fg-muted text-caption tabular-nums";
+
+/** Screen-reader fallback: the plotted data as a table (one row per index value). */
+export function ChartDataTable({
+  caption,
+  index,
+  categories,
+  data,
+  format = String,
+}: {
+  caption: string;
+  index: string;
+  categories: string[];
+  data: Record<string, unknown>[];
+  format?: (value: number) => string;
+}) {
+  const cell = (v: unknown) => (typeof v === "number" ? format(v) : v == null ? "" : String(v));
+  return (
+    <table className="sr-only">
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{index}</th>
+          {categories.map((c) => (
+            <th key={c} scope="col">{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((d, i) => (
+          <tr key={i}>
+            <th scope="row">{cell(d[index])}</th>
+            {categories.map((c) => (
+              <td key={c}>{cell(d[c])}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}

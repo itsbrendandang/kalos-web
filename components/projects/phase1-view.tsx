@@ -33,8 +33,8 @@ function IterationCard({
           </div>
           {it.state === "done" ? (
             <div className="scdone">
-              <span className="grid size-3.5 place-items-center rounded-full bg-green">
-                <Check className="size-2 text-white" strokeWidth={3} />
+              <span className="grid size-3.5 place-items-center rounded-full bg-good">
+                <Check className="size-2 text-bg" strokeWidth={3} />
               </span>
               Complete
             </div>

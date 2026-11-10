@@ -20,8 +20,7 @@ import { cn } from "@/lib/utils";
  * any existing call site.
  *
  * base-nova's CardTitle shipped a `cn-font-heading` class that this registry
- * never defines - a silent no-op. It is replaced with `font-head` (the kalos
- * Satoshi heading utility from app/globals.css), which is what it was for.
+ * never defines - a silent no-op. CardTitle uses the `text-heading` role.
  */
 const CARD_PADDING = {
   inset: "p-inset", // 24px - an open Card
@@ -62,7 +61,7 @@ export function CardTitle({ className, ...props }: React.ComponentProps<"div">) 
   return (
     <div
       data-slot="card-title"
-      className={cn("font-head text-heading leading-snug font-semibold text-fg", className)}
+      className={cn("text-heading leading-snug font-semibold text-fg", className)}
       {...props}
     />
   );
@@ -125,16 +124,16 @@ export function Kpi({
         hero ? "bg-accent-hover" : "border border-border bg-card",
       )}
     >
-      <div className={cn("text-[11px] font-medium", hero ? "text-[color:var(--primary-foreground)]" : "text-muted")}>{label}</div>
+      <div className={cn("text-caption font-medium", hero ? "text-[color:var(--primary-foreground)]" : "text-muted")}>{label}</div>
       <div
         className={cn(
-          "tabular mt-1.5 font-mono text-[23px] leading-none font-semibold",
+          "mt-1.5 text-title tabular-nums",
           hero ? "text-[color:var(--primary-foreground)]" : "text-fg",
         )}
       >
         {value}
       </div>
-      {hint ? <div className={cn("mt-0.5 text-[11px]", hero ? "text-[color:var(--primary-foreground)]/85" : "text-muted")}>{hint}</div> : null}
+      {hint ? <div className={cn("mt-0.5 text-caption", hero ? "text-[color:var(--primary-foreground)]/85" : "text-muted")}>{hint}</div> : null}
     </div>
   );
 }
@@ -155,7 +154,7 @@ export function StatCard({
   return (
     <Card className="min-h-[132px] rounded-xl bg-blue-soft p-4">
       <div className="flex items-start justify-between gap-2">
-        <div className="text-[10.5px] font-semibold text-muted uppercase">{label}</div>
+        <div className="text-caption font-medium text-muted">{label}</div>
         <span
           className={cn(
             "grid size-8 shrink-0 place-items-center rounded-lg",
@@ -165,8 +164,8 @@ export function StatCard({
           <Icon className="size-4" />
         </span>
       </div>
-      <div className="tabular mt-2.5 font-mono text-[25px] leading-none font-semibold text-fg">{value}</div>
-      {sub ? <div className="mt-2 text-[11px] leading-snug text-muted">{sub}</div> : null}
+      <div className="mt-2.5 text-title text-fg tabular-nums">{value}</div>
+      {sub ? <div className="mt-2 text-caption text-muted">{sub}</div> : null}
     </Card>
   );
 }
@@ -175,7 +174,7 @@ export function Tag({ mode }: { mode: "explore" | "exploit" }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        "inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium",
         mode === "exploit" ? "bg-accent text-[color:var(--primary-foreground)]" : "bg-explore-soft text-explore-deep ring-1 ring-border",
       )}
     >

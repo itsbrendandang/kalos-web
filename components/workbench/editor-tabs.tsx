@@ -92,8 +92,8 @@ export function EditorTabs({ titleFor }: { titleFor: (href: string) => string })
                   aria-label={`Close ${title}`}
                   onClick={() => close(href)}
                   className={cn(
-                    "mr-1.5 grid size-5 place-items-center rounded text-fg-muted hover:bg-border hover:text-fg",
-                    active ? "visible" : "invisible group-hover:visible group-focus-within:visible",
+                    "mr-1 grid size-6 place-items-center rounded text-fg-muted pointer-coarse:size-8 hover:bg-border hover:text-fg",
+                    active ? "visible" : "invisible group-hover:visible group-focus-within:visible pointer-coarse:visible",
                   )}
                 >
                   <X className="size-3.5" aria-hidden />

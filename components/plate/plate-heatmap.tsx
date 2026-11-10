@@ -87,8 +87,8 @@ export function PlateHeatmap({
                         aria-label={wellName}
                         aria-pressed={selected}
                         className={cn(
-                          "relative aspect-square rounded-[6px] outline-none transition-[filter] hover:brightness-110 focus-visible:brightness-110",
-                          selected ? "ring-2 ring-fg ring-offset-1 ring-offset-card" : "ring-1 ring-white/60",
+                          "relative aspect-square rounded-[6px] outline-none transition-[filter] hover:brightness-110 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                          selected ? "ring-2 ring-fg ring-offset-1 ring-offset-card" : "ring-1 ring-border-strong",
                         )}
                         style={{ background: seqColor(w.metrics.deltaOD, deltaMin, deltaMax) }}
                       />

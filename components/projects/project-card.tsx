@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Pencil, Plus, ChevronRight } from "lucide-react";
 import type { Project, ProjectStage } from "@/app/projects/data";
 
@@ -18,40 +18,27 @@ function phaseLabel(stage: ProjectStage): { text: string; cls: string } {
 }
 
 export function ProjectCard({ project, onEdit }: { project: Project; onEdit?: (project: Project) => void }) {
-  const router = useRouter();
   const phase = phaseLabel(project.stage);
   const isP2 = project.stage.kind === "phase2";
-  const open = () => router.push(`/projects/${project.id}`);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          open();
-        }
-      }}
-      className={`v-card flex flex-col ${isP2 ? "v-card--p2" : ""}`}
-    >
-      <div className={`v-phase ${phase.cls} mb-1`}>{phase.text}</div>
-      <div className="v-card-name mb-1">{project.name}</div>
-      <div className="v-card-obj mb-2 flex-1">{project.objective}</div>
+    <div className={`v-card flex flex-col ${isP2 ? "v-card--p2" : ""}`}>
+      <Link href={`/projects/${project.id}`} className="v-card-link">
+        <div className={`v-phase ${phase.cls} mb-1`}>{phase.text}</div>
+        <div className="v-card-name mb-1">{project.name}</div>
+        <div className="v-card-obj mb-2 flex-1">{project.objective}</div>
+      </Link>
       <div className="v-card-ft">
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit?.(project);
-          }}
-          className="inline-flex items-center gap-1 text-[color:inherit] transition-colors hover:text-[color:var(--v-blue-7-text)]"
+          onClick={() => onEdit?.(project)}
+          aria-label={`Edit ${project.name}`}
+          className="v-card-edit transition-colors hover:text-[color:var(--v-blue-7-text)]"
         >
-          <Pencil className="size-2.5" />
+          <Pencil className="size-2.5" aria-hidden="true" />
           Edit
         </button>
-        <ChevronRight className="size-3.5 text-[color:var(--v-ink)]/20" />
+        <ChevronRight className="size-3.5 text-[color:var(--v-ink)]/20" aria-hidden="true" />
       </div>
     </div>
   );

@@ -46,7 +46,7 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
   const cls = DECISION_CLASS[c.decision];
   return (
     <div className={`dc ${cls}`}>
-      <div className="dc-row" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="dc-row" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <span className="dcb">{DECISION_LABEL[c.decision]}</span>
         <div className="min-w-0 flex-1">
           <div className="dcn">{c.name}</div>
@@ -56,8 +56,8 @@ function CandidateCard({ c, defaultOpen }: { c: Candidate; defaultOpen: boolean 
           <div className="dcp">{c.prob}%</div>
           <div className="dcu">success · {c.uncertainty}</div>
         </div>
-        <ChevronDown className={`size-3 text-[color:var(--v-faint)] transition-transform ${open ? "rotate-180" : ""}`} />
-      </div>
+        <ChevronDown className={`size-3 text-[color:var(--v-faint)] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
       <div className="dcbar">
         <div className="dcf" style={{ width: `${c.prob}%` }} />
       </div>

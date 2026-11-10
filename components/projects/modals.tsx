@@ -96,6 +96,9 @@ function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>) {
   }, [containerRef]);
 }
 
+// Open modals, oldest first; only the last one reacts to Escape.
+const openModals: symbol[] = [];
+
 function Shell({
   title,
   subtitle,
@@ -111,11 +114,17 @@ function Shell({
   useFocusTrap(modalRef);
 
   useEffect(() => {
+    const id = Symbol("modal");
+    openModals.push(id);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && openModals[openModals.length - 1] === id) onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const i = openModals.indexOf(id);
+      if (i >= 0) openModals.splice(i, 1);
+    };
   }, [onClose]);
 
   return (

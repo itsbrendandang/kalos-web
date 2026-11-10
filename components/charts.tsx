@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  AreaChart, Area, BarChart, Bar, ScatterChart, Scatter, Cell,
-  XAxis, YAxis, CartesianGrid,
-} from "recharts";
+import { AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent,
   type ChartConfig,
@@ -15,30 +12,22 @@ const fmtTick = (v: number) => formatNumber(v);
 
 /**
  * Shared recharts theme, driven by the app-wide design tokens
- * (app/globals.css). Every chart on every surface reads from this object so
- * series color, grid, axis, and tooltip styling stay in sync across the app.
- * See DESIGN.md for the token reference.
+ * (app/globals.css). Charts built on recharts read from this object so series
+ * color, grid, axis, and tooltip styling stay in sync. See DESIGN.md.
  *
- * `series` points at `--accent` (the brand blue chrome color), not a
- * `--chart-*` step: none of the charts below encode ORDERED MAGNITUDE (that
- * role belongs to `--chart-1..5`, reserved for heatmaps/response surfaces -
- * see components/dashboard/heat-scale.ts) or UNORDERED CATEGORIES (that role
- * belongs to `--series-1..6`, the Okabe-Ito palette, for multi-series
- * overlays like per-vessel kinetic traces). Every chart here is either a
- * single trend line or a two-way "highlighted vs. background" split
- * (Pareto front / the rest, positive / negative correlation, zero-producer /
- * normal run) - a plain accent-vs-explore emphasis pair, the same pairing
- * the rest of the app already uses for "selected vs. not". Pulling from
- * --chart-1 (the *lightest*, near-white step of the sequential ramp) here -
- * as this file previously did - both misused a magnitude-only token for a
- * non-magnitude encoding and rendered as a washed-out, low-contrast line.
+ * `series` is `--accent` (the brand chrome color) and `seriesDown` is
+ * `--fg-muted`: the charts here are single trend lines or a two-way
+ * "highlighted vs. background" split, not categorical or ordered-magnitude
+ * encodings. Categorical series use `--chart-1..6` (Okabe-Ito order) and
+ * ordered magnitude uses `--chart-seq-1..5` (see
+ * components/dashboard/heat-scale.ts). Where two series differ, they also
+ * differ by marker shape or dash, never by color alone.
  */
 export const CHART_THEME = {
   series: "var(--accent)",
   seriesDown: "var(--fg-muted)",
   grid: "var(--grid)",
   axis: "var(--muted)",
-  hoverCursor: "color-mix(in oklch, var(--accent) 6%, transparent)",
   tooltip: {
     border: "var(--border)",
     background: "var(--card)",
@@ -47,7 +36,6 @@ export const CHART_THEME = {
 } as const;
 
 const ACCENT = CHART_THEME.series;
-const CLAY = CHART_THEME.seriesDown;
 const GRAY = CHART_THEME.seriesDown; // neutral background series; --explore (border-strong) is too pale to read as a mark
 const GRID = CHART_THEME.grid;
 const INK = CHART_THEME.axis;
@@ -68,6 +56,29 @@ export const axisTitle = (value: string, side: "x" | "y") =>
     ? { value, position: "insideBottom" as const, offset: -4, style: { fontSize: 11, fill: INK } }
     : { value, angle: -90, position: "insideLeft" as const, style: { fontSize: 11, fill: INK } };
 
+/** Screen-reader fallback: the plotted values as a table. */
+function ChartTable({ caption, columns, rows }: { caption: string; columns: string[]; rows: (string | number)[][] }) {
+  return (
+    <table className="sr-only">
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          {columns.map((c) => (
+            <th key={c} scope="col">{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            {r.map((v, j) => (typeof v === "number" ? <td key={j}>{formatNumber(v)}</td> : <th key={j} scope="row">{v}</th>))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function ChartEmpty() {
   return <p className="py-8 text-center text-caption text-fg-muted">No data to chart yet.</p>;
 }
@@ -75,7 +86,10 @@ function ChartEmpty() {
 export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: number }[]; yLabel: string }) {
   const config = { best: { label: yLabel, color: ACCENT } } satisfies ChartConfig;
   if (!data.length) return <ChartEmpty />;
+  const label = `Best ${yLabel} by experiment count, ${data.length} points, from ${formatNumber(data[0].best)} to ${formatNumber(data[data.length - 1].best)}`;
   return (
+    <div>
+    <div role="img" aria-label={label}>
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
       <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <defs>
@@ -91,58 +105,9 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
         <Area type="linear" dataKey="best" stroke={ACCENT} strokeWidth={2.5} fill="url(#cg)" dot={false} isAnimationActive={false} />
       </AreaChart>
     </ChartContainer>
-  );
-}
-
-/**
- * Best-measured-so-far vs. round, for the campaign progress strip on /decide.
- * Deliberately plain (no yLabel/axis titles) so it stays compact under a
- * header that already states the target and unit - see the ProgressPanel
- * wrapper in components/dashboard/campaign-progress.tsx.
- */
-export function ProgressChart({ data }: { data: { round: number; best: number | null }[] }) {
-  const config = { best: { label: "best", color: ACCENT } } satisfies ChartConfig;
-  if (!data.some((d) => d.best != null)) return <ChartEmpty />;
-  return (
-    <ChartContainer config={config} className="aspect-auto h-full w-full">
-      <AreaChart data={data} margin={{ top: 4, right: 10, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="progress-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={ACCENT} stopOpacity={0.2} />
-            <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="round" allowDecimals={false} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
-        <YAxis tick={tick} tickLine={false} axisLine={false} width={44} domain={["auto", "auto"]} tickFormatter={fmtTick} />
-        <ChartTooltip
-          cursor={{ stroke: GRID }}
-          content={
-            <ChartTooltipContent
-              indicator="line"
-              labelFormatter={(round) => `round ${round}`}
-              formatter={(value, name) => (
-                <div className="flex w-full items-center justify-between gap-3">
-                  <span className="text-muted-foreground">{name}</span>
-                  <span className="font-mono font-medium text-foreground tabular-nums">{formatNumber(Number(value))}</span>
-                </div>
-              )}
-            />
-          }
-        />
-        <Area
-          type="monotone"
-          dataKey="best"
-          connectNulls={false}
-          stroke={ACCENT}
-          strokeWidth={2.5}
-          fill="url(#progress-fill)"
-          dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
-          activeDot={{ r: 4 }}
-          isAnimationActive={false}
-        />
-      </AreaChart>
-    </ChartContainer>
+    </div>
+    <ChartTable caption={label} columns={["Experiments", yLabel]} rows={data.map((d) => [String(d.n), d.best])} />
+    </div>
   );
 }
 
@@ -151,7 +116,10 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
     "all runs": { label: "all runs", color: GRAY },
     "Pareto front": { label: "Pareto front", color: ACCENT },
   } satisfies ChartConfig;
+  const label = `Titer (mg/L) vs. purity (%): ${all.length} runs, ${pareto.length} on the Pareto front`;
   return (
+    <div>
+    <div role="img" aria-label={label}>
     <ChartContainer config={config} className="aspect-auto h-[280px] w-full">
       <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <CartesianGrid stroke={GRID} />
@@ -160,36 +128,15 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
         <ChartTooltip cursor={{ strokeDasharray: "3 3", stroke: GRID }} content={<ChartTooltipContent indicator="dot" />} />
         <ChartLegend content={<ChartLegendContent />} />
         <Scatter name="all runs" data={all} fill={GRAY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
-        <Scatter name="Pareto front" data={pareto} fill={ACCENT} line={{ stroke: ACCENT, strokeWidth: 2 }} isAnimationActive={false} />
+        <Scatter name="Pareto front" data={pareto} fill={ACCENT} shape="diamond" line={{ stroke: ACCENT, strokeWidth: 2 }} isAnimationActive={false} />
       </ScatterChart>
     </ChartContainer>
-  );
-}
-
-/**
- * `significant` must come from the engine (`Driver.significant` in
- * lib/api.ts - CI excludes zero AND survives FDR correction), never be
- * re-derived here. Non-significant bars render at reduced opacity so a
- * driver that failed either test can never look the same as one that
- * passed - see the caption the caller renders alongside this chart.
- */
-export function DriversBar({ drivers }: { drivers: { name: string; rho: number; significant: boolean }[] }) {
-  if (!drivers.length) return <ChartEmpty />;
-  const data = [...drivers].reverse();
-  const config = { rho: { label: "correlation" } } satisfies ChartConfig;
-  return (
-    <ChartContainer config={config} className="aspect-auto h-[230px] w-full">
-      <BarChart layout="vertical" data={data} margin={{ top: 4, right: 14, bottom: 8, left: 8 }}>
-        <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" domain={[-1, 1]} tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} />
-        <YAxis type="category" dataKey="name" width={118} tick={{ ...tick, fontSize: 10 }} tickLine={false} axisLine={false} />
-        <ChartTooltip cursor={{ fill: CHART_THEME.hoverCursor }} content={<ChartTooltipContent indicator="dot" />} />
-        <Bar dataKey="rho" radius={[0, 4, 4, 0]} isAnimationActive={false}>
-          {data.map((d, i) => (
-            <Cell key={i} fill={d.rho >= 0 ? ACCENT : CLAY} fillOpacity={d.significant ? 1 : 0.35} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ChartContainer>
+    </div>
+    <ChartTable
+      caption={label}
+      columns={["Series", "Titer (mg/L)", "Purity (%)"]}
+      rows={[...all.map((d) => ["all runs", d.titer, d.purity]), ...pareto.map((d) => ["Pareto front", d.titer, d.purity])]}
+    />
+    </div>
   );
 }

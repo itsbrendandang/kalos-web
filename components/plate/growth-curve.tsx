@@ -13,9 +13,9 @@ interface GrowthCurveProps {
 }
 
 const LEGEND_ITEMS = [
-  { label: "replicate A", color: "var(--chart-measured)" },
-  { label: "replicate B", color: "var(--fg-muted)" },
-  { label: "Gompertz fit", color: CHART_THEME.series },
+  { label: "replicate A", color: "var(--chart-measured)", dash: "solid" },
+  { label: "replicate B", color: "var(--fg-muted)", dash: "dashed" },
+  { label: "Gompertz fit", color: CHART_THEME.series, dash: "solid" },
 ];
 
 /**
@@ -29,7 +29,7 @@ function GrowthLegend() {
     <ul className="mt-1.5 flex justify-end gap-4 text-caption" style={{ color: CHART_THEME.axis }}>
       {LEGEND_ITEMS.map((it) => (
         <li key={it.label} className="flex items-center gap-1.5">
-          <span className="inline-block h-0 w-[18px] border-t-2" style={{ borderColor: it.color }} />
+          <span className="inline-block h-0 w-[18px] border-t-2" style={{ borderColor: it.color, borderTopStyle: it.dash as "solid" | "dashed" }} />
           {it.label}
         </li>
       ))}
@@ -46,7 +46,10 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
     fit: gompertz(t, base),
   }));
 
+  const label = `Optical density vs. time for well ${well.id}${partner ? ` and replicate ${partner.id}` : ""}, with the shared Gompertz fit`;
   return (
+    <div>
+    <div role="img" aria-label={label}>
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
         <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />
@@ -79,6 +82,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
           dataKey="repB"
           name="replicate B"
           stroke="var(--fg-muted)"
+          strokeDasharray="5 3"
           strokeWidth={1.5}
           dot={false}
           isAnimationActive={false}
@@ -95,5 +99,28 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
         />
       </LineChart>
     </ResponsiveContainer>
+    </div>
+    <table className="sr-only">
+      <caption>{label}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Hour</th>
+          <th scope="col">Replicate A OD</th>
+          <th scope="col">Replicate B OD</th>
+          <th scope="col">Gompertz fit OD</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((d) => (
+          <tr key={d.t}>
+            <th scope="row">{d.t}</th>
+            <td>{d.repA == null ? "" : d.repA.toFixed(3)}</td>
+            <td>{d.repB == null ? "" : d.repB.toFixed(3)}</td>
+            <td>{d.fit.toFixed(3)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    </div>
   );
 }

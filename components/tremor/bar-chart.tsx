@@ -24,7 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { AXIS_LABEL_CLASS, AXIS_TICK_CLASS, ChartLegend, ChartTooltipBox, type LegendEntry } from "@/components/tremor/chart-parts";
+import { AXIS_LABEL_CLASS, AXIS_TICK_CLASS, ChartDataTable, ChartLegend, ChartTooltipBox, type LegendEntry } from "@/components/tremor/chart-parts";
 import { constructCategoryColors, getColorClassName, getYAxisDomain, type ChartColor } from "@/components/tremor/chart-utils";
 
 type Datum = Record<string, string | number | boolean | null | undefined | [number, number]>;
@@ -67,7 +67,7 @@ export type BarChartProps = {
   referenceValue?: number;
   customTooltip?: (datum: Datum) => ReactNode;
   className?: string;
-  "aria-label"?: string;
+  "aria-label": string;
 };
 
 const CAPTION_PX = 12; // text-caption, 0.75rem
@@ -229,6 +229,7 @@ export function BarChart({
           </RechartsBarChart>
         </ResponsiveContainer>
       </div>
+      <ChartDataTable caption={ariaLabel} index={index} categories={categories} data={data} format={valueFormatter} />
     </div>
   );
 }

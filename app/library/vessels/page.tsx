@@ -62,9 +62,9 @@ export default function VesselsPage() {
         action={<DemoBadge />}
       />
 
-      <p className="text-[12px] text-muted">
-        Click rows to change the selection - kinetic overlays and the correlation scatter follow along.{" "}
-        <span className="font-semibold text-fg">{selectedIds.size}</span> of {VESSELS.vessels.length} vessels
+      <p className="text-caption text-fg-muted">
+        Select rows to change the selection - kinetic overlays and the correlation scatter follow along.{" "}
+        <span className="tabular-nums text-fg">{selectedIds.size}</span> of {VESSELS.vessels.length} vessels
         selected.
       </p>
 

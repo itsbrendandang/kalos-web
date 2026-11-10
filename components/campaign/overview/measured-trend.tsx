@@ -52,6 +52,23 @@ export function MeasuredTrend({ campaign, unit }: { campaign: ActiveCampaign; un
           </span>
         </div>
       </div>
+      <table className="sr-only">
+        <caption>{`Best measured by round${unit ? ` (${unit})` : ""}`}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Round</th>
+            <th scope="col">Best so far</th>
+          </tr>
+        </thead>
+        <tbody>
+          {points.map((point) => (
+            <tr key={point.round}>
+              <th scope="row">{roundName(point.round)}</th>
+              <td>{formatNumber(point.best)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <div className="relative mt-2 ml-14 h-5 text-caption text-overview-fg-muted" aria-hidden>
         {points.map((point, index) =>
           index % labelStep === 0 || index === points.length - 1 ? (

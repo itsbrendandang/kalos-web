@@ -69,7 +69,7 @@ export function CommandPalette({
                   aria-label="Search pages and actions"
                   aria-describedby={hintId}
                   placeholder="Search pages and actions"
-                  className="h-11 w-full bg-transparent text-body text-fg outline-none placeholder:text-fg-muted"
+                  className="h-11 w-full bg-transparent text-body text-fg placeholder:text-fg-muted focus-visible:outline-offset-[-2px] placeholder:text-fg-muted"
                 />
               </div>
               <Dialog.Close className="sr-only">Close command palette</Dialog.Close>

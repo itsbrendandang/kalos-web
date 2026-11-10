@@ -72,6 +72,7 @@ export function KineticOverlay({ title, sub, channel, vessels, selectedIds, yTic
   });
 
   const hasSelection = selectedIds.size > 0;
+  const label = `${title}: ${sub}. ${vessels.length} vessel traces over ${HOURS[HOURS.length - 1]} hours`;
   // Draw dimmed (non-selected) traces first, emphasized ones last so they sit on top.
   const ordered = [...vessels].sort((a, b) => {
     const aSel = selectedIds.has(a.idx) ? 1 : 0;
@@ -83,6 +84,7 @@ export function KineticOverlay({ title, sub, channel, vessels, selectedIds, yTic
     <div>
       <h3 className="text-caption font-semibold text-fg">{title}</h3>
       <p className="mb-1.5 text-caption text-fg-muted">{sub}</p>
+      <div role="img" aria-label={label}>
       <ResponsiveContainer width="100%" height={190}>
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 8, left: -14 }}>
           <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />
@@ -92,15 +94,15 @@ export function KineticOverlay({ title, sub, channel, vessels, selectedIds, yTic
             domain={[0, 336]}
             ticks={TICKS}
             tickFormatter={(v: number) => `${v}h`}
-            tick={{ ...tick, fontSize: 9 }}
+            tick={{ ...tick, fontSize: 11 }}
             tickLine={false}
             axisLine={{ stroke: CHART_THEME.grid }}
           />
           <YAxis
-            tick={{ ...tick, fontSize: 9 }}
+            tick={{ ...tick, fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            width={32}
+            width={40}
             tickFormatter={yTickFormatter}
           />
           {ordered.map((v) => {
@@ -122,6 +124,34 @@ export function KineticOverlay({ title, sub, channel, vessels, selectedIds, yTic
           })}
         </LineChart>
       </ResponsiveContainer>
+      </div>
+      <table className="sr-only">
+        <caption>{label}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Vessel</th>
+            <th scope="col">Start</th>
+            <th scope="col">Minimum</th>
+            <th scope="col">Maximum</th>
+            <th scope="col">Final</th>
+          </tr>
+        </thead>
+        <tbody>
+          {vessels.map((v) => {
+            const s = v.series[channel];
+            const f = (n: number) => (yTickFormatter ? yTickFormatter(n) : String(Number(n.toFixed(3))));
+            return (
+              <tr key={v.idx}>
+                <th scope="row">{v.idx}</th>
+                <td>{f(s[0])}</td>
+                <td>{f(Math.min(...s))}</td>
+                <td>{f(Math.max(...s))}</td>
+                <td>{f(s[s.length - 1])}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
       <p className="mt-1 text-caption leading-snug text-fg-muted">
         {hasSelection ? `${selectedIds.size} selected vessel${selectedIds.size === 1 ? "" : "s"}` : "All vessels"} -
         each line is a distinct vessel, identified by color and dash pattern (not color alone).

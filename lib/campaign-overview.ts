@@ -175,6 +175,8 @@ export type CampaignOverview = {
     validationStatus: string | null;
     missing: string[];
     blockedReason: string | null;
+    /** Raw engine text from the rejection. Shown only inside Details. */
+    blockedDetail: string | null;
   };
   results: {
     fetch: FetchStatus;
@@ -652,7 +654,8 @@ export function buildCampaignOverview(input: OverviewInput): CampaignOverview {
       constraintNote: constraintNote(analysis?.constraint),
       validationStatus: analysis?.validation?.status ?? null,
       missing,
-      blockedReason: rejection ? rejection.error : null,
+      blockedReason: rejection ? "The last upload was not used, so the shown conditions are from the previous file." : null,
+      blockedDetail: rejection ? rejection.error : null,
     },
     results: {
       fetch: campaignFetch,
@@ -756,6 +759,7 @@ export function overviewDetails(model: CampaignOverview): string {
     parts.push(`Round-to-round best measured ${verb} ${formatNumber(Math.abs(previous.delta))}${unit} ${previous.context.replace(/^vs /, "from ")}; that is not a significance claim.`);
   }
   if (model.conditions.constraintNote) parts.push(model.conditions.constraintNote);
+  if (model.conditions.blockedDetail) parts.push(`Upload message: ${model.conditions.blockedDetail}`);
   return parts.join(" ");
 }
 

@@ -170,7 +170,21 @@ function TreeSvg({
         const isBest = n.star;
         const selected = selectedKey === n.key;
         return (
-          <g key={n.key} className="cursor-pointer" onClick={() => onSelect(n)}>
+          <g
+            key={n.key}
+            className="linkage-node cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label={`${n.key === "ROOT" ? "Root" : n.key}${n.yieldLabel ? `, ${n.yieldLabel}` : ""}, ${n.type}`}
+            aria-pressed={selected}
+            onClick={() => onSelect(n)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(n);
+              }
+            }}
+          >
             <circle
               cx={n.x}
               cy={n.y}

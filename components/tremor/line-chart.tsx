@@ -10,7 +10,7 @@
 import type { ReactNode } from "react";
 import { CartesianGrid, Label, Line, LineChart as RechartsLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
-import { AXIS_LABEL_CLASS, AXIS_TICK_CLASS, ChartLegend, ChartTooltipBox } from "@/components/tremor/chart-parts";
+import { AXIS_LABEL_CLASS, AXIS_TICK_CLASS, ChartDataTable, ChartLegend, ChartTooltipBox } from "@/components/tremor/chart-parts";
 import { constructCategoryColors, getColorClassName, getYAxisDomain, type ChartColor } from "@/components/tremor/chart-utils";
 
 type Datum = Record<string, string | number | null | undefined>;
@@ -43,8 +43,11 @@ export type LineChartProps = {
   customTooltip?: (datum: Datum) => ReactNode;
   className?: string;
   /** Short text alternative for the plot (the data should also be available as text nearby). */
-  "aria-label"?: string;
+  "aria-label": string;
 };
+
+/** With several series, each also gets its own dash so lines differ by more than color. */
+const LINE_DASHES = [undefined, "6 3", "2 3", "8 3 2 3"] as const;
 
 export function LineChart({
   data,
@@ -160,6 +163,7 @@ export function LineChart({
                 className={getColorClassName(color(category), "stroke")}
                 stroke=""
                 strokeWidth={2}
+                strokeDasharray={categories.length > 1 ? LINE_DASHES[categories.indexOf(category) % LINE_DASHES.length] : undefined}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 isAnimationActive={false}
@@ -171,6 +175,7 @@ export function LineChart({
           </RechartsLineChart>
         </ResponsiveContainer>
       </div>
+      <ChartDataTable caption={ariaLabel} index={index} categories={categories} data={data} format={valueFormatter} />
     </div>
   );
 }

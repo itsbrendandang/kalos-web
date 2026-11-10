@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { ChevronRight } from "lucide-react";
 import type { CampaignOverview } from "@/lib/campaign-overview";
 import { formatOverviewTimestamp, overviewDetails } from "@/lib/campaign-overview";
 import { formatNumber } from "@/lib/format";
@@ -41,7 +42,7 @@ export function SummaryStrip({ model }: { model: CampaignOverview }) {
       </p>
       <p className="mt-2 text-caption text-overview-fg-muted">Measured · replicates unknown</p>
       <p className="mt-3 text-body text-overview-fg-muted">Baseline — · no control named</p>
-      <ul aria-label="Campaign status" className="mt-12 list-none p-0">
+      <ul aria-label="Campaign status" className="mt-6 list-none p-0">
         <li className="py-0.5 text-body">
           <span className="text-overview-fg-muted">{round}</span> · {countPart(model.round.completed, "done")} · {countPart(model.round.pending, "pending")}
         </li>
@@ -55,8 +56,12 @@ export function SummaryStrip({ model }: { model: CampaignOverview }) {
           <span className="text-overview-fg-muted">Start</span> · {quiet(model.start.label)}
         </li>
       </ul>
-      <details className="mt-3">
-        <summary className="inline-flex min-h-8 cursor-pointer items-center text-caption text-overview-fg-muted">Details</summary>
+      <details className="group mt-3">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-caption text-overview-fg-muted [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
+          <span className="font-medium text-overview-fg">Details</span>
+          <span>· versions, ranking and promotion checks</span>
+        </summary>
         <p className="mt-2 max-w-[640px] text-caption text-overview-fg-muted">
           {overviewDetails(model)}
           <LocalTime epoch={model.versions.updatedAt} />

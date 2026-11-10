@@ -18,6 +18,11 @@
 const BLUE_TINT: [number, number, number] = [232, 237, 254]; // light end, above --chart-1
 const BLUE: [number, number, number] = [32, 74, 244]; // --chart-3, the brand blue
 const BLUE_DEEP: [number, number, number] = [11, 31, 107]; // --chart-5, deep end
+// Dark-theme ramp: low is a dim tint, high is the brightest end, so "more" always
+// reads as more contrast against the dark page (mirrors --chart-seq-1..5 in .dark).
+const DARK_LOW: [number, number, number] = [38, 46, 92];
+const DARK_MID: [number, number, number] = [84, 118, 246];
+const DARK_HIGH: [number, number, number] = [196, 212, 255];
 const GRAY: [number, number, number] = [82, 82, 91]; // --explore-deep
 const WHITE: [number, number, number] = [255, 255, 255];
 
@@ -30,21 +35,24 @@ function mix(c1: [number, number, number], c2: [number, number, number], t: numb
 
 /** Left-to-right preview of the sequential ramp, for a colorbar `background`. */
 export const SEQ_GRADIENT_CSS = `linear-gradient(to right, rgb(${BLUE_TINT.join(",")}), rgb(${BLUE.join(",")}), rgb(${BLUE_DEEP.join(",")}))`;
+export const SEQ_GRADIENT_DARK_CSS = `linear-gradient(to right, rgb(${DARK_LOW.join(",")}), rgb(${DARK_MID.join(",")}), rgb(${DARK_HIGH.join(",")}))`;
+export const seqGradient = (dark: boolean) => (dark ? SEQ_GRADIENT_DARK_CSS : SEQ_GRADIENT_CSS);
 
-function seqRgb(value: number, min: number, max: number): [number, number, number] {
-  if (max <= min) return BLUE;
+function seqRgb(value: number, min: number, max: number, dark = false): [number, number, number] {
+  const [c0, c1, c2] = dark ? [DARK_LOW, DARK_MID, DARK_HIGH] : [BLUE_TINT, BLUE, BLUE_DEEP];
+  if (max <= min) return c1;
   const t = (value - min) / (max - min);
   const lerp = (a: [number, number, number], b: [number, number, number], u: number): [number, number, number] => [
     Math.round(a[0] + (b[0] - a[0]) * u),
     Math.round(a[1] + (b[1] - a[1]) * u),
     Math.round(a[2] + (b[2] - a[2]) * u),
   ];
-  return t <= 0.5 ? lerp(BLUE_TINT, BLUE, t / 0.5) : lerp(BLUE, BLUE_DEEP, (t - 0.5) / 0.5);
+  return t <= 0.5 ? lerp(c0, c1, t / 0.5) : lerp(c1, c2, (t - 0.5) / 0.5);
 }
 
 /** Sequential blue ramp for a value in [min, max]: tint (low) -> blue -> deep (high). */
-export function seqColor(value: number, min: number, max: number): string {
-  const [r, g, b] = seqRgb(value, min, max);
+export function seqColor(value: number, min: number, max: number, dark = false): string {
+  const [r, g, b] = seqRgb(value, min, max, dark);
   return `rgb(${r}, ${g}, ${b})`;
 }
 
@@ -62,8 +70,8 @@ function luminance([r, g, b]: [number, number, number]): number {
  * whichever has the higher WCAG contrast against the actual fill. A fixed cutoff on
  * the ramp position is not enough: the mid-ramp brand blue fails near-black text.
  */
-export function seqInk(value: number, min: number, max: number): string {
-  const L = luminance(seqRgb(value, min, max));
+export function seqInk(value: number, min: number, max: number, dark = false): string {
+  const L = luminance(seqRgb(value, min, max, dark));
   const onWhite = 1.05 / (L + 0.05);
   // Pure black, not a near-black: with white it gives a worst case of ~4.6:1 over the ramp, so every fill passes AA.
   const onInk = (L + 0.05) / 0.05; // black has zero luminance

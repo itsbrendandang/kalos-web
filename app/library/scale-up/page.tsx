@@ -249,7 +249,7 @@ export default function ScaleReadoutPage() {
 
       {!result && !busy ? (
         <div className="flex flex-col gap-5">
-          <Card>
+          <Card padding="none">
             <SectionLabel>1. Run sheet</SectionLabel>
             <UploadDropzone key={resetCount} onFile={handleFile} disabled={disabled} />
             {file ? (
@@ -261,7 +261,7 @@ export default function ScaleReadoutPage() {
           </Card>
 
           {mode.kind !== "none" ? (
-            <Card className="flex flex-col gap-4">
+            <Card padding="none" className="flex flex-col gap-4">
               <SectionLabel>2. Target scale and process values</SectionLabel>
 
               {mode.kind === "csv" ? (
@@ -406,7 +406,7 @@ export default function ScaleReadoutPage() {
       ) : null}
 
       {busy ? (
-        <Card>
+        <Card padding="none">
           <Loading label="Running scale-up readout" />
         </Card>
       ) : null}

@@ -213,9 +213,11 @@ function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; on
   const example = useExplorerIsExample(section);
   const shortcut = useShortcutLabel();
   return (
-    <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3">
-      <h2 className="min-w-0 flex-1 truncate text-label text-fg">{label}</h2>
-      {example ? <ExampleBadge className="h-5" /> : null}
+    <div className="flex min-h-9 shrink-0 items-center gap-1 border-b border-border py-1 pr-1 pl-3">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+        <h2 className="shrink-0 text-label text-fg">{label}</h2>
+        {example ? <ExampleBadge className="h-5" /> : null}
+      </div>
       <button
         type="button"
         onClick={onSearch}

@@ -55,7 +55,7 @@ export function EditorTabs({ titleFor }: { titleFor: (href: string) => string })
   // elements, but each tab carries a close button, and a tab-role-less link
   // list keeps those controls valid and keyboard-reachable through Tab.
   return (
-    <nav aria-label="Open pages" className="flex h-9 shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-subtle [scrollbar-width:none]">
+    <nav aria-label="Open pages" className="flex h-9 shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-subtle [scrollbar-width:none] max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)]">
       <ul className="flex min-w-0">
         {open.map((href, i) => {
           const active = href === pathname;

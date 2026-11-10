@@ -76,9 +76,7 @@ function NoLiveRegistry() {
         icon={PlugZap}
         title="No live datasets"
         description={
-          <>
-            No live data registry is connected yet. Example data is off, so there is nothing to show here.
-          </>
+          "No datasets have been uploaded yet. Upload a run sheet to see it here, or turn on the example data to look around first."
         }
       />
       <EngineCredit />

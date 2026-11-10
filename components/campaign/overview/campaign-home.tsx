@@ -109,7 +109,7 @@ export function CampaignHome() {
         </p>
       ) : null}
       <SummaryStrip model={model} />
-      <hr className="my-12 border-0 border-t border-overview-divider" />
+      <hr className="my-6 border-0 border-t border-overview-divider" />
       <Tabs
         className="flex-col"
         value={stage}

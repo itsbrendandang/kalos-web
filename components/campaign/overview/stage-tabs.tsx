@@ -33,7 +33,12 @@ export function StageTabs({
 
   return (
     <div className="flex flex-col gap-2">
-      <TabsList aria-label="Campaign stages" variant="overview" activateOnFocus className="overview-tabs">
+      <TabsList
+        aria-label="Campaign stages"
+        variant="overview"
+        activateOnFocus
+        className="overview-tabs max-md:[mask-image:linear-gradient(to_right,transparent,#000_1rem,#000_calc(100%-1.5rem),transparent)]"
+      >
         {OVERVIEW_STAGES.map((id) => (
           <TabsTrigger key={id} id={`campaign-stage-${id}`} value={id}>
             <span>{OVERVIEW_STAGE_LABEL[id]}</span>
@@ -42,7 +47,7 @@ export function StageTabs({
         ))}
       </TabsList>
       {issue ? (
-        <p className="text-body text-overview-fg">
+        <p role="status" aria-live="polite" className="sr-only focus-within:not-sr-only focus-within:text-body focus-within:text-overview-fg">
           <a
             href={withStageParam(pathname, search, issue)}
             className="underline-offset-4 hover:underline"

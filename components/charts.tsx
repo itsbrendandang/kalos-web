@@ -54,12 +54,13 @@ export const tip = {
 export const axisTitle = (value: string, side: "x" | "y") =>
   side === "x"
     ? { value, position: "insideBottom" as const, offset: -4, style: { fontSize: 11, fill: INK } }
-    : { value, angle: -90, position: "insideLeft" as const, style: { fontSize: 11, fill: INK } };
+    : { value, angle: -90, position: "insideLeft" as const, offset: 8, style: { fontSize: 11, fill: INK } };
 
 /** Screen-reader fallback: the plotted values as a table. */
 function ChartTable({ caption, columns, rows }: { caption: string; columns: string[]; rows: (string | number)[][] }) {
   return (
-    <table className="sr-only">
+    <div className="sr-only">
+    <table>
       <caption>{caption}</caption>
       <thead>
         <tr>
@@ -76,6 +77,7 @@ function ChartTable({ caption, columns, rows }: { caption: string; columns: stri
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -91,7 +93,7 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
     <div>
     <div role="img" aria-label={label}>
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-      <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: 4 }}>
         <defs>
           <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={ACCENT} stopOpacity={0.18} />
@@ -100,7 +102,7 @@ export function ConvergenceChart({ data, yLabel }: { data: { n: number; best: nu
         </defs>
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey="n" tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("experiments", "x")} />
-        <YAxis tick={tick} tickLine={false} axisLine={false} width={44} tickFormatter={fmtTick} label={axisTitle(yLabel, "y")} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={52} tickFormatter={fmtTick} label={axisTitle(yLabel, "y")} />
         <ChartTooltip cursor={{ stroke: GRID }} content={<ChartTooltipContent indicator="line" />} />
         <Area type="linear" dataKey="best" stroke={ACCENT} strokeWidth={2.5} fill="url(#cg)" dot={false} isAnimationActive={false} />
       </AreaChart>
@@ -121,10 +123,10 @@ export function ParetoChart({ all, pareto }: { all: { titer: number; purity: num
     <div>
     <div role="img" aria-label={label}>
     <ChartContainer config={config} className="aspect-auto h-[280px] w-full">
-      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
+      <ScatterChart margin={{ top: 8, right: 14, bottom: 16, left: 4 }}>
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey="titer" name="titer" tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={{ stroke: GRID }} label={axisTitle("titer (mg/L)", "x")} />
-        <YAxis type="number" dataKey="purity" name="purity" tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("purity (%)", "y")} />
+        <YAxis type="number" dataKey="purity" name="purity" tickFormatter={fmtTick} tick={tick} tickLine={false} axisLine={false} width={52} label={axisTitle("purity (%)", "y")} />
         <ChartTooltip cursor={{ strokeDasharray: "3 3", stroke: GRID }} content={<ChartTooltipContent indicator="dot" />} />
         <ChartLegend content={<ChartLegendContent />} />
         <Scatter name="all runs" data={all} fill={GRAY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />

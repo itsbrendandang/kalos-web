@@ -26,7 +26,7 @@ const LEGEND_ITEMS = [
  */
 function GrowthLegend() {
   return (
-    <ul className="mt-1.5 flex justify-end gap-4 text-caption" style={{ color: CHART_THEME.axis }}>
+    <ul className="mt-1.5 flex flex-wrap justify-end gap-x-4 gap-y-1 text-caption" style={{ color: CHART_THEME.axis }}>
       {LEGEND_ITEMS.map((it) => (
         <li key={it.label} className="flex items-center gap-1.5">
           <span className="inline-block h-0 w-[18px] border-t-2" style={{ borderColor: it.color, borderTopStyle: it.dash as "solid" | "dashed" }} />
@@ -51,7 +51,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
     <div>
     <div role="img" aria-label={label}>
     <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: -6 }}>
+      <LineChart data={data} margin={{ top: 8, right: 14, bottom: 16, left: 4 }}>
         <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />
         <XAxis
           dataKey="t"
@@ -64,7 +64,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
           axisLine={{ stroke: CHART_THEME.grid }}
           label={axisTitle("time", "x")}
         />
-        <YAxis tick={tick} tickLine={false} axisLine={false} width={44} label={axisTitle("OD", "y")} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={52} label={axisTitle("OD", "y")} />
         <Tooltip {...tip} />
         <Legend content={<GrowthLegend />} />
         <Line
@@ -100,7 +100,8 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
       </LineChart>
     </ResponsiveContainer>
     </div>
-    <table className="sr-only">
+    <div className="sr-only">
+    <table>
       <caption>{label}</caption>
       <thead>
         <tr>
@@ -121,6 +122,7 @@ export function GrowthCurve({ well, partner, base }: GrowthCurveProps) {
         ))}
       </tbody>
     </table>
+    </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ export function Proposals<T extends Row>({
   predFn: (r: T) => string;
 }) {
   return (
+    <div role="region" aria-label="Next proposed batch" tabIndex={0} className="w-full max-w-full overflow-x-auto outline-none focus-visible:outline-2 focus-visible:outline-ring">
     <Table className="min-w-[620px]">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
@@ -53,5 +54,6 @@ export function Proposals<T extends Row>({
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }

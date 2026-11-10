@@ -24,10 +24,7 @@ function NoLiveVessels() {
         icon={PlugZap}
         title="No live vessel data"
         description={
-          <>
-            No live vessel/kinetics source is connected yet. Set{" "}
-            <code className="font-mono">NEXT_PUBLIC_DEMO_MODE=true</code> to preview this workspace with demo data.
-          </>
+          "No vessel runs have been loaded yet. Upload your vessel data to see kinetics and correlations here, or turn on the example data to preview this page."
         }
       />
     </div>

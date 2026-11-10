@@ -388,7 +388,7 @@ function Batch({
           {plural(rows.length, "experiment")} proposed for round {round}.{" "}
           {verdict.state === "reliable"
             ? grouped.length
-              ? `The model ranks recipes reliably, but ${plural(new Set(grouped.flatMap((g) => g.ranks)).size, "proposal")} need a look before you start.`
+              ? `The model ranks recipes reliably, but ${proposalsNeedLook(new Set(grouped.flatMap((g) => g.ranks)).size)} before you start.`
               : "The model ranks recipes reliably and no proposal was flagged."
             : verdict.state === "not-yet"
               ? "The model does not yet rank recipes reliably, so treat these as exploratory."
@@ -500,7 +500,7 @@ function Batch({
             Proposed experiments
           </h2>
           <p className="max-w-[72ch] text-body text-fg-muted">
-            Model-generated proposals for {name}, sorted by predicted value. Untick any you will not run. Use Compare on {COMPARE_MIN} to {COMPARE_MAX} to see them side by side.
+            Model-generated proposals for {name}, sorted by predicted value. Untick any you will not run. To see them side by side, tick {COMPARE_MIN} to {COMPARE_MAX} and choose Compare.
           </p>
           <MarkLegend className="mt-1" />
           {band != null ? <p className="text-caption text-fg-muted">{bandLabel(d.conformal_coverage)}: {BAND_CAVEAT.charAt(0).toLowerCase() + BAND_CAVEAT.slice(1)}</p> : null}
@@ -624,6 +624,10 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
+function proposalsNeedLook(n: number): string {
+  return n === 1 ? "1 proposal needs a look" : `${plural(n, "proposal")} need a look`;
+}
+
 /** Which range each checked input is compared with: the engine's `feature_ranges`, or the values tried in the measured runs. */
 function edgeSources(inputs: string[], ranges: ReturnType<typeof observedRanges>): string {
   const engine = inputs.filter((k) => ranges[k]?.source === "engine");
@@ -632,7 +636,7 @@ function edgeSources(inputs: string[], ranges: ReturnType<typeof observedRanges>
     engine.length ? `the engine's range for ${engine.join(" and ")}` : null,
     observed.length ? `the values tried in the measured runs for ${observed.join(" and ")}` : null,
   ].filter(Boolean);
-  return `Edge-of-range checks use ${parts.join(", and ")}.`;
+  return `Edge-of-range checks use ${parts.join("; ")}.`;
 }
 
 function ProvenancePanel({ run }: { run: PlanAnalysis["run"] }) {

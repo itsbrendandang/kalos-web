@@ -99,7 +99,7 @@ export default function PlatePage() {
         />
 
         <TabsContent value="overview" className="mt-5 flex flex-col gap-3.5">
-          <div className="grid gap-3.5 lg:grid-cols-[1.62fr_1fr]">
+          <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.62fr)_minmax(0,1fr)]">
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-label text-fg">
@@ -128,7 +128,7 @@ export default function PlatePage() {
               />
             </Card>
 
-            <div className="flex flex-col gap-3.5">
+            <div className="flex min-w-0 flex-col gap-3.5">
               <Card>
                 <h2 className="mb-3 text-label text-fg">Well status</h2>
                 <WellStatusLegend />

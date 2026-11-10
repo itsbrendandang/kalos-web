@@ -1,4 +1,7 @@
+"use client";
+
 import { seqColor } from "@/components/dashboard/heat-scale";
+import { useIsDark } from "@/components/dashboard/use-dark";
 
 const BANDS = [
   { t: 0.92, label: "High" },
@@ -9,13 +12,14 @@ const BANDS = [
 
 /** Reads the blue heatmap ramp + well marks (control, flag) for the side panel. */
 export function WellStatusLegend() {
+  const dark = useIsDark();
   return (
     <div>
       {BANDS.map((b) => (
         <div key={b.label} className="flex items-center gap-2.5 py-1 text-caption">
           <span
             className="size-4 shrink-0 rounded border border-border"
-            style={{ background: seqColor(b.t, 0, 1) }}
+            style={{ background: seqColor(b.t, 0, 1, dark) }}
           />
           {b.label}
         </div>

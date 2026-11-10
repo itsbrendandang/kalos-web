@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment } from "react";
-import { seqColor, seqInk, SEQ_GRADIENT_CSS } from "@/components/dashboard/heat-scale";
+import { seqColor, seqInk, seqGradient } from "@/components/dashboard/heat-scale";
+import { useIsDark } from "@/components/dashboard/use-dark";
 import { STATUS_LABEL } from "@/components/plate/status-chip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -27,9 +28,10 @@ export function PlateHeatmap({
   showFlags,
   showValues,
 }: PlateHeatmapProps) {
+  const dark = useIsDark();
   return (
     <div>
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: "28px repeat(12, minmax(0, 1fr))" }}>
+      <div className="grid gap-1 sm:gap-1.5" style={{ gridTemplateColumns: "20px repeat(12, minmax(0, 1fr))" }}>
         <div />
         {COLS.map((c) => (
           <div key={c} className="text-center font-mono text-caption font-semibold text-fg-muted">
@@ -59,7 +61,7 @@ export function PlateHeatmap({
                 );
               }
               // Mark and value text pick white or ink by contrast against this well's fill.
-              const ink = seqInk(w.metrics.deltaOD, deltaMin, deltaMax);
+              const ink = seqInk(w.metrics.deltaOD, deltaMin, deltaMax, dark);
               const markColor = ink;
               const valueColor = ink;
               const selected = selectedWellId === id;
@@ -90,7 +92,7 @@ export function PlateHeatmap({
                           "relative aspect-square rounded-[6px] outline-none transition-[filter] hover:brightness-110 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                           selected ? "ring-2 ring-fg ring-offset-1 ring-offset-card" : "ring-1 ring-border-strong",
                         )}
-                        style={{ background: seqColor(w.metrics.deltaOD, deltaMin, deltaMax) }}
+                        style={{ background: seqColor(w.metrics.deltaOD, deltaMin, deltaMax, dark) }}
                       />
                     }
                   >
@@ -141,7 +143,7 @@ export function PlateHeatmap({
 
       <div className="mt-2.5 flex items-center gap-2.5 text-caption text-fg-muted">
         <span>Δ OD (max − t₀) · low</span>
-        <span className="h-2.5 flex-1 rounded-full border border-border" style={{ background: SEQ_GRADIENT_CSS }} />
+        <span className="h-2.5 flex-1 rounded-full border border-border" style={{ background: seqGradient(dark) }} />
         <span>
           high ({deltaMin.toFixed(2)} → {deltaMax.toFixed(2)} ΔOD)
         </span>

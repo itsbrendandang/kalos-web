@@ -23,6 +23,8 @@ export type EngineResource<T> = {
   refresh: () => Promise<void>;
   /** Replace `data` with a response a write already returned (e.g. `reanalyze()`), without refetching. */
   set: (next: T) => void;
+  /** Apply an acknowledged write to the last good snapshot before refreshing it. */
+  update: (change: (current: T | null) => T | null) => void;
 };
 
 function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
@@ -65,8 +67,14 @@ function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
     setRefreshing(false); // a refresh this supersedes no longer clears it itself
   }, []);
 
+  const update = useCallback((change: (current: T | null) => T | null) => {
+    ticket.current++;
+    setState((s) => ({ ...s, data: change(s.data) }));
+    setRefreshing(false);
+  }, []);
+
   const status = state.data != null ? "data" : state.error ? "error" : "loading";
-  return { ...state, status, refreshing, refresh, set };
+  return { ...state, status, refreshing, refresh, set, update };
 }
 
 /**
@@ -134,7 +142,7 @@ export function useLastRejection(): LastRejection {
 export function useEngineWrites() {
   const { latest, campaign, setRejection } = useEngineData();
   const { refresh: refreshLatest } = latest;
-  const { refresh: refreshCampaign, set: setCampaign } = campaign;
+  const { refresh: refreshCampaign, set: setCampaign, update: updateCampaign } = campaign;
 
   const runFile = useCallback(
     async (file: File, target?: string, roles?: api.ColumnRolesInput, sheet?: string, opts?: { replace?: boolean }) => {
@@ -158,9 +166,20 @@ export function useEngineWrites() {
   const logResult = useCallback(
     async (id: string, value: number) => {
       await api.logResult(id, value);
+      updateCampaign((current) => {
+        if (!current?.has_campaign) return current;
+        const pending = current.pending.map((r) => r.id === id ? { ...r, result: value, awaiting: false } : r);
+        return {
+          ...current,
+          pending,
+          n_awaiting: pending.filter((r) => r.awaiting).length,
+          n_measured: pending.filter((r) => !r.awaiting).length,
+          analysis_in_sync: false,
+        };
+      });
       await refreshCampaign();
     },
-    [refreshCampaign],
+    [refreshCampaign, updateCampaign],
   );
   const reanalyze = useCallback(async () => {
     const out = await api.reanalyze();

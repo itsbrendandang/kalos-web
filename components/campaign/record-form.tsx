@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Callout } from "@/components/kit/callout";
 import { PageHeader } from "@/components/kit/page-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ErrorState } from "@/components/ui/honest-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useEngineWrites } from "@/hooks/use-engine";
+import { useCampaign, useEngineWrites } from "@/hooks/use-engine";
 import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
@@ -36,30 +37,38 @@ export function RecordForm({
   drivers: readonly string[];
 }) {
   const { logResult } = useEngineWrites();
+  const campaign = useCampaign();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Row[] | null>(null);
 
   const ordered = [...runs].sort((a, b) => Number(b.awaiting) - Number(a.awaiting));
   const changed = changedRows(runs, drafts);
   const logged = runs.filter((r) => !r.awaiting).length;
+  const blocked = saving || campaign.error || campaign.refreshing;
   const shownValue = (r: CampaignRun) => drafts[r.id] ?? (r.result == null ? "" : String(r.result));
   const flagged = (rows: Row[]) => rows.filter((r) => sanityReason(r.value, best) != null);
 
   async function save(rows: Row[]) {
+    if (savingRef.current || campaign.error || campaign.refreshing) return;
+    savingRef.current = true;
     setConfirm(null);
     setSaving(true);
     setError(null);
+    let savedCount = 0;
     for (const { id, value } of rows) {
       try {
         await logResult(id, value);
+        savedCount++;
         setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
       } catch (e) {
-        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "the engine did not respond"}. Earlier rows were saved.`);
+        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "the engine did not respond"}.${savedCount > 0 ? " Earlier rows were saved." : " No results were saved."}`);
         break;
       }
     }
+    savingRef.current = false;
     setSaving(false);
   }
 
@@ -72,17 +81,25 @@ export function RecordForm({
         title="Record results"
         description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
       action={
-          <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
+          <Button type="submit" form="record-form" disabled={changed.length === 0 || blocked}>
             {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
           </Button>
         }
       />
-      {error ? <Callout tone="bad" title="Not everything was saved">{error}</Callout> : null}
+      {campaign.error ? (
+        <ErrorState
+          title="Results need a refresh"
+          description={<>{error ? <p>{error}</p> : null}<p>The latest results could not be loaded. Confirmed saves are shown below, and your other entries are kept. Refresh before saving more results.</p></>}
+          onRetry={() => void campaign.refresh()}
+          retryLabel="Refresh results"
+          busy={campaign.refreshing || saving}
+        />
+      ) : error ? <Callout tone="bad" title="Not everything was saved">{error}</Callout> : null}
       <form
         id="record-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (changed.length > 0 && !saving) submit();
+          if (changed.length > 0 && !blocked) submit();
         }}
       >
         <Table>
@@ -129,7 +146,7 @@ export function RecordForm({
           </TableBody>
         </Table>
       </form>
-      {logged > 0 ? (
+      {logged > 0 && !campaign.error ? (
         <Link href="/campaign/learn" className={buttonVariants({ variant: "outline", className: "self-start" })}>
           Learn from round {displayRound(round)}
         </Link>
@@ -152,7 +169,7 @@ export function RecordForm({
             <Button variant="outline" onClick={() => setConfirm(null)}>
               Review values
             </Button>
-            <Button onClick={() => confirm && void save(confirm)}>Save as entered</Button>
+            <Button disabled={blocked} onClick={() => confirm && void save(confirm)}>Save as entered</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,8 +1,23 @@
 name: ci
-on: [push, pull_request]
+# One run per change: pushes to main, plus PRs. Without the branch filter every
+# PR push ran CI twice (push + pull_request). Draft PRs and docs-only changes
+# skip CI; marking a PR ready for review runs it.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "LICENSE"]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: ["**.md", "docs/**", "LICENSE"]
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   test:
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       # Node 22.16.0 pinned to match the local dev environment: Next 16.2.9

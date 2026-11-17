@@ -64,7 +64,7 @@ export function RecordForm({
         savedCount++;
         setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
       } catch (e) {
-        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "the engine did not respond"}.${savedCount > 0 ? " Earlier rows were saved." : " No results were saved."}`);
+        setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "the engine did not respond"}.${savedCount > 0 ? " Earlier rows were saved." : ""} Your unsaved entries are kept.`);
         break;
       }
     }

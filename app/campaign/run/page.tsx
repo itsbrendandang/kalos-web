@@ -28,7 +28,7 @@ export default function RunPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow={active ? `Round ${displayRound(active.round)}` : undefined}
+        eyebrow={active ? `3 · Run experiments · Round ${displayRound(active.round)}` : "3 · Run experiments"}
         title="Runs in flight"
         meta={demo ? <ExampleBadge /> : null}
         description={

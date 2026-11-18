@@ -128,8 +128,8 @@ describe("routes", () => {
   });
 
   it("builds a section > page breadcrumb", () => {
-    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Campaign", "Plan"]);
-    expect(breadcrumbFor("/library").map((r) => r.label)).toEqual(["Library"]);
+    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Workspace", "Plan"]);
+    expect(breadcrumbFor("/library").map((r) => r.label)).toEqual(["Bioprocess tools"]);
     expect(breadcrumbFor("/projects").map((r) => r.label)).toEqual(["Projects"]);
   });
 
@@ -137,7 +137,7 @@ describe("routes", () => {
     expect(titleFor("/")).toBe("Overview");
     expect(titleFor("/campaign/learn")).toBe("Learn");
     expect(titleFor("/library/scale-up")).toBe("Scale-up readout");
-    expect(titleFor("/data")).toBe("Data");
+    expect(titleFor("/data")).toBe("Research data");
     expect(titleFor("/projects/p-cho/report")).toBe("Report");
   });
 });

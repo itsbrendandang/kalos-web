@@ -19,27 +19,23 @@
 
   /* Neutrals: warm paper, ink text. */
   --bg: oklch(0.98 0.005 90);
-  --surface: oklch(1 0 0);
-  --subtle: oklch(0.96 0.007 100);
-  --border: oklch(0.91 0.005 90);
+  --surface: oklch(0.993 0.003 90);
+  --subtle: oklch(0.95 0.008 90);
+  --border: oklch(0.89 0.012 90);
   --border-strong: oklch(0.84 0.006 90);
   /* Control boundaries (input, select, checkbox): 3:1 on --surface (WCAG 1.4.11). */
   --border-input: oklch(0.6 0.008 90);
-  --fg: oklch(0.22 0.01 270);
-  --fg-muted: oklch(0.46 0.01 270);
+  --fg: oklch(0.26 0.008 90);
+  --fg-muted: oklch(0.46 0.01 90);
 
-  /* Evergreen accent: the primary action, links, focus, the model's proposal. */
-  --accent: oklch(0.43 0.075 175);
-  --accent-hover: oklch(0.38 0.065 175);
-  --accent-soft: oklch(0.95 0.018 170);
-  --accent-fg: oklch(1 0 0);
+  /* Charcoal actions; a restrained citron fill marks the current place. */
+  --accent: oklch(0.26 0.008 90);
+  --accent-hover: oklch(0.2 0.008 90);
+  --accent-soft: oklch(0.93 0.012 90);
+  --accent-fg: oklch(0.993 0.003 90);
   --ring: var(--accent);
-
-  /* Persistent navigation: a quiet, evergreen anchor in either theme. */
-  --rail: oklch(0.25 0.028 175);
-  --rail-fg: oklch(0.96 0.008 160);
-  --rail-muted: oklch(0.78 0.02 165);
-  --rail-active: oklch(0.36 0.035 175);
+  --brand: oklch(0.92 0.115 110);
+  --brand-fg: var(--fg);
 
   /* Status: state only, never a chart series, always paired with a word or icon. */
   --good: oklch(0.5 0.12 150);
@@ -60,12 +56,12 @@
   --chart-4: oklch(0.6 0.17 42);
   --chart-5: oklch(0.6 0.11 235);
   --chart-6: oklch(0.58 0.14 345);
-  --chart-seq-1: oklch(0.93 0.02 175);
-  --chart-seq-2: oklch(0.81 0.04 175);
-  --chart-seq-3: oklch(0.66 0.07 175);
-  --chart-seq-4: oklch(0.51 0.085 175);
-  --chart-seq-5: oklch(0.36 0.06 175);
-  --chart-band: oklch(0.43 0.075 175 / 0.14);
+  --chart-seq-1: oklch(0.93 0.015 110);
+  --chart-seq-2: oklch(0.81 0.025 110);
+  --chart-seq-3: oklch(0.66 0.035 110);
+  --chart-seq-4: oklch(0.51 0.04 110);
+  --chart-seq-5: oklch(0.36 0.03 110);
+  --chart-band: oklch(0.26 0.008 90 / 0.12);
   --chart-reference: var(--fg-muted);
   --chart-predicted: var(--accent);
   --chart-measured: var(--fg);
@@ -75,20 +71,21 @@
 .dark {
   color-scheme: dark;
 
-  --bg: oklch(0.17 0.006 270);
-  --surface: oklch(0.2 0.006 270);
-  --subtle: oklch(0.235 0.007 270);
-  --border: oklch(0.3 0.008 270);
-  --border-strong: oklch(0.38 0.01 270);
-  --border-input: oklch(0.56 0.01 270);
+  --bg: oklch(0.24 0.008 90);
+  --surface: oklch(0.27 0.008 90);
+  --subtle: oklch(0.3 0.01 90);
+  --border: oklch(0.38 0.01 90);
+  --border-strong: oklch(0.46 0.01 90);
+  --border-input: oklch(0.62 0.01 90);
   --fg: oklch(0.95 0.005 90);
-  --fg-muted: oklch(0.72 0.01 270);
+  --fg-muted: oklch(0.76 0.01 90);
 
   /* A light accent fill on a dark page, so the label on it is dark ink. */
-  --accent: oklch(0.76 0.09 170);
-  --accent-hover: oklch(0.82 0.075 170);
-  --accent-soft: oklch(0.28 0.025 175);
-  --accent-fg: oklch(0.17 0.02 175);
+  --accent: oklch(0.92 0.014 90);
+  --accent-hover: oklch(0.98 0.01 90);
+  --accent-soft: oklch(0.32 0.012 90);
+  --accent-fg: oklch(0.2 0.008 90);
+  --brand: oklch(0.38 0.055 110);
 
   --good: oklch(0.76 0.13 150);
   --good-soft: oklch(0.28 0.05 150);
@@ -103,12 +100,12 @@
   --chart-4: oklch(0.7 0.15 42);
   --chart-5: oklch(0.8 0.1 235);
   --chart-6: oklch(0.75 0.12 345);
-  --chart-seq-1: oklch(0.3 0.025 175);
-  --chart-seq-2: oklch(0.42 0.04 175);
-  --chart-seq-3: oklch(0.56 0.06 175);
-  --chart-seq-4: oklch(0.7 0.075 175);
-  --chart-seq-5: oklch(0.86 0.045 175);
-  --chart-band: oklch(0.76 0.09 170 / 0.2);
+  --chart-seq-1: oklch(0.32 0.015 110);
+  --chart-seq-2: oklch(0.46 0.025 110);
+  --chart-seq-3: oklch(0.6 0.035 110);
+  --chart-seq-4: oklch(0.74 0.04 110);
+  --chart-seq-5: oklch(0.88 0.035 110);
+  --chart-band: oklch(0.92 0.014 90 / 0.15);
 }
 
 /*
@@ -165,10 +162,8 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-fg: var(--accent-fg);
   --color-ring: var(--ring);
-  --color-rail: var(--rail);
-  --color-rail-fg: var(--rail-fg);
-  --color-rail-muted: var(--rail-muted);
-  --color-rail-active: var(--rail-active);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
   --color-warn: var(--warn);

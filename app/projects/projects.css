@@ -1,7 +1,7 @@
 /*
  * Projects surface - scoped rules on top of the shared design system.
  *
- * The Projects screens use the same blue token set as the rest of kalos-web
+ * The Projects screens use the same warm neutral token set as kalos-web
  * (defined once in app/globals.css). This file only aliases those shared
  * tokens to the short "--v-*" / "--b5" style names the ported prototype
  * markup expects, and layers the Projects-specific component classes (cards,
@@ -37,8 +37,8 @@
      near-black on a near-black page; these clear 4.5:1 on every surface they
      land on in both modes (dark values in the .dark block below). Muted text
      uses these, never a raw low-opacity ink. */
-  --v-muted: #5b6470;
-  --v-faint: #6b7280;
+  --v-muted: var(--fg-muted);
+  --v-faint: var(--fg-muted);
 
   /* Aliases used by the ported prototype rules below */
   --ink: var(--v-ink);
@@ -90,12 +90,12 @@
   --v-done-badge-bg: var(--green);
   --v-done-badge-ink: #ffffff;
   /* Neutral chip fill (customer project count, idle pipeline badge). */
-  --v-chip-bg: #f0f0f0;
+  --v-chip-bg: var(--subtle);
 
   background: var(--v-bg);
   color: var(--v-ink);
   font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -111,7 +111,7 @@
      --v-faint keeps --muted's hue one step dimmer: 5.7-6.4:1 where it renders
      (bg, card), and still >= 4.6:1 on --blue-tint. */
   --v-muted: var(--muted);
-  --v-faint: oklch(0.66 0.013 286.067);
+  --v-faint: var(--fg-muted);
 
   /* Rows and banners sit on the neutral card with page ink (16.98:1, muted
      6.91:1); status color stays in the marks. Accents on --card: --green
@@ -154,15 +154,17 @@
 
 /* ---- Home: eyebrow / title / buttons / cards ---- */
 .v-eyebrow {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--v-faint);
 }
 .v-title {
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  font-weight: 600;
   letter-spacing: -0.4px;
   color: var(--v-ink);
 }
@@ -171,7 +173,8 @@
   align-items: center;
   gap: 5px;
   font-weight: 500;
-  border-radius: 7px;
+  min-height: 36px;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -183,8 +186,8 @@
   background: var(--v-blue);
   color: var(--primary-foreground);
   border: none;
-  font-size: 12px;
-  padding: 7px 13px;
+  font-size: 13px;
+  padding: 9px 14px;
 }
 .v-btn-primary:hover {
   background: var(--v-blue-7);
@@ -208,13 +211,13 @@
   border-radius: 20px;
 }
 .v-card {
-  border: 0.5px solid var(--v-border);
-  border-radius: 10px;
-  padding: 13px;
+  border: 1px solid var(--v-border);
+  border-radius: 12px;
+  padding: 20px;
   cursor: pointer;
   transition: border-color 0.15s ease;
   text-align: left;
-  background: transparent;
+  background: var(--v-surface);
   width: 100%;
 }
 .v-card:hover {
@@ -245,29 +248,29 @@
   color: var(--v-muted);
 }
 .v-card-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--v-ink);
   line-height: 1.3;
 }
 .v-card-obj {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--v-muted);
   line-height: 1.4;
 }
 .v-card-ft {
-  padding-top: 8px;
+  padding-top: 12px;
   border-top: 0.5px solid var(--v-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--v-muted);
 }
 .v-add-card {
   border: 1.5px dashed var(--v-border);
-  border-radius: 10px;
-  padding: 13px;
+  border-radius: 12px;
+  padding: 20px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -314,29 +317,32 @@
 }
 .projects-root .hdr2 {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 .projects-root .ph-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
 }
 .projects-root .phtab {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
-  padding: 5px 10px;
-  border-radius: 20px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
   border: 0.5px solid var(--p2);
   color: var(--v-muted);
   background: transparent;
 }
 .projects-root .phtab.on {
-  background: var(--b5);
-  color: var(--primary-foreground);
-  border-color: var(--b5);
+  background: var(--brand);
+  color: var(--brand-fg);
+  border-color: var(--border-input);
 }
 .projects-root .two {
   display: grid;
@@ -368,10 +374,11 @@
   border: 0.5px solid var(--p2);
   background: transparent;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 5px 11px;
-  border-radius: 7px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
 }
 .projects-root .gbtn:hover {

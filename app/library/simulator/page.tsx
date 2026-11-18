@@ -73,7 +73,7 @@ export default function Simulate() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="In-silico"
+        eyebrow="Predict and design"
         title="In-silico optimizer"
         desc="Watch the Bayesian optimizer search a benchmark surface with a known answer, single- and multi-objective."
         action={

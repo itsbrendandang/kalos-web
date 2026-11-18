@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { CampaignJourney } from "@/components/campaign/campaign-journey";
+import { ToolFinder } from "@/components/workbench/tool-finder";
+import { ProcessGuide } from "@/components/workbench/process-guide";
+import { OutcomeDistribution } from "@/components/campaign/science-charts";
+import { finitePairs } from "@/lib/science-viz";
 import { ChartFrame } from "@/components/kit/chart-frame";
 import { KpiCard } from "@/components/kit/kpi-card";
 import { NextCard } from "@/components/kit/next-card";
@@ -23,15 +27,20 @@ import { campaignView, type ActiveCampaign } from "@/lib/workbench";
 import { lazyChart } from "@/components/kit/lazy-chart";
 
 /**
- * Campaign Overview, the pinned first tab: where the round is, the one next
+ * A tool-first workspace, followed by the live campaign: the round, the next
  * step, four headline numbers, the best-so-far trend and the top drivers.
  * Everything comes from /api/latest and /api/campaign; demo data appears only
  * when the engine confirms there is no campaign and demo mode is on, labelled.
  */
 const BarChart = lazyChart(() => import("@/components/tremor/bar-chart").then((m) => m.BarChart));
 const LineChart = lazyChart(() => import("@/components/tremor/line-chart").then((m) => m.LineChart));
+const PredVsMeasured = lazyChart(() => import("@/components/campaign/pred-vs-measured").then((m) => m.PredVsMeasured));
 
 export default function OverviewPage() {
+  return <div className="flex flex-col gap-7"><ToolFinder /><ProcessGuide pathname="/" /><CampaignOverview /></div>;
+}
+
+function CampaignOverview() {
   const latest = useLatest();
   const campaign = useCampaign();
   const view = campaignView(campaign.data, campaign.error, DEMO_MODE, DEMO_CAMPAIGN);
@@ -39,7 +48,7 @@ export default function OverviewPage() {
   if (view.state === "error" || latest.status === "error") {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Campaign overview" />
+        <PageHeader headingLevel={2} title="Campaign overview" />
         <ErrorState
           title="Could not reach the analysis service"
           description="The campaign could not be loaded because the engine did not answer. This is a connection problem, not an empty campaign."
@@ -63,7 +72,7 @@ export default function OverviewPage() {
   if (!target) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Start a campaign" description="Upload the runs you already have. Kalos fits a model to them and proposes the first batch to try." />
+        <PageHeader headingLevel={2} title="Start a campaign" description="Upload the runs you already have. Kalos fits a model to them and proposes the first batch to try." />
         <CampaignJourney stage={stage} />
         <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
       </div>
@@ -71,10 +80,13 @@ export default function OverviewPage() {
   }
 
   const unit = parseUnit(target);
+  const heldOut = finitePairs(analysis?.oof ?? []);
   return (
     <div className="flex flex-col gap-7">
+      <section aria-label="Current campaign" className="flex flex-col gap-6 border-t border-border pt-7">
       <PageHeader
-        eyebrow="Optimization workspace"
+        headingLevel={2}
+        eyebrow="Your campaign"
         title="Campaign overview"
         meta={demo ? <ExampleBadge /> : null}
         description={
@@ -102,6 +114,18 @@ export default function OverviewPage() {
           <DriversChart analysis={analysis} target={target} />
         </div>
       </div>
+      <div>
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-heading text-fg">Understand the model, not just the best result</h2><Link href="/campaign/learn" className="text-caption text-fg-muted underline underline-offset-4">Open full diagnostics</Link></div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <ChartFrame title="Prediction versus measurement" n={heldOut.length} unit={unit || undefined} method="The engine's held-out pairs. Each dot compares a measured outcome with a prediction made without that run. The dashed line is perfect agreement." state={heldOut.length > 1 ? "ready" : "insufficient"} insufficientText="At least two held-out pairs are needed. No predicted points are invented.">
+            <PredVsMeasured oof={heldOut} targetName={target} unit={unit} />
+            <p className="mt-2 text-caption text-fg-muted">Held-out predictions, not in-sample fit. Closer to the diagonal means closer agreement.</p>
+            <details className="mt-3 text-caption text-fg-muted"><summary className="cursor-pointer">View held-out pairs</summary><table className="mt-2 w-full text-left"><thead><tr><th>Pair</th><th>Measured</th><th>Predicted</th></tr></thead><tbody>{heldOut.map(([measured,predicted],i)=><tr key={i}><td>{i+1}</td><td>{formatNumber(measured)}</td><td>{formatNumber(predicted)}</td></tr>)}</tbody></table></details>
+          </ChartFrame>
+          <OutcomeDistribution oof={heldOut} target={target} unit={unit} />
+        </div>
+      </div>
+      </section>
     </div>
   );
 }

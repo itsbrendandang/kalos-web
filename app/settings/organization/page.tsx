@@ -32,7 +32,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
 
   return (
     <div className="flex max-w-2xl flex-col gap-10">
-      <PageHeader title="Members" description="Kalos is invite-only. Invitations are links you send yourself; no email is sent." />
+      <PageHeader eyebrow="Workspace settings" title="Members" description="Kalos is invite-only. Invitations are links you send yourself; no email is sent." />
       {err ? <Callout tone="bad" title={err} /> : null}
       {invited ? (
         <Callout tone="good" title={`Invitation created for ${invited.email}`}>

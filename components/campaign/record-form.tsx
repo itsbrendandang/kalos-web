@@ -68,7 +68,7 @@ export function RecordForm({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow={`Round ${displayRound(round)}`}
+        eyebrow={`4 · Record measurements · Round ${displayRound(round)}`}
         title="Record results"
         description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
       action={

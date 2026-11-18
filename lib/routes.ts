@@ -10,9 +10,9 @@ export type RouteItem = { href: string; label: string; description: string };
 
 /** The activity rail's sections, in order; Settings is pinned at the rail's foot. */
 export const NAV_ITEMS = [
-  { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
-  { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
-  { key: "library", href: "/library", label: "Library", description: "Standalone tools: vessels, plates, scale-up, simulator." },
+  { key: "campaign", href: "/", label: "Workspace", description: "Find a bioprocess tool and continue your experiment cycle." },
+  { key: "data", href: "/data", label: "Research data", description: "Datasets, measured runs, and their outputs." },
+  { key: "library", href: "/library", label: "Bioprocess tools", description: "Analyze measurements, predict at scale, or explore optimization." },
   { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
   { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
 ] as const satisfies readonly (RouteItem & { key: string })[];
@@ -35,8 +35,13 @@ export const LIBRARY_ITEMS: readonly RouteItem[] = [
   { href: "/library/plate", label: "Plate analysis", description: "96-well plate QC and growth curves." },
   { href: "/library/scale-up", label: "Scale-up readout", description: "Predict a recipe at a larger scale from your data." },
   { href: "/library/simulator", label: "Simulator", description: "A synthetic optimization benchmark to try the method." },
-  { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
 ];
+
+/** Organize tools by the scientist's task, not by the implementation. */
+export const LIBRARY_GROUPS = [
+  { label: "Analyze measurements", description: "Inspect growth, quality, and variation in your experimental results.", hrefs: ["/library/plate", "/library/vessels"] },
+  { label: "Predict and design", description: "Explore a change of scale or study how the optimizer searches.", hrefs: ["/library/scale-up", "/library/simulator"] },
+] as const;
 
 const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
 

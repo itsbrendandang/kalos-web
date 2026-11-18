@@ -63,7 +63,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className={st.status === "ok" ? "flex max-w-2xl flex-col gap-10" : "mx-auto flex max-w-2xl flex-col gap-10 px-6 py-10"}>
-      <PageHeader title="Security" description={`Signed in with Google as ${st.email ?? "you"}.`} />
+      <PageHeader eyebrow="Workspace settings" title="Security" description={`Signed in with Google as ${st.email ?? "you"}.`} />
       {sp.revoked ? <Callout tone="good" title={sp.revoked === "others" ? "Signed out of all other sessions." : "Session signed out."} /> : null}
 
       <Section title="Two-step sign-in" description="An authenticator app code is required after every Google sign-in.">

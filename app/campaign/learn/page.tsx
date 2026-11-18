@@ -9,6 +9,8 @@ import { DriversList } from "@/components/campaign/drivers-list";
 import { bandCalibration, calibrationSentence, canPlanNext, promotionLine } from "@/components/campaign/learn";
 import { targetName } from "@/components/campaign/target";
 import { ChartFrame } from "@/components/kit/chart-frame";
+import { CalibrationChart, OutcomeDistribution } from "@/components/campaign/science-charts";
+import { finitePairs } from "@/lib/science-viz";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Metric } from "@/components/kit/metric";
@@ -45,7 +47,7 @@ export default function LearnPage() {
   const [failed, setFailed] = useState(false);
 
   const header = (action?: React.ReactNode, title = "Learn") => (
-    <PageHeader title={title} description="What the results taught the model, and whether to trust it." action={action} />
+    <PageHeader eyebrow="5 · Review and learn" title={title} description="What the results taught the model, and whether to trust it." action={action} />
   );
 
   if (latest.status === "error" || campaign.status === "error") {
@@ -89,6 +91,7 @@ export default function LearnPage() {
   }
 
   const d: PopulatedResult = latest.data;
+  const heldOut = finitePairs(d.oof ?? []);
   const c: ActiveCampaign = campaign.data;
   const round = campaignStage(d, c).round ?? 1;
   const runs = measured(c);
@@ -196,16 +199,20 @@ export default function LearnPage() {
         {drivers.length ? <DriversList drivers={drivers} targetName={name} /> : <p className="text-body text-fg-muted">This analysis reported no drivers.</p>}
       </Section>
 
+      <Section title="Outcome distribution and interval calibration" description="Separate what was measured from how well the model expresses uncertainty.">
+        <div className="grid gap-4 xl:grid-cols-2"><OutcomeDistribution oof={heldOut} target={name} unit={unit} /><CalibrationChart calibration={d.reliability?.calibration} /></div>
+      </Section>
+
       <Section title="Predicted against measured">
         <ChartFrame
           title="Held-out predictions"
           unit={unit || undefined}
-          n={d.oof.length}
+          n={heldOut.length}
           method="Each dot is a run the model did not see when it predicted it. Dots on the dashed line were predicted exactly."
-          state={d.oof.length ? "ready" : "empty"}
+          state={heldOut.length > 1 ? "ready" : "empty"}
           emptyText="Not enough held-out runs to compare yet."
         >
-          <PredVsMeasured oof={d.oof} targetName={name} unit={unit} />
+          <PredVsMeasured oof={heldOut} targetName={name} unit={unit} />
         </ChartFrame>
       </Section>
 

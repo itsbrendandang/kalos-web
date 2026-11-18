@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Pencil, Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { Customer, Project, ProjectStatus } from "@/app/projects/data";
 import { useProjectsStore } from "./store-context";
 
@@ -347,5 +347,3 @@ export function ProjectsModal({ state, onClose }: { state: ModalState; onClose: 
   if (state.kind === "add-project") return <AddProjectModal customerName={state.customerName} onClose={onClose} />;
   return <EditProjectModal project={state.project} onClose={onClose} />;
 }
-
-export { Pencil, Plus };

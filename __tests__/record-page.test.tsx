@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RecordPage from "@/app/campaign/record/page";
 import { EngineDataProvider, useCampaign } from "@/hooks/use-engine";
 import type { Campaign, CampaignRun } from "@/lib/api";
+import { trimCorrectionReason } from "@/components/campaign/stage-logic";
 
 const run = (id: string): CampaignRun => ({
   id, recipe: { pH: 7 }, pred: 4, std: 0.2, mode: "exploit", reason: "", result: null, awaiting: true,
@@ -12,7 +13,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 let campaign: Extract<Campaign, { has_campaign: true }>;
 let refreshFails: boolean;
 let writeFails: string | null;
-let posts: { id: string; value: number }[];
+let posts: { id: string; value: number; reason?: string }[];
 let holdWrite: Promise<void> | null;
 
 beforeEach(() => {
@@ -33,6 +34,9 @@ beforeEach(() => {
       posts.push(entry);
       if (holdWrite) await holdWrite;
       if (entry.id === writeFails) return json({ error: "Please try again" }, 503);
+      if (campaign.pending.some((r) => r.id === entry.id && r.result != null) && !trimCorrectionReason(entry.reason ?? "")) {
+        return json({ error: "a correction to a recorded result needs a reason", code: "reason_required" }, 400);
+      }
       const pending = campaign.pending.map((r) => r.id === entry.id ? { ...r, result: entry.value, awaiting: false } : r);
       campaign = {
         ...campaign, pending,
@@ -62,7 +66,14 @@ async function renderRecord() {
 }
 
 const input = (id: string) => screen.getByRole("textbox", { name: `Measured result for run ${id}` }) as HTMLInputElement;
+const reason = (id: string) => screen.getByRole("textbox", { name: `Reason for correction for run ${id}` }) as HTMLInputElement;
 const save = () => screen.getByRole("button", { name: /^Save .*result/ }) as HTMLButtonElement;
+
+function seedSaved(id: string, value = 3.5) {
+  campaign.pending = campaign.pending.map((r) => r.id === id ? { ...r, result: value, awaiting: false } : r);
+  campaign.n_awaiting--;
+  campaign.n_measured++;
+}
 
 describe("Record save recovery", () => {
   it("keeps acknowledged values visible when the read after a save fails", async () => {
@@ -135,11 +146,13 @@ describe("Record save recovery", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Refresh results" })).toBeNull());
     refreshFails = true;
     fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(reason("first"), { target: { value: "Corrected transcription" } });
     fireEvent.click(save());
     await waitFor(() => expect(input("first").disabled).toBe(false));
     expect(input("first").value).toBe("3.6");
     expect(screen.getByText("2 measured, 0 awaiting, analysis outdated")).toBeTruthy();
     expect(posts).toHaveLength(3);
+    expect(posts[2]).toEqual({ id: "first", value: 3.6, reason: "Corrected transcription" });
   });
 
   it("sends one write when the form is submitted twice before React renders", async () => {
@@ -155,5 +168,227 @@ describe("Record save recovery", () => {
     await act(async () => release());
     await waitFor(() => expect(save().disabled).toBe(true));
     expect(input("first").value).toBe("3.5");
+  });
+});
+
+describe("Record corrections", () => {
+  it("refreshes a concurrently recorded value and keeps all drafts for a reasoned retry", async () => {
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(input("second"), { target: { value: "4.2" } });
+    seedSaved("first");
+    fireEvent.click(save());
+
+    await screen.findByText(/a correction to a recorded result needs a reason/);
+    expect(input("first").value).toBe("3.6");
+    expect(input("second").value).toBe("4.2");
+    expect(reason("first").value).toBe("");
+    expect(screen.getByText(/Saved value: 3.5/)).toBeTruthy();
+    expect(save().disabled).toBe(true);
+    expect(posts).toEqual([{ id: "first", value: 3.6 }]);
+
+    fireEvent.change(reason("first"), { target: { value: "Corrected the shared reading" } });
+    fireEvent.click(save());
+    await screen.findByText("2 measured, 0 awaiting, analysis outdated");
+    expect(posts).toEqual([
+      { id: "first", value: 3.6 },
+      { id: "first", value: 3.6, reason: "Corrected the shared reading" },
+      { id: "second", value: 4.2 },
+    ]);
+  });
+
+  it("blocks a stale correction if its recovery refresh fails and keeps the draft for refresh", async () => {
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    seedSaved("first");
+    refreshFails = true;
+    fireEvent.click(save());
+    await screen.findByRole("button", { name: "Refresh results" });
+    expect(input("first").value).toBe("3.6");
+    expect(save().disabled).toBe(true);
+    expect(posts).toHaveLength(1);
+
+    refreshFails = false;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh results" }));
+    await screen.findByRole("textbox", { name: "Reason for correction for run first" });
+    expect(input("first").value).toBe("3.6");
+    expect(save().disabled).toBe(true);
+    fireEvent.change(reason("first"), { target: { value: "Corrected the shared reading" } });
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]).toEqual({ id: "first", value: 3.6, reason: "Corrected the shared reading" });
+  });
+
+  it("accepts 256 supplementary Unicode characters without a UTF-16 maxlength", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    const explanation = "🧪".repeat(256);
+    fireEvent.change(reason("first"), { target: { value: `\u0085${explanation}\u001c` } });
+    expect(save().disabled).toBe(false);
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({ id: "first", value: 3.6, reason: explanation });
+  });
+
+  it("uses the engine's whitespace rules instead of JavaScript trim", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    for (const whitespace of ["\u0085", "\u001c", "\u0085\u001c "]) {
+      fireEvent.change(reason("first"), { target: { value: whitespace } });
+      expect(save().disabled).toBe(true);
+      fireEvent.submit(input("first").closest("form")!);
+      expect(posts).toHaveLength(0);
+    }
+
+    fireEvent.change(reason("first"), { target: { value: "\ufeff" } });
+    expect(save().disabled).toBe(false);
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({ id: "first", value: 3.6, reason: "\ufeff" });
+  });
+
+  it("requires a nonblank reason before submitting any rows in a correction batch", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(input("second"), { target: { value: "4.2" } });
+    expect(reason("first").required).toBe(true);
+    expect(reason("first").hasAttribute("maxlength")).toBe(false);
+    expect(save().disabled).toBe(true);
+    fireEvent.change(reason("first"), { target: { value: "   " } });
+    fireEvent.submit(input("first").closest("form")!);
+    expect(posts).toEqual([]);
+    expect(save().disabled).toBe(true);
+
+    fireEvent.change(reason("first"), { target: { value: "x".repeat(257) } });
+    fireEvent.submit(input("first").closest("form")!);
+    expect(posts).toEqual([]);
+    expect(save().disabled).toBe(true);
+  });
+
+  it("saves a correction with its trimmed reason alongside an initial measurement", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(reason("first"), { target: { value: "  Corrected transcription  " } });
+    fireEvent.change(input("second"), { target: { value: "4.2" } });
+    fireEvent.click(save());
+
+    await screen.findByText("2 measured, 0 awaiting, analysis outdated");
+    await waitFor(() => expect(save().textContent).not.toContain("Saving"));
+    expect(posts).toEqual([
+      { id: "first", value: 3.6, reason: "Corrected transcription" },
+      { id: "second", value: 4.2 },
+    ]);
+    expect(input("first").value).toBe("3.6");
+    expect(screen.queryByRole("textbox", { name: /Reason for correction/ })).toBeNull();
+    fireEvent.change(input("first"), { target: { value: "3.7" } });
+    expect(reason("first").value).toBe("");
+    expect(save().disabled).toBe(true);
+  });
+
+  it("retains only the unsaved correction and its reason after a partial failure", async () => {
+    seedSaved("first");
+    seedSaved("second", 4.1);
+    writeFails = "second";
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(reason("first"), { target: { value: "Corrected transcription" } });
+    fireEvent.change(input("second"), { target: { value: "4.2" } });
+    fireEvent.change(reason("second"), { target: { value: "Rechecked instrument reading" } });
+    fireEvent.click(save());
+
+    await screen.findByText(/Earlier rows were saved/);
+    expect(input("first").value).toBe("3.6");
+    expect(screen.queryByRole("textbox", { name: "Reason for correction for run first" })).toBeNull();
+    expect(input("second").value).toBe("4.2");
+    expect(reason("second").value).toBe("Rechecked instrument reading");
+
+    writeFails = null;
+    fireEvent.click(save());
+    await waitFor(() => expect(save().disabled).toBe(true));
+    expect(posts.map((p) => p.id)).toEqual(["first", "second", "second"]);
+    expect(posts[2]).toEqual({ id: "second", value: 4.2, reason: "Rechecked instrument reading" });
+    expect(input("second").value).toBe("4.2");
+  });
+
+  it("retains a rejected correction and its reason through a refresh failure", async () => {
+    seedSaved("second");
+    writeFails = "second";
+    refreshFails = false;
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "4.1" } });
+    fireEvent.change(input("second"), { target: { value: "3.6" } });
+    fireEvent.change(reason("second"), { target: { value: "Corrected transcription" } });
+    refreshFails = true;
+    fireEvent.click(save());
+    await screen.findByText(/Earlier rows were saved/);
+    expect(reason("second").value).toBe("Corrected transcription");
+    expect(save().disabled).toBe(true);
+
+    refreshFails = false;
+    writeFails = null;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh results" }));
+    await waitFor(() => expect(save().disabled).toBe(false));
+    expect(input("second").value).toBe("3.6");
+    expect(reason("second").value).toBe("Corrected transcription");
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(3));
+    expect(posts[2]).toEqual({ id: "second", value: 3.6, reason: "Corrected transcription" });
+  });
+
+  it("keeps the reason when reviewing an unusual correction, then sends it on confirmation", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "-1" } });
+    fireEvent.change(reason("first"), { target: { value: "Blank-corrected reading" } });
+    fireEvent.click(save());
+    expect(posts).toEqual([]);
+    fireEvent.click(await screen.findByRole("button", { name: "Review values" }));
+    expect(reason("first").value).toBe("Blank-corrected reading");
+    fireEvent.click(save());
+    fireEvent.click(await screen.findByRole("button", { name: "Save as entered" }));
+    await waitFor(() => expect(input("first").value).toBe("-1"));
+    await waitFor(() => expect(save().disabled).toBe(true));
+    expect(posts).toEqual([{ id: "first", value: -1, reason: "Blank-corrected reading" }]);
+  });
+
+  it("keeps a reason while the corrected number is temporarily incomplete", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(reason("first"), { target: { value: "Blank-corrected reading" } });
+    for (const prefix of ["-", ".", "3.6e"]) {
+      fireEvent.change(input("first"), { target: { value: prefix } });
+      expect(save().disabled).toBe(true);
+      fireEvent.change(input("first"), { target: { value: "-0.5" } });
+      expect(reason("first").value).toBe("Blank-corrected reading");
+      expect(save().disabled).toBe(false);
+    }
+  });
+
+  it("needs no reason or write when an edit is reverted to the saved value", async () => {
+    seedSaved("first");
+    await renderRecord();
+    expect(screen.queryByRole("textbox", { name: /Reason for correction/ })).toBeNull();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    expect(reason("first")).toBeTruthy();
+    fireEvent.change(reason("first"), { target: { value: "Abandoned correction" } });
+    fireEvent.change(input("first"), { target: { value: "3.5" } });
+    expect(screen.queryByRole("textbox", { name: /Reason for correction/ })).toBeNull();
+    expect(save().disabled).toBe(true);
+    fireEvent.submit(input("first").closest("form")!);
+    expect(posts).toEqual([]);
+
+    fireEvent.change(input("first"), { target: { value: "3.7" } });
+    expect(reason("first").value).toBe("");
+    expect(save().disabled).toBe(true);
+    fireEvent.change(reason("first"), { target: { value: "Another abandoned correction" } });
+    fireEvent.change(input("first"), { target: { value: "" } });
+    fireEvent.change(input("first"), { target: { value: "3.8" } });
+    expect(reason("first").value).toBe("");
+    expect(save().disabled).toBe(true);
   });
 });

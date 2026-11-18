@@ -1113,25 +1113,34 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
 }
 
-export async function logResult(id: string, value: number): Promise<void> {
+export class CampaignResultError extends Error {
+  constructor(message: string, readonly code: string | null) {
+    super(message);
+    this.name = "CampaignResultError";
+  }
+}
+
+export async function logResult(id: string, value: number, reason?: string): Promise<void> {
   const r = await fetch(`${API}/api/campaign/result`, {
     method: "POST",
     headers: mutationHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ id, value }),
+    body: JSON.stringify({ id, value, reason }),
   });
   if (!r.ok) {
     // The documented 400 body is { error }; fall back to a status-based
     // message for anything else (network hiccup, unexpected 5xx shape).
     let message = `engine responded ${r.status}`;
+    let code: string | null = null;
     try {
       const body: unknown = await r.json();
-      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
-        message = (body as { error: string }).error;
+      if (body && typeof body === "object") {
+        if ("error" in body && typeof body.error === "string") message = body.error;
+        if ("code" in body && typeof body.code === "string") code = body.code;
       }
     } catch {
       // Body wasn't JSON - keep the status-based message.
     }
-    throw new Error(message);
+    throw new CampaignResultError(message, code);
   }
 }
 

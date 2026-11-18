@@ -14,14 +14,16 @@ import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { shortId } from "@/lib/workbench";
-import { changedRows, inlineRecipeKeys, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
+import { changedRows, inlineRecipeKeys, parseEntry, sanityReason, trimCorrectionReason } from "@/components/campaign/stage-logic";
 
-type Row = { id: string; value: number };
+type Row = { id: string; value: number; reason?: string };
+
+const invalidReasons = (rows: Row[]) => rows.some((r) => r.reason != null && (trimCorrectionReason(r.reason) === "" || [...r.reason].length > 256));
 
 /**
- * One input per run, awaiting ones first. A logged value stays editable (the
- * engine overwrites on re-log until the next re-analysis). Saving writes only
- * changed rows, one at a time, so a failure leaves the earlier rows saved.
+ * One input per run, awaiting ones first. A logged value stays editable with a
+ * correction reason until the next re-analysis. Saving writes only changed
+ * rows, one at a time, so a failure leaves the earlier rows saved.
  */
 export function RecordForm({
   runs,
@@ -39,30 +41,36 @@ export function RecordForm({
   const { logResult } = useEngineWrites();
   const campaign = useCampaign();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [reasons, setReasons] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Row[] | null>(null);
 
   const ordered = [...runs].sort((a, b) => Number(b.awaiting) - Number(a.awaiting));
-  const changed = changedRows(runs, drafts);
+  const changed: Row[] = changedRows(runs, drafts).map((row) =>
+    runs.some((r) => r.id === row.id && r.result != null)
+      ? { ...row, reason: trimCorrectionReason(reasons[row.id] ?? "") }
+      : row,
+  );
   const logged = runs.filter((r) => !r.awaiting).length;
-  const blocked = saving || campaign.error || campaign.refreshing;
+  const blocked = saving || campaign.error || campaign.refreshing || invalidReasons(changed);
   const shownValue = (r: CampaignRun) => drafts[r.id] ?? (r.result == null ? "" : String(r.result));
   const flagged = (rows: Row[]) => rows.filter((r) => sanityReason(r.value, best) != null);
 
   async function save(rows: Row[]) {
-    if (savingRef.current || campaign.error || campaign.refreshing) return;
+    if (savingRef.current || campaign.error || campaign.refreshing || invalidReasons(rows)) return;
     savingRef.current = true;
     setConfirm(null);
     setSaving(true);
     setError(null);
     let savedCount = 0;
-    for (const { id, value } of rows) {
+    for (const { id, value, reason } of rows) {
       try {
-        await logResult(id, value);
+        await logResult(id, value, reason);
         savedCount++;
         setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
+        setReasons((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
       } catch (e) {
         setError(`Run ${shortId(id)} could not be saved: ${e instanceof Error ? e.message : "the engine did not respond"}.${savedCount > 0 ? " Earlier rows were saved." : ""} Your unsaved entries are kept.`);
         break;
@@ -79,7 +87,7 @@ export function RecordForm({
       <PageHeader
         eyebrow={`Round ${displayRound(round)}`}
         title="Record results"
-        description="Enter each measured value as it comes back. You can correct a saved value until the model is updated."
+        description="Enter each measured value as it comes back. You can correct a saved value until the model is updated; include a reason explaining the correction."
       action={
           <Button type="submit" form="record-form" disabled={changed.length === 0 || blocked}>
             {saving ? "Saving..." : changed.length > 0 ? `Save ${formatNumber(changed.length, "count")} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
@@ -114,6 +122,7 @@ export function RecordForm({
             {ordered.map((r) => {
               const text = shownValue(r);
               const invalid = text.trim() !== "" && parseEntry(text) == null;
+              const correction = changed.find((row) => row.id === r.id && row.reason != null);
               return (
                 <TableRow key={r.id} id={`record-${r.id}`} className="scroll-mt-12">
                   <TableCell className="font-mono text-code">{shortId(r.id)}</TableCell>
@@ -133,12 +142,35 @@ export function RecordForm({
                         aria-invalid={invalid}
                         value={text}
                         disabled={saving}
-                        onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: e.target.value }))}
+                        onChange={(e) => {
+                          const text = e.target.value;
+                          setDrafts((d) => ({ ...d, [r.id]: text }));
+                          if (text.trim() === "" || parseEntry(text) === r.result) {
+                            setReasons((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== r.id)));
+                          }
+                        }}
                         className="h-8 w-28 text-right tabular-nums"
                       />
                       {unit ? <span className="w-12 text-left text-body text-fg-muted">{unit}</span> : null}
                     </span>
                     {invalid ? <span className="block text-caption text-bad">Enter a number</span> : null}
+                    {correction ? (
+                      <div className="mt-2 flex flex-col gap-1 text-left">
+                        <label htmlFor={`correction-reason-${r.id}`} className="text-caption text-fg-muted">Reason for correction (required)</label>
+                        <Input
+                          id={`correction-reason-${r.id}`}
+                          aria-label={`Reason for correction for run ${shortId(r.id)}`}
+                          aria-describedby={`correction-help-${r.id}`}
+                          required
+                          aria-invalid={invalidReasons([correction])}
+                          value={reasons[r.id] ?? ""}
+                          disabled={saving}
+                          onChange={(e) => setReasons((d) => ({ ...d, [r.id]: e.target.value }))}
+                        />
+                        <span id={`correction-help-${r.id}`} className="text-caption text-fg-muted">Saved value: {formatNumber(r.result)} {unit}. Explain why it changed (up to 256 characters).</span>
+                        {[...correction.reason!].length > 256 ? <span className="text-caption text-bad">Use no more than 256 characters.</span> : null}
+                      </div>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );

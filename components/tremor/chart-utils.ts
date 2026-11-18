@@ -23,8 +23,6 @@ export const chartColors = {
 
 export type ChartColor = keyof typeof chartColors;
 
-export const AvailableChartColors: ChartColor[] = ["accent", "chart2", "chart3", "chart4", "chart5", "chart6"];
-
 export const constructCategoryColors = (categories: string[], colors: ChartColor[]): Map<string, ChartColor> =>
   new Map(categories.map((category, i) => [category, colors[i % colors.length]]));
 

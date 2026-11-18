@@ -144,13 +144,6 @@ export async function resolveSession(h?: Headers): Promise<SessionState> {
   return defaultResolver(h ?? new Headers(await nextHeaders()));
 }
 
-/** MFA-verified SessionContext (orgId may be null), or null. */
-export async function getSessionContext(h?: Headers): Promise<SessionContext | null> {
-  const st = await resolveSession(h);
-  if (st.status === "ok" || st.status === "no_org") return st.context;
-  return null;
-}
-
 /** Memberships of the current MFA-verified user (for /select-org). */
 export async function listMyMemberships(userId: string): Promise<Membership[]> {
   return (await defaultBackend()).listMemberships(userId);

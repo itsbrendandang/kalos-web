@@ -65,7 +65,7 @@ scope-mapping cases for the engine's verifier tests. Its key pairs are
 
 ### Better Auth (implemented)
 
-`resolveSession()` / `getSessionContext()` / `requireApiSession()` in
+`resolveSession()` / `requireApiSession()` in
 `lib/server/session.ts`:
 
 | Field | Source |

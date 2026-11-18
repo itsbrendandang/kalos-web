@@ -1057,38 +1057,6 @@ export type Campaign =
       analysis_in_sync?: boolean;
     };
 
-export type CampaignComparison = {
-  baseline_round: number;
-  current_round: number;
-  baseline_best: number | null;
-  current_best: number | null;
-  improvement: number | null;
-  n_runs_added: number;
-  comparison_type: "initial" | "previous";
-};
-
-/** Only compare endpoints in this campaign's history, including missing measurements. */
-export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>): CampaignComparison[] {
-  const currentIndex = c.history.findIndex((h) => h.round === c.round);
-  if (currentIndex < 1) return [];
-  const current = c.history[currentIndex];
-  // At round 1 the previous round IS the initial one; one card, not two identical ones.
-  const types = currentIndex === 1 ? (["initial"] as const) : (["initial", "previous"] as const);
-  return types.map((comparison_type) => {
-    const baseline = c.history[comparison_type === "initial" ? 0 : currentIndex - 1];
-    const delta = baseline.best == null || current.best == null ? null : current.best - baseline.best;
-    return {
-      baseline_round: baseline.round,
-      current_round: current.round,
-      baseline_best: baseline.best,
-      current_best: current.best,
-      improvement: delta == null ? null : baseline.best! > 0 ? delta / baseline.best! * 100 : delta,
-      n_runs_added: current.n_base - baseline.n_base,
-      comparison_type,
-    };
-  });
-}
-
 export const getCampaign = (): Promise<Campaign> =>
   fetch(`${API}/api/campaign`).then((r) => {
     if (!r.ok) throw new Error(`engine responded ${r.status}`);

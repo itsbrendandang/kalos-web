@@ -145,7 +145,7 @@ export function RecordForm({
                         onChange={(e) => {
                           const text = e.target.value;
                           setDrafts((d) => ({ ...d, [r.id]: text }));
-                          if (parseEntry(text) == null || parseEntry(text) === r.result) {
+                          if (text.trim() === "" || parseEntry(text) === r.result) {
                             setReasons((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== r.id)));
                           }
                         }}

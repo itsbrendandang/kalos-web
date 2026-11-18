@@ -277,6 +277,20 @@ describe("Record corrections", () => {
     expect(posts).toEqual([{ id: "first", value: -1, reason: "Blank-corrected reading" }]);
   });
 
+  it("keeps a reason while the corrected number is temporarily incomplete", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(reason("first"), { target: { value: "Blank-corrected reading" } });
+    for (const prefix of ["-", ".", "3.6e"]) {
+      fireEvent.change(input("first"), { target: { value: prefix } });
+      expect(save().disabled).toBe(true);
+      fireEvent.change(input("first"), { target: { value: "-0.5" } });
+      expect(reason("first").value).toBe("Blank-corrected reading");
+      expect(save().disabled).toBe(false);
+    }
+  });
+
   it("needs no reason or write when an edit is reverted to the saved value", async () => {
     seedSaved("first");
     await renderRecord();

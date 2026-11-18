@@ -42,7 +42,7 @@ export function StatusBar() {
   return (
     <footer
       aria-label="Campaign status"
-      className="flex h-7 shrink-0 items-center gap-4 border-t border-border bg-subtle px-3 text-caption text-fg-muted"
+      className="flex min-h-9 shrink-0 items-center gap-4 overflow-x-auto border-t border-border bg-surface px-4 text-[11px] text-fg-muted [scrollbar-width:none]"
     >
       {failed ? (
         <button

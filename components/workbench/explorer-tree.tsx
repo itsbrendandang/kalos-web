@@ -124,9 +124,9 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
         onFocus={() => setFocusKey(n.key)}
         onKeyDown={(e) => onKeyDown(e, visible[at], at)}
         className={cn(
-          "flex h-7 items-center gap-2 rounded-md pr-2 text-label font-normal text-fg focus-visible:outline-offset-[-2px]",
+          "flex min-h-9 items-center gap-2 rounded-lg pr-2 text-label font-normal text-fg focus-visible:outline-offset-[-2px]",
           level === 1 ? "pl-2" : "pl-7",
-          selected ? "bg-accent-soft" : "hover:bg-border/60",
+          selected ? "bg-accent-soft font-medium text-accent" : "hover:bg-subtle",
         )}
       >
         {n.icon}
@@ -137,7 +137,7 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
   };
 
   return (
-    <div role="tree" aria-label={label} className="flex flex-col gap-px px-2 py-2">
+    <div role="tree" aria-label={label} className="flex flex-col gap-1 px-3 py-4">
       {nodes.map((n) => {
         if (n.kind === "leaf") return leaf(n, 1);
         const at = visible.findIndex((r) => r.node.key === n.key);
@@ -158,7 +158,7 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
             onKeyDown={(e) => {
               if (e.target === e.currentTarget) onKeyDown(e, visible[at], at);
             }}
-            className="mt-2 outline-none first:mt-0 [&:focus-visible>div:first-child]:outline-2 [&:focus-visible>div:first-child]:outline-offset-[-2px] [&:focus-visible>div:first-child]:outline-ring [&:focus-visible>div:first-child]:outline"
+            className="mt-5 outline-none first:mt-0 [&:focus-visible>div:first-child]:outline-2 [&:focus-visible>div:first-child]:outline-offset-[-2px] [&:focus-visible>div:first-child]:outline-ring [&:focus-visible>div:first-child]:outline"
           >
             <div
               onClick={() => {

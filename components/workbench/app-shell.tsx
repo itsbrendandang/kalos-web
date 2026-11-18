@@ -95,7 +95,7 @@ function Frame({ children }: { children: ReactNode }) {
         <ActivityRail section={section} explorerOpen={showExplorer} onToggleExplorer={toggleExplorer} />
 
         {showExplorer ? (
-          <aside aria-label="Explorer" className="hidden w-60 shrink-0 flex-col border-r border-border bg-subtle md:flex">
+          <aside aria-label="Explorer" className="hidden w-56 shrink-0 flex-col border-r border-border bg-surface md:flex">
             <ExplorerHeader section={section} onSearch={() => setPaletteOpen(true)} onCollapse={toggleExplorer} />
             <div className="min-h-0 flex-1 overflow-y-auto">
               <SectionExplorer section={section} />
@@ -104,8 +104,7 @@ function Frame({ children }: { children: ReactNode }) {
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <EditorTabs titleFor={tabTitle} />
-          <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-3 md:px-4">
+          <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface px-4 md:px-8">
             {hasExplorer && collapsed ? (
               <button
                 type="button"
@@ -137,9 +136,20 @@ function Frame({ children }: { children: ReactNode }) {
                 })}
               </ol>
             </nav>
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Search workspace"
+              className="ml-auto hidden items-center gap-3 rounded-lg border border-border px-3 py-2 text-caption text-fg-muted hover:bg-subtle md:inline-flex"
+            >
+              <Search className="size-3.5" aria-hidden />
+              Search workspace
+              <kbd className="rounded border border-border px-1 font-sans text-[10px]">⌘ / Ctrl K</kbd>
+            </button>
           </div>
+          <EditorTabs titleFor={tabTitle} />
           <main id={MAIN_ID} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <div className="mx-auto w-full max-w-[1120px] p-4 md:p-6">{children}</div>
+            <div className="mx-auto w-full max-w-[1320px] px-4 py-6 md:px-8 md:py-9 lg:px-10">{children}</div>
           </main>
         </div>
       </div>
@@ -173,27 +183,28 @@ function ActivityRail({ section, explorerOpen, onToggleExplorer }: { section: Na
               }}
               aria-expanded={active && n.key !== "settings" ? explorerOpen : undefined}
               className={cn(
-                "grid size-9 place-items-center rounded-lg border",
-                active ? "border-border bg-surface text-fg" : "border-transparent text-fg-muted hover:bg-surface hover:text-fg",
+                "flex min-h-16 w-16 flex-col items-center justify-center gap-1.5 rounded-xl border text-[10px] font-medium focus-visible:outline-rail-fg",
+                active ? "border-rail-muted/30 bg-rail-active text-rail-fg" : "border-transparent text-rail-muted hover:bg-rail-active hover:text-rail-fg",
               )}
             />
           }
         >
           <Icon className="size-5" aria-hidden />
+          <span>{n.label}</span>
         </TooltipTrigger>
         <TooltipContent side="right">{n.label}</TooltipContent>
       </Tooltip>
     );
   };
   return (
-    <nav aria-label="Sections" className="hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-subtle py-2 md:flex">
-      <Link href="/" aria-label="Kalos, campaign overview" className="mb-2 grid size-8 place-items-center rounded-lg bg-fg text-label font-semibold text-bg">
-        K
+    <nav aria-label="Sections" className="hidden w-20 shrink-0 flex-col items-center gap-2 bg-rail py-5 md:flex">
+      <Link href="/" aria-label="Kalos, campaign overview" className="mb-5 grid size-11 place-items-center rounded-2xl border border-rail-muted/40 text-2xl font-medium text-rail-fg focus-visible:outline-rail-fg">
+        k<span className="sr-only">alos</span>
       </Link>
       {NAV_ITEMS.filter((n) => n.key !== "settings").map(item)}
       <div className="mt-auto flex flex-col items-center gap-1">
         {NAV_ITEMS.filter((n) => n.key === "settings").map(item)}
-        <WorkspaceMenu />
+        <WorkspaceMenu className="text-rail-muted hover:bg-rail-active hover:text-rail-fg focus-visible:outline-rail-fg data-popup-open:bg-rail-active data-popup-open:text-rail-fg" />
       </div>
     </nav>
   );
@@ -213,8 +224,11 @@ function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; on
   const example = useExplorerIsExample(section);
   const shortcut = useShortcutLabel();
   return (
-    <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3">
-      <h2 className="min-w-0 flex-1 truncate text-label text-fg">{label}</h2>
+    <div className="flex min-h-24 shrink-0 flex-wrap items-center gap-1 border-b border-border px-4 py-4">
+      <div className="min-w-0 flex-1">
+        <p className="mb-1 text-[10px] font-medium tracking-[0.16em] text-fg-muted uppercase">Kalos workspace</p>
+        <h2 className="truncate text-heading text-fg">{label}</h2>
+      </div>
       {example ? <ExampleBadge className="h-5" /> : null}
       <button
         type="button"

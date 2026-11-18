@@ -414,7 +414,7 @@ function Batch({
             <span className="text-title tabular-nums">{formatNumber(rows.length, "count")}</span>
           </SummaryCell>
           <SummaryCell label={`Best ${name}`} caption={incumbent != null ? ctx.incumbentLabel : "no reproducible best for this fit"}>
-            {incumbent != null ? <MeasuredValue value={formatNumber(incumbent)} unit={unit || undefined} className="text-title" /> : <span className="text-heading text-fg-muted">n/a</span>}
+            {incumbent != null ? <MeasuredValue value={formatNumber(incumbent)} unit={unit || undefined} className="flex-wrap text-title whitespace-normal" /> : <span className="text-heading text-fg-muted">n/a</span>}
           </SummaryCell>
           <SummaryCell label="Prediction band" caption={band != null ? `${bandLabel(d.conformal_coverage)}, same width for every proposal. ${BAND_CAVEAT}` : "the engine did not report one"}>
             <span className={cn("tabular-nums", band != null ? "text-title" : "text-heading text-fg-muted")}>{band != null ? `± ${formatNumber(band)}` : "Not reported"}</span>

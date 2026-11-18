@@ -1,6 +1,6 @@
 # Kalos web design system
 
-Calm, editorial, light first, with full dark mode.
+Evergreen and warm paper: a calm scientific workspace, light first, with full dark mode.
 Generous whitespace, few boxes, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
 Every value below is quoted from `app/globals.css`, which is the single source of truth.
 If this file and the CSS disagree, the CSS wins.
@@ -27,9 +27,9 @@ Warm paper, ink text.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--bg` | `oklch(0.985 0.003 90)` | `oklch(0.17 0.006 270)` | Page background |
+| `--bg` | `oklch(0.98 0.005 90)` | `oklch(0.17 0.006 270)` | Page background |
 | `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Panels, popovers, inputs |
-| `--subtle` | `oklch(0.965 0.004 90)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header, explorer |
+| `--subtle` | `oklch(0.96 0.007 100)` | `oklch(0.235 0.007 270)` | Quiet fills: hover and table header |
 | `--border` | `oklch(0.91 0.005 90)` | `oklch(0.3 0.008 270)` | Hairline rules and panel borders |
 | `--border-strong` | `oklch(0.84 0.006 90)` | `oklch(0.38 0.01 270)` | Input borders, emphasized dividers |
 | `--fg` | `oklch(0.22 0.01 270)` | `oklch(0.95 0.005 90)` | Primary text |
@@ -37,15 +37,15 @@ Warm paper, ink text.
 
 ## Accent
 
-An indigo-violet, used for the primary action, links, focus, and the model's proposal.
+A deep evergreen, used for the primary action, links, focus, and the model's proposal.
 It is never used for status.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `--accent` | `oklch(0.48 0.16 285)` | `oklch(0.72 0.13 285)` |
-| `--accent-hover` | `oklch(0.43 0.16 285)` | `oklch(0.78 0.11 285)` |
-| `--accent-soft` | `oklch(0.95 0.024 285)` | `oklch(0.29 0.06 285)` |
-| `--accent-fg` | `oklch(1 0 0)` | `oklch(0.17 0.02 285)` |
+| `--accent` | `oklch(0.43 0.075 175)` | `oklch(0.76 0.09 170)` |
+| `--accent-hover` | `oklch(0.38 0.065 175)` | `oklch(0.82 0.075 170)` |
+| `--accent-soft` | `oklch(0.95 0.018 170)` | `oklch(0.28 0.025 175)` |
+| `--accent-fg` | `oklch(1 0 0)` | `oklch(0.17 0.02 175)` |
 | `--ring` | `var(--accent)` | `var(--accent)` |
 
 In dark mode the accent is a light fill on a dark page, so the label on it (`--accent-fg`) is dark ink.
@@ -72,12 +72,12 @@ Warn and bad surfaces are for things the user must act on.
 | `--chart-4` | `oklch(0.6 0.17 42)` | `oklch(0.7 0.15 42)` | Category 4 (vermillion) |
 | `--chart-5` | `oklch(0.6 0.11 235)` | `oklch(0.8 0.1 235)` | Category 5 (sky blue) |
 | `--chart-6` | `oklch(0.58 0.14 345)` | `oklch(0.75 0.12 345)` | Category 6 (reddish purple) |
-| `--chart-seq-1` | `oklch(0.93 0.03 285)` | `oklch(0.3 0.05 285)` | Lowest magnitude step |
-| `--chart-seq-2` | `oklch(0.82 0.07 285)` | `oklch(0.42 0.09 285)` | |
-| `--chart-seq-3` | `oklch(0.68 0.12 285)` | `oklch(0.56 0.12 285)` | |
-| `--chart-seq-4` | `oklch(0.53 0.15 285)` | `oklch(0.7 0.12 285)` | |
-| `--chart-seq-5` | `oklch(0.38 0.14 285)` | `oklch(0.86 0.07 285)` | Highest magnitude step |
-| `--chart-band` | `oklch(0.48 0.16 285 / 0.14)` | `oklch(0.72 0.13 285 / 0.2)` | Uncertainty band fill |
+| `--chart-seq-1` | `oklch(0.93 0.02 175)` | `oklch(0.3 0.025 175)` | Lowest magnitude step |
+| `--chart-seq-2` | `oklch(0.81 0.04 175)` | `oklch(0.42 0.04 175)` | |
+| `--chart-seq-3` | `oklch(0.66 0.07 175)` | `oklch(0.56 0.06 175)` | |
+| `--chart-seq-4` | `oklch(0.51 0.085 175)` | `oklch(0.7 0.075 175)` | |
+| `--chart-seq-5` | `oklch(0.36 0.06 175)` | `oklch(0.86 0.045 175)` | Highest magnitude step |
+| `--chart-band` | `oklch(0.43 0.075 175 / 0.14)` | `oklch(0.76 0.09 170 / 0.2)` | Uncertainty band fill |
 | `--chart-reference` | `var(--fg-muted)` | same | Best-so-far and baseline lines, dashed |
 | `--chart-predicted` | `var(--accent)` | same | Predicted values |
 | `--chart-measured` | `var(--fg)` | same | Measured values |
@@ -162,4 +162,12 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 They exist only because some pages (Data, the Library tools, the campaign stage pages, Projects) have not been rebuilt on the new kit yet.
 Do not use them in new code, and delete an alias once nothing reads it.
 
-Replaced the earlier blue and Satoshi system in October 2026.
+## Workspace composition
+
+- A dark evergreen activity rail has visible section labels, not icons alone. Its `--rail`, `--rail-fg`, `--rail-muted` and `--rail-active` tokens remain the same in both themes; text and focus contrast are checked alongside the other tokens.
+- A white explorer separates campaign stages, runs and history into roomy groups. Collapsing it, keyboard tree navigation and the mobile navigation sheet keep their existing behavior.
+- A workspace search bar and underlined open-page tabs replace the dense editor chrome. Page headings use `text-display`; shared cards use generous internal spacing.
+- The overview puts the four headline metrics first, followed by the campaign loop, one next action, then measured evidence. The loop is navigation, not a percentage-complete estimate; all states and reasons come from `campaignStage`.
+- Small screens use two metric columns and a horizontally scrollable campaign loop. Status text remains available without widening the page.
+
+Replaces the earlier violet palette. Authentication, invitations, model semantics and engine requests are unchanged.

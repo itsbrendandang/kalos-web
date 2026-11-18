@@ -55,8 +55,8 @@ export function EditorTabs({ titleFor }: { titleFor: (href: string) => string })
   // elements, but each tab carries a close button, and a tab-role-less link
   // list keeps those controls valid and keyboard-reachable through Tab.
   return (
-    <nav aria-label="Open pages" className="flex h-9 shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-subtle [scrollbar-width:none]">
-      <ul className="flex min-w-0">
+    <nav aria-label="Open pages" className="flex h-11 shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-surface px-4 md:px-8 [scrollbar-width:none]">
+      <ul className="flex min-w-0 gap-4">
         {open.map((href, i) => {
           const active = href === pathname;
           const pinned = href === PINNED_TAB;
@@ -65,8 +65,8 @@ export function EditorTabs({ titleFor }: { titleFor: (href: string) => string })
             <li
               key={href}
               className={cn(
-                "group relative flex shrink-0 items-center border-r border-border",
-                active ? "-mb-px border-b border-b-bg bg-bg text-fg" : "text-fg-muted hover:text-fg",
+                "group relative flex shrink-0 items-center border-b-2",
+                active ? "border-accent text-accent" : "border-transparent text-fg-muted hover:text-fg",
               )}
               onAuxClick={(e) => {
                 if (e.button === 1 && !pinned) close(href);

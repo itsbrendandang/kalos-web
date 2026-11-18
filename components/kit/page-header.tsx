@@ -22,11 +22,11 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-x-6 gap-y-4", className)}>
+    <header className={cn("flex flex-col items-start justify-between gap-x-6 gap-y-4 sm:flex-row sm:flex-wrap", className)}>
       <div className="min-w-0 flex-1">
-        {eyebrow ? <p className="mb-1 text-label text-fg-muted">{eyebrow}</p> : null}
+        {eyebrow ? <p className="mb-2 text-caption font-medium tracking-[0.12em] text-accent uppercase">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="min-w-0 text-title break-words text-fg">{title}</h1>
+          <h1 className="min-w-0 text-display break-words text-fg">{title}</h1>
           {meta}
         </div>
         {description ? <p className="mt-1.5 max-w-[68ch] text-body text-fg-muted">{description}</p> : null}

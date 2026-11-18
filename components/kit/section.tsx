@@ -1,9 +1,8 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A titled block of a page. Sections are separated by whitespace, not boxes;
- * reach for Panel only when a region truly needs a boundary.
+ * A titled block of a page. Sections are separated by whitespace, not boxes.
  */
 export function Section({
   title,
@@ -34,9 +33,4 @@ export function Section({
       {children}
     </section>
   );
-}
-
-/** A bordered region (12px radius, hairline, no shadow), for content that needs a boundary. */
-export function Panel({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("rounded-xl border border-border bg-surface p-5", className)} {...props} />;
 }

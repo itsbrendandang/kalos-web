@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  * scrolls sideways on narrow screens, so columns never stack into cards.
  * The header is sticky inside the container: give `containerClassName` a max
  * height (e.g. "max-h-[480px]") for it to stick while rows scroll. Headers
- * paint the page colour; inside a Panel pass `className="bg-surface"`.
+ * paint the page colour; inside a surface-coloured container pass `className="bg-surface"`.
  */
 function Table({ className, containerClassName, ...props }: React.ComponentProps<"table"> & { containerClassName?: string }) {
   return (
@@ -29,10 +29,6 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return <tbody data-slot="table-body" className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
-}
-
-function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
-  return <tfoot data-slot="table-footer" className={cn("border-t border-border font-medium [&>tr]:last:border-b-0", className)} {...props} />;
 }
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
@@ -67,10 +63,6 @@ function TableCell({ className, numeric = false, ...props }: React.ComponentProp
       {...props}
     />
   );
-}
-
-function TableCaption({ className, ...props }: React.ComponentProps<"caption">) {
-  return <caption data-slot="table-caption" className={cn("mt-3 text-caption text-fg-muted", className)} {...props} />;
 }
 
 export type SortDirection = "ascending" | "descending" | "none";
@@ -140,4 +132,4 @@ function TablePagination({
   );
 }
 
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption, SortableHead, TablePagination };
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, SortableHead, TablePagination };

@@ -283,10 +283,20 @@ describe("Record corrections", () => {
     expect(screen.queryByRole("textbox", { name: /Reason for correction/ })).toBeNull();
     fireEvent.change(input("first"), { target: { value: "3.6" } });
     expect(reason("first")).toBeTruthy();
+    fireEvent.change(reason("first"), { target: { value: "Abandoned correction" } });
     fireEvent.change(input("first"), { target: { value: "3.5" } });
     expect(screen.queryByRole("textbox", { name: /Reason for correction/ })).toBeNull();
     expect(save().disabled).toBe(true);
     fireEvent.submit(input("first").closest("form")!);
     expect(posts).toEqual([]);
+
+    fireEvent.change(input("first"), { target: { value: "3.7" } });
+    expect(reason("first").value).toBe("");
+    expect(save().disabled).toBe(true);
+    fireEvent.change(reason("first"), { target: { value: "Another abandoned correction" } });
+    fireEvent.change(input("first"), { target: { value: "" } });
+    fireEvent.change(input("first"), { target: { value: "3.8" } });
+    expect(reason("first").value).toBe("");
+    expect(save().disabled).toBe(true);
   });
 });

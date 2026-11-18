@@ -142,7 +142,13 @@ export function RecordForm({
                         aria-invalid={invalid}
                         value={text}
                         disabled={saving}
-                        onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: e.target.value }))}
+                        onChange={(e) => {
+                          const text = e.target.value;
+                          setDrafts((d) => ({ ...d, [r.id]: text }));
+                          if (parseEntry(text) == null || parseEntry(text) === r.result) {
+                            setReasons((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== r.id)));
+                          }
+                        }}
                         className="h-8 w-28 text-right tabular-nums"
                       />
                       {unit ? <span className="w-12 text-left text-body text-fg-muted">{unit}</span> : null}

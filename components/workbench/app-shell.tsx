@@ -197,7 +197,7 @@ function ActivityRail({ section, explorerOpen, onToggleExplorer }: { section: Na
     );
   };
   return (
-    <nav aria-label="Sections" className="hidden w-20 shrink-0 flex-col items-center gap-2 bg-rail py-5 md:flex">
+    <nav aria-label="Sections" className="hidden w-20 shrink-0 flex-col items-center gap-2 overflow-y-auto overscroll-contain bg-rail py-5 md:flex [scrollbar-width:none]">
       <Link href="/" aria-label="Kalos, campaign overview" className="mb-5 grid size-11 place-items-center rounded-2xl border border-rail-muted/40 text-2xl font-medium text-rail-fg focus-visible:outline-rail-fg">
         k<span className="sr-only">alos</span>
       </Link>

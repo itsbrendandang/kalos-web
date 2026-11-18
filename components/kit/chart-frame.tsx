@@ -44,8 +44,8 @@ export function ChartFrame({
 }) {
   const sub = [unit, n != null ? `n = ${formatNumber(n, "count")}` : null].filter(Boolean);
   return (
-    <figure className={cn("flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5", className)}>
-      <figcaption className="flex items-start justify-between gap-3">
+    <figure className={cn("flex min-w-0 flex-col gap-5 rounded-xl border border-border bg-surface p-4 sm:p-6", className)}>
+      <figcaption className="flex min-h-12 items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="flex items-center gap-1.5 text-heading text-fg">
             {title}

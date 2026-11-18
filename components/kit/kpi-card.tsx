@@ -41,12 +41,12 @@ export function KpiCard({
 }) {
   const shown = typeof value === "string" ? value : formatNumber(value, quantity);
   return (
-    <Card className={cn("flex flex-col gap-1", className)}>
+    <Card className={cn("flex min-w-0 flex-col gap-3 p-4 sm:p-6", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-label text-fg-muted">{label}</p>
+        <p className="text-label break-words text-fg-muted">{label}</p>
         {badge}
       </div>
-      <p className="flex items-baseline gap-1.5">
+      <p className="flex flex-wrap items-baseline gap-1.5">
         <span className="text-metric text-fg tabular-nums">{shown}</span>
         {unit && value != null ? <span className="text-body text-fg-muted">{unit}</span> : null}
       </p>

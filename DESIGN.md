@@ -1,6 +1,6 @@
 # Kalos web design system
 
-Calm, editorial, light first, with full dark mode.
+Warm paper, charcoal, and a restrained citron highlight: a search-first scientific workspace, light first, with full dark mode.
 Generous whitespace, few boxes, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
 Every value below is quoted from `app/globals.css`, which is the single source of truth.
 If this file and the CSS disagree, the CSS wins.
@@ -27,25 +27,26 @@ Warm paper, ink text.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--bg` | `oklch(0.985 0.003 90)` | `oklch(0.17 0.006 270)` | Page background |
-| `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Panels, popovers, inputs |
-| `--subtle` | `oklch(0.965 0.004 90)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header, explorer |
-| `--border` | `oklch(0.91 0.005 90)` | `oklch(0.3 0.008 270)` | Hairline rules and panel borders |
-| `--border-strong` | `oklch(0.84 0.006 90)` | `oklch(0.38 0.01 270)` | Input borders, emphasized dividers |
-| `--fg` | `oklch(0.22 0.01 270)` | `oklch(0.95 0.005 90)` | Primary text |
-| `--fg-muted` | `oklch(0.46 0.01 270)` | `oklch(0.72 0.01 270)` | Secondary text (passes 4.5:1 on `--bg`) |
+| `--bg` | `oklch(0.98 0.005 90)` | `oklch(0.24 0.008 90)` | Page background |
+| `--surface` | `oklch(0.993 0.003 90)` | `oklch(0.27 0.008 90)` | Panels, popovers, inputs |
+| `--subtle` | `oklch(0.95 0.008 90)` | `oklch(0.3 0.01 90)` | Navigation, hover and table header |
+| `--border` | `oklch(0.89 0.012 90)` | `oklch(0.38 0.01 90)` | Hairline rules and panel borders |
+| `--border-strong` | `oklch(0.84 0.006 90)` | `oklch(0.46 0.01 90)` | Emphasized dividers |
+| `--fg` | `oklch(0.26 0.008 90)` | `oklch(0.95 0.005 90)` | Primary text |
+| `--fg-muted` | `oklch(0.46 0.01 90)` | `oklch(0.76 0.01 90)` | Secondary text (passes 4.5:1 on `--bg`) |
 
 ## Accent
 
-An indigo-violet, used for the primary action, links, focus, and the model's proposal.
-It is never used for status.
+Charcoal is used for actions, links, focus, and the model's proposal. Citron marks the active navigation item, with an explicit current-page label. Neither is used for status.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `--accent` | `oklch(0.48 0.16 285)` | `oklch(0.72 0.13 285)` |
-| `--accent-hover` | `oklch(0.43 0.16 285)` | `oklch(0.78 0.11 285)` |
-| `--accent-soft` | `oklch(0.95 0.024 285)` | `oklch(0.29 0.06 285)` |
-| `--accent-fg` | `oklch(1 0 0)` | `oklch(0.17 0.02 285)` |
+| `--accent` | `oklch(0.26 0.008 90)` | `oklch(0.92 0.014 90)` |
+| `--accent-hover` | `oklch(0.2 0.008 90)` | `oklch(0.98 0.01 90)` |
+| `--accent-soft` | `oklch(0.93 0.012 90)` | `oklch(0.32 0.012 90)` |
+| `--accent-fg` | `oklch(0.993 0.003 90)` | `oklch(0.2 0.008 90)` |
+| `--brand` | `oklch(0.92 0.115 110)` | `oklch(0.38 0.055 110)` |
+| `--brand-fg` | `var(--fg)` | `var(--fg)` |
 | `--ring` | `var(--accent)` | `var(--accent)` |
 
 In dark mode the accent is a light fill on a dark page, so the label on it (`--accent-fg`) is dark ink.
@@ -72,12 +73,12 @@ Warn and bad surfaces are for things the user must act on.
 | `--chart-4` | `oklch(0.6 0.17 42)` | `oklch(0.7 0.15 42)` | Category 4 (vermillion) |
 | `--chart-5` | `oklch(0.6 0.11 235)` | `oklch(0.8 0.1 235)` | Category 5 (sky blue) |
 | `--chart-6` | `oklch(0.58 0.14 345)` | `oklch(0.75 0.12 345)` | Category 6 (reddish purple) |
-| `--chart-seq-1` | `oklch(0.93 0.03 285)` | `oklch(0.3 0.05 285)` | Lowest magnitude step |
-| `--chart-seq-2` | `oklch(0.82 0.07 285)` | `oklch(0.42 0.09 285)` | |
-| `--chart-seq-3` | `oklch(0.68 0.12 285)` | `oklch(0.56 0.12 285)` | |
-| `--chart-seq-4` | `oklch(0.53 0.15 285)` | `oklch(0.7 0.12 285)` | |
-| `--chart-seq-5` | `oklch(0.38 0.14 285)` | `oklch(0.86 0.07 285)` | Highest magnitude step |
-| `--chart-band` | `oklch(0.48 0.16 285 / 0.14)` | `oklch(0.72 0.13 285 / 0.2)` | Uncertainty band fill |
+| `--chart-seq-1` | `oklch(0.93 0.015 110)` | `oklch(0.32 0.015 110)` | Lowest magnitude step |
+| `--chart-seq-2` | `oklch(0.81 0.025 110)` | `oklch(0.46 0.025 110)` | |
+| `--chart-seq-3` | `oklch(0.66 0.035 110)` | `oklch(0.6 0.035 110)` | |
+| `--chart-seq-4` | `oklch(0.51 0.04 110)` | `oklch(0.74 0.04 110)` | |
+| `--chart-seq-5` | `oklch(0.36 0.03 110)` | `oklch(0.88 0.035 110)` | Highest magnitude step |
+| `--chart-band` | `oklch(0.26 0.008 90 / 0.12)` | `oklch(0.92 0.014 90 / 0.15)` | Uncertainty band fill |
 | `--chart-reference` | `var(--fg-muted)` | same | Best-so-far and baseline lines, dashed |
 | `--chart-predicted` | `var(--accent)` | same | Predicted values |
 | `--chart-measured` | `var(--fg)` | same | Measured values |
@@ -162,4 +163,34 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 They exist only because some pages (Data, the Library tools, the campaign stage pages, Projects) have not been rebuilt on the new kit yet.
 Do not use them in new code, and delete an alias once nothing reads it.
 
-Replaced the earlier blue and Satoshi system in October 2026.
+## Workspace composition
+
+### Scientific visual explanations
+
+The workspace includes original, explicitly schematic process guides on every scientific workflow and settings context. These diagrams explain inputs, the operation, and how to read the output; they never represent engine execution or completed work. No vendor artwork is copied and no remote image is loaded.
+
+Reference research:
+- [Sartorius MODDE](https://www.sartorius.com/en/products/data-analytics/modde): connect study objectives, factors, diagnostics, and experimental decisions.
+- [JMP profiler features](https://www.jmp.com/support/help/en/19.2/jmp/profiler-features-in-jmp.shtml): distinguish model response views from observations and keep held-fixed inputs explicit.
+- [Cytiva bioreactor scaling](https://www.cytivalifesciences.com/en/us/solutions/bioprocessing/products-and-solutions/upstream-bioprocessing/single-use-bioreactors/digital-bioreactor-scaling-tool): explain measured conditions, planned scale, and the limits of a readout.
+- [Cytiva antibody production workflow](https://www.cytivalifesciences.com/en/us/applications/antibody-production): make the relationship between process stages visible, without claiming Kalos implements every manufacturing operation.
+
+New charts use existing engine fields only: a histogram of the measured values in held-out `oof` pairs; a held-out prediction-versus-measurement view on the overview; proposed mean versus posterior SD on Plan; and nominal versus empirical interval coverage from `reliability.calibration` on Learn. No density, prediction band, reliability decision, response surface, or missing point is inferred. Charts give accessible descriptions and numeric tables; unavailable values remain unavailable. References are reading material, not integrations or endorsements.
+
+The tool library also has a visual reading guide for intervals, plate heatmaps, and response contours. Every drawing is explicitly schematic, not study data. The scale-up form pairs editable conditions with a vessel schematic that mirrors only entered setpoints; its geometry and fill level are not modeled and it does not predict performance.
+
+Process guides use compact illustrated rows on phones and wider cards on desktop. Five-step flows wrap at medium widths; chart padding and heading space preserve readable plots without crowding controls.
+
+### Navigation and surfaces
+
+- The reference is agent-test's Research search screen: warm neutral surfaces, a compact light sidebar, citron selection, a centered composer-shaped search control, and quiet suggestion chips.
+- A single 224px sidebar combines section links and the existing contextual explorer. It collapses to icons; its middle scrolls while Settings and the workspace menu stay pinned and reachable on short screens. Keyboard tree navigation and the mobile navigation sheet remain available.
+- A quiet breadcrumb header replaces editor tabs. The global command palette remains available through its search button and Ctrl/Cmd+K.
+- The home screen starts with a local tool finder for existing bioprocess tools and campaign steps. It filters route metadata and scientific aliases; it does not submit questions to a model or pretend to run a calculation. Scale-up, plate analysis and experiment planning have direct suggested links. Tools remain available when the campaign engine is loading or unavailable.
+- The tool library groups scientific tasks into Analyze measurements (plates and vessels) and Predict and design (scale-up and the synthetic simulator). Client projects belong in Projects, not among calculation tools.
+- All five experiment stages share a numbered task navigation strip. Tool screens share nearby-tool links; preferences, organization and security share settings navigation. Scientific inputs and results use warm surface panels with an even hairline boundary.
+- Project lists, project workspaces and reports share the same typography, surface tokens and citron selection as the rest of the workspace. Their illustrative-data notices and live-engine distinctions remain intact.
+- Below the finder, the overview keeps the four headline metrics, campaign loop, one next action, then measured evidence. The loop is navigation, not a percentage-complete estimate; all states and reasons come from `campaignStage`.
+- Small screens use two metric columns and a horizontally scrollable campaign loop. Status text remains available without widening the page.
+
+Replaces the earlier evergreen redesign. Authentication, invitations, bioprocess calculations, model semantics and engine requests are unchanged.

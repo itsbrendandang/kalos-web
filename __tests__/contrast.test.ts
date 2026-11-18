@@ -74,6 +74,8 @@ const SEQ = ["--chart-seq-1", "--chart-seq-2", "--chart-seq-3", "--chart-seq-4",
 type Pair = [fg: string, bg: string, min: number];
 
 const pairs: Pair[] = [
+  // Citron marks the current section without sacrificing label contrast.
+  ["--brand-fg", "--brand", 4.5],
   // Body text tokens on every page surface.
   ...TEXT.flatMap((fg) => SURFACES.map((bg): Pair => [fg, bg, 4.5])),
   // Tone text (badges, callout titles) and body text on the tone's soft fill.

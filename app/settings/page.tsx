@@ -22,7 +22,7 @@ const THEMES: { value: ThemePreference; label: string }[] = [
 export default function SettingsPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-10">
-      <PageHeader title="Settings" description="How Kalos looks on this device, and what it is connected to." />
+      <PageHeader eyebrow="Workspace settings" title="Preferences" description="Make the workspace yours, check the engine connection, and review optional integrations." />
       <Appearance />
       <EngineConnection />
       <Integrations />
@@ -40,8 +40,8 @@ function Appearance() {
           <label
             key={t.value}
             className={cn(
-              "flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-label",
-              theme === t.value ? "border-accent bg-accent-soft text-fg" : "border-border-strong bg-surface text-fg hover:bg-subtle",
+              "flex min-h-14 min-w-36 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-body",
+              theme === t.value ? "border-border-input bg-brand text-brand-fg" : "border-border-strong bg-surface text-fg hover:bg-subtle",
             )}
           >
             <input

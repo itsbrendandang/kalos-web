@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { ChevronRight, Database, FlaskConical, FolderKanban, Library, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { CommandPalette } from "@/components/workbench/command-palette";
-import { EditorTabs } from "@/components/workbench/editor-tabs";
 import { SectionExplorer, useExplorerIsExample } from "@/components/workbench/explorer";
 import { StatusBar } from "@/components/workbench/status-bar";
 import { WorkspaceMenu } from "@/components/workbench/workspace-menu";
+import { WorkflowNav } from "@/components/workbench/workflow-nav";
+import { ProcessGuide } from "@/components/workbench/process-guide";
 import { ProjectsStoreProvider, useProjectsStore } from "@/components/projects/store-context";
 import { ExampleBadge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -30,9 +31,8 @@ const explorerCollapsed = createStorageStore("local", "kalos.explorer-collapsed"
 const MAIN_ID = "main";
 
 /**
- * The app-wide workbench: an activity rail (sections), a per-section
- * explorer tree, route-backed editor tabs with a breadcrumb, the page, and a
- * status bar. On phones the rail becomes a top bar and the explorer a sheet.
+ * A compact workspace sidebar with section links and a contextual explorer,
+ * a quiet breadcrumb header, and the page. On phones navigation is a sheet.
  * Also mounts what every page shares: engine data, the projects store,
  * tooltips and the ⌘K palette.
  */
@@ -77,9 +77,6 @@ function Frame({ children }: { children: ReactNode }) {
   const crumbs: RouteItem[] = breadcrumbFor(pathname);
   if (crumbs[crumbs.length - 1].href !== pathname) crumbs.push({ href: pathname, label: tabTitle(pathname), description: "" });
 
-  const hasExplorer = section !== "settings";
-  const showExplorer = hasExplorer && !collapsed;
-
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg">
       <a
@@ -92,30 +89,20 @@ function Frame({ children }: { children: ReactNode }) {
       <MobileTopBar onOpenSheet={() => setSheetOpen(true)} onSearch={() => setPaletteOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
-        <ActivityRail section={section} explorerOpen={showExplorer} onToggleExplorer={toggleExplorer} />
-
-        {showExplorer ? (
-          <aside aria-label="Explorer" className="hidden w-60 shrink-0 flex-col border-r border-border bg-subtle md:flex">
-            <ExplorerHeader section={section} onSearch={() => setPaletteOpen(true)} onCollapse={toggleExplorer} />
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <SectionExplorer section={section} />
-            </div>
-          </aside>
-        ) : null}
+        <WorkspaceSidebar section={section} collapsed={collapsed} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <EditorTabs titleFor={tabTitle} />
-          <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-3 md:px-4">
-            {hasExplorer && collapsed ? (
+          <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border px-4 md:h-12 md:px-6">
               <button
                 type="button"
                 onClick={toggleExplorer}
-                aria-label="Show explorer"
-                className="-ml-1 hidden size-6 place-items-center rounded text-fg-muted hover:bg-subtle hover:text-fg md:grid"
+                aria-label={collapsed ? "Show explorer" : "Hide explorer"}
+                aria-expanded={!collapsed}
+                aria-controls="workspace-sidebar"
+                className="-ml-1 hidden size-8 place-items-center rounded-md text-fg-muted hover:bg-subtle hover:text-fg md:grid"
               >
-                <PanelLeftOpen className="size-4" aria-hidden />
+                {collapsed ? <PanelLeftOpen className="size-4" aria-hidden /> : <PanelLeftClose className="size-4" aria-hidden />}
               </button>
-            ) : null}
             <nav aria-label="Breadcrumb" className="min-w-0">
               <ol className="flex items-center gap-1 text-caption text-fg-muted">
                 {crumbs.map((c, i) => {
@@ -137,9 +124,19 @@ function Frame({ children }: { children: ReactNode }) {
                 })}
               </ol>
             </nav>
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Search workspace"
+              className="ml-auto hidden items-center gap-2 rounded-md px-2 py-1.5 text-caption text-fg-muted hover:bg-subtle md:inline-flex"
+            >
+              <Search className="size-3.5" aria-hidden />
+              Find a tool
+              <kbd className="rounded border border-border px-1 font-sans text-[10px]">⌘ / Ctrl K</kbd>
+            </button>
           </div>
           <main id={MAIN_ID} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <div className="mx-auto w-full max-w-[1120px] p-4 md:p-6">{children}</div>
+            <div className="mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-9 lg:px-10"><WorkflowNav pathname={pathname} />{pathname !== "/" ? <div className="mb-7"><ProcessGuide pathname={pathname} /></div> : null}{children}</div>
           </main>
         </div>
       </div>
@@ -152,7 +149,8 @@ function Frame({ children }: { children: ReactNode }) {
   );
 }
 
-function ActivityRail({ section, explorerOpen, onToggleExplorer }: { section: NavKey; explorerOpen: boolean; onToggleExplorer: () => void }) {
+function WorkspaceSidebar({ section, collapsed }: { section: NavKey; collapsed: boolean }) {
+  const example = useExplorerIsExample(section);
   const item = (n: (typeof NAV_ITEMS)[number]) => {
     const Icon = SECTION_ICON[n.key];
     const active = n.key === section;
@@ -164,76 +162,49 @@ function ActivityRail({ section, explorerOpen, onToggleExplorer }: { section: Na
               href={n.href}
               aria-label={n.label}
               aria-current={active ? "page" : undefined}
-              onClick={(e) => {
-                // Like an editor's activity bar: the active section's icon shows or hides its explorer.
-                if (active && n.key !== "settings") {
-                  e.preventDefault();
-                  onToggleExplorer();
-                }
-              }}
-              aria-expanded={active && n.key !== "settings" ? explorerOpen : undefined}
               className={cn(
-                "grid size-9 place-items-center rounded-lg border",
-                active ? "border-border bg-surface text-fg" : "border-transparent text-fg-muted hover:bg-surface hover:text-fg",
+                "flex min-h-10 items-center gap-3 rounded-lg px-3 text-body focus-visible:outline-ring",
+                collapsed ? "justify-center px-0" : "w-full",
+                active ? "bg-brand font-medium text-brand-fg" : "text-fg-muted hover:bg-border/40 hover:text-fg",
               )}
             />
           }
         >
-          <Icon className="size-5" aria-hidden />
+          <Icon className="size-4 shrink-0" aria-hidden />
+          {!collapsed ? <span>{n.key === "campaign" ? "Workspace" : n.label}</span> : null}
         </TooltipTrigger>
         <TooltipContent side="right">{n.label}</TooltipContent>
       </Tooltip>
     );
   };
   return (
-    <nav aria-label="Sections" className="hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-subtle py-2 md:flex">
-      <Link href="/" aria-label="Kalos, campaign overview" className="mb-2 grid size-8 place-items-center rounded-lg bg-fg text-label font-semibold text-bg">
-        K
+    <aside id="workspace-sidebar" aria-label="Workspace navigation" className={cn("hidden shrink-0 flex-col border-r border-border bg-subtle md:flex", collapsed ? "w-16" : "w-56")}>
+      <Link href="/" aria-label="Kalos, campaign overview" className={cn("flex h-16 shrink-0 items-center gap-2.5 px-5 text-lg font-semibold text-fg", collapsed && "justify-center px-0")}>
+        <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-xl bg-brand text-xl font-medium text-brand-fg">k</span>
+        {!collapsed ? <span>Kalos<span className="ml-1 text-fg-muted">.</span></span> : null}
       </Link>
-      {NAV_ITEMS.filter((n) => n.key !== "settings").map(item)}
-      <div className="mt-auto flex flex-col items-center gap-1">
-        {NAV_ITEMS.filter((n) => n.key === "settings").map(item)}
-        <WorkspaceMenu />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
+        <nav aria-label="Sections" className="flex flex-col gap-1 px-3">
+          {NAV_ITEMS.filter((n) => n.key !== "settings").map(item)}
+        </nav>
+        {!collapsed && section !== "settings" ? (
+          <section aria-label="Explorer" className="mt-6">
+            <div className="mb-2 flex items-center gap-2 px-5 text-caption text-fg-muted">
+              <h2>{{ campaign: "Experiment cycle", data: "Datasets", library: "Tool library", projects: "Client projects" }[section]}</h2>
+              {example ? <ExampleBadge className="h-5" /> : null}
+            </div>
+            <SectionExplorer section={section} />
+          </section>
+        ) : null}
       </div>
-    </nav>
-  );
-}
-
-/** "⌘K" on Apple platforms, "Ctrl K" elsewhere; ⌘K while rendering on the server. */
-function useShortcutLabel(): string {
-  return useSyncExternalStore(
-    () => () => {},
-    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"),
-    () => "⌘K",
-  );
-}
-
-function ExplorerHeader({ section, onSearch, onCollapse }: { section: NavKey; onSearch: () => void; onCollapse: () => void }) {
-  const label = NAV_ITEMS.find((n) => n.key === section)?.label;
-  const example = useExplorerIsExample(section);
-  const shortcut = useShortcutLabel();
-  return (
-    <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3">
-      <h2 className="min-w-0 flex-1 truncate text-label text-fg">{label}</h2>
-      {example ? <ExampleBadge className="h-5" /> : null}
-      <button
-        type="button"
-        onClick={onSearch}
-        aria-label={`Search pages and actions (${shortcut})`}
-        className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-caption text-fg-muted hover:bg-surface hover:text-fg"
-      >
-        <Search className="size-3.5" aria-hidden />
-        <kbd className="font-sans">{shortcut}</kbd>
-      </button>
-      <button
-        type="button"
-        onClick={onCollapse}
-        aria-label="Hide explorer"
-        className="grid size-7 place-items-center rounded-md text-fg-muted hover:bg-surface hover:text-fg"
-      >
-        <PanelLeftClose className="size-4" aria-hidden />
-      </button>
-    </div>
+      <div className="flex shrink-0 flex-col gap-1 border-t border-border p-3">
+        <nav aria-label="Workspace settings">{NAV_ITEMS.filter((n) => n.key === "settings").map(item)}</nav>
+        <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "pl-3")}>
+          {!collapsed ? <span className="flex-1 text-caption text-fg-muted">Kalos workspace</span> : null}
+          <WorkspaceMenu />
+        </div>
+      </div>
+    </aside>
   );
 }
 

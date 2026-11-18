@@ -6,6 +6,7 @@ import { PageHeader, Loading } from "@/components/page-header";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { Card, SectionLabel } from "@/components/ui/card";
+import { PlannedVessel } from "@/components/campaign/planned-vessel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -229,7 +230,7 @@ export default function ScaleReadoutPage() {
   return (
     <div className="flex flex-col gap-7">
       <PageHeader
-        eyebrow="Scale-up readout"
+        eyebrow="Predict and design"
         title="Scale-up readout"
         desc="A data-backed prediction at a new scale, or an honest refusal with what it would take."
       />
@@ -252,6 +253,7 @@ export default function ScaleReadoutPage() {
         <div className="flex flex-col gap-5">
           <Card>
             <SectionLabel>1. Run sheet</SectionLabel>
+            <p className="mb-4 text-body text-fg-muted">Start with measured runs, including the response and process inputs you want to carry to a new scale.</p>
             <UploadDropzone key={resetCount} onFile={handleFile} disabled={disabled} />
             {file ? (
               <p className="mt-2 text-[12px] text-muted">
@@ -262,7 +264,8 @@ export default function ScaleReadoutPage() {
           </Card>
 
           {mode.kind !== "none" ? (
-            <Card className="flex flex-col gap-4">
+            <Card className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="flex min-w-0 flex-col gap-4">
               <SectionLabel>2. Target scale and process values</SectionLabel>
 
               {mode.kind === "csv" ? (
@@ -409,6 +412,8 @@ export default function ScaleReadoutPage() {
                   {busy ? "Running readout..." : "Run scale-up readout"}
                 </Button>
               </div>
+              </div>
+              <PlannedVessel scale={scaleLRaw} agitation={agitationRaw} airflow={airflowRaw} physics={physicsColumns} />
             </Card>
           ) : null}
         </div>

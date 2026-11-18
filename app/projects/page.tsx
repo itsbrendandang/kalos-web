@@ -6,6 +6,8 @@ import type { Customer } from "./data";
 import { ProjectCard, AddProjectCard } from "@/components/projects/project-card";
 import { ProjectsModal, type ModalState } from "@/components/projects/modals";
 import { useProjectsStore } from "@/components/projects/store-context";
+import { PageHeader } from "@/components/kit/page-header";
+import { ExampleBadge } from "@/components/ui/badge";
 
 export default function ProjectsPage() {
   const [modal, setModal] = useState<ModalState>(null);
@@ -13,16 +15,12 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <div className="mb-[18px] flex items-center justify-between">
-        <div>
-          <div className="v-eyebrow mb-0.5">All customers</div>
-          <h1 className="v-title">Projects</h1>
-        </div>
+      <PageHeader className="mb-8" eyebrow="Research portfolio" title="Projects" meta={<ExampleBadge />} description="Keep each client's objective, experiments, and reports in one place. Example workspaces are illustrative, not live research." action={
         <button type="button" className="v-btn v-btn-primary" onClick={() => setModal({ kind: "add-customer" })}>
           <Plus className="size-3" />
           Add customer
         </button>
-      </div>
+      } />
 
       {customers.map((c) => (
         <CustomerSection key={c.id} customer={c} onModal={setModal} />
@@ -36,11 +34,11 @@ export default function ProjectsPage() {
 function CustomerSection({ customer, onModal }: { customer: Customer; onModal: (m: ModalState) => void }) {
   const n = customer.projects.length;
   return (
-    <section className="mb-5">
+    <section className="mb-8">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Building2 className="size-3.5 text-[color:var(--v-faint)]" />
-          <span className="text-[13px] font-medium text-[color:var(--v-ink)]">{customer.name}</span>
+          <h2 className="text-heading text-fg">{customer.name}</h2>
           <span className="v-tag">
             {n} project{n === 1 ? "" : "s"}
           </span>
@@ -50,7 +48,7 @@ function CustomerSection({ customer, onModal }: { customer: Customer; onModal: (
           Edit
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-[9px] sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {customer.projects.map((p) => (
           <ProjectCard key={p.id} project={p} onEdit={(project) => onModal({ kind: "edit-project", project })} />
         ))}

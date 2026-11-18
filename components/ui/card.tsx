@@ -4,14 +4,10 @@ import { cn } from "@/lib/utils";
 /**
  * Card and the kalos section composites.
  *
- * Reconciliation notes (2026-08-08 shadcn migration): `Card` keeps the kalos
- * box model exactly as it was - a borderless, shadowless open section that
- * carries its own padding - because 27 files already compose arbitrary
- * children directly inside it. Adopting base-nova's stock Card (which is
- * `ring-1 ring-foreground/10` with `py-(--card-spacing)` and expects children
- * to be slot components that supply their own horizontal padding) would have
- * silently un-padded every one of those 27 surfaces and reintroduced an
- * elevation ring the design system forbids.
+ * Scientific form and result surfaces use a shared hairline boundary and
+ * warm surface fill. Padding remains on Card itself because callers compose
+ * arbitrary children directly inside it; bordered=false opts into an open
+ * section. No elevation ring or automatic layout is introduced.
  *
  * The shadcn slot API (CardHeader/CardTitle/CardDescription/CardAction/
  * CardContent/CardFooter) is added alongside it, retuned to nest INSIDE
@@ -25,13 +21,13 @@ import { cn } from "@/lib/utils";
  */
 export function Card({
   className,
-  bordered = false,
+  bordered = true,
   ...props
 }: React.ComponentProps<"div"> & { bordered?: boolean }) {
   return (
     <div
       data-slot="card"
-      className={cn("rounded-xl p-6", bordered && "border border-border", className)}
+      className={cn("min-w-0 rounded-xl bg-surface p-5", bordered && "border border-border", className)}
       {...props}
     />
   );

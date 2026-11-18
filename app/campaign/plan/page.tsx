@@ -7,6 +7,7 @@ import { orderBatch, targetIsNonNegative } from "@/components/campaign/plan-batc
 import { ApproveDialog } from "@/components/campaign/plan/approve-dialog";
 import { Comparison } from "@/components/campaign/plan/comparison";
 import { ResponseSurface2D } from "@/components/campaign/plan/response-surface";
+import { ProposalTradeoff } from "@/components/campaign/science-charts";
 import { parseSurface } from "@/components/campaign/plan/surface-model";
 import { MarkLegend, MeasuredValue } from "@/components/campaign/plan/marks";
 import { RecommendationCards, RecommendationsTable, type PlanContext, type PlanRow, type RowState } from "@/components/campaign/plan/recommendations";
@@ -127,8 +128,9 @@ function PlanHeader({ round, eyebrow, meta, action }: { round?: number; eyebrow?
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        {eyebrow ? <p className="mb-1 text-label text-fg-muted">{eyebrow}</p> : null}
-        <h1 className="text-title text-fg">{round != null ? `Plan round ${round}` : "Plan"}</h1>
+        <p className="mb-2 text-caption font-medium tracking-[0.12em] text-fg-muted uppercase">{eyebrow ?? "2 · Design your next experiment"}</p>
+        <h1 className="text-display break-words text-fg">{round != null ? `Plan round ${round}` : "Plan"}</h1>
+        <p className="mt-2 max-w-[68ch] text-body text-fg-muted">Compare the proposed recipes and their uncertainty, then choose which experiments to run.</p>
         {meta}
       </div>
       {action ? <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">{action}</div> : null}
@@ -141,7 +143,7 @@ function PlanSkeleton() {
     <div className="flex flex-col gap-6" role="status" aria-live="polite" aria-label="Loading the proposed batch">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-3.5 w-40" />
-        <h1 className="text-title text-fg">Plan</h1>
+        <h1 className="text-display text-fg">Plan</h1>
         <Skeleton className="h-3.5 w-72 max-w-full" />
       </div>
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-4">
@@ -414,7 +416,7 @@ function Batch({
             <span className="text-title tabular-nums">{formatNumber(rows.length, "count")}</span>
           </SummaryCell>
           <SummaryCell label={`Best ${name}`} caption={incumbent != null ? ctx.incumbentLabel : "no reproducible best for this fit"}>
-            {incumbent != null ? <MeasuredValue value={formatNumber(incumbent)} unit={unit || undefined} className="text-title" /> : <span className="text-heading text-fg-muted">n/a</span>}
+            {incumbent != null ? <MeasuredValue value={formatNumber(incumbent)} unit={unit || undefined} className="flex-wrap text-title whitespace-normal" /> : <span className="text-heading text-fg-muted">n/a</span>}
           </SummaryCell>
           <SummaryCell label="Prediction band" caption={band != null ? `${bandLabel(d.conformal_coverage)}, same width for every proposal. ${BAND_CAVEAT}` : "the engine did not report one"}>
             <span className={cn("tabular-nums", band != null ? "text-title" : "text-heading text-fg-muted")}>{band != null ? `± ${formatNumber(band)}` : "Not reported"}</span>
@@ -548,6 +550,8 @@ function Batch({
           .
         </span>
       </p>
+
+      <ProposalTradeoff proposals={d.proposals} target={name} unit={parseUnit(d.target)} />
 
       {surface ? (
         <Disclosure summary="How the model responds to two inputs" meta="predicted mean only">

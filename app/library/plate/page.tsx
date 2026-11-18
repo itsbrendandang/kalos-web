@@ -13,6 +13,7 @@ import { ControlSummary } from "@/components/plate/control-summary";
 import { WellDetail } from "@/components/plate/well-detail";
 import { StatusChip } from "@/components/plate/status-chip";
 import { PageHeader, DemoBadge } from "@/components/page-header";
+import { EmptyState } from "@/components/ui/honest-state";
 import { PLATE } from "@/lib/plate-data";
 import { cn } from "@/lib/utils";
 import { lazyChart } from "@/components/kit/lazy-chart";
@@ -41,8 +42,9 @@ export default function PlatePage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Plate Summary - Nitrogen Source · PID-107 · E. coli · 2 plates"
-        desc="kalos plate analysis · simulated 96-well nitrogen-source screen."
+        eyebrow="Analyze measurements"
+        title="Plate analysis"
+        desc="Example nitrogen-source screen · PID-107 · E. coli · simulated 96-well data for Plate 01."
         action={<DemoBadge />}
       />
 
@@ -55,6 +57,7 @@ export default function PlatePage() {
                   <button
                     key={p}
                     type="button"
+                    aria-pressed={activePlate === p}
                     onClick={() => setActivePlate(p)}
                     className={cn(
                       "rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
@@ -75,15 +78,16 @@ export default function PlatePage() {
             ) : null}
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            <Button variant="outline" onClick={() => setExported(true)}>
+            <Button variant="outline" disabled={activePlate !== "1"} onClick={() => setExported(true)}>
               Export plate report
             </Button>
-            {exported ? (
+            {exported && activePlate === "1" ? (
               <span className="text-[11px] text-muted">Export queued - demo only, no backend attached.</span>
             ) : null}
           </div>
         </div>
 
+        {activePlate === "1" ? <>
         <QcTiles
           totalWells={PLATE.wellIds.length}
           wellsWithData={PLATE.expIds.length}
@@ -200,6 +204,7 @@ export default function PlatePage() {
             source, pulled from the full kalos plate-analysis pipeline.
           </Card>
         </TabsContent>
+        </> : <EmptyState title="No data for Plate 02" description="Only Plate 01 is included in this example. Its measurements are not shown here because they do not belong to Plate 02." action={<Button variant="outline" onClick={() => setActivePlate("1")}>Return to Plate 01</Button>} />}
       </Tabs>
     </div>
   );

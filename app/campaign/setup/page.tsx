@@ -138,6 +138,7 @@ export default function SetupPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        eyebrow="1 · Prepare your data"
         title="Set up the campaign"
         description="Upload the runs you already have and choose what to maximize. Kalos checks the sheet, then fits the model."
         action={

@@ -19,7 +19,7 @@ const CorrelationScatter = lazyChart(() => import("@/components/vessels/correlat
 function NoLiveVessels() {
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Vessel Workspace" desc="Per-vessel ambr kinetics and titer-vs-qP correlation." />
+      <PageHeader eyebrow="Analyze measurements" title="Vessel kinetics" desc="Compare growth and production across vessels, then inspect their kinetic profiles." />
       <EmptyState
         icon={PlugZap}
         title="No live vessel data"
@@ -57,8 +57,9 @@ export default function VesselsPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Vessel Workspace - ambr CHO Fed-Batch · 48 vessels"
-        desc="kalos vessel analysis · simulated 48-vessel ambr CHO run - titer, viability, VCD, lactate, glucose, pH."
+        eyebrow="Analyze measurements"
+        title="Vessel kinetics"
+        desc="Example ambr CHO fed-batch · 48 simulated vessels · titer, viability, VCD, lactate, glucose, and pH."
         action={<DemoBadge />}
       />
 

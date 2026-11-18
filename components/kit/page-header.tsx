@@ -13,6 +13,7 @@ export function PageHeader({
   eyebrow,
   meta,
   className,
+  headingLevel = 1,
 }: {
   title: ReactNode;
   description?: ReactNode;
@@ -20,13 +21,15 @@ export function PageHeader({
   eyebrow?: ReactNode;
   meta?: ReactNode;
   className?: string;
+  headingLevel?: 1 | 2;
 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-x-6 gap-y-4", className)}>
+    <header className={cn("flex flex-col items-start justify-between gap-x-6 gap-y-4 sm:flex-row sm:flex-wrap", className)}>
       <div className="min-w-0 flex-1">
-        {eyebrow ? <p className="mb-1 text-label text-fg-muted">{eyebrow}</p> : null}
+        {eyebrow ? <p className="mb-2 text-caption font-medium tracking-[0.12em] text-accent uppercase">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="min-w-0 text-title break-words text-fg">{title}</h1>
+          <Heading className={cn("min-w-0 break-words text-fg", headingLevel === 1 ? "text-display" : "text-title")}>{title}</Heading>
           {meta}
         </div>
         {description ? <p className="mt-1.5 max-w-[68ch] text-body text-fg-muted">{description}</p> : null}

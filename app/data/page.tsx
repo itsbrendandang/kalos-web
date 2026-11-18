@@ -77,7 +77,7 @@ function EngineCredit() {
 function NoLiveRegistry() {
   return (
     <div className="flex flex-col gap-7">
-      <PageHeader eyebrow="Data room" title="Bioprocessing data registry"
+      <PageHeader eyebrow="Research data" title="Bioprocessing data registry"
         desc="The datasets and runs the engine has seen." />
       <EmptyState
         icon={PlugZap}
@@ -125,7 +125,7 @@ export default function DataPage() {
   return (
     <div className="flex flex-col gap-7">
       <PageHeader
-        eyebrow="Data room"
+        eyebrow="Research data"
         title="Bioprocessing data registry"
         desc="Example datasets and runs, shown because example data is on."
       />

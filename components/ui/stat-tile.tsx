@@ -5,8 +5,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 /**
- * Dense KPI tile - 72-80px tall (down from the 96-132px `Kpi`/`StatCard`
- * composites in components/ui/card.tsx), so a KPI row reads at a glance
+ * Dense KPI tile - 72-80px tall (down from the 96px `Kpi`
+ * composite in components/ui/card.tsx), so a KPI row reads at a glance
  * instead of eating a full screen's worth of vertical space. Built on the
  * `Card` slot, mono tabular figures via the shared `.tabular` class, and an
  * optional `tooltip` that spells out the statistic's definition instead of

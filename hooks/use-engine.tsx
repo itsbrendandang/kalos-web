@@ -133,7 +133,7 @@ export function useLastRejection(): LastRejection {
  *
  *   runFile(file, target?, roles?, sheet?, { replace? })  -> AnalyzeResult   (same contract as lib/api runFile; refreshes latest + campaign unless the engine rejected the upload; throws CampaignHasRunsError on a 409)
  *   startRuns(recipes)      -> void            (refreshes campaign)
- *   logResult(id, value)    -> void            (retains the acknowledged result, then refreshes campaign)
+ *   logResult(id, value, reason?) -> void      (retains the acknowledged result, then refreshes campaign)
  *   reanalyze()             -> { analysis, campaign }  (sets campaign from the response, refreshes latest)
  *
  * Each throws exactly as the lib/api function does and updates the provider
@@ -164,8 +164,8 @@ export function useEngineWrites() {
     [refreshCampaign],
   );
   const logResult = useCallback(
-    async (id: string, value: number) => {
-      await api.logResult(id, value);
+    async (id: string, value: number, reason?: string) => {
+      await api.logResult(id, value, reason);
       updateCampaign((current) => {
         if (!current?.has_campaign || !current.pending.some((r) => r.id === id)) return current;
         const pending = current.pending.map((r) => r.id === id ? { ...r, result: value, awaiting: false } : r);

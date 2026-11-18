@@ -1113,11 +1113,11 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
   if (!r.ok) throw new Error(`engine responded ${r.status}`);
 }
 
-export async function logResult(id: string, value: number): Promise<void> {
+export async function logResult(id: string, value: number, reason?: string): Promise<void> {
   const r = await fetch(`${API}/api/campaign/result`, {
     method: "POST",
     headers: mutationHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ id, value }),
+    body: JSON.stringify({ id, value, reason }),
   });
   if (!r.ok) {
     // The documented 400 body is { error }; fall back to a status-based

@@ -96,6 +96,15 @@ describe("campaign client (lib/api.ts)", () => {
     expect(JSON.parse(init.body as string)).toEqual({ id: "b1e2", value: 3.2 });
   });
 
+  it("logResult includes the supplied correction reason", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, {}));
+
+    await logResult("b1e2", 3.4, "Corrected a transcription error");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ id: "b1e2", value: 3.4, reason: "Corrected a transcription error" });
+  });
+
   it("logResult throws with the documented {error} message on a 400", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "unknown id" }));
 

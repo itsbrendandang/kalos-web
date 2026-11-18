@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RecordPage from "@/app/campaign/record/page";
 import { EngineDataProvider, useCampaign } from "@/hooks/use-engine";
 import type { Campaign, CampaignRun } from "@/lib/api";
+import { trimCorrectionReason } from "@/components/campaign/stage-logic";
 
 const run = (id: string): CampaignRun => ({
   id, recipe: { pH: 7 }, pred: 4, std: 0.2, mode: "exploit", reason: "", result: null, awaiting: true,
@@ -33,7 +34,7 @@ beforeEach(() => {
       posts.push(entry);
       if (holdWrite) await holdWrite;
       if (entry.id === writeFails) return json({ error: "Please try again" }, 503);
-      if (campaign.pending.some((r) => r.id === entry.id && r.result != null) && !entry.reason?.trim()) {
+      if (campaign.pending.some((r) => r.id === entry.id && r.result != null) && !trimCorrectionReason(entry.reason ?? "")) {
         return json({ error: "a correction to a recorded result needs a reason", code: "reason_required" }, 400);
       }
       const pending = campaign.pending.map((r) => r.id === entry.id ? { ...r, result: entry.value, awaiting: false } : r);
@@ -171,13 +172,90 @@ describe("Record save recovery", () => {
 });
 
 describe("Record corrections", () => {
+  it("refreshes a concurrently recorded value and keeps all drafts for a reasoned retry", async () => {
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    fireEvent.change(input("second"), { target: { value: "4.2" } });
+    seedSaved("first");
+    fireEvent.click(save());
+
+    await screen.findByText(/a correction to a recorded result needs a reason/);
+    expect(input("first").value).toBe("3.6");
+    expect(input("second").value).toBe("4.2");
+    expect(reason("first").value).toBe("");
+    expect(screen.getByText(/Saved value: 3.5/)).toBeTruthy();
+    expect(save().disabled).toBe(true);
+    expect(posts).toEqual([{ id: "first", value: 3.6 }]);
+
+    fireEvent.change(reason("first"), { target: { value: "Corrected the shared reading" } });
+    fireEvent.click(save());
+    await screen.findByText("2 measured, 0 awaiting, analysis outdated");
+    expect(posts).toEqual([
+      { id: "first", value: 3.6 },
+      { id: "first", value: 3.6, reason: "Corrected the shared reading" },
+      { id: "second", value: 4.2 },
+    ]);
+  });
+
+  it("blocks a stale correction if its recovery refresh fails and keeps the draft for refresh", async () => {
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    seedSaved("first");
+    refreshFails = true;
+    fireEvent.click(save());
+    await screen.findByRole("button", { name: "Refresh results" });
+    expect(input("first").value).toBe("3.6");
+    expect(save().disabled).toBe(true);
+    expect(posts).toHaveLength(1);
+
+    refreshFails = false;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh results" }));
+    await screen.findByRole("textbox", { name: "Reason for correction for run first" });
+    expect(input("first").value).toBe("3.6");
+    expect(save().disabled).toBe(true);
+    fireEvent.change(reason("first"), { target: { value: "Corrected the shared reading" } });
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]).toEqual({ id: "first", value: 3.6, reason: "Corrected the shared reading" });
+  });
+
+  it("accepts 256 supplementary Unicode characters without a UTF-16 maxlength", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    const explanation = "🧪".repeat(256);
+    fireEvent.change(reason("first"), { target: { value: `\u0085${explanation}\u001c` } });
+    expect(save().disabled).toBe(false);
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({ id: "first", value: 3.6, reason: explanation });
+  });
+
+  it("uses the engine's whitespace rules instead of JavaScript trim", async () => {
+    seedSaved("first");
+    await renderRecord();
+    fireEvent.change(input("first"), { target: { value: "3.6" } });
+    for (const whitespace of ["\u0085", "\u001c", "\u0085\u001c "]) {
+      fireEvent.change(reason("first"), { target: { value: whitespace } });
+      expect(save().disabled).toBe(true);
+      fireEvent.submit(input("first").closest("form")!);
+      expect(posts).toHaveLength(0);
+    }
+
+    fireEvent.change(reason("first"), { target: { value: "\ufeff" } });
+    expect(save().disabled).toBe(false);
+    fireEvent.click(save());
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({ id: "first", value: 3.6, reason: "\ufeff" });
+  });
+
   it("requires a nonblank reason before submitting any rows in a correction batch", async () => {
     seedSaved("first");
     await renderRecord();
     fireEvent.change(input("first"), { target: { value: "3.6" } });
     fireEvent.change(input("second"), { target: { value: "4.2" } });
     expect(reason("first").required).toBe(true);
-    expect(reason("first").maxLength).toBe(256);
+    expect(reason("first").hasAttribute("maxlength")).toBe(false);
     expect(save().disabled).toBe(true);
     fireEvent.change(reason("first"), { target: { value: "   " } });
     fireEvent.submit(input("first").closest("form")!);

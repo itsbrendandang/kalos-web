@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { API, getCampaign, logResult, proposalRecipe, reanalyze, startRuns, type Campaign, type Proposal } from "@/lib/api";
+import { API, CampaignResultError, getCampaign, logResult, proposalRecipe, reanalyze, startRuns, type Campaign, type Proposal } from "@/lib/api";
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
 function fakeResponse(ok: boolean, status: number, body: unknown): Response {
@@ -109,6 +109,14 @@ describe("campaign client (lib/api.ts)", () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "unknown id" }));
 
     await expect(logResult("nope", 1)).rejects.toThrow("unknown id");
+  });
+
+  it("preserves the engine's reason_required code for correction recovery", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "a correction needs a reason", code: "reason_required" }));
+
+    const error = await logResult("b1e2", 3.4).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(CampaignResultError);
+    expect(error).toMatchObject({ message: "a correction needs a reason", code: "reason_required" });
   });
 
   it("logResult falls back to a status-based message when the error body isn't the documented shape", async () => {

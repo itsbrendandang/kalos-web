@@ -57,6 +57,11 @@ export function inlineRecipeKeys(recipe: Record<string, number>, drivers: readon
 
 export const SANITY_FACTOR = 5;
 
+/** Match Python str.strip(), used by the engine for correction reasons. */
+export function trimCorrectionReason(text: string): string {
+  return text.replace(/^[\p{White_Space}\u001c-\u001f]+|[\p{White_Space}\u001c-\u001f]+$/gu, "");
+}
+
 /** Why a value needs the scientist's confirmation, or null when it looks ordinary. */
 export function sanityReason(value: number, best: number | null): string | null {
   if (value < 0) return "is negative";

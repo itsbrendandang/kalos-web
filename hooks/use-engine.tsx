@@ -136,8 +136,9 @@ export function useLastRejection(): LastRejection {
  *   logResult(id, value, reason?) -> void      (retains the acknowledged result, then refreshes campaign)
  *   reanalyze()             -> { analysis, campaign }  (sets campaign from the response, refreshes latest)
  *
- * Each throws exactly as the lib/api function does and updates the provider
- * only after the write succeeded. Read state with useLatest()/useCampaign().
+ * Each throws exactly as the lib/api function does. A reason_required rejection
+ * refreshes the campaign so a concurrently recorded value can be corrected.
+ * Read state with useLatest()/useCampaign().
  */
 export function useEngineWrites() {
   const { latest, campaign, setRejection } = useEngineData();
@@ -165,7 +166,12 @@ export function useEngineWrites() {
   );
   const logResult = useCallback(
     async (id: string, value: number, reason?: string) => {
-      await api.logResult(id, value, reason);
+      try {
+        await api.logResult(id, value, reason);
+      } catch (e) {
+        if (e instanceof api.CampaignResultError && e.code === "reason_required") await refreshCampaign();
+        throw e;
+      }
       updateCampaign((current) => {
         if (!current?.has_campaign || !current.pending.some((r) => r.id === id)) return current;
         const pending = current.pending.map((r) => r.id === id ? { ...r, result: value, awaiting: false } : r);

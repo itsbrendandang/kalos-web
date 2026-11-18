@@ -14,11 +14,11 @@ import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatNumber } from "@/lib/format";
 import { shortId } from "@/lib/workbench";
-import { changedRows, inlineRecipeKeys, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
+import { changedRows, inlineRecipeKeys, parseEntry, sanityReason, trimCorrectionReason } from "@/components/campaign/stage-logic";
 
 type Row = { id: string; value: number; reason?: string };
 
-const invalidReasons = (rows: Row[]) => rows.some((r) => r.reason != null && (r.reason.trim() === "" || r.reason.length > 256));
+const invalidReasons = (rows: Row[]) => rows.some((r) => r.reason != null && (trimCorrectionReason(r.reason) === "" || [...r.reason].length > 256));
 
 /**
  * One input per run, awaiting ones first. A logged value stays editable with a
@@ -50,7 +50,7 @@ export function RecordForm({
   const ordered = [...runs].sort((a, b) => Number(b.awaiting) - Number(a.awaiting));
   const changed: Row[] = changedRows(runs, drafts).map((row) =>
     runs.some((r) => r.id === row.id && r.result != null)
-      ? { ...row, reason: (reasons[row.id] ?? "").trim() }
+      ? { ...row, reason: trimCorrectionReason(reasons[row.id] ?? "") }
       : row,
   );
   const logged = runs.filter((r) => !r.awaiting).length;
@@ -162,12 +162,13 @@ export function RecordForm({
                           aria-label={`Reason for correction for run ${shortId(r.id)}`}
                           aria-describedby={`correction-help-${r.id}`}
                           required
-                          maxLength={256}
+                          aria-invalid={invalidReasons([correction])}
                           value={reasons[r.id] ?? ""}
                           disabled={saving}
                           onChange={(e) => setReasons((d) => ({ ...d, [r.id]: e.target.value }))}
                         />
-                        <span id={`correction-help-${r.id}`} className="text-caption text-fg-muted">Explain why the saved value changed (up to 256 characters).</span>
+                        <span id={`correction-help-${r.id}`} className="text-caption text-fg-muted">Saved value: {formatNumber(r.result)} {unit}. Explain why it changed (up to 256 characters).</span>
+                        {[...correction.reason!].length > 256 ? <span className="text-caption text-bad">Use no more than 256 characters.</span> : null}
                       </div>
                     ) : null}
                   </TableCell>

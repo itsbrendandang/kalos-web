@@ -2,7 +2,7 @@
 
 import { redirect, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { AppShell } from "@/components/workbench/app-shell";
+import { AppShell } from "@/components/shell/app-shell";
 import { classifyRoute, isSessionFlowPage } from "@/lib/auth-routes";
 
 export type FrameState = "anonymous" | "mfa_required" | "no_org" | "ok";

@@ -22,7 +22,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Kalos",
+  title: { default: "Kalos", template: "%s · Kalos" },
   description: "Bayesian optimization for bioprocess development",
 };
 

@@ -8,7 +8,7 @@ import { Section } from "@/components/kit/section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoadingSkeleton } from "@/components/ui/honest-state";
-import { useCampaign, useLatest } from "@/hooks/use-engine";
+import { useCampaigns } from "@/hooks/use-engine";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
 import { getProviders, type Provider } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -61,12 +61,12 @@ function Appearance() {
 }
 
 function EngineConnection() {
-  const latest = useLatest();
-  const campaign = useCampaign();
-  const busy = latest.refreshing || campaign.refreshing;
-  const failed = latest.error || campaign.error;
-  const loading = !failed && (latest.status === "loading" || campaign.status === "loading");
-  const version = latest.data?.has_data ? latest.data.engine_version : undefined;
+  // The campaign list is the cheapest authenticated read: it answering proves the proxy, token and engine all work.
+  const campaigns = useCampaigns();
+  const busy = campaigns.refreshing;
+  const failed = campaigns.error;
+  const loading = !failed && campaigns.status === "loading";
+  const n = campaigns.data?.length;
   return (
     <Section
       title="Engine connection"
@@ -76,10 +76,7 @@ function EngineConnection() {
           variant="outline"
           size="sm"
           disabled={busy}
-          onClick={() => {
-            void latest.refresh();
-            void campaign.refresh();
-          }}
+          onClick={() => void campaigns.refresh()}
         >
           {busy ? "Checking..." : "Check again"}
         </Button>
@@ -94,7 +91,7 @@ function EngineConnection() {
           <CircleCheck className="size-4 text-good" aria-hidden />
         )}
         {loading || busy ? "Checking the engine" : failed ? "The engine is not reachable right now." : "Connected to the engine."}
-        {!failed && !loading && version ? <span className="text-fg-muted">Version {version}</span> : null}
+        {!failed && !loading && n != null ? <span className="text-fg-muted">{n === 1 ? "1 campaign" : `${n} campaigns`} visible to your organization</span> : null}
       </p>
     </Section>
   );

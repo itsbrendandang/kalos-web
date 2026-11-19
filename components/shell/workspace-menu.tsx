@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Ellipsis, Keyboard, LogOut, Settings, ShieldCheck, Users } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useTransition } from "react";
+import { Ellipsis, LogOut, Settings, ShieldCheck, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,27 +18,16 @@ import { setThemePreference, useThemePreference, type ThemePreference } from "@/
 import { signOutAction } from "@/lib/server/auth-actions";
 import { cn } from "@/lib/utils";
 
-const SHORTCUTS: [keys: string, what: string][] = [
-  ["⌘K or Ctrl+K", "Search pages and actions"],
-  ["Up / Down", "Move through the explorer tree"],
-  ["Left / Right", "Close or open a tree group"],
-  ["Enter", "Open the focused page or run the highlighted action"],
-  ["Left / Right on a tab", "Switch between open pages"],
-  ["Delete on a tab", "Close that page's tab"],
-  ["Esc", "Close the palette, menus and dialogs"],
-];
 
 /**
  * The workspace menu: Theme, Settings, Security (two-step sign-in, sessions),
- * Members (invitations), Keyboard shortcuts and Sign out (a POST server action, never a GET link).
+ * Members (invitations) and Sign out (a POST server action, never a GET link).
  */
 export function WorkspaceMenu({ side = "right", className }: { side?: "right" | "bottom"; className?: string }) {
   const router = useRouter();
   const theme = useThemePreference();
-  const [shortcuts, setShortcuts] = useState(false);
   const [signingOut, startSignOut] = useTransition();
   return (
-    <>
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label="Workspace menu"
@@ -69,10 +57,6 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
             <Users aria-hidden />
             Members
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShortcuts(true)}>
-            <Keyboard aria-hidden />
-            Keyboard shortcuts
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={signingOut} onClick={() => startSignOut(() => signOutAction())}>
             <LogOut aria-hidden />
@@ -80,24 +64,5 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Dialog open={shortcuts} onOpenChange={setShortcuts}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Keyboard shortcuts</DialogTitle>
-            <DialogDescription>Everything in Kalos also works with a mouse or touch.</DialogDescription>
-          </DialogHeader>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-body">
-            {SHORTCUTS.map(([keys, what]) => (
-              <div key={keys} className="contents">
-                <dt>
-                  <kbd className="rounded-md border border-border bg-subtle px-1.5 py-0.5 text-caption text-fg">{keys}</kbd>
-                </dt>
-                <dd className="text-fg-muted">{what}</dd>
-              </div>
-            ))}
-          </dl>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }

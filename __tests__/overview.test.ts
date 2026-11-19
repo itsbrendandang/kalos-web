@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Driver, LatestResult } from "@/lib/api";
-import { analysisSource, bestReached, bestSoFarSeries, historyLabel, newerBest, niceTicks, topDrivers } from "@/lib/overview";
+import { analysisSource, bestReached, bestTile, historyLabel, newerBest, nextTile, runsTile, topDrivers } from "@/lib/overview";
 
 const d = (name: string, rho: number, ci95: [number, number], significant: boolean): Driver => ({ name, rho, ci95, significant });
 
@@ -19,15 +19,7 @@ describe("topDrivers", () => {
   });
 });
 
-describe("bestSoFarSeries", () => {
-  it("is the measured history, one point per round, gaps kept", () => {
-    const s = bestSoFarSeries({ history: [{ round: 0, best: 4.6, n_base: 24 }, { round: 1, best: null, n_base: 26 }] });
-    expect(s).toEqual([
-      { round: 0, best: 4.6, runs: 24 },
-      { round: 1, best: null, runs: 26 },
-    ]);
-  });
-
+describe("historyLabel", () => {
   it("names round 0 as the uploaded sheet", () => {
     expect(historyLabel(0)).toBe("Uploaded sheet");
     expect(historyLabel(2)).toBe("Round 2");
@@ -74,27 +66,6 @@ describe("analysisSource", () => {
   });
 });
 
-describe("niceTicks", () => {
-  it("covers the range with round steps", () => {
-    const t = niceTicks(1.03, 1.42, 4);
-    expect(t[0]).toBeLessThanOrEqual(1.03);
-    expect(t[t.length - 1]).toBeGreaterThanOrEqual(1.42);
-    const steps = t.slice(1).map((v, i) => +(v - t[i]).toFixed(9));
-    expect(new Set(steps).size).toBe(1);
-    expect([0.1, 0.2, 0.25, 0.5, 1]).toContain(steps[0]);
-  });
-
-  it("gives a flat series a visible span instead of a zero-height axis", () => {
-    const t = niceTicks(5, 5);
-    expect(t[0]).toBeLessThan(5);
-    expect(t[t.length - 1]).toBeGreaterThan(5);
-  });
-
-  it("returns no ticks for non-finite input", () => {
-    expect(niceTicks(Infinity, -Infinity)).toEqual([]);
-  });
-});
-
 describe("newerBest", () => {
   const run = (id: string, result: number | null, awaiting = result == null) =>
     ({ id, recipe: {}, pred: 1, std: 0.1, mode: "exploit" as const, reason: "", result, awaiting });
@@ -107,5 +78,68 @@ describe("newerBest", () => {
   it("ignores awaiting runs and is null when nothing is recorded", () => {
     expect(newerBest({ best: 1, pending: [run("a", null)] })).toBeNull();
     expect(newerBest({ best: null, pending: [run("a", 0.5)] })).toEqual({ value: 0.5, runId: "a" });
+  });
+});
+
+describe("hero tiles", () => {
+  const history = [
+    { round: 0, best: 1.422, n_base: 160 },
+    { round: 1, best: 1.61, n_base: 165 },
+  ];
+
+  it("best tile: measured best with the delta vs the previous round, named", () => {
+    const t = bestTile({ best: 1.61, history, round: 1 }, { noise: undefined });
+    expect(t.value).toBe(1.61);
+    expect(t.label).toBe("best measured run");
+    expect(t.delta).toEqual({ current: 1.61, baseline: 1.422, baselineLabel: "the uploaded sheet" });
+    expect(t.single).toBeNull();
+  });
+
+  it("best tile: a replicate-aware fit headlines the best reproducible recipe, with the best single run beneath", () => {
+    const noise = { replicate_aware: true, best_reproducible: 1.5 } as NonNullable<Parameters<typeof bestTile>[1]>["noise"];
+    const t = bestTile({ best: 1.61, history, round: 1 }, { noise });
+    expect(t).toMatchObject({ value: 1.5, label: "best reproducible recipe", single: 1.61, delta: null });
+  });
+
+  it("best tile: no best stays null (n/a), never 0", () => {
+    expect(bestTile({ best: null, history: [{ round: 0, best: null, n_base: 3 }], round: 0 }, null).value).toBeNull();
+  });
+
+  const analysis = {
+    best: 1.61,
+    noise: undefined,
+    proposals: [
+      { vals: [], pred: 1.6, std: 0.04, mode: "exploit" as const, reason: "" },
+      { vals: [], pred: 1.7, std: 0.04, mode: "explore" as const, reason: "" },
+    ],
+    conformal_q: 0.2,
+    conformal_coverage: 0.9,
+    timestamp: 100,
+  };
+
+  it("next tile: the proposed batch's span across its bands, with the top pick", () => {
+    const t = nextTile({ target: "y", history, round: 1, pending: [], analysis_in_sync: true }, analysis);
+    expect(t.kind).toBe("proposed");
+    if (t.kind === "none") throw new Error("unreachable");
+    expect(t.lo).toBeCloseTo(1.4);
+    expect(t.hi).toBeCloseTo(1.9);
+    expect(t.top.pred).toBe(1.7);
+    expect(t.coverage).toBe(0.9);
+  });
+
+  it("next tile: once the round's batch is started, it reads the started runs (bands only from the current analysis)", () => {
+    const pending = [{ id: "a", recipe: {}, pred: 1.65, std: 0.1, mode: "exploit" as const, reason: "", result: null, awaiting: true, round: 1, analysis_provenance: { timestamp: 100 } }];
+    const t = nextTile({ target: "y", history, round: 1, pending, analysis_in_sync: false }, analysis);
+    expect(t).toMatchObject({ kind: "started", n: 1, withIntervals: true, stale: true });
+  });
+
+  it("next tile: none without an analysis", () => {
+    expect(nextTile({ target: "y", history, round: 1 }, null).kind).toBe("none");
+  });
+
+  it("runs tile: counts from the summary, n/a (null) for anything missing", () => {
+    expect(runsTile({ n_base: 165, history, n_measured: 2, n_awaiting: 3 })).toEqual({ inModel: 165, fromUpload: 160, recorded: 2, awaiting: 3 });
+    expect(runsTile(null)).toEqual({ inModel: null, fromUpload: null, recorded: null, awaiting: null });
+    expect(runsTile({ n_base: 5, history: [], n_measured: 0, n_awaiting: 0 }).fromUpload).toBeNull();
   });
 });

@@ -2,7 +2,7 @@
 
 import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 import { packageFilename, packageJson, proposalsCsv, runsCsv, type DataPackage } from "@/lib/report-package";
 
 /**
@@ -59,7 +59,7 @@ export function Downloads({
     {
       key: "runs" as const,
       label: "Runs (CSV)",
-      detail: nRuns ? `${formatNumber(nRuns, "count")} started runs, measured and predicted in separate columns.` : "No runs have been started yet.",
+      detail: nRuns ? `${formatValue(nRuns, { quantity: "count" }).text} started runs, measured and predicted in separate columns.` : "No runs have been started yet.",
       disabled: nRuns === 0,
       primary: false,
       save: () => {
@@ -70,7 +70,7 @@ export function Downloads({
     {
       key: "batch" as const,
       label: "Proposed batch (CSV)",
-      detail: nProposals ? `${formatNumber(nProposals, "count")} proposed recipes, predictions only.` : "The analysis has no proposed batch.",
+      detail: nProposals ? `${formatValue(nProposals, { quantity: "count" }).text} proposed recipes, predictions only.` : "The analysis has no proposed batch.",
       disabled: nProposals === 0,
       primary: false,
       save: () => {

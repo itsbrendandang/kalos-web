@@ -11,7 +11,18 @@ import { Verdict } from "@/components/kit/verdict";
 import type { Tone } from "@/components/kit/tone";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { gateRefusal, parseReadoutDocument, type ReadoutResult, type ReadoutSummary } from "@/lib/scale-readout";
+import { BasisGlyph, Num } from "@/components/viz/num";
+import { columnDecimals, formatValue, formatVolume, parseUnit, type IntervalSpec } from "@/lib/num";
+import {
+  gateRefusal,
+  parseEngineNumber,
+  parseLiters,
+  parseRatio,
+  parseReadoutDocument,
+  predictionSubject,
+  type ReadoutResult,
+  type ReadoutSummary,
+} from "@/lib/scale-readout";
 
 /**
  * Print the readout without a same-origin document. A text/html blob opened
@@ -186,28 +197,33 @@ export function ReadoutReport({
 
 function PredictionBlock({ summary }: { summary: ReadoutSummary }) {
   const p = summary.prediction!;
-  const subject = p.label.replace(/^Predicted\s*/, "");
+  const { subject, liters } = predictionSubject(p.label);
+  const value = parseEngineNumber(p.value);
+  const lo = parseEngineNumber(p.low);
+  const hi = parseEngineNumber(p.high);
+  // The engine reports no coverage percentage for this band, only its label ("approximate coverage"): none is printed.
+  const interval: IntervalSpec | null = lo != null && hi != null ? { lo, hi, coverage: null, method: "scale-ladder" } : null;
+  const unit = parseUnit(subject).unit;
   return (
     <section aria-label="Prediction" className="flex flex-col gap-1">
       <p className="flex items-center gap-2 text-label text-fg-muted">
-        <span className="size-2.5 shrink-0 rounded-full border-2 border-chart-predicted" aria-hidden />
+        <BasisGlyph basis="predicted" />
         Predicted <span className="text-fg">{subject}</span>
+        {liters != null ? <> at <span className="text-fg tabular-nums">{formatVolume(liters).text}</span></> : null}
       </p>
-      <p className="text-metric text-fg tabular-nums">{p.value}</p>
+      {value != null ? (
+        <Num value={value} basis="predicted" unit={unit} interval={interval} size="title" glyph={false} />
+      ) : (
+        <p className="text-title font-normal text-fg tabular-nums">{p.value}</p>
+      )}
       <p className="text-body text-fg tabular-nums">
-        {p.low != null && p.high != null ? (
-          <>
-            Interval {p.low} to {p.high}
-          </>
-        ) : (
-          <>Interval {p.intervalRaw || "n/a"}</>
-        )}{" "}
-        <span className="text-fg-muted">({p.intervalLabel})</span>
+        {interval ? null : <>Interval {p.intervalRaw || "n/a"} </>}
+        <span className="text-fg-muted">Interval: {p.intervalLabel}, as the engine labels it</span>
       </p>
       <p className="mt-1 max-w-[68ch] text-caption text-fg-muted">
-        Split-conformal on the backtest residuals{summary.alpha ? ` at alpha ${summary.alpha}` : ""}. The engine calls this approximate
-        coverage, not calibrated: a scale you have not run need not behave like the smaller scales it was tested on. It predicts a level at
-        the target scale, not a ranking of recipes there.
+        Split-conformal on the backtest residuals{summary.alpha ? ` at alpha ${summary.alpha}` : ""}. A scale you have not run need not behave like
+        the smaller scales it was tested on, so the engine labels this band {p.intervalLabel}. It predicts a level at the target scale, not a
+        ranking of recipes there.
       </p>
     </section>
   );
@@ -219,9 +235,36 @@ function splitNa(v: string | null): { value: string | null; note?: string } {
   return m ? { value: "n/a", note: m[1] } : { value: v };
 }
 
+/** An engine-printed number through lib/num, or the engine's own text when it is not a number. */
+const num = (s: string | null | undefined, opts: Parameters<typeof formatValue>[1] = {}) => {
+  const v = parseEngineNumber(s);
+  return v != null ? formatValue(v, opts).text : (s ?? null);
+};
+const ratio = (s: string | null | undefined) => {
+  const v = parseRatio(s);
+  return v != null ? formatValue(v, { quantity: "ratio" }).text : (s ?? null);
+};
+const volume = (s: string) => {
+  const v = parseLiters(s);
+  return v != null ? formatVolume(v).text : s;
+};
+
 function Evidence({ summary }: { summary: ReadoutSummary }) {
   const b = summary.baseline;
   const ref = splitNa(summary.referenceRatio);
+  const maeDec = columnDecimals(
+    summary.rungs
+      .flatMap((r) => [r.mae, r.naiveMeanMae, r.naiveNnMae])
+      .map(parseEngineNumber)
+      .filter((v): v is number => v != null)
+      .map((value) => ({ value, u: null })),
+  );
+  const pooledDec = columnDecimals(
+    [b?.modelMae, b?.naiveMeanMae, b?.naiveNnMae]
+      .map(parseEngineNumber)
+      .filter((v): v is number => v != null)
+      .map((value) => ({ value, u: null })),
+  );
   return (
     <section aria-labelledby="readout-evidence" className="flex flex-col gap-4">
       <div>
@@ -234,12 +277,17 @@ function Evidence({ summary }: { summary: ReadoutSummary }) {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
-        <Metric size="sm" label="Model error (MAE)" value={b?.modelMae ?? null} />
-        <Metric size="sm" label="Mean-carry baseline" value={b?.naiveMeanMae ?? null} qualifier="smallest scale's mean" />
-        <Metric size="sm" label="Nearest-recipe baseline" value={b?.naiveNnMae ?? null} qualifier="most similar run at another scale" />
-        <Metric size="sm" label="Beats both" value={b?.beatsBoth ?? null} qualifier={b?.nResiduals ? `over ${b.nResiduals} held-out runs` : undefined} />
-        <Metric size="sm" label="Requested step" value={summary.requestedRatio} qualifier="target over largest scale run" />
-        <Metric size="sm" label="Backtested step" value={ref.value} qualifier={ref.note ?? "largest step the backtest supports"} />
+        <Metric size="sm" label="Model error (MAE)" value={num(b?.modelMae, { decimals: pooledDec })} />
+        <Metric size="sm" label="Mean-carry baseline" value={num(b?.naiveMeanMae, { decimals: pooledDec })} qualifier="smallest scale's mean" />
+        <Metric size="sm" label="Nearest-recipe baseline" value={num(b?.naiveNnMae, { decimals: pooledDec })} qualifier="most similar run at another scale" />
+        <Metric
+          size="sm"
+          label="Beats both"
+          value={b?.beatsBoth ?? null}
+          qualifier={b?.nResiduals ? `over ${num(b.nResiduals, { quantity: "count" })} held-out runs` : undefined}
+        />
+        <Metric size="sm" label="Requested step" value={ratio(summary.requestedRatio)} qualifier="target over largest scale run" />
+        <Metric size="sm" label="Backtested step" value={ref.value === "n/a" ? "n/a" : ratio(ref.value)} qualifier={ref.note ?? "largest step the backtest supports"} />
       </div>
       {summary.outOfRange ? (
         <p className="text-body text-fg">
@@ -264,12 +312,12 @@ function Evidence({ summary }: { summary: ReadoutSummary }) {
             <TableBody>
               {summary.rungs.map((r) => (
                 <TableRow key={r.scale}>
-                  <TableCell className="tabular-nums">{r.scale}</TableCell>
-                  <TableCell numeric>{r.stepRatio}</TableCell>
-                  <TableCell numeric>{r.n}</TableCell>
-                  <TableCell numeric>{r.mae}</TableCell>
-                  <TableCell numeric>{r.naiveMeanMae}</TableCell>
-                  <TableCell numeric>{r.naiveNnMae}</TableCell>
+                  <TableCell className="tabular-nums">{volume(r.scale)}</TableCell>
+                  <TableCell numeric>{ratio(r.stepRatio)}</TableCell>
+                  <TableCell numeric>{num(r.n, { quantity: "count" })}</TableCell>
+                  <TableCell numeric>{num(r.mae, { decimals: maeDec })}</TableCell>
+                  <TableCell numeric>{num(r.naiveMeanMae, { decimals: maeDec })}</TableCell>
+                  <TableCell numeric>{num(r.naiveNnMae, { decimals: maeDec })}</TableCell>
                   <TableCell>{r.beatsBoth}</TableCell>
                 </TableRow>
               ))}

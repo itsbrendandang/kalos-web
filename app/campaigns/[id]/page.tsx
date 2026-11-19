@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Info } from "lucide-react";
 import { HowItWorks, WhatKalosNeeds } from "@/components/home/how-it-works";
 import { CycleStepper } from "@/components/kit/cycle-stepper";
-import { lazyChart } from "@/components/kit/lazy-chart";
 import { NextCard } from "@/components/kit/next-card";
 import { PageHeader } from "@/components/kit/page-header";
 import { SourceLine, formatTimestamp, shortHash } from "@/components/kit/source-line";
@@ -15,12 +14,12 @@ import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCampaign, useCampaignDetail, useCampaignId, useLatest } from "@/hooks/use-engine";
 import { campaignStage, cycleSteps } from "@/lib/campaign-stage";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 import { analysisSource } from "@/lib/overview";
 import { campaignHref, stageHref } from "@/lib/routes";
-import { parseUnit } from "@/lib/utils";
+import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
 
-const BestSoFarChart = lazyChart(() => import("@/components/campaign/best-so-far-chart").then((m) => m.BestSoFarChart));
+const count = (v: number | null | undefined) => formatValue(v, { quantity: "count" }).text;
 
 /**
  * One campaign at a glance: where the round is (the Harmonize, Predict,
@@ -71,20 +70,19 @@ export default function OverviewPage() {
     );
   }
 
-  const unit = parseUnit(target);
   const source = analysisSource(latest.data, active?.pending);
   const outOfSync = active?.analysis_in_sync === false;
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow={stage.round != null ? `Round ${formatNumber(stage.round, "count")}` : undefined}
+        eyebrow={stage.round != null ? `Round ${count(stage.round)}` : undefined}
         title={meta.name}
         meta={badges}
         description={
           <>
             Maximize <span className="font-mono text-code text-fg">{target}</span>
-            {active ? `, ${formatNumber(active.n_base, "count")} measured runs in the model` : ""}
+            {active ? `, ${count(active.n_base)} measured rows in the model` : ""}
             {source.dataset ? `, from ${source.dataset}` : ""}.
           </>
         }
@@ -92,8 +90,8 @@ export default function OverviewPage() {
       <CycleStepper steps={steps} round={stage.round} />
       <CampaignActivity harmonizeHref={campaignHref(id, "harmonize")} />
       <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
-      <EvidenceRow campaign={active} analysis={analysis} analysisFailed={latest.status === "error"} unit={unit} predictHref={campaignHref(id, "predict")} />
-      {active ? <BestSoFarChart campaign={active} unit={unit} /> : null}
+      <EvidenceRow campaign={active} analysis={analysis} analysisFailed={latest.status === "error"} predictHref={campaignHref(id, "predict")} />
+      {active ? <BestSoFarChart campaign={active} analysis={analysis} /> : null}
       {outOfSync ? (
         <p className="flex items-start gap-2 text-body text-fg-muted">
           <Info className="mt-1 size-4 shrink-0" aria-hidden />
@@ -128,8 +126,8 @@ function OverviewSkeleton() {
         <Skeleton className="h-7 w-72" />
         <Skeleton className="h-4 w-96 max-w-full" />
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {[0, 1, 2].map((i) => (
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-16 rounded-xl" />
         ))}
       </div>

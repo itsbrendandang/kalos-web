@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Pencil } from "lucide-react";
-import { MeasuredValue } from "@/components/campaign/plan/marks";
 import { formatTimestamp } from "@/components/kit/source-line";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCampaignDetail, type CampaignDetail, type CampaignMeta } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { Num, NumState } from "@/components/viz/num";
+import { formatValue, parseUnit } from "@/lib/num";
 import { campaignRowSummary } from "@/lib/home";
 import { campaignHref } from "@/lib/routes";
-import { parseUnit } from "@/lib/utils";
 
 /**
  * Every campaign as one row. The list itself (GET /api/campaigns) only says
@@ -57,7 +56,8 @@ function useRowDetail(id: string, updatedAt: number) {
 function CampaignRow({ meta, onRename }: { meta: CampaignMeta; onRename: () => void }) {
   const [state, retry] = useRowDetail(meta.id, meta.updated_at);
   const row = state.status === "data" ? campaignRowSummary(state.detail) : null;
-  const unit = row?.target ? parseUnit(row.target) : "";
+  const unit = row?.target ? parseUnit(row.target).unit : null;
+  const count = (v: number | null) => formatValue(v, { quantity: "count" }).text;
   return (
     <li className="relative flex flex-col gap-4 p-panel transition-colors hover:bg-subtle md:flex-row md:items-center md:gap-6">
       <div className="min-w-0 flex-1">
@@ -97,16 +97,16 @@ function CampaignRow({ meta, onRename }: { meta: CampaignMeta; onRename: () => v
           {row.hasData ? (
             <>
               <div>
-                <dt className="text-caption text-fg-muted">Best so far</dt>
+                <dt className="text-caption text-fg-muted">Best measured</dt>
                 <dd className="text-label">
-                  <MeasuredValue value={formatNumber(row.best)} unit={row.best != null ? unit || undefined : undefined} />
+                  {row.best != null ? <Num value={row.best} basis="measured" unit={unit} /> : <NumState state={{ kind: "na", reason: "no measured best yet" }} />}
                 </dd>
               </div>
               <div>
                 <dt className="text-caption text-fg-muted">Runs awaiting results</dt>
                 <dd className="text-label text-fg tabular-nums">
-                  {formatNumber(row.awaiting, "count")}
-                  <span className="text-caption text-fg-muted"> · {formatNumber(row.runs, "count")} in the model</span>
+                  {count(row.awaiting)}
+                  <span className="text-caption text-fg-muted"> · {count(row.runs)} measured in the model</span>
                 </dd>
               </div>
             </>

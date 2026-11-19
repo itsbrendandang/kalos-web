@@ -26,6 +26,7 @@ import {
   type ReliabilityState,
   type RunRecord,
 } from "@/lib/api";
+import { formatValue } from "@/lib/num";
 import type { UnitConversion, ValidationFinding, ValidationReport } from "@/lib/validation";
 
 export const PACKAGE_KIND = "kalos.data-package";
@@ -520,7 +521,8 @@ export const packageJson = (pkg: DataPackage): string => `${JSON.stringify(pkg, 
 
 export type ContentItem = { label: string; detail: string; present: boolean };
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+// Display strings only; the package's numbers stay raw engine values.
+const count = (n: number, one: string, many = `${one}s`) => `${formatValue(n, { quantity: "count" }).text} ${n === 1 ? one : many}`;
 
 /** The "What is in this package" checklist, from the package itself. `present: false` means the engine sent nothing for it. */
 export function packageContents(pkg: DataPackage): ContentItem[] {
@@ -558,7 +560,7 @@ export function packageContents(pkg: DataPackage): ContentItem[] {
     { label: "Proposed batch", detail: count(pkg.proposals.length, "recipe"), present: pkg.proposals.length > 0 },
     {
       label: "Runs",
-      detail: `${count(pkg.runs.length, "run")}: ${measured} measured, ${pkg.runs.length - measured} awaiting`,
+      detail: `${count(pkg.runs.length, "run")}: ${formatValue(measured, { quantity: "count" }).text} measured, ${formatValue(pkg.runs.length - measured, { quantity: "count" }).text} awaiting`,
       present: pkg.runs.length > 0,
     },
     { label: "Best-so-far history", detail: count(pkg.history.length, "round"), present: pkg.history.length > 0 },

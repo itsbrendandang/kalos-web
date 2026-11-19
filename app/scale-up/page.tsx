@@ -25,7 +25,7 @@ export default function ScaleUpPage() {
       <Section
         id="path"
         title="Staged path to scale"
-        description="Six stages, each closed by a go/no-go call your team makes. Kalos supplies evidence along the way; it does not track the stages or record the decisions."
+        description="Six stages, each closed by a go/no-go gate your team decides. The engine keeps no stage registry and records no gate decisions, so every gate below is open and nothing advances on its own."
       >
         <ScaleTrack />
       </Section>
@@ -47,7 +47,7 @@ function MethodNote() {
     <div className="flex flex-col gap-1">
       <p className="max-w-[68ch] text-caption text-fg-muted">
         Method note: the engine&apos;s own evidence for this readout is from synthetic scale-up data only; it has not yet been tested on real
-        batch data. Its interval is approximate coverage, not calibrated. For development decisions only.
+        batch data. The engine labels its interval approximate coverage. For development decisions only.
       </p>
       <Disclosure summary="How the readout decides">
         <div className="flex max-w-[68ch] flex-col gap-3 text-body text-fg-muted">
@@ -68,7 +68,7 @@ function MethodNote() {
           </p>
           <p>
             <span className="text-fg">Interval.</span> Split-conformal on the backtest errors. Because a scale you have not run need not
-            behave like the scales tested, the engine labels it approximate coverage and never calls it calibrated.
+            behave like the scales tested, the engine labels it approximate coverage.
           </p>
           <p>
             <span className="text-fg">Storage.</span> Nothing is stored on the server. The readout prints a SHA-256 of the uploaded file so

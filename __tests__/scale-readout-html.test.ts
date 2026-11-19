@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { gateRefusal, parseReadoutDocument, readReasons } from "@/lib/scale-readout";
+import { gateRefusal, parseEngineNumber, parseLiters, parseRatio, parseReadoutDocument, predictionSubject, readReasons } from "@/lib/scale-readout";
 
 // Markup copied from real engine readouts (kalos-engine kalos/portal/scale_routes.py
 // render_readout_html), trimmed to the sections the app reads.
@@ -143,5 +143,41 @@ describe("gateRefusal", () => {
       expect(g.statement).not.toContain(check);
       expect(g.fix.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("engine-printed numbers, read back for lib/num", () => {
+  it("parses volumes in any SI unit to liters", () => {
+    expect(parseLiters("10 L")).toBe(10);
+    expect(parseLiters("7500 L")).toBe(7500);
+    expect(parseLiters("40,000 L")).toBe(40000);
+    expect(parseLiters("250 mL")).toBeCloseTo(0.25);
+    expect(parseLiters("3 µL")).toBeCloseTo(3e-6);
+    expect(parseLiters("n/a")).toBeNull();
+    expect(parseLiters("10 kg")).toBeNull();
+  });
+
+  it("parses step ratios, and leaves n/a as null (the view then shows the engine's text)", () => {
+    expect(parseRatio("3.33x")).toBe(3.33);
+    expect(parseRatio("1.50×")).toBe(1.5);
+    expect(parseRatio("n/a (no rung with at least 3 runs beat both baselines)")).toBeNull();
+  });
+
+  it("parses plain numbers only", () => {
+    expect(parseEngineNumber("0.126")).toBe(0.126);
+    expect(parseEngineNumber("1,204")).toBe(1204);
+    expect(parseEngineNumber("yes")).toBeNull();
+    expect(parseEngineNumber(null)).toBeNull();
+  });
+
+  it("splits the prediction label into subject and target volume", () => {
+    expect(predictionSubject("Predicted titer_g_per_L at 7500 L")).toEqual({ subject: "titer_g_per_L", liters: 7500 });
+    expect(predictionSubject("Predicted titer")).toEqual({ subject: "titer", liters: null });
+  });
+
+  it("keeps the engine's interval label verbatim and never says calibrated", () => {
+    const s = parse(NUMBER_PAGE);
+    expect(s.prediction?.intervalLabel).toBe("approximate coverage");
+    expect(JSON.stringify(s)).not.toMatch(/calibrated/i);
   });
 });

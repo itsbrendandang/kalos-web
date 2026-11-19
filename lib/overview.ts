@@ -3,13 +3,14 @@
  * kept free of React so they are tested in __tests__/overview.test.ts.
  */
 
-import type { Driver, LatestResult } from "@/lib/api";
+import { incumbentLabel, type AnalyzeResult, type Driver, type LatestResult } from "@/lib/api";
+import { nextRange, toProgressData, type ProgressCampaign } from "@/lib/viz-data/progress-chart";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 export type DriverBar = {
   name: string;
   rho: number;
-  /** [below, above] distances from rho to its 95% CI ends, the shape recharts' ErrorBar takes. */
+  /** [below, above] distances from rho to its 95% CI ends, an error-bar shape. */
   ci: [number, number];
   lo: number;
   hi: number;
@@ -29,17 +30,6 @@ export function topDrivers(drivers: Driver[], k = 6): DriverBar[] {
       hi: d.ci95[1],
       significant: d.significant,
     }));
-}
-
-export type BestSoFarPoint = { round: number; best: number | null; runs: number };
-
-/**
- * Measured best-so-far per history point (`campaign.history`). History round
- * 0 is the uploaded sheet; history round k is the model after round k's
- * measured results were folded in. Rounds with no measured best stay as gaps.
- */
-export function bestSoFarSeries(c: Pick<ActiveCampaign, "history">): BestSoFarPoint[] {
-  return c.history.map((h) => ({ round: h.round, best: h.best, runs: h.n_base }));
 }
 
 /** How a history point is named: "Uploaded sheet" for round 0, "Round k" after round k's results. */
@@ -92,29 +82,6 @@ export function analysisSource(latest: LatestResult | null, runs: readonly { ana
 }
 
 /**
- * Round-number axis ticks covering [min, max] (about `count` of them). A flat
- * series (min === max) gets a small symmetric span so the axis still reads.
- */
-export function niceTicks(min: number, max: number, count = 4): number[] {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
-  let lo = Math.min(min, max);
-  let hi = Math.max(min, max);
-  if (hi === lo) {
-    const pad = Math.abs(lo) * 0.1 || 1;
-    lo -= pad;
-    hi += pad;
-  }
-  const raw = (hi - lo) / Math.max(1, count);
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? 10 * mag;
-  const start = Math.floor(lo / step) * step;
-  const ticks: number[] = [];
-  for (let v = start; v <= hi + step * 1e-9; v += step) ticks.push(Number(v.toFixed(10)));
-  if (ticks[ticks.length - 1] < hi) ticks.push(Number((ticks[ticks.length - 1] + step).toFixed(10)));
-  return ticks;
-}
-
-/**
  * The highest result recorded this round that is not in the model yet (a
  * started run with a measured value, before the next re-analysis folds it
  * in). `campaign.best` only covers runs in the model, so the Overview names
@@ -129,4 +96,110 @@ export function newerBest(c: Pick<ActiveCampaign, "best" | "pending">): { value:
   }
   if (!top) return null;
   return c.best == null || top.value > c.best ? top : null;
+}
+
+// --- Hero tiles (VIZ_SPEC 6) ------------------------------------------------
+
+type TileAnalysis = Pick<AnalyzeResult, "best" | "noise" | "proposals" | "conformal_q" | "conformal_coverage" | "timestamp">;
+
+export type BestTile = {
+  /** The headline measured value: the best reproducible recipe on a replicate-aware fit, else the best measured run. */
+  value: number | null;
+  /** incumbentLabel(): "best measured run" or "best reproducible recipe". */
+  label: string;
+  /** The best single run, shown beneath when the headline is the reproducible best and differs from it. */
+  single: number | null;
+  /** Change from the previous history point, with that point named. */
+  delta: { current: number; baseline: number; baselineLabel: string } | null;
+  reached: { round: number; runs: number } | null;
+};
+
+/** The Best measured tile. Measured values only; a missing best stays null (n/a). */
+export function bestTile(c: Pick<ActiveCampaign, "best" | "history" | "round">, analysis: Pick<AnalyzeResult, "noise"> | null): BestTile {
+  const reproducible = analysis?.noise?.replicate_aware ? (analysis.noise.best_reproducible ?? null) : null;
+  const useReproducible = reproducible != null && Number.isFinite(reproducible) && reproducible !== c.best;
+  const i = c.history.findIndex((h) => h.round === c.round);
+  const prev = i >= 1 ? c.history[i - 1] : null;
+  const cur = i >= 0 ? c.history[i] : null;
+  return {
+    value: useReproducible ? reproducible : c.best,
+    label: useReproducible ? "best reproducible recipe" : analysis ? incumbentLabel(analysis) : "best measured run",
+    single: useReproducible ? c.best : null,
+    delta:
+      !useReproducible && prev?.best != null && cur?.best != null
+        ? { current: cur.best, baseline: prev.best, baselineLabel: prev.round === 0 ? "the uploaded sheet" : `round ${prev.round}` }
+        : null,
+    reached: bestReached(c),
+  };
+}
+
+export type NextTile =
+  | { kind: "none"; reason: string }
+  | {
+      /** proposed: the analysis's batch, not started. started: this round's runs, in the lab. */
+      kind: "proposed" | "started";
+      n: number;
+      /** Lowest interval bound to highest (exact min/max), or the predictions' own span without intervals. */
+      lo: number;
+      hi: number;
+      withIntervals: boolean;
+      /** The highest prediction in the batch, with its band when it has one. */
+      top: { pred: number; lo: number | null; hi: number | null };
+      coverage: number | null;
+      halfWidth: number | null;
+      /** analysis_in_sync === false. */
+      stale: boolean;
+    };
+
+/** The Next batch tile, from the same adapter the progress chart draws (so the two never disagree). */
+export function nextTile(c: ProgressCampaign, analysis: TileAnalysis | null): NextTile {
+  if (!analysis) return { kind: "none", reason: "Appears after the first analysis." };
+  const d = toProgressData(c, analysis);
+  const stale = c.analysis_in_sync === false;
+  if (d.next) {
+    const r = nextRange(d.next)!;
+    const top = [...d.next.preds].sort((a, b) => b.pred - a.pred)[0];
+    return { kind: "proposed", n: d.next.preds.length, lo: r.lo, hi: r.hi, withIntervals: r.withIntervals, top, coverage: d.coverage, halfWidth: d.halfWidth, stale };
+  }
+  const currentRound = c.round ?? 0;
+  const started = (c.pending ?? []).filter((r) => r.round === currentRound);
+  const runs = d.runs.filter((r) => started.some((s) => s.id === r.id));
+  if (runs.length) {
+    const withIntervals = runs.every((r) => r.lo != null && r.hi != null);
+    const top = [...runs].sort((a, b) => b.pred - a.pred)[0];
+    return {
+      kind: "started",
+      n: runs.length,
+      lo: Math.min(...runs.map((r) => (withIntervals ? r.lo! : r.pred))),
+      hi: Math.max(...runs.map((r) => (withIntervals ? r.hi! : r.pred))),
+      withIntervals,
+      top: { pred: top.pred, lo: top.lo, hi: top.hi },
+      coverage: d.coverage,
+      halfWidth: d.halfWidth,
+      stale,
+    };
+  }
+  return { kind: "none", reason: "The current analysis proposed no batch." };
+}
+
+export type RunsTile = {
+  /** Measured rows in the model (upload plus folded-in rounds). */
+  inModel: number | null;
+  /** Rows from the uploaded sheet (history round 0). */
+  fromUpload: number | null;
+  /** Results recorded this round, not folded into the model yet. */
+  recorded: number | null;
+  awaiting: number | null;
+};
+
+/** The Runs tile: counts straight from the summary; a count the engine did not send is null (n/a), never 0. */
+export function runsTile(c: Pick<ActiveCampaign, "n_base" | "history" | "n_measured" | "n_awaiting"> | null): RunsTile {
+  if (!c) return { inModel: null, fromUpload: null, recorded: null, awaiting: null };
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  return {
+    inModel: num(c.n_base),
+    fromUpload: num(c.history.find((h) => h.round === 0)?.n_base),
+    recorded: num(c.n_measured),
+    awaiting: num(c.n_awaiting),
+  };
 }

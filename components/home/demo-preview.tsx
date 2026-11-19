@@ -1,7 +1,7 @@
-import { MeasuredValue } from "@/components/campaign/plan/marks";
 import { ExampleBadge, Badge } from "@/components/ui/badge";
 import { displayRound } from "@/lib/campaign-stage";
-import { formatNumber } from "@/lib/format";
+import { Num } from "@/components/viz/num";
+import { formatValue, parseUnit } from "@/lib/num";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
 
 /**
@@ -32,12 +32,12 @@ export function DemoCampaignPreview() {
           <div>
             <dt className="text-caption text-fg-muted">Best so far</dt>
             <dd className="text-label">
-              <MeasuredValue value={formatNumber(c.best)} />
+              <Num value={c.best} basis="measured" unit={parseUnit(c.target).unit} />
             </dd>
           </div>
           <div>
             <dt className="text-caption text-fg-muted">Runs awaiting results</dt>
-            <dd className="text-label text-fg tabular-nums">{formatNumber(c.n_awaiting, "count")}</dd>
+            <dd className="text-label text-fg tabular-nums">{formatValue(c.n_awaiting, { quantity: "count" }).text}</dd>
           </div>
         </dl>
       </div>

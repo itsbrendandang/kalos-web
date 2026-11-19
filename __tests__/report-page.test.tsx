@@ -85,7 +85,7 @@ describe("Report page", () => {
     await screen.findByRole("heading", { level: 1, name: "Report and export" });
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings.indexOf("Evidence")).toBeLessThan(headings.indexOf("Model"));
-    expect(screen.getAllByText(/90% band/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/90% held-out band/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/95% band/);
     expect(screen.getByText("What is in this package")).toBeTruthy();
     expect(screen.getByText("Not in this package")).toBeTruthy();
@@ -108,7 +108,7 @@ describe("Report page", () => {
     const head = [...table.querySelectorAll("th")].map((th) => th.textContent?.trim());
     expect(head).toContain("Measured");
     expect(head).toContain("Predicted");
-    expect(table.textContent).toContain("50.50");
+    expect(table.textContent).toContain("50.5");
     expect(table.textContent).toContain("Awaiting result");
     expect(screen.getByText("The analysis is older than the latest runs")).toBeTruthy();
   });

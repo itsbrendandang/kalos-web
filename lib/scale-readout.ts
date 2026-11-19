@@ -552,3 +552,51 @@ export function gateRefusal(failedCheck: string, detail: string): GateRefusal {
       };
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Numbers out of the engine's printed readout (VIZ_SPEC 2.3, 7 R1).
+ *
+ * The readout is HTML only (engine request R1), so its numbers arrive as the
+ * engine printed them. These read them back into numbers so the app can show
+ * them through lib/num (volumes in SI units, step ratios as "3.3×", shared
+ * decimals in a column). A string that does not parse stays null, and the
+ * view then shows the engine's own text verbatim: nothing is guessed.
+ * ------------------------------------------------------------------------ */
+
+/** "0.126" -> 0.126; "1,204" -> 1204; anything else (including "n/a (...)") -> null. */
+export function parseEngineNumber(s: string | null | undefined): number | null {
+  if (s == null) return null;
+  const t = s.trim().replace(/,/g, "").replace(/\u2212/g, "-");
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) return null;
+  const v = Number(t);
+  return Number.isFinite(v) ? v : null;
+}
+
+const VOLUME_UNIT: Record<string, number> = { l: 1, ml: 1e-3, "µl": 1e-6, "μl": 1e-6, ul: 1e-6 };
+
+/** "10 L" -> 10, "250 mL" -> 0.25, "3 µL" -> 3e-6, "7500" -> 7500 (liters). Null when it is not a volume. */
+export function parseLiters(s: string | null | undefined): number | null {
+  if (s == null) return null;
+  const m = s.trim().match(/^([-+]?[\d,]*\.?\d+(?:e[-+]?\d+)?)\s*([a-zA-Zµμ]+)?$/i);
+  if (!m) return null;
+  const v = parseEngineNumber(m[1]);
+  if (v == null) return null;
+  const unit = (m[2] ?? "L").toLowerCase();
+  const factor = VOLUME_UNIT[unit];
+  return factor == null ? null : v * factor;
+}
+
+/** "3.33x" / "3.33×" -> 3.33. Null for "n/a (...)" and anything else. */
+export function parseRatio(s: string | null | undefined): number | null {
+  if (s == null) return null;
+  const m = s.trim().match(/^([\d,]*\.?\d+)\s*[x×]$/i);
+  return m ? parseEngineNumber(m[1]) : null;
+}
+
+/** "Predicted titer_g_per_L at 7500 L" -> { subject: "titer_g_per_L", liters: 7500 }. */
+export function predictionSubject(label: string): { subject: string; liters: number | null } {
+  const rest = label.replace(/^Predicted\s*/, "");
+  const m = rest.match(/^(.*?)\s+at\s+(.+)$/);
+  if (!m) return { subject: rest, liters: null };
+  return { subject: m[1], liters: parseLiters(m[2]) };
+}

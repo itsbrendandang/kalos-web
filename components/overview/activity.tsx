@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { ElapsedProgress, JOB_STAGES, jobStageIndex } from "@/components/kit/job-progress";
 import { useReanalysis, useUploadJob } from "@/hooks/use-engine";
 import { isJobActive } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 
 /**
  * Long engine work for this campaign, visible from the Overview: an upload
@@ -26,7 +26,7 @@ export function CampaignActivity({ harmonizeHref }: { harmonizeHref: string }) {
           <div className="min-w-0 flex-1">
             <p className="text-label text-fg">{uploading.cancel_requested ? "Cancelling the sheet analysis" : "Analyzing an uploaded sheet"}</p>
             <p className="text-caption text-fg-muted" role="status">
-              {JOB_STAGES[jobStageIndex(uploading.stage)]?.label ?? "Working"}, {formatNumber(Math.min(1, Math.max(0, uploading.progress)), "pct")} as reported by the engine.
+              {JOB_STAGES[jobStageIndex(uploading.stage)]?.label ?? "Working"}, {formatValue(Math.min(1, Math.max(0, uploading.progress)), { quantity: "pct" }).text} as reported by the engine.
               {pollTrouble ? " Lost touch with the analysis service; still trying." : ""}
             </p>
           </div>

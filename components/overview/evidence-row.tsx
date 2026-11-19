@@ -1,163 +1,235 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
-import { MeasuredMark, MeasuredValue } from "@/components/campaign/plan/marks";
 import { Badge } from "@/components/ui/badge";
+import { BasisGlyph, Delta, Num, NumState, SourceButton } from "@/components/viz/num";
 import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
-import { bestDeltaFromPreviousRound } from "@/lib/campaign-stage";
-import { formatNumber, formatRange } from "@/lib/format";
-import { bestReached, historyLabel, newerBest } from "@/lib/overview";
+import { formatCorr, formatValue, parseUnit } from "@/lib/num";
+import { bestTile, historyLabel, newerBest, nextTile, runsTile } from "@/lib/overview";
+import { sourceFromAnalysis, sourceFromCampaign } from "@/lib/source";
 import { cn } from "@/lib/utils";
+import { bandName, markInterval, rangeText } from "@/lib/viz-data/progress-chart";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 /**
- * The Overview's three pieces of evidence, side by side with hairline rules:
- * the measured best so far, where this round's runs stand, and whether the
- * model can be trusted. Every number comes from the campaign summary or the
- * analysis; whatever the engine did not send reads n/a.
+ * The Overview's hero tiles (VIZ_SPEC 6): best measured (the only text-metric
+ * number on the page), the next batch's predicted range (text-title, with the
+ * engine's coverage), model reliability (verdict, rho with its CI, the
+ * engine's floor) and run counts. Every tile has a source; whatever the
+ * engine did not send reads n/a, never 0.
  */
 export function EvidenceRow({
   campaign,
   analysis,
   analysisFailed,
-  unit,
   predictHref,
 }: {
   campaign: ActiveCampaign | null;
   analysis: PopulatedResult | null;
   /** The analysis request failed (a connection problem, not a verdict). */
   analysisFailed: boolean;
-  unit: string;
+  /** Deprecated: the unit is parsed from the target header. */
+  unit?: string;
   predictHref: string;
 }) {
+  const unit = campaign ? parseUnit(campaign.target).unit : null;
   return (
-    <section aria-label="Evidence" className="grid rounded-xl border border-border bg-surface md:grid-cols-3">
-      <Cell className="border-border max-md:border-b md:border-r">
-        <BestCell campaign={campaign} unit={unit} />
-      </Cell>
-      <Cell className="border-border max-md:border-b md:border-r">
-        <RunsCell campaign={campaign} />
-      </Cell>
-      <Cell>
-        <ReliabilityCell analysis={analysis} failed={analysisFailed} href={predictHref} />
-      </Cell>
+    <section aria-label="Evidence" className="grid rounded-xl border border-border bg-surface sm:grid-cols-2 lg:grid-cols-4">
+      <Tile className="border-border max-lg:border-b sm:border-r">
+        <BestTileView campaign={campaign} analysis={analysis} unit={unit} />
+      </Tile>
+      <Tile className="border-border max-lg:border-b lg:border-r">
+        <NextTileView campaign={campaign} analysis={analysis} failed={analysisFailed} unit={unit} href={predictHref} />
+      </Tile>
+      <Tile className="border-border max-sm:border-b sm:border-r">
+        <ReliabilityTile analysis={analysis} failed={analysisFailed} />
+      </Tile>
+      <Tile>
+        <RunsTileView campaign={campaign} />
+      </Tile>
     </section>
   );
 }
 
-function Cell({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("flex min-w-0 flex-col gap-1 p-panel", className)}>{children}</div>;
+function Tile({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cn("flex min-w-0 flex-col gap-1.5 p-panel", className)}>{children}</div>;
 }
 
-function Big({ children, unit }: { children: ReactNode; unit?: string }) {
+function TileHead({ children, source }: { children: ReactNode; source?: ReactNode }) {
   return (
-    <p className="flex flex-wrap items-baseline gap-x-1.5">
-      <span className="text-metric text-fg tabular-nums">{children}</span>
-      {unit ? <span className="text-body text-fg-muted">{unit}</span> : null}
-    </p>
+    <div className="flex items-center justify-between gap-2">
+      <p className="flex items-center gap-1.5 text-label text-fg-muted">{children}</p>
+      {source}
+    </div>
   );
 }
 
-function BestCell({ campaign, unit }: { campaign: ActiveCampaign | null; unit: string }) {
-  const best = campaign?.best ?? null;
-  const reached = campaign ? bestReached(campaign) : null;
-  const delta = campaign ? bestDeltaFromPreviousRound(campaign) : null;
-  const newer = campaign ? newerBest(campaign) : null;
-  return (
-    <>
-      <p className="flex items-center gap-1.5 text-label text-fg-muted">
-        <MeasuredMark />
-        Best {campaign?.target ?? "result"} {newer ? "in the model" : "so far"}, measured
-      </p>
-      <Big unit={best != null ? unit : undefined}>{formatNumber(best)}</Big>
-      <p className="text-caption text-fg-muted">
-        {best == null
-          ? "No measured best reported yet."
-          : reached
-            ? reached.round === 0
-              ? `From the uploaded sheet, best of ${formatNumber(reached.runs, "count")} measured runs.`
-              : `Reached after ${historyLabel(reached.round).toLowerCase()}'s results, with ${formatNumber(reached.runs, "count")} measured runs in the model.`
-            : `Best of ${formatNumber(campaign?.n_base, "count")} measured runs.`}
-      </p>
-      {delta ? (
-        <p className="text-caption text-fg-muted">
-          <span className="text-fg tabular-nums">{formatNumber(delta.delta, "value", { sign: true })}</span>
-          {unit ? ` ${unit}` : ""} {delta.previousRound === 0 ? "vs the uploaded sheet" : `vs round ${delta.previousRound}`}, measured
-        </p>
-      ) : null}
-      {newer ? (
-        <p className="mt-1 text-caption text-fg-muted">
-          Higher result recorded this round, not in the model until the next re-analysis:{" "}
-          <MeasuredValue value={formatNumber(newer.value)} unit={unit || undefined} className="text-label" />
-        </p>
-      ) : null}
-    </>
-  );
-}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function RunsCell({ campaign }: { campaign: ActiveCampaign | null }) {
+function BestTileView({ campaign, analysis, unit }: { campaign: ActiveCampaign | null; analysis: PopulatedResult | null; unit: string | null }) {
   if (!campaign) {
     return (
       <>
-        <p className="text-label text-fg-muted">Results this round</p>
-        <Big>n/a</Big>
-        <p className="text-caption text-fg-muted">No runs until the campaign has a run sheet.</p>
+        <TileHead>Best measured</TileHead>
+        <NumState state={{ kind: "na", reason: "no run sheet yet" }} className="text-title" />
       </>
     );
   }
-  const awaiting = campaign.n_awaiting;
-  const recorded = campaign.n_measured;
-  const started = awaiting + recorded;
+  const t = bestTile(campaign, analysis);
+  const newer = newerBest(campaign);
+  const field = t.single != null ? "noise.best_reproducible" : "campaign.best";
+  const source = t.single != null && analysis ? sourceFromAnalysis(analysis, field, "measured") : sourceFromCampaign(field, "measured");
+  const f = formatValue(t.value, { unit, basis: "measured" });
   return (
     <>
-      <p className="text-label text-fg-muted">Results this round</p>
-      <p className="flex flex-wrap items-baseline gap-x-1.5">
-        <span className="text-metric text-fg tabular-nums">{formatNumber(recorded, "count")}</span>
-        <span className="text-body text-fg-muted">
-          {started === 0 ? "runs started" : `of ${formatNumber(started, "count")} recorded`}
-        </span>
-      </p>
+      <TileHead source={t.value != null ? <SourceButton source={source} full={f.full} /> : null}>
+        <BasisGlyph basis="measured" />
+        {cap(t.label)}
+      </TileHead>
+      {t.value != null ? <Num value={t.value} basis="measured" unit={unit} size="metric" glyph={false} /> : <NumState state={{ kind: "na", reason: "no measured best reported yet" }} className="text-title" />}
+      {t.delta ? <Delta current={t.delta.current} baseline={t.delta.baseline} unit={unit} baselineLabel={t.delta.baselineLabel} /> : null}
+      {t.single != null ? (
+        <p className="text-caption text-fg-muted tabular-nums">
+          Best single run {formatValue(t.single, { unit, basis: "measured" }).text}
+        </p>
+      ) : null}
       <p className="text-caption text-fg-muted">
-        {started === 0
-          ? "Start the proposed batch on Predict; each run then waits here for its measured result."
-          : `${formatNumber(awaiting, "count")} awaiting a measured result from the lab.`}{" "}
-        {formatNumber(campaign.n_base, "count")} measured runs are in the model.
+        {t.value == null
+          ? "No measured best reported yet."
+          : t.reached
+            ? t.reached.round === 0
+              ? `From the uploaded sheet, ${formatValue(t.reached.runs, { quantity: "count" }).text} measured rows.`
+              : `${historyLabel(t.reached.round)}, ${formatValue(t.reached.runs, { quantity: "count" }).text} measured rows in the model.`
+            : `${formatValue(campaign.n_base, { quantity: "count" }).text} measured rows in the model.`}
       </p>
+      {newer ? (
+        <p className="text-caption text-fg-muted">
+          Higher result recorded this round, not in the model until the next re-analysis:{" "}
+          <Num value={newer.value} basis="measured" unit={unit} size="body" glyph={false} /> (run {newer.runId.slice(0, 7)})
+        </p>
+      ) : null}
     </>
   );
 }
 
-function ReliabilityCell({ analysis, failed, href }: { analysis: PopulatedResult | null; failed: boolean; href: string }) {
-  const verdict = analysis ? reliabilityVerdict(analysis) : null;
-  const tone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
-  const promotion = analysis?.promotion;
+function NextTileView({
+  campaign,
+  analysis,
+  failed,
+  unit,
+  href,
+}: {
+  campaign: ActiveCampaign | null;
+  analysis: PopulatedResult | null;
+  failed: boolean;
+  unit: string | null;
+  href: string;
+}) {
+  const t = campaign ? nextTile(campaign, analysis) : ({ kind: "none", reason: "No runs until the campaign has a run sheet." } as const);
+  if (t.kind === "none") {
+    return (
+      <>
+        <TileHead>
+          <BasisGlyph basis="predicted" />
+          Next batch, predicted
+        </TileHead>
+        <NumState state={{ kind: "na" }} className="text-title" />
+        <p className="text-caption text-fg-muted">{failed && !analysis ? "Could not load the analysis. This is a connection problem, not a result." : t.reason}</p>
+      </>
+    );
+  }
+  const source = analysis ? sourceFromAnalysis(analysis, t.kind === "proposed" ? "proposals[].pred ± conformal_q" : "campaign.pending[].pred ± conformal_q", "predicted", bandName(t.coverage)) : null;
+  const topInterval = markInterval(t.top.lo, t.top.hi, t.coverage);
+  const top = formatValue(t.top.pred, { unit, interval: topInterval, basis: "predicted" });
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-label text-fg-muted">Model reliability</p>
-        {verdict ? <Badge tone={tone}>{verdict.label}</Badge> : null}
-      </div>
-      <Big>{formatNumber(verdict?.rho, "corr")}</Big>
+      <TileHead source={source ? <SourceButton source={source} /> : null}>
+        <BasisGlyph basis="predicted" />
+        {t.kind === "proposed" ? "Next batch, predicted" : "This round's batch, predicted"}
+      </TileHead>
+      <p className="text-title font-normal text-fg tabular-nums">{rangeText(t.lo, t.hi, unit, t.halfWidth)}</p>
+      <p className="text-caption text-fg-muted tabular-nums">
+        {t.withIntervals ? `Across the ${t.n} ${t.n === 1 ? "recipe's" : "recipes'"} ${bandName(t.coverage)}s` : `Across ${t.n} predictions, no interval reported`}
+      </p>
+      <p className="text-caption text-fg-muted tabular-nums">Top pick {top.text}</p>
+      <p className="text-caption text-fg-muted">
+        {t.kind === "proposed" ? "Proposed, not run." : "Started, awaiting the lab."}
+        {t.stale ? " From the previous analysis." : ""}
+      </p>
+      <Link href={href} className="mt-auto inline-flex w-fit items-center gap-1 pt-1 text-label text-accent hover:underline">
+        {t.kind === "proposed" ? "Review on Predict" : "See it on Predict"}
+        <ArrowRight className="size-3.5" aria-hidden />
+      </Link>
+    </>
+  );
+}
+
+function ReliabilityTile({ analysis, failed }: { analysis: PopulatedResult | null; failed: boolean }) {
+  const verdict = analysis ? reliabilityVerdict(analysis) : null;
+  const tone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
+  const rho = verdict ? formatCorr(verdict.rho, verdict.ci) : null;
+  const source = analysis ? sourceFromAnalysis(analysis, "reliability.spearman", "derived", "grouped cross-validation, Spearman rank correlation") : null;
+  return (
+    <>
+      <TileHead source={source ? <SourceButton source={source} full={rho?.full} /> : null}>
+        <BasisGlyph basis="derived" />
+        Model reliability
+      </TileHead>
+      {verdict ? (
+        <p>
+          <Badge tone={tone}>{verdict.label}</Badge>
+        </p>
+      ) : (
+        <NumState state={{ kind: "na" }} className="text-title" />
+      )}
+      {verdict && rho ? (
+        rho.state === "value" ? (
+          <p className="text-body text-fg tabular-nums">
+            <span className="font-medium">ρ {rho.value}</span>
+            {rho.interval ? <span className="text-caption text-fg-muted"> {rho.interval} {rho.coverage} CI</span> : <span className="text-caption text-fg-muted"> no interval reported</span>}
+          </p>
+        ) : (
+          <NumState state={{ kind: "not-scored", reason: verdict.reason }} className="text-caption" />
+        )
+      ) : null}
       <p className="text-caption text-fg-muted">
         {failed && !analysis
           ? "Could not load the analysis. This is a connection problem, not a verdict."
           : !verdict
             ? "Appears after the first analysis."
             : verdict.rho == null
-              ? verdict.reason
-              : `Rank agreement on held-out runs${verdict.ci ? `, 95% CI ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}` : ", no interval reported"}${verdict.floor != null ? `; trust floor ${formatNumber(verdict.floor, "corr")}` : ""}.`}
+              ? "Rank agreement on held-out runs could not be measured."
+              : `Rank agreement on held-out runs; trust floor ${verdict.floor != null ? formatValue(verdict.floor, { quantity: "corr" }).text : "n/a"}.`}
       </p>
-      {promotion ? (
-        <p className="text-caption text-fg-muted">
-          Promotion check {promotion.passed ? "passed" : "not passed"} (reported, not enforced).
-        </p>
-      ) : null}
-      {analysis ? (
-        <Link href={href} className="mt-1 inline-flex w-fit items-center gap-1 text-label text-accent hover:underline">
-          See the evidence on Predict
-          <ArrowRight className="size-3.5" aria-hidden />
-        </Link>
-      ) : null}
+      {analysis?.promotion ? <p className="text-caption text-fg-muted">Promotion check {analysis.promotion.passed ? "passed" : "not passed"} (reported, not enforced).</p> : null}
+    </>
+  );
+}
+
+function RunsTileView({ campaign }: { campaign: ActiveCampaign | null }) {
+  const t = runsTile(campaign);
+  const count = (v: number | null) => formatValue(v, { quantity: "count" }).text;
+  return (
+    <>
+      <TileHead source={campaign ? <SourceButton source={sourceFromCampaign("campaign.n_base, n_measured, n_awaiting, history[0].n_base", "measured")} /> : null}>
+        <BasisGlyph basis="measured" />
+        Runs
+      </TileHead>
+      <p className="flex items-baseline gap-1.5 tabular-nums">
+        <span className="text-title font-semibold text-fg">{count(t.inModel)}</span>
+        <span className="text-body text-fg-muted">measured in the model</span>
+      </p>
+      <ul className="flex flex-col gap-0.5 text-caption text-fg-muted tabular-nums">
+        <li>
+          <span className="text-fg">{count(t.recorded)}</span> recorded this round, not in the model yet
+        </li>
+        <li>
+          <span className="text-fg">{count(t.awaiting)}</span> awaiting a result
+        </li>
+        <li>
+          <span className="text-fg">{count(t.fromUpload)}</span> from the uploaded sheet
+        </li>
+      </ul>
     </>
   );
 }

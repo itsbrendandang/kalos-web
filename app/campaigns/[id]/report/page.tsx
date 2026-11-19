@@ -15,11 +15,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaignDetail, useCampaignId, useLatest } from "@/hooks/use-engine";
 import type { CampaignDetail, PopulatedResult } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatValue, parseUnit } from "@/lib/num";
 import { buildPackage, type PackageAnalysis } from "@/lib/report-package";
 import { campaignHref } from "@/lib/routes";
 
 const TITLE = "Report and export";
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 const DESCRIPTION =
   "A data package assembled in your browser from what the engine returned for this campaign: its summary, its current analysis and its runs. Nothing is recomputed.";
 
@@ -130,11 +131,13 @@ function Report({ detail, analysis }: { detail: CampaignDetail; analysis: Popula
         title="Runs"
         description={
           pkg.runs.length
-            ? `${formatNumber(pkg.runs.length, "count")} started: ${formatNumber(measured, "count")} measured, ${formatNumber(pkg.runs.length - measured, "count")} awaiting a result.`
+            ? `${count(pkg.runs.length)} started: ${count(measured)} measured, ${count(pkg.runs.length - measured)} awaiting a result.`
             : "No runs have been started from a proposed batch yet."
         }
       >
-        {pkg.runs.length ? <RunsTable runs={pkg.runs} /> : null}
+        {pkg.runs.length ? (
+          <RunsTable runs={pkg.runs} unit={pkg.objective.target ? parseUnit(pkg.objective.target).unit : null} ranges={pkg.data.observed_design_space.ranges} />
+        ) : null}
       </Section>
 
       <div className="grid gap-10 md:grid-cols-2 print:grid-cols-1">

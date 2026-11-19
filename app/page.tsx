@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCampaigns } from "@/hooks/use-engine";
 import type { CampaignMeta } from "@/lib/api";
 import { DEMO_MODE } from "@/lib/demo";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 import { sortCampaigns } from "@/lib/home";
 
 /**
@@ -93,7 +93,7 @@ function CampaignsOverview({ list, stale, autoFocus }: { list: CampaignMeta[]; s
       <section aria-labelledby="list-title" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="list-title" className="text-heading text-fg">
-            Your campaigns <span className="text-fg-muted tabular-nums">{formatNumber(sorted.length, "count")}</span>
+            Your campaigns <span className="text-fg-muted tabular-nums">{formatValue(sorted.length, { quantity: "count" }).text}</span>
           </h2>
           <p className="text-caption text-fg-muted">
             {stale ? "Could not refresh the list just now (connection problem); showing the last answer." : "Most recently updated first."}

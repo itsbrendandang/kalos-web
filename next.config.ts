@@ -18,19 +18,29 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // The 2026-10 redesign moved every page into Campaign / Data / Library.
-      { source: "/decide", destination: "/campaign/plan", permanent: true },
-      { source: "/results", destination: "/campaign/learn", permanent: true },
-      { source: "/analyze", destination: "/campaign/setup", permanent: true },
-      { source: "/validate", destination: "/campaign/setup", permanent: true },
-      { source: "/optimize", destination: "/campaign/plan", permanent: true },
-      { source: "/experiments", destination: "/", permanent: true },
-      { source: "/experiments/:path*", destination: "/", permanent: true },
-      { source: "/planning", destination: "/", permanent: true },
-      { source: "/scale-readout", destination: "/library/scale-up", permanent: true },
-      { source: "/vessels", destination: "/library/vessels", permanent: true },
-      { source: "/plate", destination: "/library/plate", permanent: true },
-      { source: "/simulate", destination: "/library/simulator", permanent: true },
+      // The 2026-11 engine-aligned redesign (docs/REDESIGN.md): campaigns live at
+      // /campaigns/[id]; pages without an engine behind them were removed.
+      { source: "/campaign", destination: "/", permanent: false },
+      { source: "/campaign/:stage", destination: "/", permanent: false },
+      { source: "/data", destination: "/", permanent: false },
+      { source: "/projects", destination: "/", permanent: false },
+      { source: "/projects/:path*", destination: "/", permanent: false },
+      { source: "/library", destination: "/", permanent: false },
+      { source: "/library/scale-up", destination: "/scale-up", permanent: true },
+      { source: "/library/:path*", destination: "/", permanent: false },
+      { source: "/scale-readout", destination: "/scale-up", permanent: true },
+      // Older routes from before 2026-10.
+      { source: "/decide", destination: "/", permanent: false },
+      { source: "/results", destination: "/", permanent: false },
+      { source: "/analyze", destination: "/", permanent: false },
+      { source: "/validate", destination: "/", permanent: false },
+      { source: "/optimize", destination: "/", permanent: false },
+      { source: "/experiments", destination: "/", permanent: false },
+      { source: "/experiments/:path*", destination: "/", permanent: false },
+      { source: "/planning", destination: "/", permanent: false },
+      { source: "/vessels", destination: "/", permanent: false },
+      { source: "/plate", destination: "/", permanent: false },
+      { source: "/simulate", destination: "/", permanent: false },
     ];
   },
 };

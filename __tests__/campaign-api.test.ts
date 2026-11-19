@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { API, getCampaignDetail, proposalRecipe, reanalyzeCampaign, recordCampaignResult, startCampaignRuns, type Campaign, type Proposal } from "@/lib/api";
+import { API, getCampaignDetail, proposalRecipe, submitReanalyzeJob, recordCampaignResult, startCampaignRuns, type Campaign, type Proposal } from "@/lib/api";
 import { EngineError } from "@/lib/engine-error";
 
 // The campaign loop through the multi-campaign routes the pages use (the
@@ -8,7 +8,7 @@ const CMP = "cmp_0123456789abcdef0123456789abcdef";
 const getCampaign = () => getCampaignDetail(CMP).then((d) => d.summary);
 const startRuns = (recipes: Parameters<typeof startCampaignRuns>[1]) => startCampaignRuns(CMP, recipes);
 const logResult = (id: string, value: number) => recordCampaignResult(CMP, id, value);
-const reanalyze = () => reanalyzeCampaign(CMP);
+const reanalyze = () => submitReanalyzeJob(CMP);
 const detail = (summary: unknown) => ({ campaign: { id: CMP }, summary });
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
@@ -132,37 +132,25 @@ describe("campaign client (lib/api.ts)", () => {
     expect(err).toMatchObject({ status: 502, code: "engine_error" });
   });
 
-  it("reanalyzeCampaign POSTs to /api/campaigns/{id}/reanalyze and returns {analysis, campaign}", async () => {
-    const analysis = { has_data: true, n: 41, target: "lipase_titer" };
-    const campaign: Campaign = {
-      has_campaign: true,
-      target: "lipase_titer",
-      features: ["pH"],
-      n_base: 41,
-      best: 6.1,
-      round: 3,
-      history: [
-        { round: 0, best: 4.6, n_base: 39 },
-        { round: 1, best: 5.2, n_base: 40 },
-        { round: 2, best: 5.9, n_base: 40 },
-        { round: 3, best: 6.1, n_base: 41 },
-      ],
-      pending: [],
-      n_awaiting: 0,
-      n_measured: 0,
-    };
-    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { analysis, campaign }));
+  it("submitReanalyzeJob POSTs to /api/campaigns/{id}/reanalyze/jobs and returns the queued job", async () => {
+    const job = { id: "job_0123456789abcdef0123456789abcdef", campaign_id: CMP, kind: "reanalyze", state: "queued", stage: "queued", progress: 0 };
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 202, { job }));
 
     const result = await reanalyze();
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`${API}/api/campaigns/${CMP}/reanalyze`);
+    expect(url).toBe(`${API}/api/campaigns/${CMP}/reanalyze/jobs`);
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({ "x-kalos-csrf": "1" });
-    expect(result).toEqual({ analysis, campaign });
+    expect(result).toEqual(job);
   });
 
-  it("reanalyzeCampaign throws a typed error on a busy engine", async () => {
+  it("submitReanalyzeJob surfaces job_pending (409) as a typed error", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 409, { error: "a job is already queued or running for this campaign", code: "job_pending" }));
+    await expect(reanalyze()).rejects.toMatchObject({ status: 409, code: "job_pending" });
+  });
+
+  it("submitReanalyzeJob throws a typed error on a busy engine", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 503, {}));
 
     await expect(reanalyze()).rejects.toMatchObject({ status: 503, code: "engine_busy" });

@@ -12,7 +12,7 @@ import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
-import { formatValue } from "@/lib/num";
+import { formatValue, parseUnit } from "@/lib/num";
 
 /** A statistic at 2 decimals with a U+2212 minus, through lib/num (never toFixed). */
 const fixed2 = (v: number): string => formatValue(v, { quantity: "score" }).value;
@@ -64,7 +64,132 @@ export type Proposal = {
    * lab runs and what a started run must record. Absent on older engines.
    */
   recipe?: Record<string, number>;
+  /**
+   * Distance from this recipe to the nearest measured (training) row: each
+   * continuous input divided by its design-box width, +1 per differing
+   * categorical level, Euclidean. 0 = the recipe is a measured row. A number
+   * only: the engine applies no threshold or label (an extrapolation signal,
+   * compare `training_nn_distance_median`). Absent on older analyses.
+   */
+  nearest_training_distance?: number | null;
+  /** Observation-scale predictive sd the per-proposal intervals are built from. Absent on older analyses. */
+  predictive_std?: number | null;
+  /** Per-level normalized split-conformal intervals (approximate coverage, see `interval_method`). Absent on older analyses. */
+  intervals?: ProposalInterval[];
+  /** Model-based GP posterior bands, per level. Never held-out calibrated; label them so. */
+  gp_intervals?: GpInterval[];
+  /** Model-based predictive quantiles (GP observation posterior). */
+  quantiles?: ProposalQuantiles | null;
+  /** Analytic expected improvement over the incumbent (model-based, context only: the batch is chosen by qLogNEI). */
+  expected_improvement?: ImprovementStat | null;
+  /** Model probability of beating the incumbent (model-based). */
+  p_improve?: ImprovementStat | null;
 };
+
+/** One per-proposal interval entry. A refused level has `available: false`, null bounds and the engine's reason. */
+export type ProposalInterval = {
+  coverage: number;
+  method: string;
+  calibrated_on?: string;
+  n_calibration?: number;
+  available: boolean;
+  lo: number | null;
+  hi: number | null;
+  q_norm?: number;
+  empirical_oof_coverage?: number;
+  code?: string;
+  reason?: string;
+  what_would_fix_it?: string;
+};
+
+export type GpInterval = {
+  coverage: number;
+  method: string;
+  posterior?: string;
+  note?: string;
+  available: boolean;
+  lo: number | null;
+  hi: number | null;
+  code?: string;
+  reason?: string;
+};
+
+export type ProposalQuantiles = { basis: string; posterior?: string; note?: string; p05: number; p25: number; p50: number; p75: number; p95: number };
+
+export type ImprovementStat = {
+  value: number | null;
+  method: string;
+  incumbent: number | null;
+  incumbent_basis?: string;
+  maximize: boolean;
+  basis: string;
+  posterior?: string;
+  note?: string;
+};
+
+/** How `proposals[].intervals` were built, with a per-level availability (`interval_method`). */
+export type IntervalMethod = {
+  method: string;
+  calibrated_on?: string;
+  n_calibration?: number;
+  coverage_guarantee?: string;
+  empirical_oof_coverage_note?: string;
+  levels: {
+    coverage: number;
+    available: boolean;
+    q_norm?: number;
+    rank?: number;
+    n_calibration?: number;
+    empirical_oof_coverage?: number;
+    n_inside?: number;
+    coverage_by_sigma_half?: Record<string, { n: number; coverage: number | null }>;
+    code?: string;
+    reason?: string;
+    what_would_fix_it?: string;
+    min_n?: number;
+  }[];
+  gp_posterior?: Record<string, string>;
+} & Record<string, unknown>;
+
+/** The entry of `intervals` (or `gp_intervals`) at a coverage level, or null when the engine sent none for it. */
+export function intervalAt<T extends { coverage: number }>(list: readonly T[] | null | undefined, coverage: number): T | null {
+  return list?.find((i) => Math.abs(i.coverage - coverage) < 1e-9) ?? null;
+}
+
+/** 1D model slice (R2): latent GP mean with a model-based band, other inputs held at `reference`. */
+export type ModelSlice = {
+  feature: string;
+  x: number[];
+  mean: number[];
+  sd: number[];
+  lo: number[];
+  hi: number[];
+  coverage: number;
+  band_method: string;
+  band_of?: string;
+  note?: string;
+  basis: string;
+  range?: [number, number];
+  swept_at?: string;
+  reference?: { basis: string; incumbent_basis?: string; recipe: Record<string, number | string> };
+  n_points?: number;
+};
+
+/** The display unit of the target (R6): user setup, then a well-defined header pattern, else none. */
+export type TargetUnit = { unit: string | null; source: "user" | "header" | "none"; header: string | null; note: string };
+
+/** How the campaign setup was applied to this analysis (`setup`). `status: "refused"` means no proposals. */
+export type AppliedSetup = {
+  status: "applied" | "refused" | string;
+  goal: Goal;
+  hash?: string;
+  bounds_applied?: Record<string, { requested: [number | null, number | null]; observed: [number, number] | null; applied: [number, number] | null; extrapolates: boolean }>;
+  constraints_applied?: LinearConstraint[];
+  warnings?: { code: string; feature?: string; message: string }[];
+  refusal?: { code: string; reason?: string; message?: string; what_would_fix_it?: string } | null;
+  n_proposals_dropped?: number;
+  sign_convention?: string;
+} & Record<string, unknown>;
 
 /** The full recipe to run and record for a proposal. Falls back to the
  *  proposal_features alone only for older engines that do not send `recipe`. */
@@ -569,7 +694,38 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   orientation?: unknown;
   /** Why a visualization (embedding, correlation, surface) was not computed, keyed by name. */
   visualization_reasons?: unknown;
+  /** Coverage levels the per-proposal intervals were computed at, e.g. [0.9, 0.95]. Absent on older analyses. */
+  interval_levels?: number[];
+  /** How the per-proposal intervals were built, with per-level refusals. Absent on older analyses. */
+  interval_method?: IntervalMethod;
+  /** Median nearest-other-row distance between measured rows, in the `nearest_training_distance` metric (scale for it). */
+  training_nn_distance_median?: number | null;
+  /** 1D model slices; `null` with the reason in `visualization_reasons.slices`. Absent on older analyses. */
+  slices?: ModelSlice[] | null;
+  slices_skipped?: { feature: string; reason: string }[];
+  /** The target's display unit. Absent on older analyses (fall back to the header via `parseUnit`). */
+  target_unit?: TargetUnit;
+  /** The optimization direction this analysis used (absent = maximize, the engine default). */
+  goal?: Goal;
+  /** The campaign setup as applied to this analysis; null when none was stored. */
+  setup?: AppliedSetup | null;
+  /** Why the batch is empty or reduced (e.g. `setup_not_applied`). */
+  proposal_notice?: { code: string; message?: string; reason?: string } & Record<string, unknown> | null;
 };
+
+/** Optimization direction. */
+export type Goal = "maximize" | "minimize";
+
+/**
+ * The target's unit for display: the engine's `target_unit` when the analysis
+ * carries it (the user's setup wins over the header), else the unit parsed
+ * from the header for analyses that predate the field. Never invented.
+ */
+export function targetUnitOf(d: { target?: string | null; target_unit?: TargetUnit | null } | null | undefined): string | null {
+  if (!d) return null;
+  if (d.target_unit) return d.target_unit.unit ?? null;
+  return d.target ? parseUnit(d.target).unit : null;
+}
 
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
 export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
@@ -983,7 +1139,34 @@ export type CampaignRun = {
   result_reason?: string | null;
   result_actor?: string | null;
   result_recorded_at?: number | null;
+  /** Who supplied `pred`/`std`: "engine" (matched a published proposal at start) or "caller". Null on legacy runs. */
+  pred_source?: "engine" | "caller" | null;
+  /** The engine's own prediction and band recorded when the run started (R5). Null on legacy runs. */
+  prediction_at_start?: PredictionAtStart | null;
+  /** measured − predicted (derived), against the prediction recorded at start. Null while awaiting or without one. */
+  residual?: number | null;
+  residual_basis?: string | null;
+  /** Whether the measured value fell inside the band recorded at start. */
+  inside_band?: boolean | null;
 };
+
+export type PredictionAtStart =
+  | {
+      available: true;
+      basis: string;
+      pred: number;
+      std: number;
+      std_method?: string;
+      interval: { lo: number; hi: number; half_width: number; coverage: number; method: string } | null;
+      interval_unavailable_reason: string | null;
+      proposal_index?: number;
+      analysis_provenance?: Record<string, unknown>;
+      analysis_generation?: string;
+      recorded_at?: number;
+      intervals?: ProposalInterval[];
+      gp_intervals?: GpInterval[];
+    }
+  | { available: false; reason: string };
 
 /** The engine's own stage state (forward-compatible: optional until the engine sends it). */
 export type EngineStage = {
@@ -1004,6 +1187,8 @@ export type Campaign =
       features: string[];
       n_base: number;
       best: number | null;
+      /** Optimization direction (`best` is the minimum when minimizing). Absent on older engines. */
+      goal?: Goal;
       round: number;
       /**
        * The progress trajectory: one { round, best, n_base } point per round
@@ -1144,7 +1329,8 @@ async function failure(r: Response): Promise<EngineError> {
 function failureFrom(status: number, d: Record<string, unknown> | null): EngineError {
   const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" && /^[a-z][a-z0-9_]*$/.test(d.error) ? d.error : codeForStatus(status);
   const detail = typeof d?.error === "string" && d.error !== code ? d.error : undefined;
-  return new EngineError(status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined, detail);
+  const fix = typeof d?.what_would_fix_it === "string" && d.what_would_fix_it ? d.what_would_fix_it : undefined;
+  return new EngineError(status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined, detail, fix);
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -1234,8 +1420,284 @@ export const startCampaignRuns = (campaignId: string, recipes: StartRecipe[]): P
 export const recordCampaignResult = (campaignId: string, runId: string, value: number, reason?: string): Promise<CampaignRun> =>
   call(`/api/campaigns/${enc(campaignId)}/runs/${enc(runId)}/result`, jsonInit("POST", reason ? { value, reason } : { value }));
 
-/** Fold measured runs into the base data and re-fit (synchronous: tens of seconds to minutes; no job route). */
-export const reanalyzeCampaign = (campaignId: string): Promise<{ analysis: PopulatedResult; campaign: Campaign }> =>
-  call(`/api/campaigns/${enc(campaignId)}/reanalyze`, jsonInit("POST"));
+/**
+ * Fold measured runs into the base data and re-fit, as a background job
+ * (202): track it with getJob, cancel with cancelJob. Stages: planning,
+ * fitting, calibrating, proposing, publishing. Refused before queueing with
+ * 409 `job_pending`, 400 `nothing_to_fold` / `no_data`, 429, 503 (EngineError).
+ */
+export const submitReanalyzeJob = (campaignId: string): Promise<Job> =>
+  call<{ job: Job }>(`/api/campaigns/${enc(campaignId)}/reanalyze/jobs`, jsonInit("POST")).then((d) => d.job);
+
+// --- Campaign list with summary fields (GET /api/campaigns?summary=true) -----
+
+/** One campaign card: identity plus the engine's summary fields, from ONE list request (no request per campaign). */
+export type CampaignSummaryRow = CampaignMeta & {
+  has_data: boolean;
+  target: string | null;
+  n_base: number;
+  round: number;
+  n_awaiting: number;
+  n_measured: number;
+  goal?: { direction: Goal; source: string };
+  /** Measured, folded rows only: never a prediction. Null before data. */
+  best_measured?: { value: number | null; basis: "measured"; direction: "max" | "min" } | null;
+  analysis?:
+    | { present: false }
+    | {
+        present: true;
+        updated: number;
+        in_sync: boolean;
+        engine_version?: string;
+        cv_spearman: number | null;
+        conformal_q: number | null;
+        conformal_coverage: number | null;
+        reliability: { clears_floor: boolean; ci_excludes_zero: boolean; spearman: number | null; ci95: [number, number] | null; spearman_floor: number; producer_clears_floor?: boolean } | null;
+        n_proposals: number;
+      };
+  current_stage?: string | null;
+  latest_gate_decision?: { gate: string; decision: GateDecision; decided_at: number } | null;
+  active_job?: { id: string; kind: string; state: JobState; progress: number; stage: string } | null;
+};
+
+export const listCampaignSummaries = (opts: { includeArchived?: boolean; limit?: number; cursor?: string } = {}): Promise<{ campaigns: CampaignSummaryRow[]; next_cursor: string | null }> => {
+  const q = new URLSearchParams({ summary: "true" });
+  if (opts.includeArchived) q.set("include_archived", "true");
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.cursor) q.set("cursor", opts.cursor);
+  return call<{ campaigns: CampaignSummaryRow[]; next_cursor?: string | null }>(`/api/campaigns?${q}`).then((d) => ({ campaigns: d.campaigns, next_cursor: d.next_cursor ?? null }));
+};
+
+// --- Setup: goal, bounds, linear constraints, target unit (GET/PUT /setup) ----
+
+export type LinearConstraint = { coefficients: Record<string, number>; op: "<=" | ">="; rhs: number };
+export type SetupDoc = {
+  goal: Goal;
+  bounds: Record<string, { lo: number | null; hi: number | null }>;
+  linear_constraints: LinearConstraint[];
+  target_unit: string | null;
+};
+export type SetupView = {
+  campaign_id: string;
+  setup: SetupDoc;
+  source: "default" | "stored" | "unreadable";
+  hash: string;
+  updated_at: number | null;
+  updated_by: string | null;
+  bounds_report: Record<string, { lo: number | null; hi: number | null; observed: [number, number] | null; effective: [number, number] | null; extrapolates: boolean }>;
+  has_analysis: boolean;
+  analysis_setup_hash: string | null;
+  /** false: the setup changed since the analysis, re-analyze to apply it. null: no analysis yet. */
+  settings_in_sync: boolean | null;
+};
+
+export const getSetup = (campaignId: string): Promise<SetupView> => call<SetupView>(`/api/campaigns/${enc(campaignId)}/setup`);
+
+/** Replace the whole setup. 400 codes (EngineError.code): invalid_bounds, infeasible_constraints, constraints_with_categoricals, bounds_outside_data, ... */
+export const putSetup = (campaignId: string, doc: SetupDoc): Promise<SetupView> => call<SetupView>(`/api/campaigns/${enc(campaignId)}/setup`, jsonInit("PUT", doc));
+
+// --- Stage track and go/no-go gates (recorded by people, never computed) -----
+
+export type GateDecision = "go" | "no_go" | "pending";
+export type GateEvidenceRef = { kind: "analysis" | "scale_readout" | "job" | "run"; id: string; label?: string };
+export type GateRecord = {
+  id: number;
+  gate: string;
+  decision: GateDecision;
+  note: string;
+  evidence_linked: GateEvidenceRef[];
+  decided_by: string;
+  auth_method?: string;
+  decided_at: number;
+  basis: "recorded";
+};
+export type StageDef = {
+  key: string;
+  label: string;
+  min_L: number | null;
+  max_L: number | null;
+  nominal_L: number[] | null;
+  volume_unit?: string;
+  gate: { key: string; decision: GateDecision | null; state: "open" | "recorded"; basis: string; current: GateRecord | null; history_count: number };
+};
+export type StagesView = {
+  campaign_id: string;
+  source: "default" | "campaign";
+  updated_at: number | null;
+  updated_by: string | null;
+  current_stage: string | null;
+  current_stage_basis: string;
+  stages: StageDef[];
+  orphaned_gates: unknown[];
+};
+export type ComputedEvidence =
+  | {
+      available: true;
+      basis: "computed";
+      source: string;
+      scope: string;
+      note: string;
+      analysis_updated_at: number | null;
+      campaign_generation?: string;
+      target: string | null;
+      n_measured: number | null;
+      best_measured: { value: number | null; basis: "measured" } | null;
+      reliability: { basis: string; method: string; spearman: number | null; ci95: [number, number] | null; spearman_floor: number | null; clears_floor: boolean | null; ci_excludes_zero: boolean | null } | null;
+      promotion: { basis: string; passed: boolean; failures: string[]; summary: string } | null;
+    }
+  | { available: false; basis: "computed"; code: string; reason: string; what_would_fix_it?: string };
+export type GateView = {
+  key: string;
+  stage_label: string;
+  in_stage_definitions: boolean;
+  decision: GateDecision | null;
+  state: "open" | "recorded";
+  basis: string;
+  current: GateRecord | null;
+  history_count: number;
+  history: GateRecord[];
+  history_truncated: boolean;
+  computed_evidence: ComputedEvidence;
+};
+export type GatesView = {
+  campaign_id: string;
+  stages_source: string;
+  current_stage: string | null;
+  history_preview?: number;
+  gates: GateView[];
+  orphaned_gates: GateView[];
+  orphaned_gates_total?: number;
+  orphaned_gates_truncated?: boolean;
+};
+
+export const getStages = (campaignId: string): Promise<StagesView> => call<StagesView>(`/api/campaigns/${enc(campaignId)}/stages`);
+
+/** Replace the stage definitions; `current_stage` is required (null clears it) and is set by a person. */
+export const putStages = (
+  campaignId: string,
+  body: { stages: { key: string; label: string; min_L?: number | null; max_L?: number | null; nominal_L?: number[] | null }[]; current_stage: string | null },
+): Promise<StagesView> => call<StagesView>(`/api/campaigns/${enc(campaignId)}/stages`, jsonInit("PUT", body));
+
+export const getGates = (campaignId: string): Promise<GatesView> => call<GatesView>(`/api/campaigns/${enc(campaignId)}/gates`);
+
+export const getGateHistory = (campaignId: string, gate: string, opts: { limit?: number; beforeId?: number } = {}): Promise<{ items: GateRecord[]; has_more: boolean; next_before_id: number | null }> => {
+  const q = new URLSearchParams();
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.beforeId != null) q.set("before_id", String(opts.beforeId));
+  return call(`/api/campaigns/${enc(campaignId)}/gates/${enc(gate)}/history${q.size ? `?${q}` : ""}`);
+};
+
+/** Record a human go/no-go decision (append-only; the server sets who and when). A note is required. */
+export const recordGateDecision = (
+  campaignId: string,
+  gate: string,
+  body: { decision: GateDecision; note: string; evidence?: GateEvidenceRef[] },
+): Promise<{ campaign_id: string; recorded: GateRecord; gate: GateView }> => call(`/api/campaigns/${enc(campaignId)}/gates/${enc(gate)}`, jsonInit("PUT", body));
+
+// --- Report: raw rows, result history + audit log, operating ranges ----------
+
+export type RowsExport = {
+  campaign_id: string;
+  has_data: boolean;
+  format: "json";
+  target: string | null;
+  columns: string[];
+  original_rows_identifiable: boolean;
+  original_rows_reason: string | null;
+  original_rows: { origin: string; round: number; n: number; rows: Record<string, unknown>[] } | null;
+  folded_rows: { origin: string; n: number; rows: { origin: string; folded_in_round: number; values: Record<string, unknown> }[] } | null;
+  unattributed_rows: { origin: string; n: number; rows: Record<string, unknown>[] } | null;
+  anonymization: { applied: boolean } & Record<string, unknown>;
+  provenance: Record<string, unknown>;
+};
+
+export const exportRowsJson = (campaignId: string): Promise<RowsExport> => call<RowsExport>(`/api/campaigns/${enc(campaignId)}/export/rows?format=json`);
+
+/** The rows as the engine's CSV (formula-neutralized), with its content hash header when sent. */
+export async function exportRowsCsv(campaignId: string): Promise<{ blob: Blob; filename: string | null }> {
+  let r: Response;
+  try {
+    r = await fetch(`${API}/api/campaigns/${enc(campaignId)}/export/rows?format=csv`);
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  if (!r.ok) throw await failure(r);
+  const cd = r.headers.get("content-disposition") ?? "";
+  const m = /filename="?([^";]+)"?/i.exec(cd);
+  return { blob: await r.blob(), filename: m ? m[1] : null };
+}
+
+export type ResultHistoryItem = {
+  id: number;
+  run_id: string;
+  version: number;
+  value: number;
+  previous_value: number | null;
+  reason: string | null;
+  actor: string | null;
+  auth_method?: string;
+  recorded_at: number;
+  is_correction: boolean;
+  basis: "measured";
+};
+export type AuditItem = {
+  id: number;
+  ts: number;
+  subject: string | null;
+  auth_method?: string;
+  action: string;
+  campaign_id?: string | null;
+  job_id?: string | null;
+  outcome: string;
+  request_id?: string | null;
+  detail: string | null;
+};
+export type ResultHistory = {
+  campaign_id: string;
+  limit: number;
+  results?: { items: ResultHistoryItem[]; has_more: boolean; next_before_id: number | null };
+  audit?: { items: AuditItem[]; has_more: boolean; next_before_id: number | null };
+  notes?: Record<string, string>;
+};
+
+export const getResultHistory = (
+  campaignId: string,
+  opts: { section?: "all" | "results" | "audit"; limit?: number; resultsBeforeId?: number; auditBeforeId?: number } = {},
+): Promise<ResultHistory> => {
+  const q = new URLSearchParams();
+  if (opts.section) q.set("section", opts.section);
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.resultsBeforeId != null) q.set("results_before_id", String(opts.resultsBeforeId));
+  if (opts.auditBeforeId != null) q.set("audit_before_id", String(opts.auditBeforeId));
+  return call<ResultHistory>(`/api/campaigns/${enc(campaignId)}/results/history${q.size ? `?${q}` : ""}`);
+};
+
+export type OperatingRanges =
+  | {
+      campaign_id?: string;
+      status: "computed";
+      method: string;
+      basis: "predicted";
+      model_based: true;
+      must_verify_experimentally: true;
+      statement: string;
+      rule: Record<string, unknown>;
+      model?: Record<string, unknown>;
+      sampling?: Record<string, unknown>;
+      anchor?: Record<string, unknown>;
+      ranges: { feature: string; low: number; high: number; design_low: number; design_high: number; basis: string }[];
+      box?: Record<string, unknown>;
+      fraction_of_design_space_meeting_rule: number | null;
+      reliability?: Record<string, unknown>;
+      caveats?: string[];
+    }
+  | { campaign_id?: string; status: "not_computed"; reason_code: string; reason: string; what_would_fix_it?: string; diagnostics?: Record<string, unknown> };
+
+/** Compute (write scope: it occupies the analysis slot) the model-based operating box, or the engine's not_computed reason. */
+export const computeOperatingRanges = (campaignId: string, body: { threshold: number; probability: number }): Promise<OperatingRanges> =>
+  call<OperatingRanges>(`/api/campaigns/${enc(campaignId)}/operating-ranges`, jsonInit("POST", { ...body, basis: "target" }));
+
+export const getOperatingRanges = (campaignId: string, q: { threshold: number; probability: number }): Promise<OperatingRanges> =>
+  call<OperatingRanges>(`/api/campaigns/${enc(campaignId)}/operating-ranges?threshold=${enc(String(q.threshold))}&probability=${enc(String(q.probability))}`);
 
 export { API };

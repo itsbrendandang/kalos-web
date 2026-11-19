@@ -11,6 +11,8 @@ export class EngineError extends Error {
     readonly limitMb?: number,
     /** The engine's own sentence, when it sent one (shown only for codes without app copy). */
     readonly detail?: string,
+    /** The engine's `what_would_fix_it`, when its refusal carried one. */
+    readonly fix?: string,
   ) {
     super(`engine responded ${status}`);
     this.name = "EngineError";

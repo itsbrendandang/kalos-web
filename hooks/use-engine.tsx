@@ -6,11 +6,11 @@ import {
   getCampaignAnalysis,
   getCampaignDetail,
   isJobActive,
-  listCampaigns,
+  listCampaignSummaries,
   type AnalyzeResult,
   type Campaign,
   type CampaignDetail,
-  type CampaignMeta,
+  type CampaignSummaryRow,
   type Job,
   type LatestResult,
   type UploadOptions,
@@ -91,17 +91,23 @@ export const isNotFound = (r: Pick<EngineResource<unknown>, "failure">): boolean
 
 // --- Campaign list (app-wide) -------------------------------------------------
 
-const CampaignsContext = createContext<EngineResource<CampaignMeta[]> | null>(null);
+const CampaignsContext = createContext<EngineResource<CampaignSummaryRow[]> | null>(null);
 
-/** Mounted once by the app shell: the tenant's campaigns (archived ones excluded). */
+/**
+ * Mounted once by the app shell: the tenant's campaigns (archived ones
+ * excluded) with the engine's summary fields (best measured, reliability,
+ * goal, stage, latest gate decision, active job), from ONE list request
+ * (GET /api/campaigns?summary=true), never a request per campaign. The engine
+ * caps a page at 200; more than that is a known gap (no pager yet).
+ */
 export function CampaignsProvider({ children }: { children: ReactNode }) {
-  const fetcher = useCallback(() => listCampaigns(false), []);
+  const fetcher = useCallback(() => listCampaignSummaries({ limit: 200 }).then((d) => d.campaigns), []);
   const campaigns = useEngineResource(fetcher);
   return <CampaignsContext.Provider value={campaigns}>{children}</CampaignsContext.Provider>;
 }
 
-/** GET /api/campaigns. */
-export function useCampaigns(): EngineResource<CampaignMeta[]> {
+/** GET /api/campaigns?summary=true. */
+export function useCampaigns(): EngineResource<CampaignSummaryRow[]> {
   const c = useContext(CampaignsContext);
   if (!c) throw new Error("useCampaigns needs <CampaignsProvider> (mounted by the app shell)");
   return c;
@@ -136,7 +142,30 @@ export type UploadTracker = {
   dismiss: () => void;
 };
 
-export type ReanalysisState = { running: boolean; startedAt: number | null };
+/**
+ * A re-analysis runs as an engine background job (POST /reanalyze/jobs), so it
+ * has the engine's own stages and progress, can be cancelled, and survives
+ * navigation and reloads: the provider resumes an active job from the jobs
+ * list, and a failed job's error comes back from the engine too (until the
+ * user dismisses it, remembered per job id in sessionStorage).
+ */
+export type ReanalysisState = {
+  /** A job is queued or running. */
+  running: boolean;
+  /** When the job was created (ms), for elapsed time; null when no job. */
+  startedAt: number | null;
+  /** The newest re-analysis job known for this campaign (active, or finished and not dismissed). */
+  job: Job | null;
+  /** How the last re-analysis failed (engine job error, or a refusal before queueing); null when none or dismissed. */
+  error: { code: string; message: string | null } | null;
+  /** Polling failed repeatedly; the job may still be running on the engine. */
+  pollTrouble: boolean;
+  cancel: () => Promise<void>;
+  /** Clear a finished job and its error (remembered across navigation). */
+  dismiss: () => void;
+};
+
+export type ReanalysisOutcome = { kind: "succeeded" | "failed" | "cancelled"; job: Job };
 
 type EngineData = {
   campaignId: string;
@@ -145,7 +174,7 @@ type EngineData = {
   campaign: EngineResource<Campaign>;
   upload: UploadTracker;
   reanalysis: ReanalysisState;
-  runReanalysis: () => Promise<{ analysis: api.PopulatedResult; campaign: Campaign }>;
+  runReanalysis: () => Promise<ReanalysisOutcome>;
 } & LastRejection;
 
 const EngineContext = createContext<EngineData | null>(null);
@@ -154,6 +183,38 @@ const EngineContext = createContext<EngineData | null>(null);
 // job well inside the proxy's per-session rate limit (120 requests a minute).
 const POLL_MS = 2500;
 const TERMINAL: readonly Job["state"][] = ["succeeded", "failed", "cancelled", "timed_out"];
+const FAILED: readonly Job["state"][] = ["failed", "timed_out"];
+
+/** A finished job's error as the page shows it (fixed engine text; never exception text). */
+function jobError(j: Job): { code: string; message: string | null } {
+  if (j.error) return { code: j.error.code, message: j.error.message || null };
+  return { code: j.state === "timed_out" ? "timeout" : "analysis_failed", message: null };
+}
+
+// Dismissed re-analysis errors, per campaign, for this browser session (so a dismissed failure is not resurrected
+// from the engine's jobs list on the next page).
+const DISMISSED_KEY = "kalos.reanalysis.dismissed";
+function readDismissed(): Record<string, string[]> {
+  try {
+    const v: unknown = JSON.parse(globalThis.sessionStorage?.getItem(DISMISSED_KEY) ?? "{}");
+    return typeof v === "object" && v !== null ? (v as Record<string, string[]>) : {};
+  } catch {
+    return {};
+  }
+}
+function isDismissed(campaignId: string, jobId: string): boolean {
+  const ids = readDismissed()[campaignId];
+  return Array.isArray(ids) && ids.includes(jobId);
+}
+function rememberDismissed(campaignId: string, jobId: string): void {
+  try {
+    const all = readDismissed();
+    all[campaignId] = [...(Array.isArray(all[campaignId]) ? all[campaignId] : []), jobId].slice(-20);
+    globalThis.sessionStorage?.setItem(DISMISSED_KEY, JSON.stringify(all));
+  } catch {
+    // storage unavailable: the dismissal lasts until the provider unmounts
+  }
+}
 
 /**
  * Mounted by the app shell for the campaign in the URL (keyed by its id), so
@@ -192,12 +253,22 @@ export function EngineDataProvider({ campaignId, children }: { campaignId: strin
   const { refresh: refreshDetail } = detail;
   const refreshCampaigns = campaigns?.refresh;
 
-  // Resume an upload already running on the engine (another tab, or before a reload).
+  // Resume jobs already known to the engine (another tab, or before a reload or navigation): an active upload,
+  // and the newest re-analysis when it is active or ended in an error the user has not dismissed.
+  const [reJob, setReJob] = useState<Job | null>(null);
+  const [reError, setReError] = useState<{ code: string; message: string | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    api.listJobs(campaignId, 1).then(
+    api.listJobs(campaignId, 10).then(
       (jobs) => {
-        if (!cancelled && jobs[0] && isJobActive(jobs[0])) setJob((cur) => cur ?? jobs[0]);
+        if (cancelled) return;
+        const upload = jobs.find((j) => j.kind !== "reanalyze");
+        if (upload && isJobActive(upload)) setJob((cur) => cur ?? upload);
+        const re = jobs.find((j) => j.kind === "reanalyze");
+        if (re && (isJobActive(re) || (FAILED.includes(re.state) && !isDismissed(campaignId, re.id)))) {
+          setReJob((cur) => cur ?? re);
+          if (!isJobActive(re)) setReError((cur) => cur ?? jobError(re));
+        }
       },
       () => {},
     );
@@ -263,25 +334,97 @@ export function EngineDataProvider({ campaignId, children }: { campaignId: strin
   const dismiss = useCallback(() => setJob((j) => (j && isJobActive(j) ? j : null)), []);
   const upload: UploadTracker = useMemo(() => ({ job, pollTrouble, submit, cancel, dismiss }), [job, pollTrouble, submit, cancel, dismiss]);
 
-  // --- Re-analysis (synchronous on the engine; tracked here so it survives navigation) ---
-  const [reanalysis, setReanalysis] = useState<ReanalysisState>({ running: false, startedAt: null });
-  const inflight = useRef<Promise<{ analysis: api.PopulatedResult; campaign: Campaign }> | null>(null);
-  const runReanalysis = useCallback(() => {
-    if (inflight.current) return inflight.current;
-    setReanalysis({ running: true, startedAt: Date.now() });
-    const p = (async () => {
+  // --- Re-analysis job (engine stages and progress; tracked here so it survives navigation) ---
+  const [rePollTrouble, setRePollTrouble] = useState(false);
+  const reWaiters = useRef(new Map<string, ((j: Job) => void)[]>());
+  const activeReJobId = reJob && isJobActive(reJob) ? reJob.id : null;
+  useEffect(() => {
+    if (!activeReJobId) return;
+    let stopped = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
       try {
-        const out = await api.reanalyzeCampaign(campaignId);
-        await Promise.all([refreshDetail(), refreshLatest()]);
-        return out;
+        const j = await api.getJob(activeReJobId);
+        failures = 0;
+        setRePollTrouble(false);
+        if (stopped) return;
+        setReJob(j);
+        if (TERMINAL.includes(j.state)) {
+          if (j.state === "succeeded") await Promise.all([refreshLatest(), refreshDetail(), refreshCampaigns?.()]);
+          else if (FAILED.includes(j.state)) setReError(jobError(j));
+          for (const w of reWaiters.current.get(j.id) ?? []) w(j);
+          reWaiters.current.delete(j.id);
+          return;
+        }
+      } catch {
+        failures += 1;
+        if (failures >= 3) setRePollTrouble(true);
+      }
+      if (!stopped) timer = setTimeout(tick, Math.min(POLL_MS * 2 ** Math.max(0, failures - 2), 15_000));
+    };
+    timer = setTimeout(tick, POLL_MS);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [activeReJobId, refreshLatest, refreshDetail, refreshCampaigns]);
+
+  const reInflight = useRef<Promise<ReanalysisOutcome> | null>(null);
+  const runReanalysis = useCallback(() => {
+    if (reInflight.current) return reInflight.current;
+    const p = (async (): Promise<ReanalysisOutcome> => {
+      try {
+        setReError(null);
+        let submitted: Job;
+        try {
+          submitted = await api.submitReanalyzeJob(campaignId);
+        } catch (e) {
+          // Refused before queueing (job_pending, nothing_to_fold, rate_limited, ...): keep it visible like a job error.
+          if (e instanceof EngineError) setReError({ code: e.code, message: e.detail ?? null });
+          throw e;
+        }
+        const done = new Promise<Job>((resolve) => {
+          const list = reWaiters.current.get(submitted.id) ?? [];
+          reWaiters.current.set(submitted.id, [...list, resolve]);
+        });
+        setRePollTrouble(false);
+        setReJob(submitted);
+        const j = await done;
+        if (j.state === "succeeded") return { kind: "succeeded", job: j };
+        if (j.state === "cancelled") return { kind: "cancelled", job: j };
+        return { kind: "failed", job: j };
       } finally {
-        inflight.current = null;
-        setReanalysis({ running: false, startedAt: null });
+        reInflight.current = null;
       }
     })();
-    inflight.current = p;
+    reInflight.current = p;
     return p;
-  }, [campaignId, refreshDetail, refreshLatest]);
+  }, [campaignId]);
+  const cancelReanalysis = useCallback(async () => {
+    if (!reJob || !isJobActive(reJob)) return;
+    setReJob(await api.cancelJob(reJob.id));
+  }, [reJob]);
+  const dismissReanalysis = useCallback(() => {
+    setReJob((j) => {
+      if (j && isJobActive(j)) return j;
+      if (j) rememberDismissed(campaignId, j.id);
+      return null;
+    });
+    setReError(null);
+  }, [campaignId]);
+  const reanalysis: ReanalysisState = useMemo(
+    () => ({
+      running: isJobActive(reJob),
+      startedAt: reJob && isJobActive(reJob) ? reJob.created_at * 1000 : null,
+      job: reJob,
+      error: reError,
+      pollTrouble: rePollTrouble,
+      cancel: cancelReanalysis,
+      dismiss: dismissReanalysis,
+    }),
+    [reJob, reError, rePollTrouble, cancelReanalysis, dismissReanalysis],
+  );
 
   const value: EngineData = { campaignId, detail, latest, campaign, upload, reanalysis, runReanalysis, rejection, setRejection };
   return <EngineContext.Provider value={value}>{children}</EngineContext.Provider>;
@@ -349,7 +492,9 @@ const SHEET_CODES = new Set(["too_few_rows", "too_few_complete_rows", "target_co
  *       service failures and a cancel throw EngineError. Progress is on useUploadJob().
  *   startRuns(recipes)               -> void      (refreshes the campaign)
  *   logResult(id, value, reason?)    -> void      (refreshes the campaign; a correction needs a reason)
- *   reanalyze()                      -> { analysis, campaign }
+ *   reanalyze()                      -> { kind: succeeded | failed | cancelled, job } (a background job; progress,
+ *                                       cancel and a persisted error are on useReanalysis(); a refusal before
+ *                                       queueing throws EngineError)
  */
 export function useEngineWrites() {
   const { campaignId, latest, detail, upload, runReanalysis, setRejection } = useEngineData();

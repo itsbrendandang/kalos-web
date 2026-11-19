@@ -9,8 +9,9 @@ import {
   getJob,
   isJobActive,
   listCampaigns,
+  listCampaignSummaries,
   listJobs,
-  reanalyzeCampaign,
+  submitReanalyzeJob,
   recordCampaignResult,
   startCampaignRuns,
   submitUploadJob,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/api";
 import { ENGINE_CSRF_HEADER } from "@/lib/engine-csrf";
 import { EngineError, errorMessage } from "@/lib/engine-error";
+import { archiveErrorCopy } from "@/lib/home";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const CMP = "cmp_0123456789abcdef0123456789abcdef";
@@ -167,8 +169,9 @@ describe("multi-campaign client (lib/api.ts)", () => {
     expect(JSON.parse(String(lastCall()[1]?.body))).toEqual({ value: 1.5 });
     await recordCampaignResult(CMP, "run1", 1.6, "typo in the assay sheet");
     expect(JSON.parse(String(lastCall()[1]?.body))).toEqual({ value: 1.6, reason: "typo in the assay sheet" });
-    await reanalyzeCampaign(CMP);
-    expect(lastCall()[0]).toBe(`${API}/api/campaigns/${CMP}/reanalyze`);
+    fetchMock.mockResolvedValueOnce(json({ job: job({ kind: "reanalyze" }) }, 202));
+    await submitReanalyzeJob(CMP);
+    expect(lastCall()[0]).toBe(`${API}/api/campaigns/${CMP}/reanalyze/jobs`);
   });
 
   it("a correction without a reason surfaces the engine's reason_required as plain copy", async () => {
@@ -180,7 +183,49 @@ describe("multi-campaign client (lib/api.ts)", () => {
 
   it("an unknown engine code falls back to the engine's own sentence, never the raw code", async () => {
     fetchMock.mockResolvedValueOnce(json({ error: "Nothing to fold in yet.", code: "invalid_request" }, 400));
-    const err = await reanalyzeCampaign(CMP).catch((e: unknown) => e);
+    const err = await submitReanalyzeJob(CMP).catch((e: unknown) => e);
     expect(errorMessage(err).message).toBe("Nothing to fold in yet.");
+  });
+
+  describe("archive (admin + recent second factor, enforced by the web proxy)", () => {
+    it("archives and unarchives with PATCH { archived } and the CSRF header", async () => {
+      fetchMock.mockImplementation(async () => json({ id: CMP, name: "A", archived: true }));
+      await updateCampaign(CMP, { archived: true });
+      const [url, init] = lastCall();
+      expect(url).toBe(`${API}/api/campaigns/${CMP}`);
+      expect(init?.method).toBe("PATCH");
+      expect(JSON.parse(String(init?.body))).toEqual({ archived: true });
+      expect(new Headers(init?.headers).get(ENGINE_CSRF_HEADER)).toBeTruthy();
+      await updateCampaign(CMP, { archived: false });
+      expect(JSON.parse(String(lastCall()[1]?.body))).toEqual({ archived: false });
+    });
+
+    it("surfaces the proxy's 403 insufficient_scope as an admin-only refusal", async () => {
+      fetchMock.mockResolvedValueOnce(json({ error: "insufficient_scope", required: "org:admin" }, 403));
+      const err = await updateCampaign(CMP, { archived: true }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(EngineError);
+      expect((err as EngineError).code).toBe("insufficient_scope");
+      expect(archiveErrorCopy(err, "archive").message).toMatch(/Only organization admins/);
+    });
+
+    it("surfaces the proxy's 403 step_up_required as a sign-in-again with a second factor", async () => {
+      fetchMock.mockResolvedValueOnce(json({ error: "step_up_required", code: "STEP_UP_REQUIRED" }, 403));
+      const err = await updateCampaign(CMP, { archived: true }).catch((e: unknown) => e);
+      const copy = archiveErrorCopy(err, "archive");
+      expect(copy.signOut).toBe(true);
+      expect(copy.fix).toMatch(/Sign out, sign back in with your second factor/);
+    });
+
+    it("the engine's 409 for writes to an archived campaign reads as read-only", async () => {
+      fetchMock.mockResolvedValueOnce(json({ error: "the campaign is archived; it can be read but not changed", code: "campaign_archived" }, 409));
+      const err = await recordCampaignResult(CMP, "run1", 1).catch((e: unknown) => e);
+      expect(errorMessage(err).message).toBe("This campaign is archived, so it is read-only.");
+    });
+
+    it("lists archived campaigns from the summary list with include_archived", async () => {
+      fetchMock.mockResolvedValueOnce(json({ campaigns: [], next_cursor: null, limit: 200 }));
+      await listCampaignSummaries({ includeArchived: true, limit: 200 });
+      expect(lastCall()[0]).toBe(`${API}/api/campaigns?summary=true&include_archived=true&limit=200`);
+    });
   });
 });

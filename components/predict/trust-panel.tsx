@@ -1,119 +1,106 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { CircleAlert, CircleCheck, CircleDashed } from "lucide-react";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Panel } from "@/components/kit/section";
 import { TONE_ICON, TONE_TEXT, type Tone } from "@/components/kit/tone";
-import {
-  alternativeScaleNote,
-  calibrationHeadline,
-  evidenceFact,
-  noiseFacts,
-  promotionView,
-  rankAgreementFact,
-  trustTone,
-  type Fact,
-  type PredictAnalysis,
-} from "@/components/predict/predict-view";
-import {
-  calibrationNote,
-  coveragePct,
-  cvLogoNote,
-  cvTopKNote,
-  groupMeanBaselineVerdict,
-  reliabilityVerdict,
-  repeatSpreadNote,
-} from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { alternativeScaleNote, noiseFacts, promotionView, trustTone, type PredictAnalysis } from "@/components/predict/predict-view";
+import { CalibrationPlot } from "@/components/viz/charts/calibration-plot";
+import { ParityPlot } from "@/components/viz/charts/parity-plot";
+import { ReliabilityScorecard } from "@/components/viz/charts/reliability-scorecard";
+import { BasisGlyph, SourceButton } from "@/components/viz/num";
+import { formatCorr, formatValue, parseUnit } from "@/lib/num";
+import { sourceFromAnalysis } from "@/lib/source";
 import { cn } from "@/lib/utils";
+import { toCalibration } from "@/lib/viz-data/calibration-plot";
+import { toParity } from "@/lib/viz-data/parity-plot";
+import { toScorecard, type Gate, type PromotionChecklist } from "@/lib/viz-data/reliability-scorecard";
 
 /**
- * "Can the model be trusted?": the evidence before the batch. Every line is
- * an engine field: the reliability verdict and its floor, the held-out rank
- * agreement with its interval, how much evidence it rests on, the interval
- * calibration, the conformal band with its real coverage, and the promotion
- * verdict (reported, not enforced). Method checks sit in a disclosure; the
- * group-mean baseline becomes the page's callout when the model does not
+ * "Can the model be trusted?": the evidence before the batch. The verdict
+ * sentence comes first (the engine's reliability verdict and its floor), then
+ * the scorecard (C8: held-out rank agreement with its CI and repeats, the
+ * baselines, the trust floor, top-k) and the promotion checklist (reported,
+ * not enforced), then the parity plot (C6: held-out predictions against the
+ * conformal band) beside the calibration diagram (C7: does the model's own
+ * uncertainty mean what it says). Every mark and number is an engine field.
+ * The group-mean baseline becomes the page's callout when the model does not
  * beat it, unless the page already shows one (`calloutTaken`).
  */
-export function TrustPanel({ d, calloutTaken = false }: { d: PredictAnalysis; calloutTaken?: boolean }) {
-  const verdict = reliabilityVerdict(d);
+export function TrustPanel({ d, calloutTaken = false, stale = null }: { d: PredictAnalysis; calloutTaken?: boolean; stale?: { nNew: number } | null }) {
+  const sc = toScorecard(d);
+  const parity = toParity(d);
+  const cal = toCalibration(d);
+  const verdict = sc.verdict;
   const tone = trustTone(verdict.state);
   const rel = d.reliability;
-  const cal = rel?.calibration;
-  const coverage = coveragePct(d.conformal_coverage);
   const promotion = promotionView(d.promotion);
-  const baseline = groupMeanBaselineVerdict(d.cv_spearman, d.cv_group_mean_baseline);
   const unmodeled = (rel?.unmodeled ?? []).filter(Boolean);
   const advice = rel?.space_filling_advice ?? null;
-
-  const facts: (Fact & { extra?: ReactNode })[] = [
-    rankAgreementFact(verdict, repeatSpreadNote(d.cv_n_repeats, d.cv_spearman_per_repeat)),
-    evidenceFact(d),
-    {
-      label: "Prediction band",
-      value: d.conformal_q != null ? `± ${formatNumber(d.conformal_q)}` : "Not reported",
-      caption: d.conformal_q != null ? `${coverage ? `${coverage} coverage` : "Coverage not reported"}, measured on held-out runs; not guaranteed for new proposals. Same width for every proposal.` : "The engine reported no band, so predictions carry no interval.",
-    },
-    {
-      label: "Interval calibration",
-      value: calibrationHeadline(cal),
-      caption: cal ? `The model's own uncertainty on held-out runs: ${calibrationNote(cal)}` : "The engine did not score how honest the model's own uncertainty is.",
-    },
-  ];
+  const { name: targetName, unit } = parseUnit(d.target);
+  const relSource = sourceFromAnalysis(d, "reliability.spearman, cv_ci95, reliability.spearman_floor", "derived", "grouped cross-validation, Spearman ρ");
+  const rho = formatCorr(verdict.rho, verdict.ci);
+  const count = (n: number) => formatValue(n, { quantity: "count" }).text;
+  const evidence = [
+    sc.evidence.n != null ? `${count(sc.evidence.n)} rows` : null,
+    sc.evidence.groups != null ? `${count(sc.evidence.groups)} CV groups` : null,
+    sc.evidence.repeats != null ? `${count(sc.evidence.repeats)} ${sc.evidence.repeats === 1 ? "repeat" : "repeats"}` : null,
+  ].filter(Boolean);
+  const showCallout = sc.baseline?.prominent && !calloutTaken;
 
   return (
     <section aria-labelledby="predict-trust-title" className="flex flex-col gap-4">
       <h2 id="predict-trust-title" className="text-heading text-fg">
         Can the model be trusted?
       </h2>
-      <Panel className="flex flex-col gap-5">
+      <Panel className="flex flex-col gap-6">
         <div className="flex items-start gap-2.5">
           <ToneIcon tone={tone} className="mt-1" />
           <div className="min-w-0">
             <p className="text-heading text-fg">{verdict.label}</p>
             <p className="mt-0.5 max-w-[72ch] text-body text-fg-muted">{verdict.reason}</p>
+            {verdict.rho != null ? (
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-body text-fg-muted tabular-nums">
+                <span className="inline-flex items-baseline gap-1.5">
+                  <BasisGlyph basis="derived" className="self-center" />
+                  <span className="text-title font-medium text-fg">ρ {rho.value}</span>
+                  {rho.interval ? (
+                    <span className="text-caption">
+                      {rho.interval} {rho.coverage} CI
+                    </span>
+                  ) : (
+                    <span className="text-caption">no interval reported</span>
+                  )}
+                </span>
+                <span>{verdict.floor != null ? `trust floor ${formatCorr(verdict.floor).value}` : "no trust floor reported"}</span>
+                {evidence.length ? <span>{evidence.join(", ")}</span> : null}
+                <SourceButton source={relSource} full={verdict.rho != null ? String(verdict.rho) : undefined} />
+              </p>
+            ) : null}
           </div>
         </div>
 
-        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          {facts.map((f) => (
-            <div key={f.label} className="flex min-w-0 flex-col gap-0.5">
-              <dt className="text-label text-fg-muted">{f.label}</dt>
-              <dd className="text-heading text-fg tabular-nums">{f.value}</dd>
-              {f.caption ? <dd className="text-caption text-fg-muted">{f.caption}</dd> : null}
-            </div>
-          ))}
-        </dl>
+        {showCallout ? (
+          <Callout tone="warn" title="The model does not beat the group-mean baseline">
+            {sc.baseline!.text}. Its ranking may come from recognizing replicated recipes rather than modeling the process. More distinct recipes, not more replicates, would show whether it does better.
+          </Callout>
+        ) : null}
 
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-label text-fg-muted">Promotion gates</span>
-            <span className="text-heading text-fg">{promotion ? promotion.headline : "Not reported"}</span>
-            {promotion ? <span className="text-caption text-fg-muted">Reported, not enforced: it does not block proposals.</span> : null}
-          </div>
-          {promotion?.meaning ? <p className="max-w-[72ch] text-caption text-fg-muted">{promotion.meaning}</p> : null}
-          {promotion && (promotion.missed.length || promotion.unmeasured.length || promotion.notJudged.length) ? (
-            <ul className="flex flex-col gap-1">
-              {promotion.missed.map((f) => (
-                <Line key={f} tone="warn" label="Measured and below its gate">
-                  <span className="font-mono text-code">{f}</span>
-                </Line>
-              ))}
-              {promotion.unmeasured.map((f) => (
-                <Line key={f} tone="neutral" label="Not measurable on this data">
-                  <span className="font-mono text-code">{f}</span>
-                </Line>
-              ))}
-              {promotion.notJudged.map((f) => (
-                <Line key={f} tone="neutral" label="Not judged">
-                  {f}
-                </Line>
-              ))}
-            </ul>
-          ) : null}
-          {!promotion ? <p className="text-caption text-fg-muted">This engine build did not report a promotion verdict.</p> : null}
+        <ReliabilityScorecard data={sc} source={relSource} stale={stale} />
+
+        <PromotionGates checklist={sc.promotion} />
+
+        <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-border pt-5 @3xl:grid-cols-2">
+          <ParityPlot
+            data={parity}
+            target={targetName}
+            unit={unit}
+            stale={stale}
+            source={sourceFromAnalysis(d, "oof, conformal_q, conformal_coverage", "derived", "held-out conformal band from pooled out-of-fold residuals")}
+          />
+          <CalibrationPlot data={cal} stale={stale} source={sourceFromAnalysis(d, "reliability.calibration", "derived", "held-out coverage of the model's uncertainty bands")} />
         </div>
 
         {unmodeled.length || advice ? (
@@ -127,26 +114,12 @@ export function TrustPanel({ d, calloutTaken = false }: { d: PredictAnalysis; ca
           </ul>
         ) : null}
 
-        {baseline?.prominent && !calloutTaken ? (
-          <Callout tone="warn" title="The model does not beat the group-mean baseline">
-            {baseline.text}. Its ranking may come from recognizing replicated recipes rather than modeling the process. More distinct recipes, not more replicates, would show whether it does better.
-          </Callout>
-        ) : null}
-
         <Disclosure summary="More checks on the model" meta="method details">
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-body sm:grid-cols-[max-content_minmax(0,1fr)]">
-            <Row label="Leave-one-group-out" value={cvLogoNote(d.cv_logo)} />
-            <Row label="Top-k overlap" value={cvTopKNote(d.cv_topk)} />
-            <Row label="Group-mean baseline" value={baseline ? baseline.text : null} warn={baseline?.prominent} />
-            <Row label="Producers only" value={rel?.producer_spearman != null ? `ρ ${formatNumber(rel.producer_spearman, "corr")} over ${formatNumber(rel.n_producers, "count")} runs above ${formatNumber(rel.producer_threshold)}${rel.producer_clears_floor ? ", clears the floor" : ", below the floor"}.` : undefined} />
+            <Row label="Group-mean baseline" value={sc.baseline ? sc.baseline.text : undefined} warn={sc.baseline?.prominent} />
             <Row label="Alternative scale" value={alternativeScaleNote(d.alternative_scale)} />
-            {cal?.levels?.length ? (
-              <Row
-                label="Calibration by level"
-                value={cal.levels.map((l) => `${formatNumber(l.nominal, "pct")} nominal: ${formatNumber(l.empirical, "pct")} held-out`).join("; ") + "."}
-              />
-            ) : null}
             {promotion?.metrics.length ? <Row label="Promotion metrics" value={promotion.metrics.map((m) => `${m.label} ${m.value}`).join("; ") + "."} /> : null}
+            {d.promotion?.summary ? <Row label="Promotion summary (engine)" value={d.promotion.summary} /> : null}
           </dl>
           {d.noise ? (
             <div className="mt-4">
@@ -169,19 +142,65 @@ export function TrustPanel({ d, calloutTaken = false }: { d: PredictAnalysis; ca
   );
 }
 
+const GATE_PREFIX: Record<Gate["status"], string> = {
+  passed: "Passed",
+  missed: "Measured and below its gate",
+  unmeasured: "Not measurable on this data",
+  "not-judged": "Not judged",
+};
+
+/** The promotion verdict as a checklist: passed and missed gates are measured; unmeasured and not-judged ones are neutral. */
+function PromotionGates({ checklist }: { checklist: PromotionChecklist | null }) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-4">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-label text-fg-muted">Promotion gates</span>
+        <span className="text-heading text-fg">{checklist ? (checklist.passed ? "Passed" : "Not passed") : "Not reported"}</span>
+        {checklist ? (
+          <span className="text-caption text-fg-muted tabular-nums">
+            {checklist.judged ? `${checklist.nPassed} of ${checklist.judged} gates passed. ` : ""}Reported, not enforced: it does not block proposals.
+          </span>
+        ) : null}
+      </div>
+      {/* The engine's `meaning` explains what passed=false does (and does not) mean; it only applies when the gates did not pass. */}
+      {checklist?.meaning && !checklist.passed ? <p className="max-w-[72ch] text-caption text-fg-muted">{checklist.meaning}</p> : null}
+      {checklist && checklist.gates.length ? (
+        <ul className="flex flex-col gap-1">
+          {checklist.gates.map((g) => (
+            <li key={g.key} className="flex items-start gap-2 text-body text-fg-muted">
+              <GateIcon status={g.status} />
+              <span className="min-w-0 break-words">
+                <span className="text-fg">{GATE_PREFIX[g.status]}: </span>
+                {g.label}
+                {g.value != null ? <span className="tabular-nums text-fg"> {formatValue(g.value, { quantity: "score" }).value}</span> : null}
+                {g.engine && g.status !== "passed" ? <span className="block text-caption">{g.status === "not-judged" ? g.engine : `Engine: ${g.engine}`}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {!checklist ? <p className="text-caption text-fg-muted">This engine build did not report a promotion verdict.</p> : null}
+    </div>
+  );
+}
+
+function GateIcon({ status }: { status: Gate["status"] }) {
+  const cls = "mt-1 size-4 shrink-0";
+  if (status === "passed") return <CircleCheck className={cn(cls, "text-good")} aria-label="passed" />;
+  if (status === "missed") return <CircleAlert className={cn(cls, "text-bad")} aria-label="missed" />;
+  return <CircleDashed className={cn(cls, "text-fg-muted")} aria-label="not scored" />;
+}
+
 function ToneIcon({ tone, className }: { tone: Tone; className?: string }) {
   const Icon = TONE_ICON[tone];
   return <Icon className={cn("size-4 shrink-0", TONE_TEXT[tone], className)} aria-hidden />;
 }
 
-function Line({ tone, label, children }: { tone: Tone; label?: string; children: ReactNode }) {
+function Line({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <li className="flex items-start gap-2 text-body text-fg-muted">
       <ToneIcon tone={tone} className="mt-1" />
-      <span className="min-w-0 break-words">
-        {label ? <span className="text-fg">{label}: </span> : null}
-        {children}
-      </span>
+      <span className="min-w-0 break-words">{children}</span>
     </li>
   );
 }

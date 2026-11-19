@@ -9,14 +9,19 @@
 import type { PlanAnalysis } from "@/components/campaign/plan-view";
 import {
   isUnmeasuredFailure,
-  Z_STD_TOLERANCE,
   type Diagnostics,
   type Driver,
   type Promotion,
   type Reliability,
   type ReliabilityVerdict,
 } from "@/lib/api";
-import { formatNumber, formatRange } from "@/lib/format";
+import { formatCorr, formatValue } from "@/lib/num";
+import { calibrationHeadlineOf } from "@/lib/viz-data/calibration-plot";
+import { METRIC_LABEL } from "@/lib/viz-data/reliability-scorecard";
+
+export { METRIC_LABEL };
+
+const count = (n: number | null | undefined) => formatValue(n, { quantity: "count" }).text;
 
 // --- Engine fields newer than lib/api.ts -------------------------------------
 // Typed here, optional, so the page degrades on engines that do not send them.
@@ -50,7 +55,7 @@ export type VerdictTone = "good" | "warn" | "neutral";
 /** Reliable reads good, below the floor reads warn, not enough data stays neutral (it is not a failure). */
 export const trustTone = (state: ReliabilityVerdict["state"]): VerdictTone => (state === "reliable" ? "good" : state === "not-yet" ? "warn" : "neutral");
 
-const plural = (n: number, one: string, many = `${one}s`) => `${formatNumber(n, "count")} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many = `${one}s`) => `${count(n)} ${n === 1 ? one : many}`;
 
 /**
  * The page's one-line verdict: what the engine says about the model, joined
@@ -84,14 +89,20 @@ export function predictHeadline(input: {
 
 export type Fact = { label: string; value: string; caption?: string };
 
-/** "ρ 0.66", "95% CI 0.54 to 0.77, trust floor 0.20": the engine's floor, never a hardcoded one. */
+/**
+ * "ρ 0.66", "95% CI 0.54 to 0.77, trust floor 0.20": the engine's floor, never
+ * a hardcoded one. The CI's coverage comes from formatCorr (the engine's ci95
+ * field), not typed here.
+ */
 export function rankAgreementFact(v: ReliabilityVerdict, repeatNote: string | null): Fact {
+  const f = formatCorr(v.rho ?? 0, v.ci);
+  const corr = (x: number) => formatCorr(x).value;
   const parts = [
-    v.ci ? `95% CI ${formatRange(v.ci[0], v.ci[1], "corr")}` : "95% CI not reported",
-    v.floor != null ? `trust floor ${formatNumber(v.floor, "corr")}` : "no trust floor reported",
+    v.ci && f.coverage ? `${f.coverage} CI ${corr(v.ci[0])} to ${corr(v.ci[1])}` : "CI not reported",
+    v.floor != null ? `trust floor ${corr(v.floor)}` : "no trust floor reported",
     repeatNote,
   ].filter((p): p is string => p != null);
-  return { label: "Held-out rank agreement", value: v.rho != null ? `ρ ${formatNumber(v.rho, "corr")}` : "n/a", caption: parts.join(", ") };
+  return { label: "Held-out rank agreement", value: v.rho != null ? formatCorr(v.rho).text : "n/a", caption: parts.join(", ") };
 }
 
 /** How much evidence the score rests on: rows fitted, CV groups and partition repeats. */
@@ -103,22 +114,10 @@ export function evidenceFact(d: Pick<PredictAnalysis, "n" | "cv_n_groups" | "cv_
 
 /** The interval-calibration headline in plain words; the numbers stay in `calibrationNote`. */
 export function calibrationHeadline(cal: Reliability["calibration"]): string {
-  if (!cal) return "Not reported";
-  if (!cal.available) return "Not scored";
-  if (cal.z_std == null) return "Scored";
-  if (Math.abs(cal.z_std - 1) <= Z_STD_TOLERANCE) return "Close to calibrated";
-  return cal.z_std > 1 ? "Bands read too narrow" : "Bands read too wide";
+  return calibrationHeadlineOf(cal);
 }
 
 // --- Promotion -----------------------------------------------------------------------
-
-/** Plain labels for the engine's promotion metrics; unknown keys show as sent. */
-export const METRIC_LABEL: Record<string, string> = {
-  surrogate_spearman: "Held-out rank agreement",
-  feasibility_auc: "Feasibility classifier AUC",
-  ece: "Interval calibration error (ECE)",
-  brier: "Feasibility Brier score",
-};
 
 export type PromotionView = {
   passed: boolean;
@@ -148,7 +147,7 @@ export function promotionView(p: PredictAnalysis["promotion"]): PromotionView | 
     metrics: Object.entries(p.metrics ?? {}).map(([key, v]) => ({
       key,
       label: METRIC_LABEL[key] ?? key,
-      value: formatNumber(v, key === "ece" || key === "brier" ? "icc" : "corr"),
+      value: formatValue(v, { quantity: "score" }).value,
     })),
   };
 }
@@ -180,9 +179,9 @@ export function shapeText(f: GpShape): string {
     case "monotonic_down":
       return "falls across the range";
     case "interior_optimum":
-      return f.optimum_at != null ? `peaks inside the range, near ${formatNumber(f.optimum_at)}` : "peaks inside the range";
+      return f.optimum_at != null ? `peaks inside the range, near ${formatValue(f.optimum_at).text}` : "peaks inside the range";
     case "interior_minimum":
-      return f.optimum_at != null ? `dips inside the range, near ${formatNumber(f.optimum_at)}` : "dips inside the range";
+      return f.optimum_at != null ? `dips inside the range, near ${formatValue(f.optimum_at).text}` : "dips inside the range";
     default:
       return String((f as { shape: unknown }).shape);
   }
@@ -194,12 +193,14 @@ export function shapeText(f: GpShape): string {
 export function noiseFacts(noise: Diagnostics["noise"] | null | undefined): Fact[] {
   if (!noise) return [];
   return [
-    { label: "Replicated recipes", value: `${formatNumber(noise.n_replicated, "count")} of ${formatNumber(noise.n_recipes, "count")}`, caption: noise.replicate_aware ? "The fit is replicate-aware." : "The fit treats every row as its own recipe." },
-    { label: "Replicate agreement (ICC)", value: formatNumber(noise.icc, "icc") },
-    { label: "Noise SD", value: formatNumber(noise.noise_sd) },
-    { label: "Signal SD", value: formatNumber(noise.signal_sd) },
-    { label: "Best single run", value: formatNumber(noise.best_single) },
-    { label: "Best reproducible recipe", value: formatNumber(noise.best_reproducible) },
+    { label: "Replicated recipes", value: `${count(noise.n_replicated)} of ${count(noise.n_recipes)}`, caption: noise.replicate_aware ? "The fit is replicate-aware." : "The fit treats every row as its own recipe." },
+    // ICC sits near 1: 2 decimals would print 0.997 as "1.00".
+    { label: "Replicate agreement (ICC)", value: formatValue(noise.icc, { decimals: 3 }).text },
+    // Derived target-unit statistics: 3 significant figures (VIZ_SPEC 2.2).
+    { label: "Noise SD", value: formatValue(noise.noise_sd).text },
+    { label: "Signal SD", value: formatValue(noise.signal_sd).text },
+    { label: "Best single run", value: formatValue(noise.best_single, { basis: "measured" }).text },
+    { label: "Best reproducible recipe", value: formatValue(noise.best_reproducible, { basis: "measured" }).text },
   ];
 }
 
@@ -207,6 +208,5 @@ export function noiseFacts(noise: Diagnostics["noise"] | null | undefined): Fact
 export function alternativeScaleNote(alt: Diagnostics["alternative_scale"] | null | undefined): string | null {
   if (!alt) return null;
   if (alt.cv_spearman == null) return alt.reason ?? alt.interpretation ?? "Not scored.";
-  const ci = alt.cv_ci95 ? `, 95% CI ${formatRange(alt.cv_ci95[0], alt.cv_ci95[1], "corr")}` : "";
-  return `On a ${alt.scale ?? "transformed"} scale: ρ ${formatNumber(alt.cv_spearman, "corr")}${ci}.${alt.interpretation ? ` ${alt.interpretation}` : ""}`;
+  return `On a ${alt.scale ?? "transformed"} scale: ${formatCorr(alt.cv_spearman, alt.cv_ci95).text}.${alt.interpretation ? ` ${alt.interpretation}` : ""}`;
 }

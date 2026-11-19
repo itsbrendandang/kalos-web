@@ -56,7 +56,8 @@ describe("trust facts", () => {
     expect(f.caption).toBe("95% CI 0.54 to 0.77, trust floor 0.25, 2 repeats: 0.66 to 0.67");
     const none = rankAgreementFact(reliabilityVerdict({ cv_spearman: null }), null);
     expect(none.value).toBe("n/a");
-    expect(none.caption).toMatch(/95% CI not reported, no trust floor reported/);
+    // The CI label comes from the engine field via formatCorr, so a missing CI reads "CI not reported" with no coverage typed.
+    expect(none.caption).toMatch(/^CI not reported, no trust floor reported/);
   });
 
   it("counts evidence and reads n/a for absent counts, never 0", () => {
@@ -101,7 +102,8 @@ describe("promotionView", () => {
     expect(v.notJudged).toEqual(["group-mean floor"]);
     expect(v.metrics).toEqual([
       { key: "surrogate_spearman", label: "Held-out rank agreement", value: "0.66" },
-      { key: "ece", label: "Interval calibration error (ECE)", value: "0.102" },
+      // Scores are 2 dp through lib/num (VIZ_SPEC 2.1 "score").
+      { key: "ece", label: "Interval calibration error (ECE)", value: "0.10" },
       { key: "custom", label: "custom", value: "2.00" },
     ]);
   });
@@ -118,7 +120,8 @@ describe("diagnostics text", () => {
   it("reads n/a for noise values the engine sent as null", () => {
     const facts = noiseFacts({ n_recipes: 160, n_replicated: 0, replicate_aware: false, icc: null, noise_sd: null, signal_sd: 0.2288, best_single: 1.422, best_reproducible: null, scale: null });
     expect(facts.find((f) => f.label === "Noise SD")?.value).toBe("n/a");
-    expect(facts.find((f) => f.label === "Signal SD")?.value).toBe("0.23");
+    // Derived target-unit statistics keep 3 significant figures (VIZ_SPEC 2.2).
+    expect(facts.find((f) => f.label === "Signal SD")?.value).toBe("0.229");
     expect(facts.find((f) => f.label === "Replicated recipes")?.value).toBe("0 of 160");
     expect(noiseFacts(undefined)).toEqual([]);
   });
@@ -127,7 +130,7 @@ describe("diagnostics text", () => {
     expect(alternativeScaleNote(undefined)).toBeNull();
     expect(alternativeScaleNote({ scale: null, offset: null, cv_spearman: null, cv_ci95: null, calibration: null, icc: null, interpretation: null, reason: "too few replicates" })).toBe("too few replicates");
     expect(alternativeScaleNote({ scale: "log1p", offset: 1, cv_spearman: 0.7, cv_ci95: [0.5, 0.8], calibration: null, icc: null, interpretation: "ranks better on log scale", reason: null })).toBe(
-      "On a log1p scale: ρ 0.70, 95% CI 0.50 to 0.80. ranks better on log scale",
+      "On a log1p scale: ρ 0.70 [0.50, 0.80] 95% CI. ranks better on log scale",
     );
   });
 });

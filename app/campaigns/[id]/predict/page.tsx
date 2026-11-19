@@ -45,9 +45,11 @@ import { BatchIntervalStrip } from "@/components/viz/charts/batch-interval-strip
 import { RecipeSetpointMatrix } from "@/components/viz/charts/recipe-setpoint-matrix";
 import { SliceProfiler } from "@/components/viz/charts/slice-profiler";
 import { SourceButton } from "@/components/viz/num";
+import { RefusalBlock } from "@/components/viz/refusal";
 import { useCampaign, useCampaignId, useEngineWrites, useLastRejection, useLatest } from "@/hooks/use-engine";
 import { incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict, targetUnitOf, type Campaign } from "@/lib/api";
 import { campaignStage, cycleSteps, type CampaignStage } from "@/lib/campaign-stage";
+import { EXPLORATION_LABEL, batchTrustOf, modelRefusalOf } from "@/lib/proposal-trust";
 import { formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
 import { sourceFromAnalysis } from "@/lib/source";
@@ -299,6 +301,7 @@ function Batch({
   const verdict = reliabilityVerdict(d);
   const ranges = useMemo(() => observedRanges(d), [d]);
   const diversity = diversitySummary(d.batch_diversity, d.proposal_notice);
+  const modelRefusal = modelRefusalOf(d);
   const setup = useMemo(() => setupNotes(d), [d]);
   const runs = active?.pending;
   const strip = useMemo(() => toBatchStripModel(d, { target: name, unit, runs: runs ?? [], coverage }), [d, name, unit, runs, coverage]);
@@ -414,7 +417,9 @@ function Batch({
         }
       />
 
-      <Verdict tone={trustTone(verdict.state)}>{predictHeadline({ state: verdict.state, proposals: rows.length, round })}</Verdict>
+      <Verdict tone={modelRefusal ? "warn" : trustTone(verdict.state)}>
+        {predictHeadline({ state: verdict.state, proposals: rows.length, round, refused: modelRefusal?.reasons[0] ?? null })}
+      </Verdict>
 
       {rejection ? (
         <Callout
@@ -474,7 +479,19 @@ function Batch({
           </>
         ) : null}
 
-        {rows.length === 0 && setup.refused ? null : rows.length === 0 ? (
+        {rows.length === 0 && modelRefusal ? (
+          <RefusalBlock
+            title={modelRefusal.title}
+            reasons={modelRefusal.reasons}
+            fix={modelRefusal.fix ? [modelRefusal.fix] : undefined}
+            footer={
+              <>
+                Kalos does not propose recipes from a model it cannot check: a batch from it would be no better than a space-filling design, and could look like a recommendation.
+                {modelRefusal.code ? <span className="font-mono text-code"> ({modelRefusal.code})</span> : null}
+              </>
+            }
+          />
+        ) : rows.length === 0 && setup.refused ? null : rows.length === 0 ? (
           <EmptyState
             title="The engine proposed no experiments"
             description={diversity?.short ? `${diversity.headline} ${diversity.notes.join(" ")}` : "This analysis returned an empty batch."}
@@ -581,6 +598,7 @@ function BatchCharts({
     return toSetpointMatrixModel(d, proposals, rangeInputs);
   }, [d, ranges]);
   const verdict = reliabilityVerdict(d);
+  const trust = batchTrustOf(d);
   const nRecorded = active?.pending.filter((r) => r.result != null).length ?? 0;
   const stale = active?.analysis_in_sync === false ? { nNew: nRecorded, text: nRecorded > 0 ? undefined : "The campaign changed since this analysis. Re-analyze on Validate to update." } : null;
   const src = sourceFromAnalysis(d, "proposals", "predicted", bandMethodOf(strip));
@@ -606,7 +624,15 @@ function BatchCharts({
         onHighlight={setHighlight}
         sourceFor={(r) => sourceFromAnalysis(d, `proposals[${r.index}].pred`, "predicted", bandMethodOf(strip))}
         stale={stale}
-        warning={verdict.state !== "reliable" ? "Not yet reliable: treat these as exploration, not forecasts." : undefined}
+        warning={
+          trust?.kind === "exploration"
+            ? `Every proposal is ${EXPLORATION_LABEL}.${trust.message ? ` ${trust.message}` : ""}`
+            : verdict.state === "not-judged"
+              ? "Not judged: too few runs. Treat these as exploration, not forecasts."
+              : verdict.state !== "reliable"
+                ? "Not yet reliable: treat these as exploration, not forecasts."
+                : undefined
+        }
         footer={footer}
       />
       {strip.intervals.kind === "per-proposal" ? (

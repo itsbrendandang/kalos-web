@@ -12,7 +12,7 @@ import { ParityPlot } from "@/components/viz/charts/parity-plot";
 import { ReliabilityScorecard } from "@/components/viz/charts/reliability-scorecard";
 import { BasisGlyph, SourceButton } from "@/components/viz/num";
 import { targetName as targetNameOf } from "@/components/campaign/target";
-import { targetUnitOf } from "@/lib/api";
+import { CV_GROUPING_NOTE, cvGroupingText, targetUnitOf } from "@/lib/api";
 import { formatCorr, formatValue } from "@/lib/num";
 import { sourceFromAnalysis } from "@/lib/source";
 import { cn } from "@/lib/utils";
@@ -46,9 +46,11 @@ export function TrustPanel({ d, calloutTaken = false, stale = null }: { d: Predi
   const relSource = sourceFromAnalysis(d, "reliability.spearman, cv_ci95, reliability.spearman_floor", "derived", "grouped cross-validation, Spearman ρ");
   const rho = formatCorr(verdict.rho, verdict.ci);
   const count = (n: number) => formatValue(n, { quantity: "count" }).text;
+  // Which grouping drove the held-out score (F05): "held-out by batch (5 groups)" replaces the bare group count.
+  const grouping = cvGroupingText(d.cv_grouping);
   const evidence = [
     sc.evidence.n != null ? `${count(sc.evidence.n)} rows` : null,
-    sc.evidence.groups != null ? `${count(sc.evidence.groups)} CV groups` : null,
+    grouping ? null : sc.evidence.groups != null ? `${count(sc.evidence.groups)} CV groups` : null,
     sc.evidence.repeats != null ? `${count(sc.evidence.repeats)} ${sc.evidence.repeats === 1 ? "repeat" : "repeats"}` : null,
   ].filter(Boolean);
   const showCallout = sc.baseline?.prominent && !calloutTaken;
@@ -77,7 +79,18 @@ export function TrustPanel({ d, calloutTaken = false, stale = null }: { d: Predi
                     <span className="text-caption">no interval reported</span>
                   )}
                 </span>
-                <span>{verdict.floor != null ? `trust floor ${formatCorr(verdict.floor).value}` : "no trust floor reported"}</span>
+                {grouping ? (
+                  <span className="text-fg" title={CV_GROUPING_NOTE}>
+                    {grouping}
+                  </span>
+                ) : null}
+                <span>
+                  {verdict.state === "not-judged"
+                    ? `trust floor ${verdict.floor != null ? formatCorr(verdict.floor).value : ""} not judged`.replace("  ", " ")
+                    : verdict.floor != null
+                      ? `trust floor ${formatCorr(verdict.floor).value}`
+                      : "no trust floor reported"}
+                </span>
                 {evidence.length ? <span>{evidence.join(", ")}</span> : null}
                 <SourceButton source={relSource} full={verdict.rho != null ? String(verdict.rho) : undefined} />
               </p>

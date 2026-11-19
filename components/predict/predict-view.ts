@@ -69,19 +69,23 @@ export function predictHeadline(input: {
   /** Runs started from this batch that are still in flight (only read when `proposals` is null). */
   inFlight?: number;
   round: number;
+  /** The engine withheld the batch (model verdict refused): its plain sentence. */
+  refused?: string | null;
 }): string {
-  const { state, proposals, inFlight = 0, round } = input;
+  const { state, proposals, inFlight = 0, round, refused = null } = input;
   if (proposals == null) {
     return inFlight > 0
       ? `${plural(inFlight, "run")} from round ${round} ${inFlight === 1 ? "is" : "are"} in flight. Record the results on Validate.`
       : `The runs from round ${round} have results. Learn from them on Validate.`;
   }
   if (proposals === 0) {
+    if (refused) return `No proposals this round: ${refused}`;
     return state === "reliable" ? "The model clears its trust floor, but the engine proposed no experiments this round." : "The engine proposed no experiments this round.";
   }
   const batch = plural(proposals, "proposal");
   if (state === "reliable") return `The model ranks held-out runs above its trust floor. ${batch} ready to review.`;
   if (state === "not-yet") return `The model is not yet reliable, so treat these ${batch} as exploration, not a forecast.`;
+  if (state === "not-judged") return `Not judged: too few runs to check the model, so treat these ${batch} as exploration, not a forecast.`;
   return `There are too few held-out runs to judge the model, so treat these ${batch} as exploration.`;
 }
 

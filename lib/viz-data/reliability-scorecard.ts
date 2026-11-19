@@ -14,6 +14,7 @@ import type { DataTable } from "@/components/viz/frame";
 import {
   groupMeanBaselineVerdict,
   isUnmeasuredFailure,
+  cvGroupingText,
   reliabilityVerdict,
   type AnalyzeResult,
   type Promotion,
@@ -25,7 +26,8 @@ import { formatCorr, formatState, formatValue, type NumState } from "@/lib/num";
 export type ScorecardInput = Pick<
   AnalyzeResult,
   "cv_spearman" | "cv_ci95" | "cv_n_groups" | "cv_n_repeats" | "cv_spearman_per_repeat" | "cv_logo" | "cv_topk" | "cv_group_mean_baseline" | "n"
-> & {
+> &
+  Partial<Pick<AnalyzeResult, "cv_grouping" | "verdict">> & {
   reliability?: Reliability & { space_filling_advice?: string | null };
   promotion?: (Promotion & { not_judged?: string[] }) | null;
 };
@@ -135,7 +137,8 @@ export function toScorecard(d: ScorecardInput): ScorecardData {
   const nRepeats = d.cv_n_repeats ?? null;
   all.push({
     key: "cv",
-    label: "Model, grouped CV",
+    // Which grouping drove the score (F05), e.g. "Model, held-out by batch (5 groups)"; older analyses keep "grouped CV".
+    label: cvGroupingText(d.cv_grouping) ? `Model, ${cvGroupingText(d.cv_grouping)}` : "Model, grouped CV",
     rho: verdict.rho,
     ci: verdict.ci,
     repeats: perRepeat.length >= 2 ? perRepeat : [],

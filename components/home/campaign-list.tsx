@@ -37,7 +37,7 @@ export function CampaignList({
   );
 }
 
-const RELIABILITY_TONE: Record<string, Tone> = { reliable: "good", "not-yet": "warn", insufficient: "neutral" };
+const RELIABILITY_TONE: Record<string, Tone> = { reliable: "good", "not-yet": "warn", "not-judged": "neutral", insufficient: "neutral" };
 
 function CampaignRow({ row, onRename, onArchive }: { row: CampaignSummaryRow; onRename: () => void; onArchive: () => void }) {
   const v = summaryRowView(row);

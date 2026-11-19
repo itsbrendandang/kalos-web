@@ -108,6 +108,7 @@ export function summaryRowView(row: CampaignSummaryRow): SummaryRowView {
       reliability: rel ? { ...rel, unmodeled: [] } : undefined,
       cv_spearman: a.cv_spearman,
       cv_ci95: rel?.ci95 ?? null,
+      verdict: a.verdict ?? null,
     });
     reliability = { kind: "verdict", label: v.label, state: v.state, reason: v.reason };
   }

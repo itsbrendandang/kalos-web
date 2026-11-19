@@ -81,6 +81,11 @@ export type Proposal = {
   gp_intervals?: GpInterval[];
   /** Model-based predictive quantiles (GP observation posterior). */
   quantiles?: ProposalQuantiles | null;
+  /**
+   * The verdict's label for this proposal (trust layer F04): `{status: "trusted" | "exploration_untrusted", verdict,
+   * message}`; "model_guided" is read as trusted. Absent on older engines.
+   */
+  trust?: { status: string; verdict?: string; message?: string } | string | null;
   /** Analytic expected improvement over the incumbent (model-based, context only: the batch is chosen by qLogNEI). */
   expected_improvement?: ImprovementStat | null;
   /** Model probability of beating the incumbent (model-based). */
@@ -116,6 +121,9 @@ export type GpInterval = {
   method: string;
   posterior?: string;
   note?: string;
+  /** "model_based" (trust layer F02); with the coverage measured at proposals in simulation. */
+  coverage_basis?: string | null;
+  coverage_at_proposals_estimate?: CoverageAtProposalsEstimate | null;
   available: boolean;
   lo: number | null;
   hi: number | null;
@@ -338,7 +346,16 @@ export type Reliability = Partial<ProducerFields> & {
   spearman: number | null;
   ci95: [number, number] | null;
   spearman_floor: number;
-  clears_floor: boolean;
+  /**
+   * Null when the floor was not judged (trust layer F04: fewer than 12 runs or 3 CV groups): neither passed nor failed.
+   * See `verdict` / `not_judged_reason`.
+   */
+  clears_floor: boolean | null;
+  /** "clears_floor" | "below_floor" | "not_judged" (trust layer F04). Absent on older engines. */
+  verdict?: "clears_floor" | "below_floor" | "not_judged" | string;
+  judged?: boolean;
+  not_judged_reason?: string | null;
+  clears_floor_rule?: string;
   ci_excludes_zero: boolean;
   /** Quantities the current engine does not model, surfaced so the UI can say so. */
   unmodeled: string[];
@@ -720,9 +737,54 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   goal?: Goal;
   /** The campaign setup as applied to this analysis; null when none was stored. */
   setup?: AppliedSetup | null;
-  /** Why the batch is empty or reduced (e.g. `setup_not_applied`). */
+  /** Why the batch is empty or reduced (e.g. `setup_not_applied`, `model_refused`). */
   proposal_notice?: { code: string; message?: string; reason?: string } & Record<string, unknown> | null;
+  /** The engine's one answer to "can I trust the model's suggestions?" (trust layer F04). Absent on older engines. */
+  verdict?: EngineVerdict | null;
+  /** What the verdict did to the batch (trust layer F04). Absent on older engines. */
+  proposal_trust?: ProposalTrustBlock | null;
+  /** Set when the verdict refused: `proposals` is empty and this says why (trust layer F04). */
+  refusal?: ModelRefusal | null;
+  /** Which held-out grouping drove the score (trust layer F05). Absent on older engines. */
+  cv_grouping?: CvGrouping | null;
 };
+
+/** The engine's model verdict (`verdict`, trust layer F04). */
+export type EngineVerdict = {
+  state: "reliable" | "not_yet" | "refused" | string;
+  code?: string;
+  headline?: string;
+  reasons?: { code: string; plain: string }[];
+  n_runs?: number;
+  min_runs?: number;
+  n_groups?: number;
+  min_groups?: number;
+  rule?: string;
+} & Record<string, unknown>;
+
+/** `proposal_trust`: trusted (model-guided), exploration_untrusted, or withheld (refused). */
+export type ProposalTrustBlock = {
+  status: "trusted" | "model_guided" | "exploration_untrusted" | "withheld" | string;
+  verdict?: string;
+  gated?: boolean;
+  withheld?: boolean;
+  n_requested?: number;
+  n_returned?: number;
+  reasons?: string[];
+  message?: string;
+  rule?: string;
+};
+
+/** `refusal` when the verdict withheld the batch. */
+export type ModelRefusal = { code: string; plain?: string; what_would_help?: string } & Record<string, unknown>;
+
+/** `cv_grouping` (F05): the grouping whose held-out score drove the verdict, and every candidate. */
+export type CvGrouping = {
+  used?: { basis: string; column?: string | null; n_groups?: number; merged_with_replicates?: boolean } | null;
+  candidates?: { basis: string; column?: string | null; n_groups?: number; evaluable?: boolean; spearman?: number | null; ci95?: [number, number] | null; reason?: string | null; used?: boolean }[];
+  rule?: string;
+  warnings?: { code: string; message: string; column?: string }[];
+} & Record<string, unknown>;
 
 /** Optimization direction. */
 export type Goal = "maximize" | "minimize";
@@ -844,25 +906,36 @@ export function reliabilityReason(
 ): string {
   const rel = d.reliability;
   if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
+  if (floorNotJudged(rel)) return NOT_JUDGED_LABEL;
   const floor = fixed2(rel.spearman_floor);
   if (!rel.clears_floor) return `Below the ${floor} floor`;
   if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
   return `Clears the ${floor} floor`;
 }
 
+/** The plain label for a floor the engine did not judge (never shown as a pass or a fail). */
+export const NOT_JUDGED_LABEL = "Not judged: too few runs";
+
+/**
+ * True when the engine did not judge the trust floor (trust layer F04: fewer than 12 runs or 3 CV groups):
+ * `reliability.verdict` "not_judged", or `clears_floor` null. Neither a pass nor a fail.
+ */
+export const floorNotJudged = (rel: Pick<Reliability, "clears_floor" | "verdict"> | null | undefined): boolean =>
+  rel != null && (rel.verdict === "not_judged" || rel.clears_floor === null);
+
 export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
   const rel = d.reliability;
-  if (rel) return rel.clears_floor && rel.ci_excludes_zero;
+  if (rel) return rel.clears_floor === true && rel.ci_excludes_zero;
   const ci = d.cv_ci95 ?? null;
   return d.cv_spearman != null && ci != null && ci[0] > 0;
 }
 
-export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
+export type ReliabilityState = "reliable" | "not-yet" | "not-judged" | "insufficient";
 
 export type ReliabilityVerdict = {
   state: ReliabilityState;
-  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough data". */
-  label: "Reliable" | "Not yet reliable" | "Not enough data";
+  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not judged: too few runs", "Not enough data". */
+  label: "Reliable" | "Not yet reliable" | typeof NOT_JUDGED_LABEL | "Not enough data";
   /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
   rho: number | null;
   /** Its 95% interval, when the engine reported one. */
@@ -880,13 +953,28 @@ export type ReliabilityVerdict = {
  * a separate question with their own line; nothing here reads `promotion`.
  */
 export function reliabilityVerdict(
-  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
+  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman"> & Partial<Pick<AnalyzeResult, "verdict">>,
 ): ReliabilityVerdict {
   const rel = d.reliability;
   const rho = rel?.spearman ?? d.cv_spearman ?? null;
   const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
   const floor = rel?.spearman_floor ?? null;
   const floorText = floor != null ? ` (${fixed2(floor)})` : "";
+  // Trust layer F04: below 12 runs or 3 CV groups the engine does not judge the floor. Not a pass, not a fail.
+  if (floorNotJudged(rel)) {
+    const why = rel?.not_judged_reason ? ` (${rel.not_judged_reason})` : "";
+    return {
+      state: "not-judged",
+      label: NOT_JUDGED_LABEL,
+      rho,
+      ci,
+      floor,
+      reason: `Not judged: too few runs${why}. The trust floor was neither passed nor failed, so treat the model's suggestions as exploration.`,
+    };
+  }
+  // The engine's own verdict can be stricter than the floor (it also needs >= 20 runs and >= 8 groups): never say
+  // "Reliable" while it says "not yet".
+  const engineNotYet = d.verdict?.state === "not_yet" || d.verdict?.state === "refused";
   if (rho == null) {
     return {
       state: "insufficient",
@@ -895,6 +983,16 @@ export function reliabilityVerdict(
       ci,
       floor,
       reason: "There are not enough held-out runs to measure how well the model ranks recipes.",
+    };
+  }
+  if (isReliable(d) && engineNotYet) {
+    return {
+      state: "not-yet",
+      label: "Not yet reliable",
+      rho,
+      ci,
+      floor,
+      reason: d.verdict?.headline ?? `The model clears the trust floor${floorText}, but the engine's verdict is not yet reliable.`,
     };
   }
   if (isReliable(d)) {
@@ -927,6 +1025,31 @@ export function reliabilityVerdict(
           : "The engine did not report a 95% interval for the model's ranking of held-out runs, so it is not confirmed yet.",
   };
 }
+
+/**
+ * Which held-out grouping drove the reliability score (`cv_grouping.used`, trust layer F05), in plain words:
+ * "held-out by batch (5 groups)", "held-out by campaign round (4 groups)", "held-out by replicate group (30 groups)".
+ * Null when the engine did not say (older analyses): nothing is guessed.
+ */
+export function cvGroupingText(g: CvGrouping | null | undefined): string | null {
+  const u = g?.used;
+  if (!u || typeof u.basis !== "string") return null;
+  const by =
+    u.basis === "replicate_clusters"
+      ? "replicate group"
+      : u.basis === "campaign_round"
+        ? "campaign round"
+        : u.column
+          ? u.column
+          : u.basis.replace(/_/g, " ");
+  const n = typeof u.n_groups === "number" && Number.isFinite(u.n_groups) ? ` (${u.n_groups} ${u.n_groups === 1 ? "group" : "groups"})` : "";
+  const merged = u.merged_with_replicates && u.basis !== "replicate_clusters" ? ", replicates kept together" : "";
+  return `held-out by ${by}${n}${merged}`;
+}
+
+/** The engine's sentence for the grouping that drove the score, for a tooltip or disclosure. */
+export const CV_GROUPING_NOTE =
+  "Every grouping the engine could check (replicates, batch, lot, plate, date, round, scale) was cross-validated; the lowest held-out score is the one reported, so runs of one group never sit on both sides of a split.";
 
 /**
  * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
@@ -1463,8 +1586,10 @@ export type CampaignSummaryRow = CampaignMeta & {
         cv_spearman: number | null;
         conformal_q: number | null;
         conformal_coverage: number | null;
-        reliability: { clears_floor: boolean; ci_excludes_zero: boolean; spearman: number | null; ci95: [number, number] | null; spearman_floor: number; producer_clears_floor?: boolean } | null;
+        reliability: { clears_floor: boolean | null; verdict?: string; not_judged_reason?: string | null; ci_excludes_zero: boolean; spearman: number | null; ci95: [number, number] | null; spearman_floor: number; producer_clears_floor?: boolean } | null;
         n_proposals: number;
+        /** The stored analysis's model verdict (trust layer F04), when the engine sends it. */
+        verdict?: EngineVerdict | null;
       };
   current_stage?: string | null;
   latest_gate_decision?: { gate: string; decision: GateDecision; decided_at: number } | null;
@@ -1575,7 +1700,7 @@ export type ComputedEvidence =
       target: string | null;
       n_measured: number | null;
       best_measured: { value: number | null; basis: "measured" } | null;
-      reliability: { basis: string; method: string; spearman: number | null; ci95: [number, number] | null; spearman_floor: number | null; clears_floor: boolean | null; ci_excludes_zero: boolean | null } | null;
+      reliability: { basis: string; method: string; spearman: number | null; ci95: [number, number] | null; spearman_floor: number | null; clears_floor: boolean | null; ci_excludes_zero: boolean | null; verdict?: string; not_judged_reason?: string | null } | null;
       promotion: { basis: string; passed: boolean; failures: string[]; summary: string } | null;
     }
   | { available: false; basis: "computed"; code: string; reason: string; what_would_fix_it?: string };

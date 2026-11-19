@@ -102,6 +102,17 @@ export function Comparison({
           },
         ]
       : []),
+    ...(rows.some((r) => r.strip.trust)
+      ? [
+          {
+            key: "trust",
+            label: "Model trust",
+            values: rows.map((r) => r.strip.trust?.label ?? "n/a"),
+            tone: (i: number) => (rows[i].strip.trust?.kind === "exploration" ? "text-warn" : undefined),
+            note: rows.find((r) => r.strip.trust?.message)?.strip.trust?.message ?? undefined,
+          },
+        ]
+      : []),
     { key: "checks", label: "Checks", values: rows.map((r) => (r.flags.length ? `${r.flags.length} to review` : "none")), tone: (i: number) => (rows[i].flags.length ? "text-warn" : undefined) },
   ];
   const removable = rows.length > COMPARE_MIN;

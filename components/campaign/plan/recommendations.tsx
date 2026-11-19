@@ -19,6 +19,7 @@ import { Disclosure } from "@/components/kit/disclosure";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Num } from "@/components/viz/num";
 import { ProposalCaveatNote } from "@/components/predict/proposal-caveat";
+import { proposalCaveat } from "@/lib/proposal-caveat";
 import type { ConstraintReport } from "@/lib/api";
 import { coverageText, formatInterval, formatProb, formatValue, type Formatted } from "@/lib/num";
 import type { Source } from "@/lib/source";
@@ -115,6 +116,22 @@ function NoBand({ row }: { row: PlanRow }) {
       </span>
     );
   return <span className="text-caption text-fg-muted">n/a</span>;
+}
+
+/**
+ * The engine verdict's label for a proposal (trust layer F04): "exploration: model not trusted yet" as a warn badge
+ * (word + tint), "model-guided" as a quiet word. Nothing on older analyses.
+ */
+export function TrustLabel({ row, className }: { row: PlanRow; className?: string }) {
+  const t = row.strip.trust;
+  if (!t) return null;
+  if (t.kind === "model-guided") return <span className={cn("text-caption text-fg-muted", className)}>{t.label}</span>;
+  return (
+    <Badge tone="warn" className={cn("h-auto min-h-6 py-0.5 whitespace-normal", className)} title={t.message ?? undefined}>
+      <TriangleAlert aria-hidden />
+      {t.label}
+    </Badge>
+  );
 }
 
 /** The engine's mode, as a word (never a color). */
@@ -320,6 +337,7 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
                     {ctx.others.some((k) => k in row.recipe) ? (
                       <span className="block pl-6 text-caption whitespace-nowrap text-fg-muted">+{ctx.others.filter((k) => k in row.recipe).length} more inputs</span>
                     ) : null}
+                    {row.strip.trust ? <TrustLabel row={row} className="mt-1 ml-6 max-w-44" /> : null}
                   </td>
                   {ctx.features.map((f) => (
                     <td key={f} className="px-2 py-3 text-right tabular-nums whitespace-nowrap">
@@ -447,6 +465,7 @@ export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx
                     </p>
                   ) : null}
                 </div>
+                {row.strip.trust ? <TrustLabel row={row} className="w-fit" /> : null}
                 {row.flags.length ? <Flags flags={row.flags} compact /> : null}
                 <button
                   type="button"
@@ -614,6 +633,12 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
               ? `Exploit: the model expects a ${ctx.model.goal === "minimize" ? "low" : "high"} value here.`
               : "Explore: chosen to learn where the model is unsure, or to spread the batch out."}
           </p>
+          {row.strip.trust ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-fg">
+              <TrustLabel row={row} />
+              {row.strip.trust.message ? <span className="text-caption text-fg-muted">{row.strip.trust.message}</span> : null}
+            </p>
+          ) : null}
           <p className="mt-1 text-caption text-fg-muted">
             Engine note, verbatim (± there is the model SD): <span className="font-mono">{p.reason}</span>
           </p>
@@ -681,6 +706,19 @@ function ModelBasedDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
                 <dd className="tabular-nums">
                   {formatInterval({ lo: s.gp.lo, hi: s.gp.hi, coverage: null, method: "conformal" }, {}, row.item.proposal.pred)}
                   <span className="block text-caption text-fg-muted">GP posterior band, not checked on held-out runs: not a substitute for the held-out band.</span>
+                  {(() => {
+                    // Its basis and the coverage the engine measured for it at proposals (F02), when sent.
+                    const c = s.gp.coverage_at_proposals_estimate || s.gp.coverage_basis ? proposalCaveat({ coverage_basis: s.gp.coverage_basis, coverage_at_proposals_estimate: s.gp.coverage_at_proposals_estimate }) : null;
+                    if (!c || (!c.basisText && !c.estimateText)) return null;
+                    return (
+                      <span className="block text-caption text-fg-muted">
+                        {[c.basisText ? `Basis: ${c.basisText}` : null, c.estimateText ? `coverage at proposals: ${c.estimateText}` : null, c.estimateSource ? `source: ${c.estimateSource}` : null]
+                          .filter(Boolean)
+                          .join("; ")}
+                        .
+                      </span>
+                    );
+                  })()}
                 </dd>
               </>
             ) : null}

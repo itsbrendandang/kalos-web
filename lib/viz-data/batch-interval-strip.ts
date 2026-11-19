@@ -31,6 +31,7 @@ import type { AnalyzeResult, CampaignRun, GpInterval, ImprovementStat, Proposal,
 import { incumbentLabel, intervalAt, proposalIncumbent, proposalRecipe } from "@/lib/api";
 import { atRangeEdge, conformalInterval, coverageText, formatProb, formatValue, type Formatted, type IntervalSpec } from "@/lib/num";
 import { methodCaveat, proposalCaveat, sameCaveat, type ProposalCaveat } from "@/lib/proposal-caveat";
+import { proposalTrustOf, type ProposalTrust } from "@/lib/proposal-trust";
 
 export type FeasibilityCell = { state: "value"; p: number } | { state: "na"; reason: string; detail?: string };
 
@@ -87,6 +88,8 @@ export type BatchStripRow = {
   /** Index in the engine's `proposals`. */
   index: number;
   mode: "explore" | "exploit";
+  /** The engine verdict's label for this proposal (model-guided or exploration); null on older analyses. */
+  trust: ProposalTrust | null;
   pred: number;
   lo: number | null;
   hi: number | null;
@@ -145,7 +148,7 @@ export type BatchStripModel = {
 };
 
 export type StripAnalysis = Pick<AnalyzeResult, "proposals" | "proposal_features" | "conformal_q" | "conformal_coverage" | "best" | "noise" | "feature_ranges" | "proposal_gating"> &
-  Partial<Pick<AnalyzeResult, "interval_levels" | "interval_method" | "training_nn_distance_median" | "goal" | "setup" | "conformal_caveat">>;
+  Partial<Pick<AnalyzeResult, "interval_levels" | "interval_method" | "training_nn_distance_median" | "goal" | "setup" | "conformal_caveat" | "proposal_trust">>;
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
@@ -336,6 +339,7 @@ export function toBatchStripModel(
       n: index + 1,
       index,
       mode: p.mode,
+      trust: proposalTrustOf(p, d.proposal_trust),
       pred: p.pred,
       lo,
       hi,
@@ -526,7 +530,7 @@ export function describeBatchStrip(m: BatchStripModel): string {
     const f = predFormatted(r, m);
     const measured = measuredFormatted(r, m.unit);
     const tail = measured ? `, measured ${measured.text}${r.band ? ` (${r.band} the band recorded at start)` : ""}` : r.run?.awaiting ? ", awaiting result" : "";
-    return `${r.key} ${r.mode} ${f.value}${f.interval ? ` ${f.interval}` : ""}${tail}`;
+    return `${r.key} ${r.mode}${r.trust?.kind === "exploration" ? ` (${r.trust.label})` : ""} ${f.value}${f.interval ? ` ${f.interval}` : ""}${tail}`;
   });
   const better = m.goal === "minimize" ? "below" : "above";
   const inc = m.incumbent
@@ -543,6 +547,7 @@ export function batchStripTable(m: BatchStripModel): { columns: string[]; rows: 
   const columns = [
     "Proposal",
     "Mode",
+    ...(m.rows.some((r) => r.trust) ? ["Model trust"] : []),
     `Predicted${u}`,
     hasBandMode(m) ? bandName(m) : "Band",
     `Model σ${u}`,
@@ -563,6 +568,7 @@ export function batchStripTable(m: BatchStripModel): { columns: string[]; rows: 
     return [
       r.key,
       r.mode,
+      ...(m.rows.some((x) => x.trust) ? [r.trust?.label ?? "n/a"] : []),
       p.value,
       p.interval ?? (r.interval.kind === "refused" ? `Refused (${r.interval.reason})` : "n/a (no band reported)"),
       formatValue(r.sigma).value,

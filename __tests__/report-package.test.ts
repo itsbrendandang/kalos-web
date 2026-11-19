@@ -137,6 +137,7 @@ describe("buildPackage", () => {
       recipe: { pH: 7, temperature_C: 36 },
       mode: "exploit",
       reason: "predicted high",
+      trust: null,
       predicted: {
         value: 1.75,
         sd: 0.069,
@@ -314,8 +315,8 @@ describe("proposalsCsv", () => {
     const [head, first, second] = csv.trimEnd().split("\r\n");
     expect(head).toBe([...PROPOSALS_FIXED_COLUMNS, "pH", "temperature_C"].join(","));
     expect(head).not.toMatch(/measured/);
-    expect(first).toBe(`1,exploit,predicted high,1.75,0.069,0.2036,0.9,${CAVEAT},,7,36`);
-    expect(second).toBe(`2,explore,uncertain region,0.9,0.3,0.2036,0.9,${CAVEAT},,6.5,31`);
+    expect(first).toBe(`1,exploit,predicted high,,1.75,0.069,0.2036,0.9,${CAVEAT},,7,36`);
+    expect(second).toBe(`2,explore,uncertain region,,0.9,0.3,0.2036,0.9,${CAVEAT},,6.5,31`);
   });
   it("an empty batch is a header only", () => {
     expect(proposalsCsv({ proposals: [] })).toBe(`${PROPOSALS_FIXED_COLUMNS.join(",")}\r\n`);

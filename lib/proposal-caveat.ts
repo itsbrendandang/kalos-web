@@ -62,6 +62,8 @@ export type ProposalCaveat = {
   estimate: { nominal: number; min: number; max: number; basis: string | null } | null;
   /** "measured 60-81% at proposals in simulation, nominal 90%", null without an estimate. */
   estimateText: string | null;
+  /** Where the estimate comes from: the engine's benchmark command and/or its pointer to the full source; null when not sent. */
+  estimateSource: string | null;
 };
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -82,6 +84,16 @@ const floorPct = (v: number) => `${Math.floor(v * 100 + 1e-9)}`;
 function readEstimate(e: CoverageAtProposalsEstimate | null | undefined): ProposalCaveat["estimate"] {
   if (!e || typeof e !== "object" || !finite(e.measured_min) || !finite(e.measured_max)) return null;
   return { nominal: finite(e.nominal) ? e.nominal : NaN, min: e.measured_min, max: e.measured_max, basis: str(e.basis) };
+}
+
+/** "python -m kalos.bench.coverage_at_proposals (interval_method.coverage_at_proposals.0.9)" from the compact or full estimate. */
+export function estimateSourceText(e: CoverageAtProposalsEstimate | null | undefined): string | null {
+  if (!e || typeof e !== "object") return null;
+  const src = e.source as unknown;
+  const full = src && typeof src === "object" ? (src as Record<string, unknown>) : null;
+  const bench = str(e.benchmark) ?? str(full?.benchmark);
+  const where = typeof src === "string" ? str(src) : str(full?.doc);
+  return [bench, where ? `(${where})` : null].filter(Boolean).join(" ") || null;
 }
 
 /** "measured 60-81% at proposals in simulation, nominal 90%". */
@@ -109,7 +121,8 @@ export function proposalCaveat(entry?: CaveatFields | EngineIntervalCaveat | nul
   const e = (entry ?? {}) as CaveatFields & EngineIntervalCaveat;
   const cav: EngineIntervalCaveat = (e.caveat && typeof e.caveat === "object" ? e.caveat : null) ?? (str(e.message) ? e : null) ?? fallback ?? {};
   const basis = str(e.interval_basis) ?? str(e.coverage_basis) ?? str(cav.interval_basis) ?? str(cav.coverage_basis) ?? str(fallback?.interval_basis) ?? str(fallback?.coverage_basis);
-  const estimate = readEstimate(cav.coverage_at_proposals_estimate ?? e.coverage_at_proposals_estimate ?? fallback?.coverage_at_proposals_estimate);
+  const rawEstimate = cav.coverage_at_proposals_estimate ?? e.coverage_at_proposals_estimate ?? fallback?.coverage_at_proposals_estimate;
+  const estimate = readEstimate(rawEstimate);
   const estText = estimate ? estimateText(estimate) : null;
   const message = str(cav.message);
   let text: string;
@@ -122,7 +135,7 @@ export function proposalCaveat(entry?: CaveatFields | EngineIntervalCaveat | nul
     text = PROPOSAL_INTERVAL_CAVEAT;
     from = "static";
   }
-  return { text, from, code: str(cav.code), basis, basisText: basisText(basis), estimate, estimateText: estText };
+  return { text, from, code: str(cav.code), basis, basisText: basisText(basis), estimate, estimateText: estText, estimateSource: estimate ? estimateSourceText(rawEstimate) : null };
 }
 
 /** Two caveats say the same thing (so a batch shows it once). */

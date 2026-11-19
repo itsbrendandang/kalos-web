@@ -206,6 +206,7 @@ function Strip({
               >
                 <span className="text-label text-fg">{r.key}</span>
                 <span className="text-caption text-fg-muted">{r.mode}</span>
+                {r.trust?.kind === "exploration" ? <span className="sr-only">, {r.trust.label}</span> : null}
                 {r.edge.length ? (
                   <span className="inline-flex items-center text-warn" title={`At a range edge: ${r.edge.join(", ")}`}>
                     <TriangleAlert className="size-3.5" aria-hidden />
@@ -402,6 +403,7 @@ function RowTip({ r, model, source }: { r: BatchStripRow; model: BatchStripModel
       <p className="text-label text-fg">
         {r.key} <span className="font-normal text-fg-muted">{r.mode}</span>
       </p>
+      {r.trust ? <TipRow label="Model trust">{r.trust.label}</TipRow> : null}
       {m ? (
         <TipRow label="Measured">
           {m.text}

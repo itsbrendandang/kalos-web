@@ -132,7 +132,7 @@ function EvidencePanel({ evidence: e }: { evidence: ComputedEvidence | null }) {
                   {e.reliability.spearman != null ? formatCorr(e.reliability.spearman, e.reliability.ci95).text : "n/a"}
                   <span className="block text-caption text-fg-muted">
                     {e.reliability.spearman_floor != null ? `trust floor ${formatValue(e.reliability.spearman_floor, { quantity: "corr" }).text}: ` : ""}
-                    {e.reliability.clears_floor == null ? "floor n/a" : e.reliability.clears_floor ? "clears the floor" : "below the floor"}
+                    {e.reliability.verdict === "not_judged" ? "floor not judged: too few runs" : e.reliability.clears_floor == null ? "floor n/a" : e.reliability.clears_floor ? "clears the floor" : "below the floor"}
                     {e.reliability.ci_excludes_zero == null ? "" : e.reliability.ci_excludes_zero ? ", interval excludes zero" : ", interval includes zero"}
                   </span>
                 </dd>

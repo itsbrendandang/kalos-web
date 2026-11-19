@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
-import { BatchCaveats, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
+import { BatchCaveats, TrustLabel, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
 import { exactSetpoint } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -85,6 +85,7 @@ export function ApproveDialog({
                 <span className="font-mono text-code text-fg">{r.id}</span>
                 <PredictedLine row={r} ctx={ctx} />
               </div>
+              {r.strip.trust?.kind === "exploration" ? <TrustLabel row={r} className="w-fit" /> : null}
               <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-fg-muted">
                 {[...ctx.features, ...ctx.others]
                   .filter((k) => k in r.recipe)

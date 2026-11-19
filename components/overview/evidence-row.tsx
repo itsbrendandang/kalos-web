@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BasisGlyph, Delta, Num, NumState, SourceButton } from "@/components/viz/num";
-import { cvTopKNote, reliabilityVerdict, targetUnitOf, type PopulatedResult } from "@/lib/api";
+import { cvGroupingText, cvTopKNote, reliabilityVerdict, targetUnitOf, type PopulatedResult } from "@/lib/api";
 import { formatCorr, formatValue } from "@/lib/num";
 import { bestTile, historyLabel, newerBest, nextTile, runsTile } from "@/lib/overview";
 import { sourceFromAnalysis, sourceFromCampaign } from "@/lib/source";
@@ -198,7 +198,9 @@ function ReliabilityTile({ analysis, failed }: { analysis: PopulatedResult | nul
             ? "Appears after the first analysis."
             : verdict.rho == null
               ? "Rank agreement on held-out runs could not be measured."
-              : `Rank agreement on held-out runs; trust floor ${verdict.floor != null ? formatValue(verdict.floor, { quantity: "corr" }).text : "n/a"}.`}
+              : `Rank agreement on held-out runs${cvGroupingText(analysis?.cv_grouping) ? `, ${cvGroupingText(analysis?.cv_grouping)}` : ""}; trust floor ${
+                  verdict.floor != null ? formatValue(verdict.floor, { quantity: "corr" }).text : "n/a"
+                }${verdict.state === "not-judged" ? ", not judged" : ""}.`}
       </p>
       {analysis?.cv_topk ? (
         <p className="text-caption text-fg-muted tabular-nums">

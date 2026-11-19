@@ -6,10 +6,12 @@ import { Section } from "@/components/kit/section";
 import { Verdict } from "@/components/kit/verdict";
 import { ModeBadge } from "@/components/ui/badge";
 import { BasisGlyph, Num, NumState, SourceButton } from "@/components/viz/num";
-import { calibrationNote, intervalAt, type Promotion } from "@/lib/api";
+import { CV_GROUPING_NOTE, NOT_JUDGED_LABEL, calibrationNote, floorNotJudged, intervalAt, type Promotion } from "@/lib/api";
 import { columnDecimals, conformalInterval, coverageText, formatCorr, formatSetting, formatValue, type IntervalSpec } from "@/lib/num";
 import type { DataPackage, PackageIntervalCaveat } from "@/lib/report-package";
 import { basisText } from "@/lib/proposal-caveat";
+import { EXPLORATION_LABEL } from "@/lib/proposal-trust";
+import { cn } from "@/lib/utils";
 import { typedValue } from "@/components/report/report-copy";
 import type { Source } from "@/lib/source";
 
@@ -181,7 +183,11 @@ export function ModelSection({ pkg }: { pkg: DataPackage }) {
             <div>
               Trust floor: <span className="tabular-nums">{formatValue(rel.engine?.spearman_floor, { quantity: "corr" }).text}</span>
             </div>
-            <div>Clears floor: {rel.engine ? (rel.engine.clears_floor ? "yes" : "no") : "n/a"}</div>
+            <div>
+              Clears floor:{" "}
+              {rel.engine ? (floorNotJudged(rel.engine) ? `${NOT_JUDGED_LABEL.toLowerCase()}${rel.engine.not_judged_reason ? ` (${rel.engine.not_judged_reason})` : ""}` : rel.engine.clears_floor ? "yes" : "no") : "n/a"}
+            </div>
+            {m.verdict?.state ? <div>Engine verdict: {m.verdict.state.replace(/_/g, " ")}{m.verdict.headline ? `: ${m.verdict.headline}` : ""}</div> : null}
             <div>CI excludes zero: {rel.engine ? (rel.engine.ci_excludes_zero ? "yes" : "no") : "n/a"}</div>
           </dl>
         }
@@ -196,6 +202,7 @@ export function ModelSection({ pkg }: { pkg: DataPackage }) {
             {m.cv_spearman != null ? <SourceButton source={packageSource(pkg, "cv_spearman, cv_ci95", "derived", "grouped cross-validation")} full={String(m.cv_spearman)} /> : null}
           </span>
           {m.cv_spearman != null && !m.cv_ci95 ? <span className="text-fg-muted">, no interval reported</span> : null}
+          {m.cv_grouping.text ? <span className="text-fg-muted" title={CV_GROUPING_NOTE}>, {m.cv_grouping.text}</span> : null}
         </Fact>
         <Fact label="Prediction band">
           <span className="tabular-nums">{bandText(m.conformal.half_width, m.conformal.coverage) ?? "n/a"}</span>
@@ -279,7 +286,9 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
           ? `${plural(props.length, "recipe")}: ${count(exploit)} exploit, ${count(explore)} explore. Predictions only; none of these has been measured.${
               levels.length > 1 ? ` The package also holds each recipe's interval at the other levels the engine computed (${levels.map((l) => coverageText(l)).join(", ")}).` : ""
             }`
-          : "The current analysis has no proposed batch."
+          : pkg.model.refusal || pkg.model.proposal_trust?.withheld
+            ? "The engine withheld the batch: the model cannot be trusted yet."
+            : "The current analysis has no proposed batch."
       }
     >
       {props.length ? (
@@ -292,6 +301,9 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
                   <span className="w-6 text-label text-fg-muted tabular-nums">{p.index}</span>
                   {p.mode === "exploit" || p.mode === "explore" ? <ModeBadge mode={p.mode} /> : <span className="text-caption text-fg-muted">n/a</span>}
                   <Num value={p.predicted.value} basis="predicted" unit={unit} interval={interval} />
+                  {p.trust ? (
+                    <span className={cn("text-caption", p.trust.label === EXPLORATION_LABEL ? "text-warn" : "text-fg-muted")}>{p.trust.label}</span>
+                  ) : null}
                   {interval == null ? (
                     <span className="text-caption text-fg-muted tabular-nums">
                       interval n/a{refused ? ` (${refused})` : ""}; model SD {formatValue(p.predicted.sd).text} (not a held-out band)
@@ -312,6 +324,14 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
             ));
           })()}
         </>
+      ) : pkg.model.refusal ? (
+        <div className="flex flex-col gap-1 text-body">
+          <p className="text-fg">{pkg.model.refusal.plain ?? pkg.model.verdict?.headline ?? "The engine withheld the batch."}</p>
+          {pkg.model.refusal.what_would_help ? <p className="text-fg-muted">What would help: {pkg.model.refusal.what_would_help}</p> : null}
+          <p className="text-caption text-fg-muted">
+            Engine code <span className="font-mono text-code">{pkg.model.refusal.code}</span>
+          </p>
+        </div>
       ) : null}
     </Section>
   );

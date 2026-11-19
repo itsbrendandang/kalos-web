@@ -12,10 +12,16 @@
  */
 
 import {
+  cvGroupingText,
   proposalRecipe,
   reliabilityVerdict,
   targetUnitOf,
   type AnalyzeResult,
+  type CvGrouping,
+  type EngineVerdict,
+  type ModelRefusal,
+  type Proposal,
+  type ProposalTrustBlock,
   type AppliedSetup,
   type AuditItem,
   type ComputedEvidence,
@@ -46,6 +52,7 @@ import {
 } from "@/lib/api";
 import { formatValue } from "@/lib/num";
 import { methodCaveat, proposalCaveat, type CoverageAtProposalsEstimate, type EngineIntervalCaveat } from "@/lib/proposal-caveat";
+import { proposalTrustOf } from "@/lib/proposal-trust";
 import type { UnitConversion, ValidationFinding, ValidationReport } from "@/lib/validation";
 
 export const PACKAGE_KIND = "kalos.data-package";
@@ -129,6 +136,8 @@ export type PackageProposal = {
   recipe: Record<string, Setpoint>;
   mode: string | null;
   reason: string | null;
+  /** The verdict's label: "model-guided" or "exploration: model not trusted yet", plus the engine's `trust` verbatim; null on older engines. */
+  trust: { label: string; engine: Proposal["trust"] } | null;
   predicted: PackagePredicted & {
     band_half_width: number | null;
     band_coverage: number | null;
@@ -305,6 +314,12 @@ export type DataPackage = {
     };
     cv_spearman: number | null;
     cv_ci95: [number, number] | null;
+    /** Which held-out grouping drove the score, in words ("held-out by batch (5 groups)"), and the engine's block. */
+    cv_grouping: { text: string | null; engine: CvGrouping | null };
+    /** The engine's model verdict, what it did to the batch, and why the batch was withheld (trust layer); null when not sent. */
+    verdict: EngineVerdict | null;
+    proposal_trust: ProposalTrustBlock | null;
+    refusal: ModelRefusal | null;
     calibration: Calibration | null;
     /** The global band, with the engine's caveat for it at proposals (null when this engine build sent none). */
     conformal: { half_width: number | null; coverage: number | null; caveat: EngineIntervalCaveat | null };
@@ -579,6 +594,10 @@ export function buildPackage(
       },
       cv_spearman: num(a?.cv_spearman),
       cv_ci95: pair(a?.cv_ci95),
+      cv_grouping: { text: cvGroupingText(a?.cv_grouping), engine: a?.cv_grouping ?? null },
+      verdict: a?.verdict ?? null,
+      proposal_trust: a?.proposal_trust ?? null,
+      refusal: a?.refusal ?? null,
       calibration: a?.reliability?.calibration ?? null,
       conformal: { half_width: band, coverage, caveat: a?.conformal_caveat ?? null },
       interval_levels: (a?.interval_levels ?? []).filter((l) => num(l) != null),
@@ -602,6 +621,10 @@ export function buildPackage(
       recipe: setpoints(proposalRecipe(p, features)),
       mode: str(p.mode),
       reason: str(p.reason),
+      trust: (() => {
+        const t = proposalTrustOf(p, a?.proposal_trust);
+        return t ? { label: t.label, engine: p.trust ?? null } : null;
+      })(),
       predicted: {
         value: num(p.pred),
         sd: num(p.std),
@@ -776,6 +799,7 @@ export const PROPOSALS_FIXED_COLUMNS = [
   "proposal_index",
   "proposal_mode",
   "proposal_reason",
+  "proposal_trust",
   "predicted_value",
   "predicted_sd",
   "predicted_band_half_width",
@@ -800,6 +824,7 @@ export function proposalsCsv(pkg: Pick<DataPackage, "proposals">): string {
     p.index,
     p.mode,
     p.reason,
+    p.trust?.label ?? null,
     p.predicted.value,
     p.predicted.sd,
     p.predicted.band_half_width,

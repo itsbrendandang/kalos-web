@@ -17,9 +17,9 @@ backed by something the Kalos engine (`kalos-engine`, FastAPI) actually computes
    enforced"). Where the engine has no verdict (scale-track gates, operating ranges) the UI says so.
 5. **Refusals are normal outcomes.** A refused sheet, a model below its trust floor, a scale-up refusal are
    first-class states with the engine's reason and what data would fix it.
-6. **Long work is visible.** Uploads run as engine background jobs (`/api/campaigns/{id}/jobs`) with the
-   engine's own stage and progress, survive navigation, and can be cancelled. Re-analysis has no job route,
-   so it shows an elapsed timer and says the engine reports no stages for it.
+6. **Long work is visible.** Uploads and re-analyses run as engine background jobs (`/api/campaigns/{id}/jobs`,
+   `/api/campaigns/{id}/reanalyze/jobs`) with the engine's own stage and progress, survive navigation, and can be
+   cancelled. A failed job's error comes back from the engine's job list until the user dismisses it.
 
 ## Information architecture
 
@@ -29,13 +29,14 @@ maps onto the cycle: Harmonize = setup, Predict = plan, Validate = run + record 
 
 | Page | Route | Backed by |
 | --- | --- | --- |
-| Campaigns (home, first run) | `/` | `GET/POST /api/campaigns`, `PATCH /api/campaigns/{id}` (rename; archive needs admin) |
-| Campaign overview | `/campaigns/[id]` | `GET /api/campaigns/{id}` (summary: stage, next_action, best, history, pending), `GET /api/campaigns/{id}/analysis` (reliability) |
-| 1 Harmonize | `/campaigns/[id]/harmonize` | `POST /api/campaigns/{id}/jobs` + `GET /api/jobs/{id}` + cancel (upload, progress), analysis fields `validation`, `provenance`, `data_drops`, `feature_ranges`, `design_box_exclusions`, `correlation`, `embedding` |
-| 2 Predict | `/campaigns/[id]/predict` | analysis `reliability`, `promotion`, `cv_*`, `drivers`, `proposals` (pred, std, mode, reason), `conformal_q/coverage`, `response_surface`; `POST /api/campaigns/{id}/runs` (start) |
-| 3 Validate | `/campaigns/[id]/validate` | summary `pending` (awaiting vs measured), `POST /api/campaigns/{id}/runs/{run}/result` (versioned, reason on correction), `POST /api/campaigns/{id}/reanalyze` (sync) |
-| Report | `/campaigns/[id]/report` | assembled in the browser from the summary + analysis only: JSON package and runs CSV with provenance hashes |
-| Scale-up | `/scale-up` | `POST /api/scale/readout` (stateless predict-or-refuse readout). The 6-stage track is shown as a manual path: the engine stores no stages or gate decisions |
+| Campaigns (home, first run) | `/` | `GET /api/campaigns?summary=true` (one request: best measured, reliability, goal, stage, latest gate, active job), `POST /api/campaigns`, `PATCH /api/campaigns/{id}` (rename; archive/unarchive need an org admin with a second factor in the last 5 minutes) |
+| Campaign overview | `/campaigns/[id]` | `GET /api/campaigns/{id}` (summary), `GET /api/campaigns/{id}/analysis` (reliability, top-k), `GET /api/campaigns/{id}/stages` (current stage, latest gate) |
+| 1 Harmonize | `/campaigns/[id]/harmonize` | first-run setup `PUT /api/campaigns/{id}/setup` (goal, target unit, bounds, linear constraints) then the upload job (`POST /api/campaigns/{id}/jobs`, `GET /api/jobs/{id}`, cancel); `GET/PUT .../setup` to edit later; analysis `setup`, `validation`, `provenance`, `data_drops`, `feature_ranges`, `correlation`, `embedding` |
+| 2 Predict | `/campaigns/[id]/predict` | analysis `reliability`, `promotion`, `cv_*` (incl. `cv_topk`), `drivers`, `proposals[]` (`intervals` per `interval_levels`, `gp_intervals`, `quantiles`, `expected_improvement`, `p_improve`, `nearest_training_distance`), `training_nn_distance_median`, `slices`, `response_surface` (mean and `std`), `target_unit`, `goal`; `POST /api/campaigns/{id}/runs` |
+| 3 Validate | `/campaigns/[id]/validate` | summary `pending` with `prediction_at_start` (band recorded at start), `residual`, `inside_band`; `POST .../runs/{run}/result` (versioned, reason on correction); `POST .../reanalyze/jobs` + job poll/cancel |
+| Report | `/campaigns/[id]/report` | summary + analysis, `GET .../export/rows` (JSON/CSV), `GET .../results/history` (result versions + audit log), `POST .../operating-ranges` (or its `not_computed` reason), `GET .../gates`; JSON package v2 and CSVs |
+| Scale-up track | `/campaigns/[id]/scale-up` | `GET/PUT .../stages` (current stage set by a person), `GET .../gates`, `PUT .../gates/{gate}` (decision + note + evidence links), `GET .../gates/{gate}/history`, and the readout below to attach as evidence |
+| Scale-up readout | `/scale-up` | `POST /api/scale/readout.json` (stateless predict-or-refuse readout, drawn as the scale ladder chart) |
 | Settings | `/settings`, `/settings/organization`, `/settings/security` | `GET /api/providers`, auth |
 
 Navigation: one left sidebar. Top: wordmark and a campaign switcher. Inside a campaign: Overview, then the three
@@ -43,8 +44,10 @@ numbered cycle steps with their engine state (done / current / upcoming), then R
 Settings. Mobile: the sidebar becomes a sheet. The VS Code-style workbench (activity rail, explorer, editor tabs,
 status bar, command palette) is removed: it duplicated navigation three ways.
 
-Proxy allowlist (`lib/server/engine-routes.ts`) gains only the four job routes; scopes (read for GET, write for
-POST), body kinds, CSRF and admin checks are unchanged.
+Proxy allowlist (`lib/server/engine-routes.ts`): an exact route table with the scope each route needs declared per
+route and checked against the engine's `docs/route-scopes.json` (vendored in `__tests__/fixtures/`); PUT is
+proxied with the same CSRF, body and rate rules as POST. The legacy single-campaign routes, the demo simulators, the
+HTML scale readout and the synchronous upload/re-analysis routes were removed once nothing called them.
 
 ## Visual direction
 
@@ -67,17 +70,22 @@ detail sits in disclosures.
 
 Old URLs redirect (`/campaign/*`, `/data`, `/projects*`, `/library*` -> `/`, `/library/scale-up` -> `/scale-up`).
 
-## Not supported by the engine (shown honestly, not faked)
+## Engine v2 wiring (third pass) and what is still not supported
 
-- **95% prediction intervals:** the conformal band is 90%. Shown as 90% with the model's 1-sigma SD in details.
-- **Goals and bounds at setup:** the target is always maximized and the search box is the observed data range.
-  Setup asks for the target column only and shows the observed box; no bounds form is offered.
-- **Scale-track gates and go/no-go decisions:** no stage registry. Gates show as "not recorded"; the only computed
-  scale evidence is the scale-up readout.
-- **Robust operating ranges, base-row export, result history, audit log:** no engine route. The Report says
-  "not computed by the engine" / "not exported by the engine" for each.
+Wired from kalos-engine `feat/web-redesign-apis` (ENGINE_API_V2): per-proposal conformal intervals with a coverage
+choice from `interval_levels` (a refused level shows its reason, never a silent GP fallback), model-based EI /
+chance to beat / quantiles, distance to the nearest measured run, 1D slices and the sigma grid, stored run bands,
+the target unit, setup goals/bounds/constraints, re-analysis jobs, the JSON scale readout (scale ladder chart),
+stages and go/no-go gates (evidence computed, decisions recorded by people), raw-row export, result history and
+audit log, operating ranges, and the summary campaign list.
+
+Still not supported or shown as a limit:
+- **Scale backtest** is nested leave-last-scale-out (what the engine computes), labelled so.
+- **Home cards' unit**: the summary list has no `target_unit`, so home parses the header.
+- **Setup changes** apply at the next re-analysis (needs a measured result) or a re-upload; bounds never widen
+  the search beyond the observed data.
+- **Gate evidence ids** are references the person chose; the engine does not check them.
 - **Merging several prior datasets:** one sheet per campaign; a new upload replaces it (confirmed in a dialog).
-- **Re-analysis progress and cancel:** no job route; a timer only.
 
 ## Numbers and charts (second pass)
 
@@ -85,5 +93,5 @@ All numbers and charts follow VIZ_SPEC (summarized in `DESIGN.md`, "Numbers and 
 (`lib/num.ts`) with precision from the engine's uncertainty, a source behind every number, and visx charts
 (`components/viz/charts/*`): reliability scorecard, parity and calibration plots (Predict evidence), batch interval
 strip and setpoint matrix (the batch), driver forest and surface pair (mean and sigma), correlation heatmap and run
-map (Harmonize), validation dumbbells (Validate), progress by round (Overview). The scale ladder chart (C9) is not
-drawn: the engine's scale readout is HTML only (engine request R1), so the readout is shown as the engine sent it.
+map (Harmonize), validation dumbbells (Validate), progress by round (Overview), and in the third pass the slice
+profiler (Predict), the scale ladder chart C9 (Scale-up) and the stage gate track C11 (Scale-up track).

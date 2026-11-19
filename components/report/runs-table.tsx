@@ -4,15 +4,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LegendItem } from "@/components/viz/frame";
 import { BasisGlyph, NumState } from "@/components/viz/num";
 import { displayRound } from "@/lib/campaign-stage";
-import { columnDecimals, formatSetting, formatValue } from "@/lib/num";
-import type { PackageRun, Setpoint } from "@/lib/report-package";
+import { columnDecimals, coverageText, formatInterval, formatSetting, formatValue } from "@/lib/num";
+import { startBand, type PackageRun, type Setpoint } from "@/lib/report-package";
 import { cn } from "@/lib/utils";
+
+/** The band recorded at start, in words, for the In band cell's tooltip. */
+function startBandTitle(r: PackageRun): string | undefined {
+  const b = startBand(r);
+  if (b) return `Band recorded at start: ${formatInterval({ ...b, method: "conformal" })} (${coverageText(b.coverage) ?? "coverage n/a"})`;
+  const p = r.prediction_at_start;
+  if (p && p.available === false) return p.reason;
+  return undefined;
+}
 
 /**
  * Every started run. Measured is the first column, semibold ink with a filled
  * dot; predicted comes after it, regular weight with a hollow ring, beside the
- * model's 1-sigma SD (not a held-out interval: the engine does not store each
- * run's band). The unit sits in the column header, never in the cells, and
+ * model's 1-sigma SD. Runs started on an engine that records the prediction
+ * at start also show the engine's residual and whether the result fell inside
+ * the band recorded then (both computed by the engine). The unit sits in the column header, never in the cells, and
  * each numeric column shares one decimal count so the points align.
  */
 export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: string | null; ranges?: Record<string, [number, number]> | null }) {
@@ -23,6 +33,9 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
   const mDec = columnDecimals(measured.map((value) => ({ value, u: null })));
   const pDec = columnDecimals(preds.map((value) => ({ value, u: null })));
   const sDec = columnDecimals(sds.map((value) => ({ value, u: null })));
+  const residuals = runs.map((r) => r.residual).filter((v): v is number => v != null);
+  const rDec = columnDecimals(residuals.map((value) => ({ value, u: null })));
+  const withStart = runs.some((r) => r.prediction_at_start != null);
   const u = unit ? ` (${unit})` : "";
   const setpoint = (k: string, v: Setpoint | undefined) => {
     if (typeof v === "string") return v;
@@ -52,6 +65,16 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
             <TableHead className="bg-surface" numeric>
               Model SD{u}
             </TableHead>
+            {withStart ? (
+              <>
+                <TableHead className="bg-surface" numeric title="Measured minus the prediction the engine recorded when the run started">
+                  Residual{u}
+                </TableHead>
+                <TableHead className="bg-surface" title="Whether the measured value fell inside the band the engine recorded when the run started">
+                  In band at start
+                </TableHead>
+              </>
+            ) : null}
             <TableHead className="bg-surface">Run</TableHead>
             <TableHead className="bg-surface" numeric>
               Round
@@ -85,6 +108,16 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
               <TableCell numeric className="text-fg-muted">
                 {formatValue(r.predicted.sd, { decimals: sDec }).value}
               </TableCell>
+              {withStart ? (
+                <>
+                  <TableCell numeric className="text-fg">
+                    {formatValue(r.residual, { decimals: rDec, sign: true }).value}
+                  </TableCell>
+                  <TableCell className={r.inside_band == null ? "text-fg-muted" : "text-fg"} title={startBandTitle(r)}>
+                    {r.inside_band == null ? "n/a" : r.inside_band ? "Inside" : "Outside"}
+                  </TableCell>
+                </>
+              ) : null}
               <TableCell className="font-mono text-code text-fg-muted" title={r.id}>
                 {r.id.slice(0, 8)}
               </TableCell>

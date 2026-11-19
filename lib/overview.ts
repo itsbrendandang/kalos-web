@@ -3,7 +3,7 @@
  * kept free of React so they are tested in __tests__/overview.test.ts.
  */
 
-import { incumbentLabel, type AnalyzeResult, type Driver, type LatestResult } from "@/lib/api";
+import { incumbentLabel, type AnalyzeResult, type Driver, type GateDecision, type GateRecord, type LatestResult, type StagesView } from "@/lib/api";
 import { nextRange, toProgressData, type ProgressCampaign } from "@/lib/viz-data/progress-chart";
 import type { ActiveCampaign } from "@/lib/workbench";
 
@@ -163,10 +163,14 @@ export function nextTile(c: ProgressCampaign, analysis: TileAnalysis | null): Ne
   }
   const currentRound = c.round ?? 0;
   const started = (c.pending ?? []).filter((r) => r.round === currentRound);
-  const runs = d.runs.filter((r) => started.some((s) => s.id === r.id));
+  // Only the engine's own predictions: a caller-supplied number is never shown as a prediction.
+  const runs = d.runs.filter((r) => r.enginePred && started.some((s) => s.id === r.id));
   if (runs.length) {
     const withIntervals = runs.every((r) => r.lo != null && r.hi != null);
     const top = [...runs].sort((a, b) => b.pred - a.pred)[0];
+    // Each run's band carries the coverage recorded with it; one shared value labels the tile, mixed ones print none.
+    const covs = [...new Set(runs.map((r) => r.coverage))];
+    const coverage = withIntervals ? (covs.length === 1 ? covs[0] : null) : d.coverage;
     return {
       kind: "started",
       n: runs.length,
@@ -174,11 +178,12 @@ export function nextTile(c: ProgressCampaign, analysis: TileAnalysis | null): Ne
       hi: Math.max(...runs.map((r) => (withIntervals ? r.hi! : r.pred))),
       withIntervals,
       top: { pred: top.pred, lo: top.lo, hi: top.hi },
-      coverage: d.coverage,
+      coverage,
       halfWidth: d.halfWidth,
       stale,
     };
   }
+  if (started.length) return { kind: "none", reason: "This round's runs carry no engine prediction: their predicted values were supplied by hand." };
   return { kind: "none", reason: "The current analysis proposed no batch." };
 }
 
@@ -203,3 +208,40 @@ export function runsTile(c: Pick<ActiveCampaign, "n_base" | "history" | "n_measu
     awaiting: num(c.n_awaiting),
   };
 }
+
+// --- Scale-up track (GET /stages: recorded by people, never computed) --------
+
+export type ScaleTrackSummary = {
+  /** The stage a person recorded as current, with its label; null when none is recorded. */
+  current: { key: string; label: string } | null;
+  /** The newest recorded gate decision across the stages, with its stage label. */
+  latest: (GateRecord & { stageLabel: string }) | null;
+  /** Gates with any recorded decision, of all gates. */
+  recorded: number;
+  total: number;
+};
+
+/**
+ * The Overview's scale-up line, read straight from GET /stages: the current
+ * stage as a person recorded it, and the latest recorded gate decision (the
+ * newest `gate.current` by its server time). Nothing is inferred: no stage
+ * means null, never the first stage.
+ */
+export function scaleTrackSummary(v: Pick<StagesView, "current_stage" | "stages">): ScaleTrackSummary {
+  const stages = v.stages ?? [];
+  const cur = v.current_stage ? stages.find((s) => s.key === v.current_stage) : null;
+  let latest: ScaleTrackSummary["latest"] = null;
+  for (const s of stages) {
+    const c = s.gate?.current;
+    if (c && (latest == null || c.decided_at > latest.decided_at)) latest = { ...c, stageLabel: s.label };
+  }
+  return {
+    current: v.current_stage ? { key: v.current_stage, label: cur?.label ?? v.current_stage } : null,
+    latest,
+    recorded: stages.filter((s) => s.gate?.state === "recorded").length,
+    total: stages.length,
+  };
+}
+
+/** A recorded decision in words (the engine's `go` / `no_go` / `pending`). */
+export const decisionWords = (d: GateDecision | null | undefined): string => (d === "go" ? "Go" : d === "no_go" ? "No-go" : d === "pending" ? "Pending" : "Not recorded");

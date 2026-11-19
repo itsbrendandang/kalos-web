@@ -96,13 +96,13 @@ describe("buildPackage", () => {
   const pkg = buildPackage(meta, summary(), analysis(), AT);
 
   it("is versioned and self-describing", () => {
-    expect(pkg).toMatchObject({ kind: "kalos.data-package", schema_version: 1, generated_by: "kalos-web", generated_at: "2026-11-19T10:30:00.000Z" });
+    expect(pkg).toMatchObject({ kind: "kalos.data-package", schema_version: 2, generated_by: "kalos-web", generated_at: "2026-11-19T10:30:00.000Z" });
     expect(pkg.campaign).toEqual({ id: "cmp_1", name: "Fed-batch CHO", created_at: 1795058340, round: 0, analysis_in_sync: false });
   });
 
-  it("always maximizes, and takes the target from the summary", () => {
-    expect(pkg.objective.direction).toBe("maximize");
-    expect(pkg.objective.target).toBe("titer_g_L");
+  it("maximizes by default, says so, and takes the target from the summary", () => {
+    expect(pkg.objective).toMatchObject({ direction: "maximize", direction_source: "engine_default", target: "titer_g_L" });
+    expect(pkg.objective.note).toMatch(/default/);
   });
 
   it("evidence is the engine's measured best and counts", () => {
@@ -135,7 +135,7 @@ describe("buildPackage", () => {
       recipe: { pH: 7, temperature_C: 36 },
       mode: "exploit",
       reason: "predicted high",
-      predicted: { value: 1.75, sd: 0.069, band_half_width: 0.2036, band_coverage: 0.9, p_feasible: null },
+      predicted: { value: 1.75, sd: 0.069, band_half_width: 0.2036, band_coverage: 0.9, p_feasible: null, predictive_std: null, intervals: [], gp_intervals: [] },
     });
     // Older engine without `recipe`: falls back to proposal_features + vals.
     expect(pkg.proposals[1].recipe).toEqual({ pH: 6.5, temperature_C: 31 });
@@ -212,10 +212,19 @@ describe("buildPackage", () => {
     expect(pkg.provenance.run_record?.filename).toBe("runs.csv");
   });
 
-  it("lists every not-included item with a reason", () => {
+  it("lists every not-included item with a reason, and no longer claims the engine lacks the report routes", () => {
     expect(pkg.not_included.map((n) => n.item)).toEqual(NOT_INCLUDED.map((n) => n.item));
     for (const n of pkg.not_included) expect(n.reason.length).toBeGreaterThan(10);
     expect(pkg.not_included[0].reason).toMatch(/input_sha256/);
+    const text = packageJson(pkg);
+    expect(text).not.toMatch(/not exported by the engine|not computed by the engine|does not expose them|keeps no stage registry/i);
+  });
+
+  it("says plainly which report sections were not read rather than leaving them empty", () => {
+    expect(pkg.result_history).toMatchObject({ status: "unavailable", code: "not_read" });
+    expect(pkg.gates).toMatchObject({ status: "unavailable", code: "not_read" });
+    expect(pkg.raw_rows).toMatchObject({ status: "unavailable", code: "not_read" });
+    expect(pkg.operating_ranges).toMatchObject({ status: "not_requested" });
   });
 
   it("serializes to JSON without NaN or 95%", () => {
@@ -308,6 +317,8 @@ describe("file names", () => {
     expect(packageFilename("Default campaign", "package", AT)).toBe("kalos-default-campaign-20261119.json");
     expect(packageFilename("Default campaign", "runs", AT)).toBe("kalos-default-campaign-runs-20261119.csv");
     expect(packageFilename("Default campaign", "batch", AT)).toBe("kalos-default-campaign-batch-20261119.csv");
+    expect(packageFilename("Default campaign", "rows", AT)).toBe("kalos-default-campaign-rows-20261119.csv");
+    expect(packageFilename("Default campaign", "rows-json", AT)).toBe("kalos-default-campaign-rows-20261119.json");
   });
 });
 

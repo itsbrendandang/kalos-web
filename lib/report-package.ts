@@ -1,7 +1,9 @@
 /*
  * The Report page's data package: a versioned JSON object and two CSVs
  * assembled in the browser ONLY from what the engine returned (campaign meta,
- * campaign summary, current analysis). Nothing here is computed that the
+ * campaign summary, current analysis, and the report routes: result history
+ * and audit log, gate decisions, the raw-rows export, the stored setup and an
+ * operating-ranges request made in this session). Nothing here is computed that the
  * engine did not compute; the one derived label is the app-wide reliability
  * verdict (lib/api.ts reliabilityVerdict), which reads the engine's own
  * floor and interval. Predicted and measured values live in separate
@@ -12,7 +14,23 @@
 import {
   proposalRecipe,
   reliabilityVerdict,
+  targetUnitOf,
   type AnalyzeResult,
+  type AppliedSetup,
+  type AuditItem,
+  type ComputedEvidence,
+  type GateRecord,
+  type GatesView,
+  type Goal,
+  type GpInterval,
+  type IntervalMethod,
+  type OperatingRanges,
+  type PredictionAtStart,
+  type ProposalInterval,
+  type ResultHistoryItem,
+  type RowsExport,
+  type SetupView,
+  type TargetUnit,
   type Calibration,
   type Campaign,
   type CampaignMeta,
@@ -30,7 +48,8 @@ import { formatValue } from "@/lib/num";
 import type { UnitConversion, ValidationFinding, ValidationReport } from "@/lib/validation";
 
 export const PACKAGE_KIND = "kalos.data-package";
-export const PACKAGE_SCHEMA_VERSION = 1;
+/** 2: adds goal, target unit, setup, per-level intervals, prediction at start, result history, gate decisions, operating ranges and raw-rows metadata. */
+export const PACKAGE_SCHEMA_VERSION = 2;
 
 /** A recipe setpoint: numeric, or a categorical level (e.g. a medium name). */
 export type Setpoint = number | string | null;
@@ -82,6 +101,15 @@ export type PackageRun = {
     recorded_at: number | null;
   } | null;
   started_at: number | null;
+  /** Who supplied `predicted`: "engine" (a published proposal, recorded at start) or "caller". Null on legacy runs. */
+  pred_source: "engine" | "caller" | null;
+  /** The engine's prediction and band recorded when the run started, verbatim (null on legacy runs). */
+  prediction_at_start: PredictionAtStart | null;
+  /** measured − predicted at start (basis derived), as the engine computed it. Null while awaiting or without one. */
+  residual: number | null;
+  residual_basis: string | null;
+  /** Whether the measured value fell inside the band recorded at start (the engine's check). */
+  inside_band: boolean | null;
   proposed_by: {
     provenance_sha256: string | null;
     input_sha256: string | null;
@@ -97,7 +125,93 @@ export type PackageProposal = {
   recipe: Record<string, Setpoint>;
   mode: string | null;
   reason: string | null;
-  predicted: PackagePredicted & { band_half_width: number | null; band_coverage: number | null; p_feasible: number | null };
+  predicted: PackagePredicted & {
+    band_half_width: number | null;
+    band_coverage: number | null;
+    p_feasible: number | null;
+    /** Observation-scale sd the per-proposal intervals are built from. */
+    predictive_std: number | null;
+    /** Per-level normalized split-conformal intervals, every level the engine sent (refused levels keep their reason). */
+    intervals: ProposalInterval[];
+    /** Model-based GP posterior bands, per level. Not held-out calibrated. */
+    gp_intervals: GpInterval[];
+  };
+};
+
+/** A report route the page read, or why it could not: the package never guesses a missing section. */
+export type Unavailable = { status: "unavailable"; code: string; reason: string };
+
+export type PackageResultHistory =
+  | {
+      status: "included";
+      /** False when the engine had more pages than were read (see `pages_read`). */
+      complete: boolean;
+      pages_read: number;
+      /** Append-only result versions, newest first. A correction has `is_correction: true` and its `previous_value`. */
+      results: ResultHistoryItem[];
+      /** Audit log rows for this campaign, newest first. `detail` is the engine's raw string, as stored. */
+      audit: AuditItem[];
+      notes: Record<string, string>;
+    }
+  | Unavailable;
+
+export type PackageGates =
+  | {
+      status: "included";
+      note: string;
+      current_stage: string | null;
+      current_stage_basis: "recorded";
+      stages_source: string;
+      /** Recorded human decisions only, per gate (newest first, at most the engine's preview per gate). */
+      decisions: {
+        gate: string;
+        stage_label: string;
+        in_stage_definitions: boolean;
+        decision: string | null;
+        state: string;
+        current: GateRecord | null;
+        history: GateRecord[];
+        history_count: number;
+        history_truncated: boolean;
+      }[];
+      /** What the engine computed for each gate, kept apart: nothing here sets a decision. */
+      computed_evidence: Record<string, ComputedEvidence>;
+    }
+  | Unavailable;
+
+export type OperatingRangesRequest = { threshold: number; probability: number; basis: "target" };
+
+/** One operating-ranges request made on the Report page in this session. */
+export type OperatingRangesRun =
+  | { status: "answered"; request: OperatingRangesRequest; requested_at: string; outcome: OperatingRanges }
+  | { status: "failed"; request: OperatingRangesRequest; requested_at: string; code: string; reason: string };
+
+export type PackageOperatingRanges = OperatingRangesRun | { status: "not_requested"; note: string };
+
+export type PackageRawRows =
+  | {
+      status: "included";
+      note: string;
+      target: string | null;
+      columns: string[];
+      n_original_rows: number | null;
+      n_folded_rows: number | null;
+      n_unattributed_rows: number | null;
+      original_rows_identifiable: boolean;
+      original_rows_reason: string | null;
+      anonymization: Record<string, unknown>;
+      csv_formula_neutralization: string | null;
+      provenance: Record<string, unknown>;
+    }
+  | Unavailable;
+
+/** What the Report page read beyond the summary and analysis. Absent means not read (the package says so). */
+export type PackageExtras = {
+  history?: { status: "loaded"; results: ResultHistoryItem[]; audit: AuditItem[]; notes: Record<string, string>; complete: boolean; pages: number } | Unavailable;
+  gates?: { status: "loaded"; data: GatesView } | Unavailable;
+  rows?: { status: "loaded"; data: RowsExport } | Unavailable;
+  setup?: { status: "loaded"; data: SetupView } | Unavailable;
+  operatingRanges?: OperatingRangesRun | null;
 };
 
 export type NotIncluded = { item: string; reason: string };
@@ -109,7 +223,22 @@ export type DataPackage = {
   generated_by: "kalos-web";
   conventions: { timestamps: string; missing: string; rounds: string; source: string };
   campaign: { id: string; name: string; created_at: number | null; round: number | null; analysis_in_sync: boolean | null };
-  objective: { target: string | null; direction: "maximize"; note: string };
+  objective: {
+    target: string | null;
+    /** The display unit (engine `target_unit.unit`, else parsed from an older analysis's header). Values are never converted. */
+    unit: string | null;
+    target_unit: TargetUnit | null;
+    direction: Goal;
+    /** Where the direction came from: the analysis's applied setup, the campaign summary, or the engine default (maximize, no goal set). */
+    direction_source: "analysis" | "campaign" | "engine_default";
+    note: string;
+    setup: {
+      /** The setup as applied to this analysis (`analysis.setup`); null when none was stored. */
+      applied: AppliedSetup | null;
+      /** The campaign's stored setup (GET /setup); `settings_in_sync: false` means it changed since the analysis. */
+      stored: SetupView | Unavailable | null;
+    };
+  };
   evidence: {
     best_measured: number | null;
     n_base_rows: number | null;
@@ -153,6 +282,9 @@ export type DataPackage = {
     cv_ci95: [number, number] | null;
     calibration: Calibration | null;
     conformal: { half_width: number | null; coverage: number | null };
+    /** Per-proposal interval levels and how they were built (absent on older analyses: [] and null). */
+    interval_levels: number[];
+    interval_method: IntervalMethod | null;
     promotion: {
       passed: boolean;
       summary: string;
@@ -180,23 +312,81 @@ export type DataPackage = {
     run_record: RunRecord | null;
     proposal_provenance: ProposalProvenance | null;
   };
+  result_history: PackageResultHistory;
+  gates: PackageGates;
+  operating_ranges: PackageOperatingRanges;
+  raw_rows: PackageRawRows;
   not_included: NotIncluded[];
 };
 
 /** Why each thing is missing, in plain words. Shown on the page and written into the package. */
 export const NOT_INCLUDED: readonly NotIncluded[] = [
   {
-    item: "Base data rows",
-    reason: "The engine has no route to export the uploaded rows. You hold the original sheet; match it by its input_sha256.",
+    item: "The data rows themselves",
+    reason:
+      "Downloaded separately, as the engine's own export (Raw data on this page, CSV or JSON). This package records their counts, attribution and fingerprint; match the original sheet by its input_sha256.",
   },
-  {
-    item: "Result correction history and audit log",
-    reason: "The engine records them but does not expose them over its API. Each run carries only its latest value, version and previous value.",
-  },
-  { item: "Robust operating ranges", reason: "Not computed by the engine. The observed design space is the observed search box, not an operating range." },
   { item: "Protocols and SOPs", reason: "The engine can draft SOPs, but this app does not use that yet." },
-  { item: "Scale-up stage decisions", reason: "Not stored by the engine: it keeps no stage registry or gate decisions." },
 ];
+
+const GATES_NOTE =
+  "Gate decisions are recorded by people and stored by the engine; computed_evidence is what the engine computed from the campaign's analysis and never sets a decision.";
+const RAW_ROWS_NOTE =
+  "Counts, attribution and provenance of the engine's raw-rows export. The rows themselves are a separate download (the engine's CSV or JSON).";
+const OPERATING_RANGES_NOT_REQUESTED =
+  "No operating range was requested on the Report page before this package was built. The engine computes one only on request, for a threshold and probability you choose.";
+
+/** The rows-export metadata the package keeps (counts and flags, never the rows). */
+export function rawRowsMeta(r: RowsExport): Extract<PackageRawRows, { status: "included" }> {
+  const extra = r as RowsExport & { csv_formula_neutralization?: unknown };
+  return {
+    status: "included",
+    note: RAW_ROWS_NOTE,
+    target: str(r.target),
+    columns: r.columns ?? [],
+    n_original_rows: num(r.original_rows?.n),
+    n_folded_rows: num(r.folded_rows?.n),
+    n_unattributed_rows: num(r.unattributed_rows?.n),
+    original_rows_identifiable: r.original_rows_identifiable === true,
+    original_rows_reason: str(r.original_rows_reason),
+    anonymization: r.anonymization ?? {},
+    csv_formula_neutralization: str(extra.csv_formula_neutralization),
+    provenance: r.provenance ?? {},
+  };
+}
+
+/** Recorded decisions and computed evidence, in separate fields, as GET /gates sent them. */
+export function gatesPackage(g: GatesView): Extract<PackageGates, { status: "included" }> {
+  const all = [...(g.gates ?? []), ...(g.orphaned_gates ?? [])];
+  const evidence: Record<string, ComputedEvidence> = {};
+  for (const x of all) if (x.computed_evidence) evidence[x.key] = x.computed_evidence;
+  return {
+    status: "included",
+    note: GATES_NOTE,
+    current_stage: str(g.current_stage),
+    current_stage_basis: "recorded",
+    stages_source: g.stages_source,
+    decisions: all.map((x) => ({
+      gate: x.key,
+      stage_label: x.stage_label,
+      in_stage_definitions: x.in_stage_definitions,
+      decision: x.decision ?? null,
+      state: x.state,
+      current: x.current ?? null,
+      history: x.history ?? [],
+      history_count: x.history_count ?? 0,
+      history_truncated: x.history_truncated === true,
+    })),
+    computed_evidence: evidence,
+  };
+}
+
+/** The goal the analysis used, else the campaign's, else the engine default (maximize). */
+export function goalOf(analysis: Pick<AnalyzeResult, "goal"> | null, summary: { goal?: Goal } | null): { direction: Goal; source: "analysis" | "campaign" | "engine_default" } {
+  if (analysis?.goal === "maximize" || analysis?.goal === "minimize") return { direction: analysis.goal, source: "analysis" };
+  if (summary?.goal === "maximize" || summary?.goal === "minimize") return { direction: summary.goal, source: "campaign" };
+  return { direction: "maximize", source: "engine_default" };
+}
 
 export const OBSERVED_BOX_LABEL =
   "Observed search box: the lowest and highest value of each input in the uploaded data, which the engine searches inside. Not an operating range.";
@@ -235,6 +425,11 @@ function packageRun(r: CampaignRun): PackageRun {
             recorded_at: num(r.result_recorded_at) ?? num(r.measured_at),
           },
     started_at: num(r.created_at),
+    pred_source: r.pred_source === "engine" || r.pred_source === "caller" ? r.pred_source : null,
+    prediction_at_start: r.prediction_at_start ?? null,
+    residual: num(r.residual),
+    residual_basis: str(r.residual_basis),
+    inside_band: typeof r.inside_band === "boolean" ? r.inside_band : null,
     proposed_by: p
       ? {
           provenance_sha256: str(p.provenance_sha256),
@@ -264,8 +459,14 @@ export function buildPackage(
   summary: Campaign | null,
   analysis: PackageAnalysis | null,
   generatedAt: Date | number,
+  extras: PackageExtras = {},
 ): DataPackage {
   const s = summary && summary.has_campaign ? summary : null;
+  const goal0 = goalOf(analysis, s);
+  // The summary always reports a goal; when the stored setup is the engine's default, nobody set one.
+  const storedDefault = extras.setup?.status === "loaded" && extras.setup.data.source === "default";
+  const goal = goal0.source === "campaign" && storedDefault ? { ...goal0, source: "engine_default" as const } : goal0;
+  const target = str(s?.target) ?? str(analysis?.target);
   const a = analysis;
   const run = a?.run ?? null;
   const pp = a?.proposal_provenance ?? null;
@@ -284,7 +485,8 @@ export function buildPackage(
       timestamps: "Engine timestamps are Unix seconds (UTC), as the engine sent them.",
       missing: "null means the engine did not send the value. It never stands for 0.",
       rounds: "round is the engine's 0-based count of re-analyses (0 = fitted to the uploaded sheet only). The app shows round + 1, so a run with round 0 is round 1 on screen.",
-      source: "Assembled in the browser from the engine's campaign summary and current analysis. Nothing is recomputed.",
+      source:
+        "Assembled in the browser from the engine's campaign summary, current analysis and report routes (result history and audit log, gates, raw-rows export, setup, operating ranges). Nothing is recomputed.",
     },
     campaign: {
       id: meta.id,
@@ -294,9 +496,19 @@ export function buildPackage(
       analysis_in_sync: typeof s?.analysis_in_sync === "boolean" ? s.analysis_in_sync : null,
     },
     objective: {
-      target: str(s?.target) ?? str(a?.target),
-      direction: "maximize",
-      note: "The engine only maximizes the target.",
+      target,
+      unit: targetUnitOf({ target, target_unit: a?.target_unit ?? null }),
+      target_unit: a?.target_unit ?? null,
+      direction: goal.direction,
+      direction_source: goal.source,
+      note:
+        goal.source === "engine_default"
+          ? "No goal was set, so the engine maximizes the target (its default)."
+          : `The engine ${goal.direction === "minimize" ? "minimizes" : "maximizes"} the target${goal.source === "analysis" ? ", as applied to this analysis from the campaign setup" : ", as the campaign summary reports"}.`,
+      setup: {
+        applied: a?.setup ?? null,
+        stored: extras.setup ? (extras.setup.status === "loaded" ? extras.setup.data : extras.setup) : null,
+      },
     },
     evidence: {
       best_measured: num(s?.best),
@@ -343,6 +555,8 @@ export function buildPackage(
       cv_ci95: pair(a?.cv_ci95),
       calibration: a?.reliability?.calibration ?? null,
       conformal: { half_width: band, coverage },
+      interval_levels: (a?.interval_levels ?? []).filter((l) => num(l) != null),
+      interval_method: a?.interval_method ?? null,
       promotion: a?.promotion
         ? {
             passed: a.promotion.passed,
@@ -362,7 +576,16 @@ export function buildPackage(
       recipe: setpoints(proposalRecipe(p, features)),
       mode: str(p.mode),
       reason: str(p.reason),
-      predicted: { value: num(p.pred), sd: num(p.std), band_half_width: band, band_coverage: coverage, p_feasible: num(p.p_feasible) },
+      predicted: {
+        value: num(p.pred),
+        sd: num(p.std),
+        band_half_width: band,
+        band_coverage: coverage,
+        p_feasible: num(p.p_feasible),
+        predictive_std: num(p.predictive_std),
+        intervals: p.intervals ?? [],
+        gp_intervals: p.gp_intervals ?? [],
+      },
     })),
     runs: (s?.pending ?? []).map(packageRun),
     history: (s?.history ?? []).map((h) => ({ round: h.round, best_measured: num(h.best), n_base: num(h.n_base) })),
@@ -378,8 +601,20 @@ export function buildPackage(
       run_record: run,
       proposal_provenance: pp,
     },
+    result_history: historySection(extras.history),
+    gates: !extras.gates ? notRead("gates") : extras.gates.status === "loaded" ? gatesPackage(extras.gates.data) : extras.gates,
+    operating_ranges: extras.operatingRanges ?? { status: "not_requested", note: OPERATING_RANGES_NOT_REQUESTED },
+    raw_rows: !extras.rows ? notRead("raw-rows export") : extras.rows.status === "loaded" ? rawRowsMeta(extras.rows.data) : extras.rows,
     not_included: NOT_INCLUDED.map((n) => ({ ...n })),
   };
+}
+
+const notRead = (what: string): Unavailable => ({ status: "unavailable", code: "not_read", reason: `The ${what} had not been read from the engine when this package was built.` });
+
+function historySection(h: PackageExtras["history"]): PackageResultHistory {
+  if (!h) return notRead("result history");
+  if (h.status === "unavailable") return h;
+  return { status: "included", complete: h.complete, pages_read: h.pages, results: h.results, audit: h.audit, notes: h.notes };
 }
 
 // --- CSV ---------------------------------------------------------------------
@@ -422,12 +657,18 @@ export const RUNS_FIXED_COLUMNS = [
   "proposal_reason",
   "predicted_value",
   "predicted_sd",
+  "predicted_source",
+  "predicted_at_start_band_lo",
+  "predicted_at_start_band_hi",
+  "predicted_at_start_band_coverage",
   "measured_value",
   "measured_version",
   "measured_previous_value",
   "measured_correction_reason",
   "measured_recorded_by",
   "measured_recorded_at",
+  "residual_measured_minus_predicted",
+  "inside_band_at_start",
   "started_at",
   "proposed_by_provenance_sha256",
   "proposed_by_input_sha256",
@@ -435,6 +676,14 @@ export const RUNS_FIXED_COLUMNS = [
   "proposed_by_engine_version",
   "proposed_by_seed",
 ] as const;
+
+/** The band the engine recorded when a run started (null for legacy and caller-predicted runs). */
+export function startBand(r: Pick<PackageRun, "prediction_at_start">): { lo: number; hi: number; coverage: number } | null {
+  const p = r.prediction_at_start;
+  if (!p || p.available !== true || !p.interval) return null;
+  const { lo, hi, coverage } = p.interval;
+  return num(lo) != null && num(hi) != null && num(coverage) != null ? { lo, hi, coverage } : null;
+}
 
 /** Every started run: predicted_* and measured_* columns kept apart, then the recipe. */
 export function runsCsv(pkg: Pick<DataPackage, "runs">): string {
@@ -447,12 +696,18 @@ export function runsCsv(pkg: Pick<DataPackage, "runs">): string {
     r.reason,
     r.predicted.value,
     r.predicted.sd,
+    r.pred_source,
+    startBand(r)?.lo,
+    startBand(r)?.hi,
+    startBand(r)?.coverage,
     r.measured?.value,
     r.measured?.version,
     r.measured?.previous,
     r.measured?.reason,
     r.measured?.recorded_by,
     isoOrNull(r.measured?.recorded_at ?? null),
+    r.residual,
+    r.inside_band,
     isoOrNull(r.started_at),
     r.proposed_by?.provenance_sha256,
     r.proposed_by?.input_sha256,
@@ -475,9 +730,17 @@ export const PROPOSALS_FIXED_COLUMNS = [
   "predicted_p_feasible",
 ] as const;
 
-/** The proposed batch: predictions only (nothing in it has been measured), then the recipe. */
+/**
+ * The proposed batch: predictions only (nothing in it has been measured), then
+ * one interval_<coverage>_lo/hi pair per engine level (empty when the engine
+ * refused that level; the reason is in the JSON package), then the recipe.
+ */
 export function proposalsCsv(pkg: Pick<DataPackage, "proposals">): string {
   const recipe = recipeColumns(pkg.proposals);
+  // One lo/hi pair per coverage level the engine sent, named from the engine's own coverage (0.9 -> 90).
+  const levels = [...new Set(pkg.proposals.flatMap((p) => p.predicted.intervals.map((i) => i.coverage)).filter((c) => num(c) != null))].sort((x, y) => x - y);
+  const levelName = (c: number) => `interval_${String(Math.round(c * 1000) / 10).replace(".", "_")}`;
+  const levelCols = levels.flatMap((c) => [`${levelName(c)}_lo`, `${levelName(c)}_hi`]);
   const rows = pkg.proposals.map((p): Cell[] => [
     p.index,
     p.mode,
@@ -487,9 +750,13 @@ export function proposalsCsv(pkg: Pick<DataPackage, "proposals">): string {
     p.predicted.band_half_width,
     p.predicted.band_coverage,
     p.predicted.p_feasible,
+    ...levels.flatMap((c) => {
+      const i = p.predicted.intervals.find((x) => x.coverage === c);
+      return i && i.available ? [i.lo, i.hi] : [null, null];
+    }),
     ...recipe.map((k) => p.recipe[k]),
   ]);
-  return toCsv([...PROPOSALS_FIXED_COLUMNS, ...recipe], rows);
+  return toCsv([...PROPOSALS_FIXED_COLUMNS, ...levelCols, ...recipe], rows);
 }
 
 // --- File names and contents ---------------------------------------------------
@@ -507,13 +774,17 @@ export function slugify(name: string): string {
   return slug || "campaign";
 }
 
-export type PackageFile = "package" | "runs" | "batch";
+export type PackageFile = "package" | "runs" | "batch" | "rows" | "rows-json";
 
-/** kalos-<slug>-<yyyymmdd>.json, kalos-<slug>-runs-<yyyymmdd>.csv, kalos-<slug>-batch-<yyyymmdd>.csv (UTC date). */
+/**
+ * kalos-<slug>-<yyyymmdd>.json, kalos-<slug>-runs-<yyyymmdd>.csv, kalos-<slug>-batch-<yyyymmdd>.csv,
+ * kalos-<slug>-rows-<yyyymmdd>.csv / .json (the engine's raw-rows export) (UTC date).
+ */
 export function packageFilename(campaignName: string, file: PackageFile, at: Date | number): string {
   const day = iso(at).slice(0, 10).replace(/-/g, "");
   const slug = slugify(campaignName);
   if (file === "package") return `kalos-${slug}-${day}.json`;
+  if (file === "rows-json") return `kalos-${slug}-rows-${day}.json`;
   return `kalos-${slug}-${file}-${day}.csv`;
 }
 
@@ -533,7 +804,9 @@ export function packageContents(pkg: DataPackage): ContentItem[] {
   return [
     {
       label: "Campaign and objective",
-      detail: pkg.objective.target ? `${pkg.campaign.name}, maximize ${pkg.objective.target}` : `${pkg.campaign.name}, no target yet`,
+      detail: pkg.objective.target
+        ? `${pkg.campaign.name}, ${pkg.objective.direction} ${pkg.objective.target}${pkg.objective.unit ? ` (${pkg.objective.unit})` : ""}`
+        : `${pkg.campaign.name}, no target yet`,
       present: pkg.objective.target != null,
     },
     {
@@ -564,10 +837,53 @@ export function packageContents(pkg: DataPackage): ContentItem[] {
       present: pkg.runs.length > 0,
     },
     { label: "Best-so-far history", detail: count(pkg.history.length, "round"), present: pkg.history.length > 0 },
+    historyContent(pkg.result_history),
+    gatesContent(pkg.gates),
+    operatingRangesContent(pkg.operating_ranges),
+    rawRowsContent(pkg.raw_rows),
     {
       label: "Provenance",
       detail: "Engine version, seed, hashes, run record, library versions",
       present: pkg.provenance.engine_version != null || pkg.provenance.run_record != null,
     },
   ];
+}
+
+function historyContent(h: PackageResultHistory): ContentItem {
+  const label = "Result history and audit log";
+  if (h.status !== "included") return { label, detail: h.reason, present: false };
+  const corrections = h.results.filter((r) => r.is_correction).length;
+  return {
+    label,
+    detail: `${count(h.results.length, "recorded result version")} (${count(corrections, "correction")}), ${count(h.audit.length, "audit entry", "audit entries")}${h.complete ? "" : ", older pages not read"}`,
+    present: h.results.length > 0 || h.audit.length > 0,
+  };
+}
+
+function gatesContent(g: PackageGates): ContentItem {
+  const label = "Scale-up gate decisions";
+  if (g.status !== "included") return { label, detail: g.reason, present: false };
+  const recorded = g.decisions.filter((x) => x.current != null).length;
+  return {
+    label,
+    detail: `${count(recorded, "gate")} of ${formatValue(g.decisions.length, { quantity: "count" }).text} with a recorded decision; computed evidence kept separately`,
+    present: true,
+  };
+}
+
+function operatingRangesContent(o: PackageOperatingRanges): ContentItem {
+  const label = "Operating ranges";
+  if (o.status === "not_requested") return { label, detail: "Not requested on this page in this session", present: false };
+  if (o.status === "failed") return { label, detail: `Requested, but the engine did not answer: ${o.reason}`, present: false };
+  if (o.outcome.status === "computed") return { label, detail: `${count(o.outcome.ranges.length, "input")}, model-based, must be verified experimentally`, present: true };
+  return { label, detail: `Not computed by the engine: ${o.outcome.reason}`, present: true };
+}
+
+function rawRowsContent(r: PackageRawRows): ContentItem {
+  const label = "Raw data export (counts and attribution)";
+  if (r.status !== "included") return { label, detail: r.reason, present: false };
+  const parts = r.original_rows_identifiable
+    ? [`${r.n_original_rows != null ? count(r.n_original_rows, "uploaded row") : "uploaded rows n/a"}`, `${r.n_folded_rows != null ? count(r.n_folded_rows, "folded-in row") : "folded-in rows n/a"}`]
+    : [`${r.n_unattributed_rows != null ? count(r.n_unattributed_rows, "unattributed row") : "rows n/a"}`, "original rows not identifiable"];
+  return { label, detail: parts.join(", "), present: true };
 }

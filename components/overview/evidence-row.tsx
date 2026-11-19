@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BasisGlyph, Delta, Num, NumState, SourceButton } from "@/components/viz/num";
-import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
-import { formatCorr, formatValue, parseUnit } from "@/lib/num";
+import { cvTopKNote, reliabilityVerdict, targetUnitOf, type PopulatedResult } from "@/lib/api";
+import { formatCorr, formatValue } from "@/lib/num";
 import { bestTile, historyLabel, newerBest, nextTile, runsTile } from "@/lib/overview";
 import { sourceFromAnalysis, sourceFromCampaign } from "@/lib/source";
 import { cn } from "@/lib/utils";
@@ -28,11 +28,10 @@ export function EvidenceRow({
   analysis: PopulatedResult | null;
   /** The analysis request failed (a connection problem, not a verdict). */
   analysisFailed: boolean;
-  /** Deprecated: the unit is parsed from the target header. */
-  unit?: string;
   predictHref: string;
 }) {
-  const unit = campaign ? parseUnit(campaign.target).unit : null;
+  // The engine's target_unit (setup, then header); a campaign without an analysis falls back to its header.
+  const unit = analysis ? targetUnitOf(analysis) : campaign ? targetUnitOf({ target: campaign.target }) : null;
   return (
     <section aria-label="Evidence" className="grid rounded-xl border border-border bg-surface sm:grid-cols-2 lg:grid-cols-4">
       <Tile className="border-border max-lg:border-b sm:border-r">
@@ -201,6 +200,11 @@ function ReliabilityTile({ analysis, failed }: { analysis: PopulatedResult | nul
               ? "Rank agreement on held-out runs could not be measured."
               : `Rank agreement on held-out runs; trust floor ${verdict.floor != null ? formatValue(verdict.floor, { quantity: "corr" }).text : "n/a"}.`}
       </p>
+      {analysis?.cv_topk ? (
+        <p className="text-caption text-fg-muted tabular-nums">
+          Top-k caught: <span className="text-fg">{cvTopKNote(analysis.cv_topk)}</span>
+        </p>
+      ) : null}
       {analysis?.promotion ? <p className="text-caption text-fg-muted">Promotion check {analysis.promotion.passed ? "passed" : "not passed"} (reported, not enforced).</p> : null}
     </>
   );

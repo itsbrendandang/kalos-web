@@ -1,46 +1,37 @@
 "use client";
 
-import { Download, Printer } from "lucide-react";
+import { useState } from "react";
+import { Download, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { saveText } from "@/components/report/save-file";
 import { formatValue } from "@/lib/num";
 import { packageFilename, packageJson, proposalsCsv, runsCsv, type DataPackage } from "@/lib/report-package";
-
-/**
- * Save text as a file through a Blob + object URL and a temporary
- * `<a download>`. The file is downloaded, never opened as a page.
- */
-function saveText(filename: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Revoke after the click has been handled, so the download is not cut off.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 // A UTF-8 byte-order mark so spreadsheet apps read units such as µ correctly.
 const BOM = "\uFEFF";
 
 /**
- * The three exports and Print. `build` assembles a fresh package at click
- * time, so `generated_at` and the file date are the moment of download.
+ * The three exports and Print. The builders assemble a fresh package at click
+ * time, so `generated_at` and the file date are the moment of download; the
+ * JSON package also reads the full result history and audit log first.
  */
 export function Downloads({
   pkg,
   build,
+  buildFull,
   campaignName,
   generatedAt,
 }: {
   /** The package shown on the page, for counts and the file names previewed. */
   pkg: DataPackage;
+  /** A fresh package from what the page holds (for the CSVs). */
   build: () => DataPackage;
+  /** A fresh package after reading every history page (for the JSON package). */
+  buildFull: () => Promise<DataPackage>;
   campaignName: string;
   generatedAt: number;
 }) {
+  const [preparing, setPreparing] = useState(false);
   const nRuns = pkg.runs.length;
   const nProposals = pkg.proposals.length;
 
@@ -48,12 +39,17 @@ export function Downloads({
     {
       key: "package" as const,
       label: "Download data package (JSON)",
-      detail: "Everything on this page, with provenance, in one file.",
-      disabled: false,
+      detail: "Everything on this page, with provenance and the full result history, in one file.",
+      disabled: preparing,
       primary: true,
-      save: () => {
-        const fresh = build();
-        saveText(packageFilename(campaignName, "package", new Date(fresh.generated_at)), packageJson(fresh), "application/json");
+      save: async () => {
+        setPreparing(true);
+        try {
+          const fresh = await buildFull();
+          saveText(packageFilename(campaignName, "package", new Date(fresh.generated_at)), packageJson(fresh), "application/json");
+        } finally {
+          setPreparing(false);
+        }
       },
     },
     {
@@ -85,8 +81,8 @@ export function Downloads({
       <ul className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
         {files.map((f) => (
           <li key={f.key} className="flex flex-col items-start gap-1.5">
-            <Button variant={f.primary ? "default" : "outline"} onClick={f.save} disabled={f.disabled}>
-              <Download aria-hidden />
+            <Button variant={f.primary ? "default" : "outline"} onClick={() => void f.save()} disabled={f.disabled}>
+              {f.key === "package" && preparing ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Download aria-hidden />}
               {f.label}
             </Button>
             <p className="text-caption text-fg-muted">{f.detail}</p>

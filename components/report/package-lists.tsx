@@ -33,7 +33,7 @@ export function NotInPackage({ pkg }: { pkg: DataPackage }) {
           <span className="min-w-0">
             <span className="text-label text-fg">{n.item}</span>
             <span className="block text-caption text-fg-muted">{n.reason}</span>
-            {n.item === "Base data rows" ? (
+            {n.item === "The data rows themselves" ? (
               <span className="mt-1 block font-mono text-caption break-all text-fg" title="input_sha256 of the uploaded sheet">
                 input_sha256 {pkg.data.input_sha256 ?? "n/a"}
               </span>

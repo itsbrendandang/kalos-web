@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { SourceLine, formatTimestamp, shortHash } from "@/components/kit/source-line";
 import { CampaignActivity } from "@/components/overview/activity";
 import { EvidenceRow } from "@/components/overview/evidence-row";
+import { ScaleTrackLine } from "@/components/overview/scale-track";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,7 @@ import { useCampaign, useCampaignDetail, useCampaignId, useLatest } from "@/hook
 import { campaignStage, cycleSteps } from "@/lib/campaign-stage";
 import { formatValue } from "@/lib/num";
 import { analysisSource } from "@/lib/overview";
+import { goalOf } from "@/lib/report-package";
 import { campaignHref, stageHref } from "@/lib/routes";
 import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
 
@@ -71,6 +73,7 @@ export default function OverviewPage() {
   }
 
   const source = analysisSource(latest.data, active?.pending);
+  const goal = goalOf(analysis, active).direction;
   const outOfSync = active?.analysis_in_sync === false;
 
   return (
@@ -81,7 +84,7 @@ export default function OverviewPage() {
         meta={badges}
         description={
           <>
-            Maximize <span className="font-mono text-code text-fg">{target}</span>
+            {goal === "minimize" ? "Minimize" : "Maximize"} <span className="font-mono text-code text-fg">{target}</span>
             {active ? `, ${count(active.n_base)} measured rows in the model` : ""}
             {source.dataset ? `, from ${source.dataset}` : ""}.
           </>
@@ -92,6 +95,7 @@ export default function OverviewPage() {
       <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
       <EvidenceRow campaign={active} analysis={analysis} analysisFailed={latest.status === "error"} predictHref={campaignHref(id, "predict")} />
       {active ? <BestSoFarChart campaign={active} analysis={analysis} /> : null}
+      <ScaleTrackLine campaignId={id} />
       {outOfSync ? (
         <p className="flex items-start gap-2 text-body text-fg-muted">
           <Info className="mt-1 size-4 shrink-0" aria-hidden />

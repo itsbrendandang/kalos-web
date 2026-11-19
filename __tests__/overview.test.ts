@@ -133,6 +133,15 @@ describe("hero tiles", () => {
     expect(t).toMatchObject({ kind: "started", n: 1, withIntervals: true, stale: true });
   });
 
+  it("next tile: a caller-predicted started run is never shown as a prediction", () => {
+    const pending = [
+      { id: "c", recipe: {}, pred: 9.9, std: 0.1, mode: "exploit" as const, reason: "", result: null, awaiting: true, round: 1, pred_source: "caller" as const, prediction_at_start: { available: false as const, reason: "recipe is not one of the published proposals" } },
+    ];
+    const t = nextTile({ target: "y", history, round: 1, pending, analysis_in_sync: false }, analysis);
+    expect(t.kind).toBe("none");
+    if (t.kind === "none") expect(t.reason).toMatch(/no engine prediction/);
+  });
+
   it("next tile: none without an analysis", () => {
     expect(nextTile({ target: "y", history, round: 1 }, null).kind).toBe("none");
   });

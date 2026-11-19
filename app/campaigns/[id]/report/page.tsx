@@ -7,6 +7,10 @@ import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
 import { SourceLine, formatTimestamp, shortHash } from "@/components/kit/source-line";
 import { Downloads } from "@/components/report/downloads";
+import { HistorySectionView } from "@/components/report/history";
+import { OperatingRangesSection } from "@/components/report/operating-ranges";
+import { RawDataSection } from "@/components/report/raw-data";
+import { asExtra, readFullHistory, useGates, useResultHistory, useRowsExport, useSetup } from "@/components/report/report-data";
 import { NotInPackage, PackageContents } from "@/components/report/package-lists";
 import { ProvenanceBlock } from "@/components/report/provenance-block";
 import { BatchSection, EvidenceSection, ModelSection, ObjectiveSection } from "@/components/report/report-summary";
@@ -15,14 +19,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaignDetail, useCampaignId, useLatest } from "@/hooks/use-engine";
 import type { CampaignDetail, PopulatedResult } from "@/lib/api";
-import { formatValue, parseUnit } from "@/lib/num";
-import { buildPackage, type PackageAnalysis } from "@/lib/report-package";
+import { formatValue } from "@/lib/num";
+import { buildPackage, type OperatingRangesRun, type PackageAnalysis, type PackageExtras } from "@/lib/report-package";
 import { campaignHref } from "@/lib/routes";
 
 const TITLE = "Report and export";
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 const DESCRIPTION =
-  "A data package assembled in your browser from what the engine returned for this campaign: its summary, its current analysis and its runs. Nothing is recomputed.";
+  "A data package assembled in your browser from what the engine returned for this campaign: its summary, current analysis, runs, result history, raw data and scale-up decisions. Nothing is recomputed.";
 
 /**
  * Report: a readable summary and three downloads, every value read from the
@@ -88,11 +92,38 @@ function Page({ children }: { children: ReactNode }) {
 function Report({ detail, analysis }: { detail: CampaignDetail; analysis: PopulatedResult }) {
   const { campaign: meta, summary } = detail;
   const a = analysis as PackageAnalysis;
+  const rows = useRowsExport(meta.id);
+  const gates = useGates(meta.id);
+  const setup = useSetup(meta.id);
+  const history = useResultHistory(meta.id);
+  const [ranges, setRanges] = useState<OperatingRangesRun | null>(null);
+
+  const extras: PackageExtras = useMemo(() => {
+    const h = history.state;
+    return {
+      rows: asExtra(rows),
+      gates: asExtra(gates),
+      setup: asExtra(setup),
+      operatingRanges: ranges,
+      history:
+        h.status === "loading"
+          ? undefined
+          : h.status === "unavailable"
+            ? { status: "unavailable", code: h.code, reason: h.reason }
+            : { status: "loaded", results: h.results.items, audit: h.audit.items, notes: h.notes, complete: !h.results.hasMore && !h.audit.hasMore, pages: 1 },
+    };
+  }, [rows, gates, setup, ranges, history.state]);
+
   // The on-screen package is stamped when this data arrived; each download builds a fresh one.
   const [shownAt] = useState(() => Date.now());
-  const pkg = useMemo(() => buildPackage(meta, summary, a, shownAt), [meta, summary, a, shownAt]);
-  const build = useCallback(() => buildPackage(meta, summary, a, new Date()), [meta, summary, a]);
+  const pkg = useMemo(() => buildPackage(meta, summary, a, shownAt, extras), [meta, summary, a, shownAt, extras]);
+  const build = useCallback(() => buildPackage(meta, summary, a, new Date(), extras), [meta, summary, a, extras]);
+  const buildFull = useCallback(async () => {
+    const full = await readFullHistory(meta.id);
+    return buildPackage(meta, summary, a, new Date(), { ...extras, history: full });
+  }, [meta, summary, a, extras]);
   const measured = pkg.runs.filter((r) => r.status === "measured").length;
+  const unit = pkg.objective.unit;
 
   return (
     <Page>
@@ -111,13 +142,13 @@ function Report({ detail, analysis }: { detail: CampaignDetail; analysis: Popula
 
       {pkg.campaign.analysis_in_sync === false ? (
         <Callout title="The analysis is older than the latest runs">
-          Runs were started or recorded after the engine last fitted the model. The model and the proposed batch below describe that fit; the evidence
-          and the runs table are current. Re-analyze on Validate to bring them together.
+          Runs were started or recorded after the engine last fitted the model. The model and the proposed batch below describe that fit; the evidence,
+          the runs table and the result history are current. Re-analyze on Validate to bring them together.
         </Callout>
       ) : null}
 
       <Section id="downloads" title="Downloads" className="print:hidden">
-        <Downloads pkg={pkg} build={build} campaignName={meta.name} generatedAt={shownAt} />
+        <Downloads pkg={pkg} build={build} buildFull={buildFull} campaignName={meta.name} generatedAt={shownAt} />
       </Section>
 
       <ObjectiveSection pkg={pkg} />
@@ -135,10 +166,23 @@ function Report({ detail, analysis }: { detail: CampaignDetail; analysis: Popula
             : "No runs have been started from a proposed batch yet."
         }
       >
-        {pkg.runs.length ? (
-          <RunsTable runs={pkg.runs} unit={pkg.objective.target ? parseUnit(pkg.objective.target).unit : null} ranges={pkg.data.observed_design_space.ranges} />
-        ) : null}
+        {pkg.runs.length ? <RunsTable runs={pkg.runs} unit={unit} ranges={pkg.data.observed_design_space.ranges} /> : null}
       </Section>
+
+      <HistorySectionView state={history.state} unit={unit} onRetry={history.reload} onLoadOlder={(w) => void history.loadOlder(w)} />
+
+      <RawDataSection campaignId={meta.id} campaignName={meta.name} read={rows} />
+
+      <OperatingRangesSection
+        campaignId={meta.id}
+        target={pkg.objective.target}
+        unit={unit}
+        goal={pkg.objective.direction}
+        bestMeasured={pkg.evidence.best_measured}
+        inSync={pkg.campaign.analysis_in_sync}
+        last={ranges}
+        onResult={setRanges}
+      />
 
       <div className="grid gap-10 md:grid-cols-2 print:grid-cols-1">
         <Section id="contents" title="What is in this package">

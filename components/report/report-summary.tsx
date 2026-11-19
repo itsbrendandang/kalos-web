@@ -6,9 +6,10 @@ import { Section } from "@/components/kit/section";
 import { Verdict } from "@/components/kit/verdict";
 import { ModeBadge } from "@/components/ui/badge";
 import { BasisGlyph, Num, NumState, SourceButton } from "@/components/viz/num";
-import { calibrationNote, type Promotion } from "@/lib/api";
-import { columnDecimals, conformalInterval, coverageText, formatCorr, formatValue, parseUnit } from "@/lib/num";
+import { calibrationNote, intervalAt, type Promotion } from "@/lib/api";
+import { columnDecimals, conformalInterval, coverageText, formatCorr, formatSetting, formatValue, type IntervalSpec } from "@/lib/num";
 import type { DataPackage } from "@/lib/report-package";
+import { typedValue } from "@/components/report/report-copy";
 import type { Source } from "@/lib/source";
 
 const count = (n: number | null | undefined) => formatValue(n, { quantity: "count" }).text;
@@ -45,29 +46,89 @@ export function Fact({ label, children }: { label: ReactNode; children: ReactNod
   );
 }
 
+const UNIT_SOURCE: Record<string, string> = {
+  user: "set in the campaign setup",
+  header: "read from the column header",
+  none: "none stated in the column header",
+};
+
 export function ObjectiveSection({ pkg }: { pkg: DataPackage }) {
-  const target = pkg.objective.target;
+  const o = pkg.objective;
+  const target = o.target;
+  const applied = o.setup.applied;
+  const stored = o.setup.stored && !("status" in o.setup.stored) ? o.setup.stored : null;
+  const bounds = Object.entries(applied?.bounds_applied ?? {});
+  const constraints = applied?.constraints_applied ?? [];
+  const verb = o.direction === "minimize" ? "Minimize" : "Maximize";
   return (
     <Section id="objective" title="Objective">
-      <p className="text-body text-fg">
-        {target ? (
-          <>
-            Maximize <span className="font-mono text-code">{target}</span>.
-          </>
-        ) : (
-          "No target has been chosen yet."
-        )}{" "}
-        <span className="text-fg-muted">
-          The engine only maximizes, and it searches inside the observed range of each input in the uploaded sheet, which is not an operating range.
-        </span>
-      </p>
+      <dl>
+        <Fact label="Goal">
+          {target ? (
+            <>
+              {verb} <span className="font-mono text-code">{target}</span>.{" "}
+              <span className="text-fg-muted">
+                {o.direction_source === "engine_default"
+                  ? "No goal was set in the campaign setup, so the engine maximizes (its default)."
+                  : o.direction_source === "analysis"
+                    ? "As set in the campaign setup and applied to this analysis."
+                    : "As the campaign summary reports."}
+              </span>
+            </>
+          ) : (
+            "No target has been chosen yet."
+          )}
+        </Fact>
+        <Fact label="Target unit">
+          {o.unit ? <span>{o.unit}</span> : <span className="text-fg-muted">n/a</span>}
+          {o.target_unit ? <span className="text-fg-muted"> ({UNIT_SOURCE[o.target_unit.source] ?? o.target_unit.source}). A display label only; values are never converted.</span> : null}
+        </Fact>
+        <Fact label="Search box">
+          The engine searches inside the observed range of each input in the data{bounds.length ? ", narrowed by the bounds below" : ""}. It never widens the
+          search beyond the data, and the search box is not an operating range.
+          {bounds.length ? (
+            <ul className="mt-2 flex flex-col gap-1">
+              {bounds.map(([k, b]) => (
+                <li key={k} className="tabular-nums">
+                  <span className="font-mono text-code">{k}</span> applied{" "}
+                  {b.applied ? `${formatSetting(b.applied[0], b.applied).text} to ${formatSetting(b.applied[1], b.applied).text}` : "n/a"}
+                  {b.extrapolates ? <span className="text-fg-muted"> (the requested bound reached past the data, so it was cut to the observed range)</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Fact>
+        {constraints.length ? (
+          <Fact label="Linear constraints">
+            <ul className="flex flex-col gap-1 tabular-nums">
+              {constraints.map((c, i) => (
+                <li key={i}>
+                  {Object.entries(c.coefficients)
+                    .map(([k, v]) => `${typedValue(v)}·${k}`)
+                    .join(" + ")}{" "}
+                  {c.op === "<=" ? "≤" : "≥"} {typedValue(c.rhs)}
+                </li>
+              ))}
+            </ul>
+          </Fact>
+        ) : null}
+        {applied?.status === "refused" ? (
+          <Fact label="Setup">
+            The engine could not honour the campaign setup, so this analysis proposed no batch
+            {applied.refusal?.reason || applied.refusal?.message ? <>: {applied.refusal.reason ?? applied.refusal.message}</> : "."}
+          </Fact>
+        ) : null}
+        {stored?.settings_in_sync === false ? (
+          <Fact label="Setup changes">The campaign setup changed after this analysis. Re-analyze on Validate to apply it; the analysis above uses the earlier setup.</Fact>
+        ) : null}
+      </dl>
     </Section>
   );
 }
 
 export function EvidenceSection({ pkg }: { pkg: DataPackage }) {
   const e = pkg.evidence;
-  const unit = pkg.objective.target ? parseUnit(pkg.objective.target).unit : null;
+  const unit = pkg.objective.unit;
   const label = pkg.objective.target ? targetName(pkg.objective.target) : "the target";
   const histDec = columnDecimals(pkg.history.filter((h) => h.best_measured != null).map((h) => ({ value: h.best_measured!, u: null })));
   const best = formatValue(e.best_measured, { unit, basis: "measured" });
@@ -178,40 +239,57 @@ export function ModelSection({ pkg }: { pkg: DataPackage }) {
   );
 }
 
+/**
+ * The interval a proposal shows: its own per-proposal interval at the
+ * engine's first level (labelled with that entry's coverage), that level's
+ * refusal reason, or, for analyses that predate per-proposal intervals, the
+ * global held-out band.
+ */
+export function proposalInterval(p: DataPackage["proposals"][number], levels: number[]): { interval: IntervalSpec | null; refused: string | null } {
+  const level = levels[0] ?? p.predicted.intervals[0]?.coverage;
+  const entry = level != null ? intervalAt(p.predicted.intervals, level) : null;
+  if (entry) {
+    if (entry.available && entry.lo != null && entry.hi != null) return { interval: { lo: entry.lo, hi: entry.hi, coverage: entry.coverage, method: "conformal" }, refused: null };
+    return { interval: null, refused: entry.reason ?? "the engine refused this interval level" };
+  }
+  return { interval: conformalInterval(p.predicted.value, p.predicted.band_half_width, p.predicted.band_coverage), refused: null };
+}
+
 export function BatchSection({ pkg }: { pkg: DataPackage }) {
   const props = pkg.proposals;
   const exploit = props.filter((p) => p.mode === "exploit").length;
   const explore = props.filter((p) => p.mode === "explore").length;
-  const unit = pkg.objective.target ? parseUnit(pkg.objective.target).unit : null;
+  const unit = pkg.objective.unit;
+  const levels = pkg.model.interval_levels;
   return (
     <Section
       id="batch"
       title="Latest proposed batch"
       description={
         props.length
-          ? `${plural(props.length, "recipe")}: ${count(exploit)} exploit, ${count(explore)} explore. Predictions only; none of these has been measured.`
+          ? `${plural(props.length, "recipe")}: ${count(exploit)} exploit, ${count(explore)} explore. Predictions only; none of these has been measured.${
+              levels.length > 1 ? ` The package also holds each recipe's interval at the other levels the engine computed (${levels.map((l) => coverageText(l)).join(", ")}).` : ""
+            }`
           : "The current analysis has no proposed batch."
       }
     >
       {props.length ? (
         <ol className="flex flex-col">
-          {props.map((p) => (
-            <li key={p.index} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border py-2.5">
-              <span className="w-6 text-label text-fg-muted tabular-nums">{p.index}</span>
-              {p.mode === "exploit" || p.mode === "explore" ? <ModeBadge mode={p.mode} /> : <span className="text-caption text-fg-muted">n/a</span>}
-              <Num
-                value={p.predicted.value}
-                basis="predicted"
-                unit={unit}
-                interval={conformalInterval(p.predicted.value, p.predicted.band_half_width, p.predicted.band_coverage)}
-              />
-              {p.predicted.band_half_width == null ? (
-                <span className="text-caption text-fg-muted tabular-nums">
-                  interval n/a; model SD {formatValue(p.predicted.sd).text} (not a held-out band)
-                </span>
-              ) : null}
-            </li>
-          ))}
+          {props.map((p) => {
+            const { interval, refused } = proposalInterval(p, levels);
+            return (
+              <li key={p.index} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border py-2.5">
+                <span className="w-6 text-label text-fg-muted tabular-nums">{p.index}</span>
+                {p.mode === "exploit" || p.mode === "explore" ? <ModeBadge mode={p.mode} /> : <span className="text-caption text-fg-muted">n/a</span>}
+                <Num value={p.predicted.value} basis="predicted" unit={unit} interval={interval} />
+                {interval == null ? (
+                  <span className="text-caption text-fg-muted tabular-nums">
+                    interval n/a{refused ? ` (${refused})` : ""}; model SD {formatValue(p.predicted.sd).text} (not a held-out band)
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
       ) : null}
     </Section>

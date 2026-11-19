@@ -202,24 +202,24 @@ beforeAll(async () => {
 
 describe("B-1: every request is authenticated by a real session", () => {
   it("no cookie -> 401, engine never called", async () => {
-    const r = await api("GET", ["api", "latest"], { cookie: null });
+    const r = await api("GET", ["api", "campaigns"], { cookie: null });
     expect(r.status).toBe(401);
     expect(engineCalls).toHaveLength(0);
   });
 
   it("a forged session token -> 401 (cookie presence is not authentication)", async () => {
-    const r = await api("GET", ["api", "latest"], { cookie: "better-auth.session_token=forged.0000" });
+    const r = await api("GET", ["api", "campaigns"], { cookie: "better-auth.session_token=forged.0000" });
     expect(r.status).toBe(401);
     expect(engineCalls).toHaveLength(0);
   });
 
   it("a session row that does not exist in the DB -> 401", async () => {
-    const r = await api("GET", ["api", "latest"], { cookie: "better-auth.session_token=00000000000000000000000000000000.deadbeef" });
+    const r = await api("GET", ["api", "campaigns"], { cookie: "better-auth.session_token=00000000000000000000000000000000.deadbeef" });
     expect(r.status).toBe(401);
   });
 
   it("valid member session -> 200, engine called with a server-minted token", async () => {
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     expect(r.status).toBe(200);
     expect(engineCalls).toHaveLength(1);
   });
@@ -230,7 +230,7 @@ describe("B-1: every request is authenticated by a real session", () => {
     addMember("expired@example.com", "org-a", "member");
     const s = sessionRow("expired@example.com");
     db.prepare("UPDATE session SET expiresAt=? WHERE id=?").run(new Date(Date.now() - 1000).toISOString(), s.id);
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(c) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(c) });
     expect(r.status).toBe(401);
     expect(engineCalls).toHaveLength(0);
   });
@@ -239,18 +239,18 @@ describe("B-1: every request is authenticated by a real session", () => {
     const c = await signIn("revoked@example.com");
     await enrolTotp(c);
     addMember("revoked@example.com", "org-a", "member");
-    expect((await api("GET", ["api", "latest"], { cookie: cookieOf(c) })).status).toBe(200);
+    expect((await api("GET", ["api", "campaigns"], { cookie: cookieOf(c) })).status).toBe(200);
     await c.req("/sign-out", { method: "POST", body: {} });
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(c) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(c) });
     expect(r.status).toBe(401);
     expect(engineCalls).toHaveLength(1); // only the pre-revocation call
   });
 
   it("MFA-pending session (signed in, TOTP never verified) -> 403 MFA_REQUIRED, engine never called", async () => {
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cHalf) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cHalf) });
     expect(r.status).toBe(403);
     expect(await r.json()).toMatchObject({ error: "mfa_required", code: "MFA_REQUIRED" });
-    const w = await api("POST", ["api", "campaign", "start"], {
+    const w = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], {
       cookie: cookieOf(cHalf),
       headers: { "content-type": "application/json" },
       body: "{}",
@@ -260,7 +260,7 @@ describe("B-1: every request is authenticated by a real session", () => {
   });
 
   it("signed-in user with no organization membership -> 403, engine never called", async () => {
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cStranger) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cStranger) });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
@@ -269,9 +269,9 @@ describe("B-1: every request is authenticated by a real session", () => {
     const c = await signIn("leaver@example.com");
     await enrolTotp(c);
     addMember("leaver@example.com", "org-a", "member");
-    expect((await api("GET", ["api", "latest"], { cookie: cookieOf(c) })).status).toBe(200);
+    expect((await api("GET", ["api", "campaigns"], { cookie: cookieOf(c) })).status).toBe(200);
     removeMember("leaver@example.com", "org-a");
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(c) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(c) });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(1);
   });
@@ -279,7 +279,7 @@ describe("B-1: every request is authenticated by a real session", () => {
 
 describe("B-1: tenant comes from the member table and the server map only", () => {
   it("token tenant is the mapped tenant of the member's organization", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     const { payload } = await claimsOf();
     expect(payload.tenant).toBe("tenant-a");
     expect(payload.sub).toBe(ids["member@example.com"]);
@@ -290,7 +290,7 @@ describe("B-1: tenant comes from the member table and the server map only", () =
     const c = await signIn("unmapped@example.com");
     await enrolTotp(c);
     addMember("unmapped@example.com", "org-c", "member");
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(c) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(c) });
     expect(r.status).toBe(403);
     expect(await r.json()).toMatchObject({ error: "organization_not_provisioned" });
     expect(engineCalls).toHaveLength(0);
@@ -300,7 +300,7 @@ describe("B-1: tenant comes from the member table and the server map only", () =
     // multi belongs to org-a and org-b; the hint names org-c (no membership).
     const s = sessionRow("multi@example.com");
     db.prepare("UPDATE session SET activeOrganizationId=? WHERE id=?").run("org-c", s.id);
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMulti) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMulti) });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
@@ -308,7 +308,7 @@ describe("B-1: tenant comes from the member table and the server map only", () =
   it("cross-org: a hint naming another org the user DOES belong to -> that org's tenant and role", async () => {
     const s = sessionRow("multi@example.com");
     db.prepare("UPDATE session SET activeOrganizationId=? WHERE id=?").run("org-b", s.id);
-    const r = await api("POST", ["api", "campaign", "start"], {
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], {
       cookie: cookieOf(cMulti),
       headers: { "content-type": "application/json" },
       body: "{}",
@@ -327,7 +327,7 @@ describe("B-1: tenant comes from the member table and the server map only", () =
       headers: { "x-kalos-tenant": "tenant-b", "x-tenant-id": "tenant-b", "x-org-id": "org-b" },
     });
     expect((await claimsOf()).payload.tenant).toBe("tenant-a");
-    await api("POST", ["api", "campaign", "start"], {
+    await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], {
       cookie: cookieOf(cMember),
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ tenant: "tenant-b", tenant_id: "default", org_id: "org-b" }),
@@ -343,7 +343,7 @@ describe("B-1: role scope (viewer read-only; write and admin by role)", () => {
   });
 
   it("viewer write -> 403 insufficient_scope, engine never called", async () => {
-    const r = await api("POST", ["api", "campaign", "start"], {
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], {
       cookie: cookieOf(cViewer),
       headers: { "content-type": "application/json" },
       body: "{}",
@@ -356,18 +356,18 @@ describe("B-1: role scope (viewer read-only; write and admin by role)", () => {
   it("viewer upload (multipart) -> 403, engine never called", async () => {
     const fd = new FormData();
     fd.append("file", new Blob(["x"]), "a.csv");
-    const r = await api("POST", ["api", "run"], { cookie: cookieOf(cViewer), body: fd });
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "jobs"], { cookie: cookieOf(cViewer), body: fd });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
 
   it("member write -> token carries campaigns:write only, never org:admin", async () => {
-    expect((await api("POST", ["api", "campaign", "start"], { cookie: cookieOf(cMember), headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(200);
+    expect((await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], { cookie: cookieOf(cMember), headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(200);
     expect((await claimsOf()).payload.scopes).toEqual(["campaigns:write"]);
   });
 
   it("admin read still gets only campaigns:read (least privilege per request)", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cAdmin) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cAdmin) });
     expect((await claimsOf()).payload.scopes).toEqual(["campaigns:read"]);
   });
 
@@ -375,17 +375,17 @@ describe("B-1: role scope (viewer read-only; write and admin by role)", () => {
     const c = await signIn("demoted@example.com");
     await enrolTotp(c);
     addMember("demoted@example.com", "org-a", "member");
-    await api("POST", ["api", "campaign", "start"], { cookie: cookieOf(c), headers: { "content-type": "application/json" }, body: "{}" });
+    await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], { cookie: cookieOf(c), headers: { "content-type": "application/json" }, body: "{}" });
     expect((await claimsOf()).payload.scopes).toContain("campaigns:write");
     db.prepare("UPDATE member SET role='viewer' WHERE userId=? AND organizationId='org-a'").run(ids["demoted@example.com"]);
-    const r = await api("POST", ["api", "campaign", "start"], { cookie: cookieOf(c), headers: { "content-type": "application/json" }, body: "{}" });
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], { cookie: cookieOf(c), headers: { "content-type": "application/json" }, body: "{}" });
     expect(r.status).toBe(403);
   });
 });
 
 describe("B-1: the engine token (60 s EdDSA, claims from the server-side session)", () => {
   it("alg EdDSA, kid, iss, aud, sub, sid, tenant, scopes, jti, iat/nbf/exp with exp-iat = 60", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     const { payload, header } = await claimsOf();
     expect(header).toMatchObject({ alg: "EdDSA", typ: "JWT", kid: KID });
     expect(payload).toMatchObject({ iss: "kalos-web", aud: "kalos-engine", tenant: "tenant-a" });
@@ -396,8 +396,8 @@ describe("B-1: the engine token (60 s EdDSA, claims from the server-side session
   });
 
   it("a fresh jti per request, and the token is not the client's", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember), headers: { authorization: "Bearer eyJhbGciOiJFZERTQSJ9.e30.x" } });
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember), headers: { authorization: "Bearer eyJhbGciOiJFZERTQSJ9.e30.x" } });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     const a = await claimsOf(engineCalls.length - 2);
     const b = await claimsOf(engineCalls.length - 1);
     expect(a.payload.jti).not.toBe(b.payload.jti);
@@ -405,7 +405,7 @@ describe("B-1: the engine token (60 s EdDSA, claims from the server-side session
   });
 
   it("the token does not verify with any other key", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     const { token } = await claimsOf();
     const other = generateKeyPairSync("ed25519").publicKey;
     await expect(jwtVerify(token, other, { issuer: "kalos-web", audience: "kalos-engine", algorithms: ["EdDSA"] })).rejects.toThrow();
@@ -413,7 +413,7 @@ describe("B-1: the engine token (60 s EdDSA, claims from the server-side session
 
   it("the engine's wrong 401 becomes 502 (never a 401 that looks like a sign-out)", async () => {
     engineReply = () => new Response("nope", { status: 401 });
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     expect(r.status).toBe(502);
     expect(await r.json()).toMatchObject({ error: "engine_auth_failed" });
   });
@@ -421,7 +421,7 @@ describe("B-1: the engine token (60 s EdDSA, claims from the server-side session
 
 describe("B-1: client headers never reach the engine", () => {
   it("client Authorization, Cookie, X-Forwarded-*, X-Kalos-*, Host are not forwarded; the engine sees only the minted token", async () => {
-    await api("GET", ["api", "latest"], {
+    await api("GET", ["api", "campaigns"], {
       cookie: cookieOf(cMember),
       headers: {
         authorization: "Bearer forged.forged.forged",
@@ -443,7 +443,7 @@ describe("B-1: client headers never reach the engine", () => {
   });
 
   it("the browser cookie never reaches the engine even when the engine echoes it", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     expect(JSON.stringify(engineCalls[0].init.headers ?? {})).not.toContain("better-auth.session_token");
   });
 });
@@ -451,17 +451,17 @@ describe("B-1: client headers never reach the engine", () => {
 describe("B-1: CSRF / origin on every mutating method, cross-site reads refused", () => {
   const body = { headers: { "content-type": "application/json" }, body: "{}" };
   it("POST with a cross-origin Origin -> 403, engine never called", async () => {
-    const r = await api("POST", ["api", "campaign", "start"], { cookie: cookieOf(cMember), ...body, headers: { ...body.headers, origin: "https://evil.example", "sec-fetch-site": "cross-site", "x-kalos-csrf": "1" } });
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], { cookie: cookieOf(cMember), ...body, headers: { ...body.headers, origin: "https://evil.example", "sec-fetch-site": "cross-site", "x-kalos-csrf": "1" } });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
   it("POST without Origin -> 403", async () => {
-    const r = await api("POST", ["api", "campaign", "start"], { cookie: cookieOf(cMember), ...body, headers: { ...body.headers, "x-kalos-csrf": "1" }, csrf: false });
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], { cookie: cookieOf(cMember), ...body, headers: { ...body.headers, "x-kalos-csrf": "1" }, csrf: false });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
   it("POST without the X-Kalos-CSRF marker (plain HTML form style) -> 403", async () => {
-    const r = await api("POST", ["api", "campaign", "start"], { cookie: cookieOf(cMember), ...body, csrf: false, headers: { ...body.headers, origin: BASE } });
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], { cookie: cookieOf(cMember), ...body, csrf: false, headers: { ...body.headers, origin: BASE } });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
@@ -474,7 +474,7 @@ describe("B-1: CSRF / origin on every mutating method, cross-site reads refused"
     expect(engineCalls).toHaveLength(0);
   });
   it("a cross-site GET (third-party page) is refused before any engine work", async () => {
-    const r = await api("GET", ["api", "single"], { cookie: cookieOf(cMember), headers: { "sec-fetch-site": "cross-site" } });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember), headers: { "sec-fetch-site": "cross-site" } });
     expect(r.status).toBe(403);
     expect(engineCalls).toHaveLength(0);
   });
@@ -485,15 +485,15 @@ describe("B-1: path allow-list (no traversal, no encoded slash, no absolute URL,
     ["dot-dot segment", ["api", "..", "healthz"]],
     ["encoded dot-dot (decoded by Next to ..)", ["api", "campaigns", ".."]],
     ["encoded slash (decoded to /)", ["api", "campaigns", "a/b"]],
-    ["double-encoded slash survives as %2f in a segment", ["api", "latest%2f.."]],
-    ["backslash traversal", ["api", "latest\\..\\healthz"]],
-    ["absolute URL as segments", ["http:", "", "evil.example", "api", "latest"]],
-    ["protocol-relative as segments", ["", "evil.example", "api", "latest"]],
+    ["double-encoded slash survives as %2f in a segment", ["api", "campaigns%2f.."]],
+    ["backslash traversal", ["api", "campaigns\\..\\healthz"]],
+    ["absolute URL as segments", ["http:", "", "evil.example", "api", "campaigns"]],
+    ["protocol-relative as segments", ["", "evil.example", "api", "campaigns"]],
     ["engine health probe (not in the table)", ["healthz"]],
     ["engine readiness probe (not in the table)", ["readyz"]],
     ["unknown route", ["api", "admin", "users"]],
-    ["NUL byte", ["api", "latest\u0000"]],
-    ["empty segment", ["api", "", "latest"]],
+    ["NUL byte", ["api", "campaigns\u0000"]],
+    ["empty segment", ["api", "", "campaigns"]],
   ];
   for (const [name, segs] of cases) {
     it(`${name} -> 404, engine never called`, async () => {
@@ -504,8 +504,8 @@ describe("B-1: path allow-list (no traversal, no encoded slash, no absolute URL,
   }
 
   it("raw percent-encoded slash / dot-dot / double encoding in the URL -> 404 even when Next decoded them away", async () => {
-    for (const raw of ["/api/engine/api/campaigns/a%2fb", "/api/engine/api/latest%252f..", "/api/engine/api/latest%5c..", "/api/engine/api/latest%00"]) {
-      const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMember), url: BASE + raw });
+    for (const raw of ["/api/engine/api/campaigns/a%2fb", "/api/engine/api/campaigns%252f..", "/api/engine/api/campaigns%5c..", "/api/engine/api/campaigns%00"]) {
+      const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember), url: BASE + raw });
       expect(r.status, raw).toBe(404);
     }
     // %2e%2e is a dot-segment: the WHATWG URL parser (and Next's routing) resolve it
@@ -521,7 +521,7 @@ describe("B-1: path allow-list (no traversal, no encoded slash, no absolute URL,
   });
 
   it("an allowed method on a path that exists with another method -> 405 (not forwarded)", async () => {
-    const r = await api("DELETE", ["api", "latest"], { cookie: cookieOf(cMember) });
+    const r = await api("DELETE", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     expect(r.status).toBe(405);
     expect(engineCalls).toHaveLength(0);
   });
@@ -534,7 +534,7 @@ describe("B-1: response filtering, size and timeout limits", () => {
         status: 200,
         headers: { "content-type": "application/json", "set-cookie": "engine=1; Path=/", "x-engine-build": "abc", server: "uvicorn" },
       });
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     expect(r.status).toBe(200);
     expect(r.headers.get("set-cookie")).toBeNull();
     expect(r.headers.get("x-engine-build")).toBeNull();
@@ -543,7 +543,7 @@ describe("B-1: response filtering, size and timeout limits", () => {
   });
 
   it("a declared JSON body over 1 MiB -> 413, engine never called", async () => {
-    const r = await api("POST", ["api", "campaign", "start"], {
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], {
       cookie: cookieOf(cMember),
       headers: { "content-type": "application/json", "content-length": String(2 * 1024 * 1024) },
       body: "{}",
@@ -561,7 +561,7 @@ describe("B-1: response filtering, size and timeout limits", () => {
         ctl.close();
       },
     });
-    const r = await api("POST", ["api", "campaign", "start"], {
+    const r = await api("POST", ["api", "campaigns", "cmp_0123456789abcdef0123456789abcdef", "runs"], {
       cookie: cookieOf(cMember),
       headers: { "content-type": "application/json" },
       body: stream as unknown as BodyInit,
@@ -579,7 +579,7 @@ describe("B-1: response filtering, size and timeout limits", () => {
           reject(new Error("aborted"));
         });
       });
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     delete env.KALOS_ENGINE_TIMEOUT_MS;
     expect(r.status).toBe(504);
     expect(aborted).toBe(true);
@@ -587,7 +587,7 @@ describe("B-1: response filtering, size and timeout limits", () => {
 
   it("engine 5xx bodies (stack traces) never reach the client", async () => {
     engineReply = () => new Response("Traceback (most recent call last): /srv/kalos/secret.py", { status: 500 });
-    const r = await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    const r = await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     expect(r.status).toBe(502);
     expect(await r.text()).not.toContain("Traceback");
   });
@@ -595,7 +595,7 @@ describe("B-1: response filtering, size and timeout limits", () => {
 
 describe("B-1: the token is short-lived and the audit line has identifiers only", () => {
   it("decodeJwt of the forwarded token: exp is at most 60 s after iat", async () => {
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     const tok = (sentHeaders().get("authorization") ?? "").slice(7);
     const p = decodeJwt(tok);
     expect(p.exp! - p.iat!).toBeLessThanOrEqual(60);
@@ -623,7 +623,7 @@ describe("B-1: the engine's trust store (public JWKS derived from the signing ke
   it("a proxied token verifies with the key from the JWKS (what the engine will do)", async () => {
     const [jwk] = JSON.parse(runJwks()).keys;
     const key = await importJWK(jwk, "EdDSA");
-    await api("GET", ["api", "latest"], { cookie: cookieOf(cMember) });
+    await api("GET", ["api", "campaigns"], { cookie: cookieOf(cMember) });
     const token = (sentHeaders().get("authorization") ?? "").slice(7);
     const { payload, protectedHeader } = await jwtVerify(token, key, { issuer: "kalos-web", audience: "kalos-engine", algorithms: ["EdDSA"] });
     expect(protectedHeader.kid).toBe(jwk.kid);

@@ -26,14 +26,13 @@ Kalos is three repositories with a clear split:
 
 ## Screenshots
 
-Synthetic demo data from the current development build, not a release. No real or private data is shown.
-The column-confirmation view comes from open PR [#65](https://github.com/itsbrendandang/kalos-web/pull/65) and is not on `main` yet.
+Synthetic data (`synthetic_bioprocess.csv`) against a local engine, from the development build. No real or private data is shown.
 
-| Setup | Confirm columns (open PR #65) |
+| Overview | 1 Harmonize |
 | --- | --- |
-| ![Setup stage with a synthetic run sheet](docs/images/setup.png) | ![Column confirmation before trusting a fit](docs/images/confirm-columns.png) |
-| **Plan** | **Learn** |
-| ![Plan stage with a proposed batch](docs/images/plan.png) | ![Learn stage after partial results](docs/images/learn.png) |
+| ![Campaign overview after one round: measured best so far, reliability, next step](docs/images/overview.png) | ![Harmonize: the data check and the explored design space](docs/images/harmonize.png) |
+| **2 Predict** | **3 Validate** |
+| ![Predict: model evidence first, then the proposed batch with 90% bands](docs/images/predict.png) | ![Validate: recorded results against their predicted bands](docs/images/validate.png) |
 
 ## Capabilities
 

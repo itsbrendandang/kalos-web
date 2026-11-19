@@ -68,29 +68,6 @@ export function proposalRecipe(p: Proposal, features: string[]): Record<string, 
   return p.recipe ?? Object.fromEntries(features.map((f, i) => [f, p.vals[i]]));
 }
 
-export type MultiProposal = {
-  vals: number[];
-  pred_titer: number;
-  pred_purity: number;
-  mode: "explore" | "exploit";
-  reason: string;
-};
-
-export type SingleRun = {
-  trajectory: { round: number; best: number; n: number }[];
-  proposals: Proposal[];
-  best_recipe: number[];
-  best_value: number;
-  optimum: number[];
-};
-
-export type MultiRun = {
-  trajectory: { round: number; pareto: number; best_titer: number; best_purity: number }[];
-  pareto: { titer: number; purity: number }[];
-  all: { titer: number; purity: number }[];
-  proposals: MultiProposal[];
-};
-
 /**
  * One input's correlation with the target, plus enough uncertainty
  * information for the UI to say whether it's a real finding or noise.
@@ -229,6 +206,8 @@ export type Reliability = Partial<ProducerFields> & {
   unmodeled: string[];
   /** Absent on engine builds before calibration scoring shipped. */
   calibration?: Calibration;
+  /** Set only when the model is below its trust floor: the batch should be read as exploration. */
+  space_filling_advice?: string | null;
 };
 
 /**
@@ -251,6 +230,8 @@ export type Promotion = {
   metrics: Record<string, number>;
   summary: string;
   meaning: string;
+  /** Gates the engine could not judge on this sheet (absent on older engines). */
+  not_judged?: string[];
 };
 
 /**
@@ -370,7 +351,8 @@ export type DataDrops = {
   /** Keys: missing, non_numeric, censored (counted over cells). */
   cells_by_reason?: Record<string, number>;
   cells_by_column?: Record<string, Record<string, number>>;
-  blank_cells_as_absent?: number;
+  /** A count, or per-column counts on current engines. */
+  blank_cells_as_absent?: number | Record<string, number>;
   auto_categorical_count?: number;
 };
 
@@ -570,19 +552,15 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   sheet_used?: string | null;
   /** Machine code on a 400 (e.g. "sheet_not_found", "target_constant"); the human text is `error`. Absent on older engines. */
   code?: string;
+  /** What produced this batch: hashes of inputs and config, seed, engine build. `model_artifact_stored` is false today. */
+  proposal_provenance?: ({ provenance_sha256?: string; input_sha256?: string; config_sha256?: string; engine_version?: string; seed?: number } & Record<string, unknown>) | null;
+  /** The detected header row (0-based) when the sheet had a title block. Absent on older engines. */
+  header_row?: number | null;
+  /** The engine's orientation finding for the sheet. Absent on older engines. */
+  orientation?: unknown;
+  /** Why a visualization (embedding, correlation, surface) was not computed, keyed by name. */
+  visualization_reasons?: unknown;
 };
-
-export const runSingle = (): Promise<SingleRun> =>
-  fetch(`${API}/api/single`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
-
-export const runMulti = (): Promise<MultiRun> =>
-  fetch(`${API}/api/multi`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
 
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
 export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
@@ -624,44 +602,6 @@ export function campaignHasRunsRefusal(status: number, body: unknown): CampaignH
   return new CampaignHasRunsError(countField(b, "awaiting", "n_awaiting"), countField(b, "measured", "n_measured"));
 }
 
-/**
- * POST /api/run. `roles` is sent when the user confirmed column roles; `sheet` picks a worksheet of a
- * multi-sheet workbook (engine form field `sheet`), omitted the engine chooses. `replace: true` sends the
- * form field `replace=true`, which the engine requires to overwrite a campaign that has awaiting or
- * measured runs; without it that case throws CampaignHasRunsError.
- */
-export async function runFile(
-  file: File,
-  target?: string,
-  roles?: ColumnRolesInput,
-  sheet?: string,
-  opts: { replace?: boolean } = {},
-): Promise<AnalyzeResult> {
-  const fd = new FormData();
-  fd.append("file", file);
-  if (target) fd.append("target", target);
-  if (roles) fd.append("roles", JSON.stringify(roles));
-  if (sheet) fd.append("sheet", sheet);
-  if (opts.replace) fd.append("replace", "true");
-  let r: Response;
-  try {
-    r = await fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() });
-  } catch {
-    throw new EngineError(0, "engine_unreachable");
-  }
-  // A body that is not JSON (a proxy's HTML page, a truncated reply) is a typed failure, not a parse crash.
-  const d = await readJsonBody(r);
-  const refusal = campaignHasRunsRefusal(r.status, d);
-  if (refusal) throw refusal;
-  if (r.ok && d) return d as AnalyzeResult;
-  // A 400 with the documented { error } body is an expected "bad upload" the caller renders inline
-  // (see setup/page.tsx); it is returned, not thrown.
-  if (r.status === 400 && d && typeof d.error === "string") return d as AnalyzeResult;
-  // Everything else is a failure: the proxy's own code when it sent one, else the code this status means.
-  const code = typeof d?.error === "string" ? d.error : codeForStatus(r.status);
-  throw new EngineError(r.status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined);
-}
-
 async function readJsonBody(r: Response): Promise<Record<string, unknown> | null> {
   try {
     const v: unknown = await r.json();
@@ -695,14 +635,6 @@ export function proposalIncumbent(d: Pick<AnalyzeResult, "best" | "noise">): num
 export function incumbentLabel(d: Pick<AnalyzeResult, "noise">): string {
   return d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run";
 }
-
-export const getLatest = (): Promise<LatestResult> =>
-  fetch(`${API}/api/latest`).then((r) => {
-    // fetch only rejects on network failure; treat a non-2xx engine response as an
-    // error too, so callers show the offline state instead of a fake "no data".
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
 
 /** The populated (has-data) shape of the latest analysis. */
 export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
@@ -1007,9 +939,9 @@ export function isUnmeasuredFailure(failure: string): boolean {
 }
 
 // --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------
-// The closed optimization loop behind /decide: propose -> run -> log outcome
+// The closed optimization loop (Predict -> Validate): propose -> run -> log outcome
 // -> re-propose. A campaign is one target plus a growing (recipe -> outcome)
-// table; `/api/campaign` reflects it, `/api/campaign/reanalyze` is the loop
+// table; `GET /api/campaigns/{id}` reflects it, `POST .../reanalyze` is the loop
 // closing (folds measured runs into the base data and re-runs `_analyze`).
 
 /** One recipe started from a proposed batch, awaiting or holding a measured outcome. */
@@ -1024,6 +956,16 @@ export type CampaignRun = {
   awaiting: boolean;
   /** The round the run was started in; optional until the engine sends it. */
   round?: number;
+  created_at?: number;
+  measured_at?: number | null;
+  /** Which analysis proposed this run (provenance hashes, engine version, seed). */
+  analysis_provenance?: { provenance_sha256?: string; input_sha256?: string; config_sha256?: string; engine_version?: string; seed?: number; timestamp?: number } | null;
+  /** Result versioning (present once a result was recorded or corrected). */
+  result_version?: number;
+  previous_result?: number | null;
+  result_reason?: string | null;
+  result_actor?: string | null;
+  result_recorded_at?: number | null;
 };
 
 /** The engine's own stage state (forward-compatible: optional until the engine sends it). */
@@ -1057,7 +999,7 @@ export type Campaign =
       n_awaiting: number;
       n_measured: number;
       /**
-       * Whether /api/latest provably describes this campaign as it is now
+       * Whether the campaign analysis provably describes this campaign as it is now
        * (kalos/docs/CAMPAIGN_LOOP.md, "Analysis/campaign coherence"). Every
        * campaign write (start, result, fold, reseed) re-mints the stamp, so
        * this is false from the first run started after an analysis until the
@@ -1098,13 +1040,7 @@ export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>
   });
 }
 
-export const getCampaign = (): Promise<Campaign> =>
-  fetch(`${API}/api/campaign`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
-
-/** A recipe about to be started, in the shape POST /api/campaign/start expects. */
+/** A recipe about to be started, in the shape POST /api/campaigns/{id}/runs expects. */
 export type StartRecipe = {
   recipe: Record<string, number>;
   pred: number;
@@ -1112,43 +1048,6 @@ export type StartRecipe = {
   mode: string;
   reason: string;
 };
-
-export async function startRuns(recipes: StartRecipe[]): Promise<void> {
-  const r = await fetch(`${API}/api/campaign/start`, {
-    method: "POST",
-    headers: mutationHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ recipes }),
-  });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
-}
-
-export async function logResult(id: string, value: number): Promise<void> {
-  const r = await fetch(`${API}/api/campaign/result`, {
-    method: "POST",
-    headers: mutationHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ id, value }),
-  });
-  if (!r.ok) {
-    // The documented 400 body is { error }; fall back to a status-based
-    // message for anything else (network hiccup, unexpected 5xx shape).
-    let message = `engine responded ${r.status}`;
-    try {
-      const body: unknown = await r.json();
-      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
-        message = (body as { error: string }).error;
-      }
-    } catch {
-      // Body wasn't JSON - keep the status-based message.
-    }
-    throw new Error(message);
-  }
-}
-
-export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
-  const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST", headers: mutationHeaders() });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
-  return r.json();
-}
 
 // --- Optional AI providers (GET /api/providers) -----------------------------
 // Documented optional upgrades some validation checks can use when a key is
@@ -1172,5 +1071,154 @@ export const getProviders = (): Promise<ProvidersResponse> =>
     if (!r.ok) throw new Error(`engine responded ${r.status}`);
     return r.json();
   });
+
+// --- Multi-campaign API (kalos-engine docs/CAMPAIGNS_API.md) ---------------
+// Every campaign-scoped read and write the app makes. The legacy single-
+// campaign routes above act only on the tenant's DEFAULT campaign; the pages
+// use these instead, so a campaign created here is never confused with it.
+
+/** A campaign's identity and lifecycle (not its data: see `Campaign` for the summary). */
+export type CampaignMeta = {
+  id: string;
+  name: string;
+  created_by: string | null;
+  created_at: number;
+  updated_at: number;
+  archived_at: number | null;
+  archived: boolean;
+  /** True once a sheet was uploaded and the campaign has base data. */
+  seeded: boolean;
+  /** The campaign the legacy /api/run, /api/campaign routes act on. */
+  is_default: boolean;
+};
+
+export type CampaignDetail = { campaign: CampaignMeta; summary: Campaign };
+
+/** Background analysis job (kalos-engine docs/JOBS.md). Stage and progress are the engine's, reported at stage boundaries. */
+export type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled" | "timed_out";
+export type Job = {
+  id: string;
+  campaign_id: string;
+  kind: string;
+  state: JobState;
+  /** queued | parsing | fitting | calibrating | proposing | publishing | succeeded (or a terminal state). */
+  stage: string;
+  /** 0-1, reported at stage boundaries, not per iteration. */
+  progress: number;
+  attempts: number;
+  created_at: number;
+  started_at: number | null;
+  finished_at: number | null;
+  updated_at: number;
+  cancel_requested: boolean;
+  input_bytes: number | null;
+  /** Fixed engine text; never the exception text. */
+  error: { code: string; message: string } | null;
+  campaign_generation: string | null;
+};
+
+export const isJobActive = (j: Pick<Job, "state"> | null | undefined): boolean => j?.state === "queued" || j?.state === "running";
+
+/** The engine's `{ error, code }` envelope as a typed EngineError (code, plus the engine's own sentence when it sent one). */
+async function failure(r: Response): Promise<EngineError> {
+  return failureFrom(r.status, await readJsonBody(r));
+}
+
+function failureFrom(status: number, d: Record<string, unknown> | null): EngineError {
+  const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" && /^[a-z][a-z0-9_]*$/.test(d.error) ? d.error : codeForStatus(status);
+  const detail = typeof d?.error === "string" && d.error !== code ? d.error : undefined;
+  return new EngineError(status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined, detail);
+}
+
+async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  let r: Response;
+  try {
+    r = await fetch(`${API}${path}`, init);
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  if (!r.ok) throw await failure(r);
+  return (await r.json()) as T;
+}
+
+const jsonInit = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: mutationHeaders({ "Content-Type": "application/json" }),
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
+const enc = encodeURIComponent;
+
+export const listCampaigns = (includeArchived = false): Promise<CampaignMeta[]> =>
+  call<{ campaigns: CampaignMeta[] }>(`/api/campaigns${includeArchived ? "?include_archived=true" : ""}`).then((d) => d.campaigns);
+
+export const createCampaign = (name: string): Promise<CampaignMeta> => call<CampaignMeta>("/api/campaigns", jsonInit("POST", { name }));
+
+/** Rename, or archive/unarchive (archiving needs an admin with a recent second factor). */
+export const updateCampaign = (id: string, patch: { name?: string; archived?: boolean }): Promise<CampaignMeta> =>
+  call<CampaignMeta>(`/api/campaigns/${enc(id)}`, jsonInit("PATCH", patch));
+
+export const getCampaignDetail = (id: string): Promise<CampaignDetail> => call<CampaignDetail>(`/api/campaigns/${enc(id)}`);
+
+/** The campaign's current analysis: the /api/latest shape, `{ has_data: false }` before the first upload. */
+export const getCampaignAnalysis = (id: string): Promise<LatestResult> => call<LatestResult>(`/api/campaigns/${enc(id)}/analysis`);
+
+export type UploadOptions = { target?: string; roles?: ColumnRolesInput; sheet?: string; replace?: boolean };
+
+/**
+ * Submit an upload as a background job. The engine runs the pre-fit checks
+ * before queueing, so a bad sheet comes back at once as `{ refused }` with
+ * the same `{ error, code, sheets }` body /api/run returns (rendered inline,
+ * not thrown). A campaign with runs and no `replace` throws
+ * CampaignHasRunsError; anything else non-2xx throws EngineError.
+ */
+export async function submitUploadJob(campaignId: string, file: File, opts: UploadOptions = {}): Promise<{ job: Job } | { refused: AnalyzeResult }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (opts.target) fd.append("target", opts.target);
+  if (opts.roles) fd.append("roles", JSON.stringify(opts.roles));
+  if (opts.sheet) fd.append("sheet", opts.sheet);
+  if (opts.replace) fd.append("replace", "true");
+  let r: Response;
+  try {
+    r = await fetch(`${API}/api/campaigns/${enc(campaignId)}/jobs`, { method: "POST", body: fd, headers: mutationHeaders() });
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  if (r.ok) {
+    const d = await readJsonBody(r);
+    if (d && typeof d.job === "object" && d.job) return { job: d.job as Job };
+    throw new EngineError(r.status, "engine_error");
+  }
+  const d = await readJsonBody(r);
+  const refusal = campaignHasRunsRefusal(r.status, d);
+  if (refusal) throw refusal;
+  if (r.status === 400 && d && typeof d.error === "string") return { refused: d as unknown as AnalyzeResult };
+  throw failureFrom(r.status, d);
+}
+
+export const getJob = (jobId: string): Promise<Job> => call<{ job: Job }>(`/api/jobs/${enc(jobId)}`).then((d) => d.job);
+
+export const cancelJob = (jobId: string): Promise<Job> => call<{ job: Job }>(`/api/jobs/${enc(jobId)}/cancel`, jsonInit("POST")).then((d) => d.job);
+
+/** Newest first. */
+export const listJobs = (campaignId: string, limit = 5): Promise<Job[]> =>
+  call<{ jobs: Job[] }>(`/api/campaigns/${enc(campaignId)}/jobs?limit=${limit}`).then((d) => d.jobs);
+
+/** Start recipes from the proposed batch: they become awaiting runs. */
+export const startCampaignRuns = (campaignId: string, recipes: StartRecipe[]): Promise<{ started: CampaignRun[] }> =>
+  call(`/api/campaigns/${enc(campaignId)}/runs`, jsonInit("POST", { recipes }));
+
+/**
+ * Record (or correct) a run's measured value. Results are append-only and
+ * versioned: a correction of an existing value needs a `reason`
+ * (400 `reason_required` otherwise).
+ */
+export const recordCampaignResult = (campaignId: string, runId: string, value: number, reason?: string): Promise<CampaignRun> =>
+  call(`/api/campaigns/${enc(campaignId)}/runs/${enc(runId)}/result`, jsonInit("POST", reason ? { value, reason } : { value }));
+
+/** Fold measured runs into the base data and re-fit (synchronous: tens of seconds to minutes; no job route). */
+export const reanalyzeCampaign = (campaignId: string): Promise<{ analysis: PopulatedResult; campaign: Campaign }> =>
+  call(`/api/campaigns/${enc(campaignId)}/reanalyze`, jsonInit("POST"));
 
 export { API };

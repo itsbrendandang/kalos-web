@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runFile } from "@/lib/api";
+import { submitUploadJob, type ColumnRolesInput } from "@/lib/api";
+
+const CMP = "cmp_0123456789abcdef0123456789abcdef";
+/** The app uploads through the campaign jobs route; same argument order as the old runFile. */
+const runFile = (f: File, target?: string, roles?: ColumnRolesInput, sheet?: string, opts: { replace?: boolean } = {}) =>
+  submitUploadJob(CMP, f, { target, roles, sheet, replace: opts.replace });
+
 import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
 import { initialSetupState, setupReducer } from "@/lib/setup-attempt";
 
-describe("runFile sends an optional worksheet", () => {
+describe("an upload sends an optional worksheet", () => {
   afterEach(() => vi.unstubAllGlobals());
   const stub = (body: unknown, status = 200) => {
     const m = vi.fn().mockImplementation(async () => new Response(JSON.stringify(body), { status }));
@@ -13,7 +19,7 @@ describe("runFile sends an optional worksheet", () => {
   const form = (m: ReturnType<typeof vi.fn>, i = 0) => (m.mock.calls[i][1] as RequestInit).body as FormData;
 
   it("appends `sheet` when given and omits it otherwise (older engines never see the field)", async () => {
-    const m = stub({ n: 1 });
+    const m = stub({ job: { id: "job_1" } }, 202);
     const file = new File(["x"], "w.xlsx");
     await runFile(file, undefined, undefined, "Runs 2");
     expect(form(m).get("sheet")).toBe("Runs 2");
@@ -25,7 +31,7 @@ describe("runFile sends an optional worksheet", () => {
   it("returns the engine's specific 400 message and sheet list untouched", async () => {
     stub({ error: "Sheet 'X' not found", code: "sheet_not_found", sheets: ["A", "B"], sheet_used: null }, 400);
     const d = await runFile(new File(["x"], "w.xlsx"), undefined, undefined, "X");
-    expect(d).toMatchObject({ error: "Sheet 'X' not found", code: "sheet_not_found", sheets: ["A", "B"] });
+    expect(d).toMatchObject({ refused: { error: "Sheet 'X' not found", code: "sheet_not_found", sheets: ["A", "B"] } });
   });
 });
 

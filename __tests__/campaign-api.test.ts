@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { API, getCampaign, logResult, proposalRecipe, reanalyze, startRuns, type Campaign, type Proposal } from "@/lib/api";
+import { API, getCampaignDetail, proposalRecipe, reanalyzeCampaign, recordCampaignResult, startCampaignRuns, type Campaign, type Proposal } from "@/lib/api";
+import { EngineError } from "@/lib/engine-error";
+
+// The campaign loop through the multi-campaign routes the pages use (the
+// legacy default-campaign client functions were removed with their callers).
+const CMP = "cmp_0123456789abcdef0123456789abcdef";
+const getCampaign = () => getCampaignDetail(CMP).then((d) => d.summary);
+const startRuns = (recipes: Parameters<typeof startCampaignRuns>[1]) => startCampaignRuns(CMP, recipes);
+const logResult = (id: string, value: number) => recordCampaignResult(CMP, id, value);
+const reanalyze = () => reanalyzeCampaign(CMP);
+const detail = (summary: unknown) => ({ campaign: { id: CMP }, summary });
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
 function fakeResponse(ok: boolean, status: number, body: unknown): Response {
@@ -18,7 +28,7 @@ describe("campaign client (lib/api.ts)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("getCampaign GETs /api/campaign and returns the parsed body", async () => {
+  it("getCampaignDetail GETs /api/campaigns/{id} and the summary is the parsed body", async () => {
     const campaign: Campaign = {
       has_campaign: true,
       target: "lipase_titer",
@@ -35,33 +45,33 @@ describe("campaign client (lib/api.ts)", () => {
       n_awaiting: 0,
       n_measured: 0,
     };
-    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, campaign));
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, detail(campaign)));
 
     const result = await getCampaign();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(`${API}/api/campaign`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API}/api/campaigns/${CMP}`);
     expect(result).toEqual(campaign);
     if (result.has_campaign) {
       expect(result.history).toEqual(campaign.history);
     }
   });
 
-  it("getCampaign returns {has_campaign:false} before any upload", async () => {
-    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { has_campaign: false }));
+  it("a campaign with no upload yet has a {has_campaign:false} summary", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, detail({ has_campaign: false })));
 
     const result = await getCampaign();
 
     expect(result).toEqual({ has_campaign: false });
   });
 
-  it("getCampaign throws a status-based message on a non-ok response", async () => {
+  it("a non-ok response throws a typed error, never a fake empty campaign", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
 
-    await expect(getCampaign()).rejects.toThrow("engine responded 500");
+    await expect(getCampaign()).rejects.toMatchObject({ status: 500, code: "engine_error" });
   });
 
-  it("startRuns POSTs {recipes} as JSON to /api/campaign/start", async () => {
+  it("startCampaignRuns POSTs {recipes} as JSON to /api/campaigns/{id}/runs", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { started: [] }));
     const recipes = [{ recipe: { pH: 6.5, Methanol: 2.0 }, pred: 4.6, std: 0.3, mode: "explore", reason: "diversifies the batch" }];
 
@@ -69,19 +79,19 @@ describe("campaign client (lib/api.ts)", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`${API}/api/campaign/start`);
+    expect(url).toBe(`${API}/api/campaigns/${CMP}/runs`);
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({ "Content-Type": "application/json", "x-kalos-csrf": "1" });
     expect(JSON.parse(init.body as string)).toEqual({ recipes });
   });
 
-  it("startRuns throws a status-based message on a non-ok response", async () => {
-    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "bad recipe" }));
+  it("startCampaignRuns throws a typed error carrying the engine's sentence", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "bad recipe", code: "invalid_request" }));
 
-    await expect(startRuns([])).rejects.toThrow("engine responded 400");
+    await expect(startRuns([])).rejects.toMatchObject({ status: 400, code: "invalid_request", detail: "bad recipe" });
   });
 
-  it("logResult POSTs {id, value} as JSON to /api/campaign/result", async () => {
+  it("recordCampaignResult POSTs {value} as JSON to /api/campaigns/{id}/runs/{run}/result", async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(true, 200, { id: "b1e2", recipe: { pH: 6.5 }, pred: 4.6, std: 0.3, mode: "explore", reason: "r", result: 3.2, awaiting: false }),
     );
@@ -90,25 +100,25 @@ describe("campaign client (lib/api.ts)", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`${API}/api/campaign/result`);
+    expect(url).toBe(`${API}/api/campaigns/${CMP}/runs/b1e2/result`);
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({ "Content-Type": "application/json", "x-kalos-csrf": "1" });
-    expect(JSON.parse(init.body as string)).toEqual({ id: "b1e2", value: 3.2 });
+    expect(JSON.parse(init.body as string)).toEqual({ value: 3.2 });
   });
 
-  it("logResult throws with the documented {error} message on a 400", async () => {
-    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "unknown id" }));
+  it("recordCampaignResult carries the documented {error, code} on a 400", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "result must be finite", code: "invalid_result" }));
 
-    await expect(logResult("nope", 1)).rejects.toThrow("unknown id");
+    await expect(logResult("nope", 1)).rejects.toMatchObject({ code: "invalid_result", detail: "result must be finite" });
   });
 
-  it("logResult falls back to a status-based message when the error body isn't the documented shape", async () => {
+  it("falls back to a status-based code when the error body isn't the documented shape", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, { detail: "internal error" }));
 
-    await expect(logResult("b1e2", 1)).rejects.toThrow("engine responded 500");
+    await expect(logResult("b1e2", 1)).rejects.toMatchObject({ status: 500, code: "engine_error" });
   });
 
-  it("logResult falls back to a status-based message when the error body isn't valid JSON", async () => {
+  it("falls back to a status-based code when the error body isn't valid JSON", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 502,
@@ -117,10 +127,12 @@ describe("campaign client (lib/api.ts)", () => {
       },
     } as unknown as Response);
 
-    await expect(logResult("b1e2", 1)).rejects.toThrow("engine responded 502");
+    const err = await logResult("b1e2", 1).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EngineError);
+    expect(err).toMatchObject({ status: 502, code: "engine_error" });
   });
 
-  it("reanalyze POSTs to /api/campaign/reanalyze and returns {analysis, campaign}", async () => {
+  it("reanalyzeCampaign POSTs to /api/campaigns/{id}/reanalyze and returns {analysis, campaign}", async () => {
     const analysis = { has_data: true, n: 41, target: "lipase_titer" };
     const campaign: Campaign = {
       has_campaign: true,
@@ -144,16 +156,16 @@ describe("campaign client (lib/api.ts)", () => {
     const result = await reanalyze();
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`${API}/api/campaign/reanalyze`);
+    expect(url).toBe(`${API}/api/campaigns/${CMP}/reanalyze`);
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({ "x-kalos-csrf": "1" });
     expect(result).toEqual({ analysis, campaign });
   });
 
-  it("reanalyze throws a status-based message on a non-ok response", async () => {
-    fetchMock.mockResolvedValueOnce(fakeResponse(false, 500, {}));
+  it("reanalyzeCampaign throws a typed error on a busy engine", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 503, {}));
 
-    await expect(reanalyze()).rejects.toThrow("engine responded 500");
+    await expect(reanalyze()).rejects.toMatchObject({ status: 503, code: "engine_busy" });
   });
 });
 

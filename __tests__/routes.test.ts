@@ -1,128 +1,79 @@
 import { describe, expect, it } from "vitest";
-import {
-  breadcrumbFor,
-  navKeyFor,
-  titleFor,
-} from "@/lib/routes";
+import { CAMPAIGN_STAGES, CYCLE_STEPS, campaignHref, cycleKeyFor, parseCampaignPath, sectionFor, stageHref } from "@/lib/routes";
 
-describe("navKeyFor", () => {
-  it('returns "campaign" for "/"', () => {
-    expect(navKeyFor("/")).toBe("campaign");
+const ID = "cmp_0123456789abcdef0123456789abcdef";
+
+describe("cycle steps (Harmonize -> Predict -> Validate)", () => {
+  it("are numbered 1-3 in order", () => {
+    expect(CYCLE_STEPS.map((s) => [s.n, s.key])).toEqual([
+      [1, "harmonize"],
+      [2, "predict"],
+      [3, "validate"],
+    ]);
   });
 
-  it('returns "campaign" for "/campaign/*"', () => {
-    expect(navKeyFor("/campaign/setup")).toBe("campaign");
-    expect(navKeyFor("/campaign/plan")).toBe("campaign");
-    expect(navKeyFor("/campaign/run")).toBe("campaign");
+  it("cover every engine stage exactly once", () => {
+    const covered = CYCLE_STEPS.flatMap((s) => s.stages);
+    expect([...covered].sort()).toEqual(CAMPAIGN_STAGES.map((s) => s.key).sort());
+    expect(new Set(covered).size).toBe(covered.length);
   });
 
-  it('returns "data" for "/data*"', () => {
-    expect(navKeyFor("/data")).toBe("data");
-    expect(navKeyFor("/data/foo")).toBe("data");
-  });
-
-  it('returns "library" for "/library*"', () => {
-    expect(navKeyFor("/library")).toBe("library");
-    expect(navKeyFor("/library/vessels")).toBe("library");
-  });
-
-  it('returns "projects" for "/projects*"', () => {
-    expect(navKeyFor("/projects")).toBe("projects");
-    expect(navKeyFor("/projects/abc")).toBe("projects");
-  });
-
-  it('returns "settings" for "/settings*"', () => {
-    expect(navKeyFor("/settings")).toBe("settings");
-    expect(navKeyFor("/settings/abc")).toBe("settings");
-  });
-
-  it('falls back to "campaign" for unknown paths', () => {
-    expect(navKeyFor("/foo/bar")).toBe("campaign");
-    expect(navKeyFor("/unknown")).toBe("campaign");
+  it("maps each engine stage to its step", () => {
+    expect(cycleKeyFor("setup")).toBe("harmonize");
+    expect(cycleKeyFor("plan")).toBe("predict");
+    expect(cycleKeyFor("run")).toBe("validate");
+    expect(cycleKeyFor("record")).toBe("validate");
+    expect(cycleKeyFor("learn")).toBe("validate");
   });
 });
 
-describe("titleFor", () => {
-  it('returns "Overview" for "/"', () => {
-    expect(titleFor("/")).toBe("Overview");
+describe("campaignHref / stageHref", () => {
+  it("builds campaign-scoped paths", () => {
+    expect(campaignHref(ID)).toBe(`/campaigns/${ID}`);
+    expect(campaignHref(ID, "predict")).toBe(`/campaigns/${ID}/predict`);
+    expect(campaignHref(ID, "report")).toBe(`/campaigns/${ID}/report`);
   });
 
-  it('returns the page label for known CAMPAIGN_STAGES hrefs', () => {
-    expect(titleFor("/campaign/setup")).toBe("Setup");
-    expect(titleFor("/campaign/plan")).toBe("Plan");
-    expect(titleFor("/campaign/run")).toBe("Run");
-    expect(titleFor("/campaign/record")).toBe("Record");
-    expect(titleFor("/campaign/learn")).toBe("Learn");
+  it("encodes the id", () => {
+    expect(campaignHref("a/b")).toBe("/campaigns/a%2Fb");
   });
 
-  it('returns the page label for known LIBRARY_ITEMS hrefs', () => {
-    expect(titleFor("/library/vessels")).toBe("Vessels");
-    expect(titleFor("/library/plate")).toBe("Plate analysis");
-    expect(titleFor("/library/scale-up")).toBe("Scale-up readout");
-    expect(titleFor("/library/simulator")).toBe("Simulator");
-  });
-
-  it('returns the section label for section index hrefs', () => {
-    expect(titleFor("/data")).toBe("Data");
-    expect(titleFor("/library")).toBe("Library");
-    expect(titleFor("/projects")).toBe("Client projects"); // LIBRARY_ITEMS overrides NAV_ITEMS
-    expect(titleFor("/settings")).toBe("Settings");
-  });
-
-  it('capitalizes last segment and replaces hyphens for unknown sub-paths', () => {
-    expect(titleFor("/projects/my-thing")).toBe("My thing");
-    expect(titleFor("/campaign/unknown-page")).toBe("Unknown page");
+  it("sends each engine stage's action to its section", () => {
+    expect(stageHref(ID, "setup")).toBe(`/campaigns/${ID}/harmonize`);
+    expect(stageHref(ID, "plan")).toBe(`/campaigns/${ID}/predict`);
+    expect(stageHref(ID, "run")).toBe(`/campaigns/${ID}/validate`);
+    expect(stageHref(ID, "record")).toBe(`/campaigns/${ID}/validate#record`);
+    expect(stageHref(ID, "learn")).toBe(`/campaigns/${ID}/validate#learn`);
   });
 });
 
-describe("breadcrumbFor", () => {
-  it("returns [section] for a section index", () => {
-    const result = breadcrumbFor("/");
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ href: "/", label: "Campaign" });
+describe("parseCampaignPath", () => {
+  it("reads the id and sub-page", () => {
+    expect(parseCampaignPath(`/campaigns/${ID}`)).toEqual({ id: ID, page: "" });
+    expect(parseCampaignPath(`/campaigns/${ID}/`)).toEqual({ id: ID, page: "" });
+    expect(parseCampaignPath(`/campaigns/${ID}/harmonize`)).toEqual({ id: ID, page: "harmonize" });
+    expect(parseCampaignPath(`/campaigns/${ID}/report`)).toEqual({ id: ID, page: "report" });
   });
 
-  it("returns [section, page] for a known non-index campaign page", () => {
-    const result = breadcrumbFor("/campaign/setup");
-    expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ href: "/", label: "Campaign" });
-    expect(result[1]).toMatchObject({
-      href: "/campaign/setup",
-      label: "Setup",
-    });
+  it("round-trips campaignHref", () => {
+    expect(parseCampaignPath(campaignHref("a b", "validate"))).toEqual({ id: "a b", page: "validate" });
   });
 
-  it("returns [section, page] for a known library page", () => {
-    const result = breadcrumbFor("/library/vessels");
-    expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ href: "/library", label: "Library" });
-    expect(result[1]).toMatchObject({
-      href: "/library/vessels",
-      label: "Vessels",
-    });
+  it("is null outside a campaign or for an unknown sub-page", () => {
+    expect(parseCampaignPath("/")).toBeNull();
+    expect(parseCampaignPath("/campaigns")).toBeNull();
+    expect(parseCampaignPath("/scale-up")).toBeNull();
+    expect(parseCampaignPath(`/campaigns/${ID}/plan`)).toBeNull();
+    expect(parseCampaignPath(`/campaigns/${ID}/predict/extra`)).toBeNull();
+    expect(parseCampaignPath("/campaigns/%E0%A4%A")).toBeNull();
   });
+});
 
-  it("returns [section] for unknown sub-paths (falls back to section alone)", () => {
-    const result = breadcrumbFor("/projects/my-thing");
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      href: "/projects",
-      label: "Projects",
-    });
-  });
-
-  it("returns [section] for data with no sub-pages", () => {
-    const result = breadcrumbFor("/data");
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ href: "/data", label: "Data" });
-  });
-
-  it("returns [section] for settings", () => {
-    const result = breadcrumbFor("/settings");
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      href: "/settings",
-      label: "Settings",
-    });
+describe("sectionFor", () => {
+  it("highlights the right sidebar section", () => {
+    expect(sectionFor("/")).toBe("campaigns");
+    expect(sectionFor(`/campaigns/${ID}/predict`)).toBe("campaigns");
+    expect(sectionFor("/scale-up")).toBe("scale-up");
+    expect(sectionFor("/settings/security")).toBe("settings");
   });
 });

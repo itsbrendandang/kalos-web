@@ -16,7 +16,7 @@
  */
 
 import type { Campaign, LatestResult } from "@/lib/api";
-import { CAMPAIGN_STAGES, type StageKey } from "@/lib/routes";
+import { CAMPAIGN_STAGES, CYCLE_STEPS, campaignHref, stageHref, type CycleKey, type StageKey } from "@/lib/routes";
 import { inFlight, measured, type ActiveCampaign } from "@/lib/workbench";
 
 export type StepState = "done" | "current" | "upcoming";
@@ -55,11 +55,9 @@ export const displayRound = (engineRound: number): number => engineRound + 1;
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-function steps(states: Record<StageKey, [StepState, string]>): StageStep[] {
-  return CAMPAIGN_STAGES.map((s) => ({ key: s.key, label: s.label, href: s.href, state: states[s.key][0], detail: states[s.key][1] }));
+function stepsFor(id: string, states: Record<StageKey, [StepState, string]>): StageStep[] {
+  return CAMPAIGN_STAGES.map((s) => ({ key: s.key, label: s.label, href: stageHref(id, s.key), state: states[s.key][0], detail: states[s.key][1] }));
 }
-
-const href = (stage: StageKey) => `/campaign/${stage}`;
 
 /**
  * The engine's `campaign.stage` and `next_action` win when present; the local
@@ -68,8 +66,9 @@ const href = (stage: StageKey) => `/campaign/${stage}`;
 export function campaignStage(
   latest: Pick<LatestResult, "has_data"> & { proposals?: readonly unknown[] },
   campaign: Campaign,
+  campaignId: string,
 ): CampaignStage {
-  const local = localStage(latest, campaign);
+  const local = localStage(latest, campaign, campaignId);
   const { stage, next_action: next } = campaign;
   const meta = (key: string) => CAMPAIGN_STAGES.find((s) => s.key === key);
   // A malformed engine payload must never throw inside the shell: fall back.
@@ -79,8 +78,8 @@ export function campaignStage(
     // The engine sends `round` already 1-based (display round); do not convert again.
     round: stage.round,
     started: stage.started,
-    steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key)!.label, href: meta(s.key)!.href, state: s.state, detail: s.detail })),
-    next: next ? { ...next, href: meta(next.stage)!.href } : local.next,
+    steps: stage.steps.map((s) => ({ key: s.key, label: meta(s.key)!.label, href: stageHref(campaignId, s.key), state: s.state, detail: s.detail })),
+    next: next ? { ...next, href: stageHref(campaignId, next.stage) } : local.next,
   };
 }
 
@@ -91,7 +90,10 @@ export function campaignStage(
 function localStage(
   latest: Pick<LatestResult, "has_data"> & { proposals?: readonly unknown[] },
   campaign: Campaign,
+  id: string,
 ): CampaignStage {
+  const steps = (states: Record<StageKey, [StepState, string]>) => stepsFor(id, states);
+  const href = (stage: StageKey) => stageHref(id, stage);
   const active: ActiveCampaign | null = campaign.has_campaign ? campaign : null;
   const started = active?.pending.length ?? 0;
   const awaiting = active ? inFlight(active).length : 0;
@@ -201,4 +203,28 @@ export function bestDeltaFromPreviousRound(
   const [prev, cur] = [campaign.history[i - 1], campaign.history[i]];
   if (prev.best == null || cur.best == null) return null;
   return { delta: cur.best - prev.best, previousRound: prev.round };
+}
+
+export type CycleStepState = {
+  key: CycleKey;
+  n: 1 | 2 | 3;
+  label: string;
+  href: string;
+  state: StepState;
+  /** The engine's detail for the stage that decides this step's state. */
+  detail: string;
+};
+
+/**
+ * The Harmonize / Predict / Validate view of the engine's five stages: a
+ * step is done when all its stages are done, current when any is current,
+ * otherwise upcoming. The detail is the current (else last) stage's own text.
+ */
+export function cycleSteps(stage: Pick<CampaignStage, "steps">, campaignId: string): CycleStepState[] {
+  return CYCLE_STEPS.map((c) => {
+    const mine = stage.steps.filter((s) => c.stages.includes(s.key));
+    const state: StepState = mine.some((s) => s.state === "current") ? "current" : mine.length > 0 && mine.every((s) => s.state === "done") ? "done" : "upcoming";
+    const shown = mine.find((s) => s.state === "current") ?? [...mine].reverse().find((s) => s.detail) ?? mine[0];
+    return { key: c.key, n: c.n, label: c.label, href: campaignHref(campaignId, c.key), state, detail: shown?.detail ?? "" };
+  });
 }

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Campaign, CampaignRun, EngineNextAction, EngineStage } from "@/lib/api";
-import { bestDeltaFromPreviousRound, campaignStage, displayRound, type StepState } from "@/lib/campaign-stage";
-import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
-import { breadcrumbFor, navKeyFor, titleFor } from "@/lib/routes";
+import { bestDeltaFromPreviousRound, campaignStage as stageFor, cycleSteps, displayRound, type StepState } from "@/lib/campaign-stage";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 const run = (id: string, result: number | null): CampaignRun => ({
@@ -29,6 +27,9 @@ const campaign = (pending: CampaignRun[], round = 0): ActiveCampaign => ({
   n_measured: pending.filter((r) => !r.awaiting).length,
 });
 
+const ID = "cmp_test";
+const campaignStage = (latest: Parameters<typeof stageFor>[0], c: Campaign) => stageFor(latest, c, ID);
+
 const NONE: Campaign = { has_campaign: false };
 const states = (s: ReturnType<typeof campaignStage>): StepState[] => s.steps.map((x) => x.state);
 
@@ -37,7 +38,7 @@ describe("campaignStage", () => {
     const s = campaignStage({ has_data: false }, NONE);
     expect(s.round).toBeNull();
     expect(states(s)).toEqual(["current", "upcoming", "upcoming", "upcoming", "upcoming"]);
-    expect(s.next).toMatchObject({ stage: "setup", action: "Upload a run sheet", href: "/campaign/setup" });
+    expect(s.next).toMatchObject({ stage: "setup", action: "Upload a run sheet", href: `/campaigns/${ID}/harmonize` });
   });
 
   it("analysis but no runs started: Plan is current for round 1", () => {
@@ -46,7 +47,7 @@ describe("campaignStage", () => {
     expect(states(s)).toEqual(["done", "current", "upcoming", "upcoming", "upcoming"]);
     expect(s.steps[0].detail).toBe("Run sheet analyzed");
     expect(s.steps[1].detail).toBe("5 recipes proposed");
-    expect(s.next).toMatchObject({ stage: "plan", action: "Review and start round 1", href: "/campaign/plan" });
+    expect(s.next).toMatchObject({ stage: "plan", action: "Review and start round 1", href: `/campaigns/${ID}/predict` });
   });
 
   it("an analysis without a seeded campaign still points at Plan", () => {
@@ -60,7 +61,7 @@ describe("campaignStage", () => {
     expect(s.round).toBe(3);
     expect(states(s)).toEqual(["done", "done", "current", "upcoming", "upcoming"]);
     expect(s.steps[1].detail).toBe("3 runs started");
-    expect(s.next).toMatchObject({ stage: "record", action: "Record 3 results", href: "/campaign/record" });
+    expect(s.next).toMatchObject({ stage: "record", action: "Record 3 results", href: `/campaigns/${ID}/validate#record` });
   });
 
   it("partial recording keeps Run current and shows progress on Record", () => {
@@ -75,7 +76,7 @@ describe("campaignStage", () => {
     const s = campaignStage({ has_data: true }, campaign([run("a", 5.1), run("b", 4.2)], 1));
     expect(states(s)).toEqual(["done", "done", "done", "done", "current"]);
     expect(s.steps.filter((x) => x.state === "done").every((x) => x.detail.length > 0)).toBe(true);
-    expect(s.next).toMatchObject({ stage: "learn", action: "Learn from round 2", href: "/campaign/learn" });
+    expect(s.next).toMatchObject({ stage: "learn", action: "Learn from round 2", href: `/campaigns/${ID}/validate#learn` });
   });
 
   it("started runs win over a missing analysis (no fake upload prompt)", () => {
@@ -83,7 +84,7 @@ describe("campaignStage", () => {
   });
 
   it("exactly one stage is current, with every done stage before it", () => {
-    const cases = [campaign([]), campaign([run("a", null)]), campaign([run("a", 1)]), DEMO_CAMPAIGN];
+    const cases = [campaign([]), campaign([run("a", null)]), campaign([run("a", 1)]), campaign([run("a", 1), run("b", null)], 3)];
     for (const st of [campaignStage({ has_data: false }, NONE), ...cases.map((c) => campaignStage({ has_data: true }, c))]) {
       const at = states(st).indexOf("current");
       expect(states(st).filter((x) => x === "current")).toHaveLength(1);
@@ -92,8 +93,8 @@ describe("campaignStage", () => {
     }
   });
 
-  it("the demo campaign reads as round 4 with 3 results to record", () => {
-    const s = campaignStage({ has_data: true }, DEMO_CAMPAIGN);
+  it("round 4 with 3 of 5 runs still awaiting reads as Record 3 results", () => {
+    const s = campaignStage({ has_data: true }, campaign([run("a", 1), run("b", 2), run("c", null), run("d", null), run("e", null)], 3));
     expect(s.round).toBe(4);
     expect(s.next.action).toBe("Record 3 results");
   });
@@ -101,8 +102,17 @@ describe("campaignStage", () => {
 
 describe("bestDeltaFromPreviousRound", () => {
   it("compares the current round's measured best with the previous round's", () => {
-    expect(bestDeltaFromPreviousRound(DEMO_CAMPAIGN)?.previousRound).toBe(2);
-    expect(bestDeltaFromPreviousRound(DEMO_CAMPAIGN)?.delta).toBeCloseTo(0.22);
+    const three: ActiveCampaign = {
+      ...campaign([], 3),
+      history: [
+        { round: 0, best: 1.0, n_base: 30 },
+        { round: 1, best: 1.1, n_base: 35 },
+        { round: 2, best: 1.2, n_base: 40 },
+        { round: 3, best: 1.42, n_base: 45 },
+      ],
+    };
+    expect(bestDeltaFromPreviousRound(three)?.previousRound).toBe(2);
+    expect(bestDeltaFromPreviousRound(three)?.delta).toBeCloseTo(0.22);
   });
 
   it("is null before any re-analysis, or when a best is missing", () => {
@@ -118,27 +128,40 @@ describe("bestDeltaFromPreviousRound", () => {
   });
 });
 
-describe("routes", () => {
-  it("maps every page to its sidebar section", () => {
-    expect(navKeyFor("/")).toBe("campaign");
-    expect(navKeyFor("/campaign/record")).toBe("campaign");
-    expect(navKeyFor("/library/plate")).toBe("library");
-    expect(navKeyFor("/projects/p-cho/report")).toBe("projects");
-    expect(navKeyFor("/settings")).toBe("settings");
+describe("cycleSteps (Harmonize / Predict / Validate)", () => {
+  const keys = (x: ReturnType<typeof cycleSteps>) => x.map((c) => [c.key, c.state]);
+
+  it("no analysis: Harmonize is current", () => {
+    const c = cycleSteps(campaignStage({ has_data: false }, NONE), ID);
+    expect(keys(c)).toEqual([
+      ["harmonize", "current"],
+      ["predict", "upcoming"],
+      ["validate", "upcoming"],
+    ]);
+    expect(c.map((x) => x.href)).toEqual([`/campaigns/${ID}/harmonize`, `/campaigns/${ID}/predict`, `/campaigns/${ID}/validate`]);
   });
 
-  it("builds a section > page breadcrumb", () => {
-    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Campaign", "Plan"]);
-    expect(breadcrumbFor("/library").map((r) => r.label)).toEqual(["Library"]);
-    expect(breadcrumbFor("/projects").map((r) => r.label)).toEqual(["Projects"]);
+  it("batch proposed: Predict is current, with the engine's detail", () => {
+    const c = cycleSteps(campaignStage({ has_data: true, proposals: [1, 2, 3] }, campaign([])), ID);
+    expect(keys(c)).toEqual([
+      ["harmonize", "done"],
+      ["predict", "current"],
+      ["validate", "upcoming"],
+    ]);
+    expect(c[1].detail).toBe("3 recipes proposed");
   });
 
-  it("titles every tab", () => {
-    expect(titleFor("/")).toBe("Overview");
-    expect(titleFor("/campaign/learn")).toBe("Learn");
-    expect(titleFor("/library/scale-up")).toBe("Scale-up readout");
-    expect(titleFor("/data")).toBe("Data");
-    expect(titleFor("/projects/p-cho/report")).toBe("Report");
+  it("runs awaiting results or ready to learn: Validate is current (run, record and learn are one step)", () => {
+    const awaiting = cycleSteps(campaignStage({ has_data: true }, campaign([run("a", null), run("b", 4)])), ID);
+    expect(keys(awaiting)[2]).toEqual(["validate", "current"]);
+    expect(awaiting[2].detail).toBe("1 awaiting results");
+    const learn = cycleSteps(campaignStage({ has_data: true }, campaign([run("a", 5)])), ID);
+    expect(keys(learn)).toEqual([
+      ["harmonize", "done"],
+      ["predict", "done"],
+      ["validate", "current"],
+    ]);
+    expect(learn[2].detail).toBe("Ready to update the model");
   });
 });
 
@@ -168,8 +191,8 @@ describe("engine stage", () => {
     expect(s.round).toBe(7);
     expect(s.started).toBe(4);
     expect(s.steps.map((x) => x.detail)).toEqual(["engine setup", "engine plan", "engine run", "engine record", "engine learn"]);
-    expect(s.steps[4]).toMatchObject({ key: "learn", label: "Learn", href: "/campaign/learn", state: "current" });
-    expect(s.next).toEqual({ stage: "learn", action: "Engine action", reason: "Engine reason.", href: "/campaign/learn" });
+    expect(s.steps[4]).toMatchObject({ key: "learn", label: "Learn", href: `/campaigns/${ID}/validate#learn`, state: "current" });
+    expect(s.next).toEqual({ stage: "learn", action: "Engine action", reason: "Engine reason.", href: `/campaigns/${ID}/validate#learn` });
   });
 
   it("falls back to the local derivation on an unknown step key, next stage or step count", () => {

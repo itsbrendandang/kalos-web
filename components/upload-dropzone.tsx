@@ -62,7 +62,7 @@ export function UploadDropzone({
           if (f) onFile(f);
         }}
         className={cn(
-          "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors",
+          "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors",
           drag ? "border-accent bg-accent-soft" : "border-border bg-card hover:bg-blue-soft",
           disabled && "pointer-events-none opacity-60",
           className,

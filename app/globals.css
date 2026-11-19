@@ -258,6 +258,16 @@
   --text-code: 0.8125rem;
   --text-code--line-height: 1.125rem;
 
+  /* Semantic spacing: the padding and gaps that recur on panels and stacks, so
+   * Card/Callout/Panel/Section stop each hard-coding p-5 / px-4 py-3.5 / gap-4
+   * independently. Tailwind v4 turns these into p-panel / gap-stack / p-inset
+   * utilities. The raw 8px grid stays for one-off spacing; reach for a token
+   * when a surface's padding is part of the design language, not an accident. */
+  --spacing-panel: 1.25rem;  /* 20px - a bordered surface's padding (was p-5) */
+  --spacing-inset: 1.5rem;   /* 24px - an open Card's padding (was p-6) */
+  --spacing-stack: 1rem;     /* 16px - the gap between stacked blocks (was gap-4) */
+  --spacing-tight: 0.875rem; /* 14px - callout/tile inset (was px-4 py-3.5-ish) */
+
   /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
    * are Tailwind's defaults, so the scale is not overridden. */
 

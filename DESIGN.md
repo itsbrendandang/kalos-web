@@ -121,6 +121,26 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 - 8px grid.
 - Content max width is 1120px (`max-w-[1120px]` in `components/workbench/app-shell.tsx`), with full width allowed for tables and charts.
   Page padding is 24px on desktop and 16px on mobile.
+- **Semantic spacing tokens** (`@theme`, used for surfaces whose padding is part
+  of the design language, not an accident): `--spacing-inset` 24px (an open
+  `Card`), `--spacing-panel` 20px (a bordered surface), `--spacing-stack` 16px
+  (the gap between stacked blocks), `--spacing-tight` 14px (a callout or tile).
+  Tailwind v4 exposes them as `p-inset` / `p-panel` / `gap-stack` / `p-tight`.
+  `Card` takes a typed `padding` prop (`inset` | `panel` | `none`) so a surface
+  sets its padding by name rather than restacking utilities. The raw 8px grid
+  (`p-4`, `gap-2`) stays for one-off spacing.
+- **One bordered-box recipe**: `rounded-xl` + `border-border` + `bg-surface` +
+  `p-panel`. `Card` (bordered), the Tremor `Card`, and `kit/section.tsx`'s
+  `Panel` all resolve to it; `Panel` delegates to `<Card bordered padding="panel">`.
+  Do not hand-roll a fourth bordered box.
+- **Tone marks are `size-4`** everywhere (`Callout`, `Verdict`), so status icons
+  align across a page.
+- Numbers are `tabular-nums`; no `font-mono` for figures (mono is for ids only).
+- Type sizes come from the role tokens (`text-heading`, `text-caption`, ...), not
+  arbitrary `text-[Npx]`.
+  `design-guards.test.ts` holds a burn-down ceiling on `text-[Npx]`, `uppercase`,
+  `rounded-2xl` and the `shadow-{sm..xl}` scale: each count may only decrease, so
+  a new violation fails the build.  Lower the ceiling as uses are removed.
 - Radius: `rounded-lg` (8px) for controls and `rounded-xl` (12px) for panels.
   Tailwind's defaults are not overridden.
   No `rounded-2xl` boxes, and no pill badges unless they show status.
@@ -161,5 +181,10 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 `app/globals.css` keeps a block of older token names (`--card`, `--muted`, `--blue*`, `--green*`, `--amber*`, `--red`, `--series-*` and similar), each mapped onto a current token.
 They exist only because some pages (Data, the Library tools, the campaign stage pages, Projects) have not been rebuilt on the new kit yet.
 Do not use them in new code, and delete an alias once nothing reads it.
+`design-guards.test.ts` holds a burn-down ceiling on alias reads (`bg-card`,
+`text-muted`, `--blue*`, `font-head`, ...): the count may only go down, and when
+it reaches 0 the whole alias block in `globals.css` can be deleted. Canonical
+replacements: `bg-card` → `bg-surface`, `text-muted` → `text-fg-muted`, `--blue*`
+→ `--accent*`, `font-head`/`text-[15px]` → `text-heading`.
 
 Replaced the earlier blue and Satoshi system in October 2026.

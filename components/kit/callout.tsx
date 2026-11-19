@@ -34,7 +34,7 @@ export function Callout({
 }) {
   const Icon = icon ?? TONE_ICON[tone];
   return (
-    <div className={cn("flex items-start gap-3 rounded-xl px-4 py-3.5", SURFACE[tone], className)}>
+    <div className={cn("flex items-start gap-3 rounded-xl p-tight", SURFACE[tone], className)}>
       <Icon className={cn("mt-0.5 size-4 shrink-0", TONE_TEXT[tone])} aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">{title}</p>

@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,7 +37,10 @@ export function Section({
   );
 }
 
-/** A bordered region (12px radius, hairline, no shadow), for content that needs a boundary. */
+/** A bordered region (12px radius, hairline, no shadow), for content that needs a
+ *  boundary. The one bordered-box recipe, shared with the Tremor `Card` (same
+ *  rounded-xl / border-border / bg-surface / p-5) so the app has a single
+ *  bordered surface, not three. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("rounded-xl border border-border bg-surface p-5", className)} {...props} />;
+  return <Card bordered padding="panel" className={className} {...props} />;
 }

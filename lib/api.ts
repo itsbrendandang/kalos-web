@@ -12,6 +12,10 @@ import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
+import { formatValue } from "@/lib/num";
+
+/** A statistic at 2 decimals with a U+2212 minus, through lib/num (never toFixed). */
+const fixed2 = (v: number): string => formatValue(v, { quantity: "score" }).value;
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -438,6 +442,11 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   /** Search range [low, high] of each continuous input; used to flag proposals at the edge. Absent on older engine builds. */
   feature_ranges?: Record<string, [number, number]>;
   proposals: Proposal[];
+  /**
+   * Out-of-fold (held-out) pairs, each `[measured, predicted]`: the engine
+   * writes `zip(oof_a, oof_p)` (kalos-engine analysis.py). The first value is
+   * the sheet's measured target, the second the model's held-out prediction.
+   */
   oof: [number, number][];
   /**
    * Input columns whose search range was narrowed because some observed
@@ -668,7 +677,7 @@ export function reliabilityReason(
 ): string {
   const rel = d.reliability;
   if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
-  const floor = rel.spearman_floor.toFixed(2);
+  const floor = fixed2(rel.spearman_floor);
   if (!rel.clears_floor) return `Below the ${floor} floor`;
   if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
   return `Clears the ${floor} floor`;
@@ -710,7 +719,7 @@ export function reliabilityVerdict(
   const rho = rel?.spearman ?? d.cv_spearman ?? null;
   const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
   const floor = rel?.spearman_floor ?? null;
-  const floorText = floor != null ? ` (${floor.toFixed(2)})` : "";
+  const floorText = floor != null ? ` (${fixed2(floor)})` : "";
   if (rho == null) {
     return {
       state: "insufficient",
@@ -802,10 +811,10 @@ export const Z_STD_TOLERANCE = 0.1;
 export function calibrationNote(cal: Calibration | null | undefined): string | null {
   if (!cal) return null;
   if (!cal.available) return `Not scored - ${cal.reason ?? "not enough held-out points"}.`;
-  const parts = [`ECE ${cal.ece != null ? cal.ece.toFixed(2) : "n/a"}`];
+  const parts = [`ECE ${cal.ece != null ? fixed2(cal.ece) : "n/a"}`];
   if (cal.z_std != null) {
     const shape = Math.abs(cal.z_std - 1) <= Z_STD_TOLERANCE ? "close to calibrated" : cal.z_std > 1 ? "bands read narrow, overconfident" : "bands read wide";
-    parts.push(`z_std ${cal.z_std.toFixed(2)} (${shape})`);
+    parts.push(`z_std ${fixed2(cal.z_std)} (${shape})`);
   }
   return `${parts.join(" - ")}, n=${cal.n}.`;
 }
@@ -823,8 +832,8 @@ export function repeatSpreadNote(
 ): string | null {
   const finite = (perRepeat ?? []).filter((v): v is number => v != null);
   if (finite.length < 2) return null;
-  const lo = Math.min(...finite).toFixed(2);
-  const hi = Math.max(...finite).toFixed(2);
+  const lo = fixed2(Math.min(...finite));
+  const hi = fixed2(Math.max(...finite));
   return `${nRepeats ?? finite.length} repeats: ${lo} to ${hi}`;
 }
 
@@ -838,7 +847,7 @@ export function repeatSpreadNote(
 export function cvLogoNote(logo: CvLogo | null | undefined): string | null {
   if (!logo) return null;
   if (logo.spearman == null) return logo.reason ?? "Not scored.";
-  return `rho ${logo.spearman.toFixed(2)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
+  return `rho ${fixed2(logo.spearman)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
 }
 
 /**
@@ -874,7 +883,7 @@ export function groupMeanBaselineVerdict(
     return { text: baseline.reason ?? "Not scored.", prominent: false };
   }
   const beats = cvSpearman != null && cvSpearman > baseline.spearman;
-  const text = `Group-mean baseline rho ${baseline.spearman.toFixed(2)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
+  const text = `Group-mean baseline rho ${fixed2(baseline.spearman)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
     baseline.interpretation ? ` - ${baseline.interpretation}` : ""
   }`;
   return { text, prominent: !beats };
@@ -890,7 +899,7 @@ export function groupMeanBaselineVerdict(
 export function designBoxExclusionsNote(exclusions: DesignBoxExclusion[] | null | undefined): string | null {
   if (!exclusions || exclusions.length === 0) return null;
   const parts = exclusions.map(
-    (e) => `${e.column} (${e.lower.toFixed(2)} to ${e.upper.toFixed(2)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
+    (e) => `${e.column} (${fixed2(e.lower)} to ${fixed2(e.upper)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
   );
   return `Search box narrowed for ${exclusions.length} feature${exclusions.length === 1 ? "" : "s"}: ${parts.join("; ")}.`;
 }

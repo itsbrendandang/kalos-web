@@ -78,3 +78,42 @@ describe("no side-stripe borders", () => {
     }
   });
 });
+
+// Numbers and charts (VIZ_SPEC section 4 "Design guards" and section 8).
+// Every number goes through lib/num.ts (precision from the engine's
+// uncertainty, U+2212 minus, designed n/a states), charts are visx SVG with
+// CSS-variable colors, and a coverage percentage is never typed by hand: it
+// comes from an engine field (conformal_coverage, a ci95 field) so it can
+// never silently disagree with what the engine computed.
+describe("numbers and charts (VIZ_SPEC)", () => {
+  const code = sources(/\.(tsx?)$/);
+  const offenders = (re: RegExp, files = code) =>
+    files.flatMap(({ file, text }) =>
+      text
+        .split("\n")
+        .map((line, i) => ({ file, line, i }))
+        .filter(({ line }) => re.test(line) && !/^\s*(\/\/|\*|\/\*)/.test(line))
+        .map(({ file, i, line }) => `${file}:${i + 1}: ${line.trim()}`),
+    );
+
+  it("no recharts, Tremor chart copies or the old lazy chart loader", () => {
+    expect(offenders(/from\s+["'](recharts|@\/components\/tremor\/[^"']+|@\/components\/kit\/lazy-chart)["']/)).toEqual([]);
+  });
+
+  it("no toFixed / toLocaleString in components or pages (format through lib/num.ts)", () => {
+    expect(offenders(/\.(toFixed|toLocaleString)\(/)).toEqual([]);
+  });
+
+  it("no lib/format.ts (retired for lib/num.ts)", () => {
+    expect(offenders(/from\s+["']@\/lib\/format["']/)).toEqual([]);
+  });
+
+  it("no hex colors in chart components (CSS variables only, so dark mode needs no re-render)", () => {
+    const viz = code.filter(({ file }) => file.startsWith(path.join("components", "viz")));
+    expect(offenders(/#[0-9a-fA-F]{3,8}\b(?![\w-]*\))/, viz).filter((l) => !/href=|url\(#|id=|`#/.test(l))).toEqual([]);
+  });
+
+  it("no hand-typed 90% / 95% coverage in components or pages (take it from the engine field)", () => {
+    expect(offenders(/["'`>][^"'`<]*\b(90|95)%/)).toEqual([]);
+  });
+});

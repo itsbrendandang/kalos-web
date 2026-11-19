@@ -42,6 +42,10 @@ describe("columnRows (column provenance table)", () => {
     ]);
     expect(rows[0].raw).toBe("dropped_id");
   });
+  it("names the target by the analysis goal (minimized when the setup says so)", () => {
+    const [row] = columnRows({ ...base, goal: "minimize", provenance: [prov("y", "target", 10, 0)] });
+    expect(row.label).toBe("Target (minimized)");
+  });
   it("is empty without provenance, never a guessed column list", () => {
     expect(columnRows(base)).toEqual([]);
   });

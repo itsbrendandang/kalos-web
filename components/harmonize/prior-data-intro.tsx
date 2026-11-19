@@ -3,9 +3,9 @@ import { DEFAULT_MAX_UPLOAD_MB } from "@/lib/upload-limits";
 
 /**
  * First run: what Kalos needs from the prior data, before anything is uploaded. Every
- * statement is an engine rule (kalos-engine docs/UPLOADS.md): one sheet, at least 6 complete
- * rows, the target is always maximized, and the search box is the observed range of each
- * input (the engine takes no user bounds).
+ * statement is an engine rule (kalos-engine docs/UPLOADS.md, ENGINE_API_V2 section 8): one sheet,
+ * at least 6 complete rows, a goal to maximize or minimize the target, and a search box that is the
+ * observed range of each input, which user bounds can narrow but never widen.
  */
 export function PriorDataIntro() {
   return (
@@ -28,12 +28,12 @@ export function PriorDataIntro() {
           <li>Legacy Excel 97-2003 (.xls) files are refused. Save the sheet as .xlsx or CSV first.</li>
         </Block>
         <Block title="The goal">
-          <li>Kalos improves one outcome column, the target. It suggests one from your column names; you can switch it after the upload.</li>
-          <li>The engine always maximizes the target. There is no minimize option: to lower something, upload a column where higher is better.</li>
+          <li>Kalos improves one outcome column, the target. You choose it after picking the sheet, before anything is sent.</li>
+          <li>You choose whether to maximize or minimize it, and can name its unit. The unit is a label only; values are never converted.</li>
         </Block>
         <Block title="Operating boundaries">
           <li>Kalos searches inside the range each input already covers in your data, from its lowest to its highest observed value.</li>
-          <li>You cannot enter your own bounds; the engine does not support them. To search a wider range, add runs that cover it.</li>
+          <li>Bounds and linear constraints you set can narrow that range, never widen it: Kalos does not extrapolate. To search a wider range, add runs that cover it.</li>
         </Block>
       </div>
     </section>

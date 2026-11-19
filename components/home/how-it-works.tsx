@@ -71,15 +71,15 @@ export function WhatKalosNeeds({ className }: { className?: string }) {
         <h2 className="text-heading text-fg">What Kalos needs</h2>
         <ul className="flex flex-col gap-3 text-body text-fg-muted">
           <li>
-            <span className="text-fg">One target to maximize.</span> A numeric column in your sheet, such as titer.
+            <span className="text-fg">One target to maximize or minimize.</span> A numeric column in your sheet, such as titer or an impurity.
           </li>
           <li>
-            <span className="text-fg">A sheet of prior runs.</span> One row per run, with the process inputs and the measured target (.csv, .tsv, .xlsx or
-            .xls).
+            <span className="text-fg">A sheet of prior runs.</span> One row per run, with the process inputs and the measured target (.csv, .tsv or
+            .xlsx).
           </li>
           <li>
-            <span className="text-fg">No bounds to type in.</span> Operating boundaries come from the range your runs already cover, and proposals stay
-            inside it.
+            <span className="text-fg">Bounds only if you want them.</span> Proposals stay inside the range your runs already cover. You can narrow it with
+            bounds and linear constraints, but never widen it.
           </li>
         </ul>
       </div>

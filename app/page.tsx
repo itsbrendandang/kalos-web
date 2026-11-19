@@ -2,6 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ArchiveDialog, type ArchiveRequest } from "@/components/home/archive-dialog";
+import { ArchivedCampaigns } from "@/components/home/archived-campaigns";
 import { CampaignList } from "@/components/home/campaign-list";
 import { DemoCampaignPreview } from "@/components/home/demo-preview";
 import { HowItWorks, WhatKalosNeeds } from "@/components/home/how-it-works";
@@ -12,7 +14,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { ErrorState } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCampaigns } from "@/hooks/use-engine";
-import type { CampaignMeta } from "@/lib/api";
+import type { CampaignMeta, CampaignSummaryRow } from "@/lib/api";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatValue } from "@/lib/num";
 import { sortCampaigns } from "@/lib/home";
@@ -21,7 +23,9 @@ import { sortCampaigns } from "@/lib/home";
  * Campaigns home. The engine's campaign list decides what shows: while it
  * loads, a skeleton; if it fails, a connection problem (never "no
  * campaigns"); with zero campaigns, the first-run explanation and one action;
- * otherwise every campaign with its own summary, and a form for a new one.
+ * otherwise every campaign with the engine's summary fields (one list request,
+ * never one per campaign), a form for a new one, and the archived campaigns
+ * one click down.
  * `?new=1` (the sidebar's "New campaign") focuses the name field.
  */
 export default function HomePage() {
@@ -54,6 +58,7 @@ function Home() {
 }
 
 function FirstRun({ autoFocus }: { autoFocus: boolean }) {
+  const archive = useArchiveFlow();
   return (
     <div className="flex flex-col gap-14 py-4 md:py-8">
       <section aria-labelledby="hero-title" className="flex max-w-[44rem] flex-col gap-5">
@@ -70,19 +75,42 @@ function FirstRun({ autoFocus }: { autoFocus: boolean }) {
       <HowItWorks />
       <WhatKalosNeeds />
       {DEMO_MODE ? <DemoCampaignPreview /> : null}
+      <Disclosure summary="Archived campaigns" className="border-b">
+        <ArchivedCampaigns version={archive.version} onUnarchive={(c) => archive.ask(c, "unarchive")} />
+      </Disclosure>
+      {archive.dialog}
     </div>
   );
 }
 
-function CampaignsOverview({ list, stale, autoFocus }: { list: CampaignMeta[]; stale: boolean; autoFocus: boolean }) {
+/** One archive / unarchive confirmation for the page; after either, the campaign list and the archived list reload. */
+function useArchiveFlow() {
   const campaigns = useCampaigns();
+  const [request, setRequest] = useState<ArchiveRequest | null>(null);
+  const [version, setVersion] = useState(0);
+  const dialog = (
+    <ArchiveDialog
+      request={request}
+      onOpenChange={(open) => !open && setRequest(null)}
+      onDone={() => {
+        setVersion((n) => n + 1);
+        void campaigns.refresh();
+      }}
+    />
+  );
+  return { version, dialog, ask: (c: Pick<CampaignMeta, "id" | "name">, action: ArchiveRequest["action"]) => setRequest({ campaign: c, action }) };
+}
+
+function CampaignsOverview({ list, stale, autoFocus }: { list: CampaignSummaryRow[]; stale: boolean; autoFocus: boolean }) {
+  const campaigns = useCampaigns();
+  const archive = useArchiveFlow();
   const [renaming, setRenaming] = useState<CampaignMeta | null>(null);
   const sorted = sortCampaigns(list);
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
         title="Campaigns"
-        description="Each campaign maximizes one target, round by round: harmonize the runs you have, predict the next batch, validate it in your lab."
+        description="Each campaign improves one target, round by round: harmonize the runs you have, predict the next batch, validate it in your lab."
       />
       <section aria-labelledby="new-title" className="flex flex-col gap-2">
         <h2 id="new-title" className="text-heading text-fg">
@@ -99,11 +127,17 @@ function CampaignsOverview({ list, stale, autoFocus }: { list: CampaignMeta[]; s
             {stale ? "Could not refresh the list just now (connection problem); showing the last answer." : "Most recently updated first."}
           </p>
         </div>
-        <CampaignList campaigns={sorted} onRename={setRenaming} />
+        <CampaignList campaigns={sorted} onRename={setRenaming} onArchive={(c) => archive.ask(c, "archive")} />
       </section>
-      <Disclosure summary="How a campaign runs">
-        <HowItWorks className="pt-2" titled={false} />
-      </Disclosure>
+      <div>
+        <Disclosure summary="Archived campaigns">
+          <ArchivedCampaigns version={archive.version} onUnarchive={(c) => archive.ask(c, "unarchive")} />
+        </Disclosure>
+        <Disclosure summary="How a campaign runs" className="border-b">
+          <HowItWorks className="pt-2" titled={false} />
+        </Disclosure>
+      </div>
+      {archive.dialog}
       <RenameDialog campaign={renaming} onOpenChange={(open) => !open && setRenaming(null)} onRenamed={() => void campaigns.refresh()} />
     </div>
   );

@@ -183,7 +183,8 @@ function SheetReading({ analysis }: { analysis: HarmonizeAnalysis }) {
 
 /**
  * The search box: each input's observed low and high, as the engine reports them. Labelled as the box
- * the optimizer searches, never as an operating range (the engine computes none). Low and high share
+ * the optimizer searches, never as an operating range; campaign-setup bounds narrow it (shown in the
+ * setup section), never widen it. Low and high share
  * the precision the input's range supports (VIZ_SPEC 2.4), the same precision Predict shows setpoints at.
  */
 export function DesignSpace({ analysis }: { analysis: HarmonizeAnalysis }) {
@@ -194,7 +195,7 @@ export function DesignSpace({ analysis }: { analysis: HarmonizeAnalysis }) {
     <Section
       id="design-space"
       title="Explored design space"
-      description="The lowest and highest value of each input in your data. This is the search box: Kalos proposes recipes inside it. It is not an operating range, and the engine takes no bounds you enter."
+      description="The lowest and highest value of each input in your data. This is the search box: Kalos proposes recipes inside it. It is not an operating range. Bounds in the campaign setup can narrow it, never widen it."
     >
       {rows.length === 0 ? (
         <p className="text-body text-fg-muted">This analysis lists no inputs.</p>

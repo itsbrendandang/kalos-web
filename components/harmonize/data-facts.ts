@@ -22,6 +22,7 @@ export type HarmonizeAnalysis = Pick<
   | "design_box_exclusions"
   | "auto_categorical"
   | "categorical_features"
+  | "goal"
   | "n_dropped_incomplete"
   | "n_censored_excluded"
   | "data_drops"
@@ -114,7 +115,7 @@ export function columnRows(a: HarmonizeAnalysis, ctx: RolesContext = {}): Column
     const coerced = num(p.coerced_cells);
     const source: ColumnRow["source"] = p.source === "declared" || p.source === "inferred" ? p.source : null;
     const base = { name: p.name, raw: p.status, coerced, nonNull: num(p.non_null), source };
-    if (c.kind === "target") return { ...base, status: "target", label: "Target (maximized)", warning: null };
+    if (c.kind === "target") return { ...base, status: "target", label: a.goal === "minimize" ? "Target (minimized)" : "Target (maximized)", warning: null };
     if (c.kind === "input") {
       if (cats.has(p.name)) {
         return { ...base, status: "kept", label: auto.has(p.name) ? "Input, categorical (detected)" : "Input, categorical", warning: null };

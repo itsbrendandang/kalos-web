@@ -13,6 +13,8 @@ import type { SheetColumn } from "@/lib/sheet-roles";
  * measured-output column can be fixed before the fit is trusted. Re-fitting sends
  * the chosen columns as explicit roles; "Looks right" confirms the current ones.
  * Confirmation is advisory by design (the fit is already saved; no route is blocked on it).
+ * This is the ONE place on Harmonize where the target can be changed after an upload (the goal and the
+ * unit live in the campaign setup).
  */
 export function ColumnConfirm({
   columns,
@@ -50,11 +52,11 @@ export function ColumnConfirm({
         <h3 id="column-confirm-title" className="text-heading text-fg">
           Did Kalos read your columns right?
         </h3>
-        <p className="mt-0.5 text-body text-fg-muted">Check the target and the inputs before you trust this fit. Changing them re-fits the model from the same file.</p>
+        <p className="mt-0.5 text-body text-fg-muted">Check the target and the inputs before you trust this fit. Changing them re-fits the model from the same file, with the same campaign setup.</p>
       </div>
       <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-label text-fg sm:max-w-sm">
-          Maximize (target)
+          Target
           <select
             className="rounded-lg border border-border-strong bg-surface px-2 py-1.5 text-body"
             value={tgt}

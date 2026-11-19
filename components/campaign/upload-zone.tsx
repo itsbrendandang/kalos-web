@@ -44,7 +44,7 @@ export function UploadZone({
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
-        aria-label={label ?? "Upload a run sheet (CSV, TSV or Excel .xlsx)"}
+        aria-label={label ?? "Choose a run sheet (CSV, TSV or Excel .xlsx)"}
         onClick={open}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {

@@ -3,6 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import analysisFixture from "./fixtures/harmonize-analysis.json";
+import refusedSetup from "./fixtures/setup-v2-refused-analysis.json";
+import setupOutOfSync from "./fixtures/setup-v2-view-out-of-sync.json";
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; children: ReactNode }) => (
@@ -46,6 +48,10 @@ const job = (over: Record<string, unknown> = {}) => ({
 });
 
 let analysis: unknown;
+let detail: unknown;
+let setupView: unknown;
+let onPutSetup: (body: unknown) => Response;
+let setupPuts: unknown[];
 let jobs: unknown[];
 let onJob: () => Response;
 let onUpload: () => Response;
@@ -54,6 +60,10 @@ let cancels: number;
 
 beforeEach(() => {
   analysis = { has_data: false };
+  detail = { campaign: meta, summary: { has_campaign: false } };
+  setupView = { ...setupOutOfSync, campaign_id: ID, setup: { goal: "maximize", bounds: {}, linear_constraints: [], target_unit: null }, source: "default", bounds_report: {}, has_analysis: false, settings_in_sync: null };
+  setupPuts = [];
+  onPutSetup = (body) => json({ ...(setupView as object), setup: body, source: "stored" });
   jobs = [];
   uploads = 0;
   cancels = 0;
@@ -64,7 +74,13 @@ beforeEach(() => {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
-      if (url === BASE && method === "GET") return json({ campaign: meta, summary: { has_campaign: false } });
+      if (url === BASE && method === "GET") return json(detail);
+      if (url === `${BASE}/setup` && method === "GET") return json(setupView);
+      if (url === `${BASE}/setup` && method === "PUT") {
+        const body = JSON.parse(String(init?.body));
+        setupPuts.push(body);
+        return onPutSetup(body);
+      }
       if (url === `${BASE}/analysis`) return json(analysis);
       if (url.startsWith(`${BASE}/jobs`) && method === "GET") return json({ jobs });
       if (url === `${BASE}/jobs` && method === "POST") {
@@ -101,16 +117,35 @@ function chooseFile(file: File) {
   fireEvent.change(input, { target: { files: [file] } });
 }
 
+const RUNS = "run_id,pH,medium,titer_g_L\nR1,7,A,1\nR2,6.5,B,1.4\nR3,6.8,A,1.2\n";
+
+/** First run: pick the file, then the setup step reads it; choose the target and press Save and analyze. */
+async function setUpAndAnalyze(file: File, opts: { target?: string; minimize?: boolean; bound?: [string, string] } = {}) {
+  await act(async () => chooseFile(file));
+  await screen.findByRole("heading", { name: "Set up the campaign" });
+  if (opts.target) {
+    const select = (await screen.findByLabelText(/^Target: the outcome to optimize/)) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: opts.target } });
+    await screen.findByRole("group", { name: "Goal" });
+  }
+  if (opts.minimize) fireEvent.click(screen.getByRole("radio", { name: /^Minimize/ }));
+  if (opts.bound) {
+    fireEvent.change(screen.getByLabelText("Low bound for pH"), { target: { value: opts.bound[0] } });
+    fireEvent.change(screen.getByLabelText("High bound for pH"), { target: { value: opts.bound[1] } });
+  }
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /Save and analyze/ })));
+}
+
 describe("Harmonize: first run", () => {
-  it("says what the engine needs, that the target is always maximized and that the box is the observed range", async () => {
+  it("says what the engine needs, that the goal can be either direction and that bounds narrow but never widen the box", async () => {
     await renderPage();
     await screen.findByRole("heading", { name: "Bring your prior data" });
     expect(screen.getByText(/at least 6 complete rows/i)).toBeTruthy();
     expect(screen.getByText(/\.xls\) files are refused/)).toBeTruthy();
-    expect(screen.getByText(/always maximizes the target/)).toBeTruthy();
+    expect(screen.getByText(/maximize or minimize it/)).toBeTruthy();
     expect(screen.getByText(/lowest to its highest observed value/)).toBeTruthy();
-    expect(screen.getByText(/cannot enter your own bounds/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Upload a run sheet/ })).toBeTruthy();
+    expect(screen.getByText(/can narrow that range, never widen it/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Choose a run sheet/ })).toBeTruthy();
     // No analysis yet: nothing to continue to.
     expect(screen.queryByRole("link", { name: /Continue to Predict/ })).toBeNull();
   });
@@ -119,13 +154,73 @@ describe("Harmonize: first run", () => {
     onUpload = () => json({ error: "The sheet has 2 data rows; at least 6 runs are needed.", code: "too_few_rows", min_rows: 6, n_rows: 2 }, 400);
     await renderPage();
     await screen.findByRole("heading", { name: "Bring your prior data" });
-    await act(async () => chooseFile(new File(["a,b\n1,2\n"], "tiny.csv", { type: "text/csv" })));
+    // One row: no column varies, so the browser offers no target and the engine suggests one.
+    await setUpAndAnalyze(new File(["a,b\n1,2\n"], "tiny.csv", { type: "text/csv" }));
     await screen.findByText("tiny.csv could not be analyzed");
     expect(screen.getByText(/too few rows to fit a model/)).toBeTruthy();
     expect(screen.queryByText("too_few_rows")).toBeNull();
     expect(uploads).toBe(1);
-    // Still the first-run state: the sheet can be fixed and uploaded again.
-    expect(screen.getByRole("heading", { name: "Bring your prior data" })).toBeTruthy();
+    // Still the first-run state: the setup step stays, and another file can be chosen.
+    expect(screen.getByRole("heading", { name: "Set up the campaign" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Choose another file" })).toBeTruthy();
+  });
+
+  it("reads the sheet in the browser, takes the target once, then PUTs the setup before the upload", async () => {
+    onUpload = () => json({ job: job({ state: "queued", stage: "queued", progress: 0 }) });
+    await renderPage();
+    await screen.findByRole("heading", { name: "Bring your prior data" });
+    await act(async () => chooseFile(new File([RUNS], "runs.csv", { type: "text/csv" })));
+    await screen.findByRole("heading", { name: "Set up the campaign" });
+    expect(uploads).toBe(0);
+    // Saving without a target is refused before anything is sent.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Save and analyze/ })));
+    expect(screen.getByText("Choose the column to optimize.")).toBeTruthy();
+    expect(setupPuts).toHaveLength(0);
+
+    const select = screen.getByLabelText(/^Target: the outcome to optimize/) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(["", "pH", "titer_g_L"]);
+    fireEvent.change(select, { target: { value: "titer_g_L" } });
+    // The observed range next to the bound, and the categorical-constraint warning, come from the browser's read.
+    const row = (await screen.findByLabelText("Low bound for pH")).closest("tr")!;
+    expect(row.textContent).toMatch(/6\.500 to 7\.000/);
+    expect(screen.getByText(/never widens the search beyond your data/)).toBeTruthy();
+    expect(screen.getByText(/This sheet has a categorical input \(medium\)/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("radio", { name: /^Minimize/ }));
+    fireEvent.change(screen.getByLabelText("Low bound for pH"), { target: { value: "6.6" } });
+    fireEvent.change(screen.getByLabelText("High bound for pH"), { target: { value: "8" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Save and analyze/ })));
+    await screen.findByRole("region", { name: "Analysis progress" });
+    expect(setupPuts).toEqual([{ goal: "minimize", bounds: { pH: { lo: 6.6, hi: 8 } }, linear_constraints: [], target_unit: null }]);
+    expect(uploads).toBe(1);
+  });
+
+  it("shows the engine's refusal of the setup in plain words, raw code one click down, and uploads nothing", async () => {
+    onPutSetup = () =>
+      json(
+        {
+          error: "the bounds and linear constraints admit no recipe: no point satisfies all of them inside the search range",
+          code: "infeasible_constraints",
+          what_would_fix_it: "loosen a constraint's right-hand side or widen the bounds",
+        },
+        400,
+      );
+    await renderPage();
+    await screen.findByRole("heading", { name: "Bring your prior data" });
+    await setUpAndAnalyze(new File([RUNS], "runs.csv", { type: "text/csv" }), { target: "titer_g_L", bound: ["6.6", "6.9"] });
+    await screen.findByText("The setup was not saved");
+    expect(screen.getByText("No recipe satisfies the bounds and the constraints together.")).toBeTruthy();
+    expect(screen.getByText(/What would fix it: Loosen a constraint/)).toBeTruthy();
+    expect(screen.queryByText(/^infeasible_constraints$/)).toBeNull();
+    expect(screen.getByText("Engine response")).toBeTruthy();
+    expect(uploads).toBe(0);
+  });
+
+  it("an archived campaign is read-only: nothing can be uploaded", async () => {
+    detail = { campaign: { ...meta, archived: true, archived_at: 2 }, summary: { has_campaign: false } };
+    await renderPage();
+    await screen.findByText(/This campaign is archived, so it is read-only/);
+    expect(screen.queryByRole("button", { name: /Choose a run sheet/ })).toBeNull();
   });
 });
 
@@ -138,10 +233,14 @@ describe("Harmonize: upload job", () => {
     };
     await renderPage();
     await screen.findByRole("heading", { name: "Bring your prior data" });
-    await act(async () => chooseFile(new File(["pH,titer_g_L\n7,1\n"], "runs.csv", { type: "text/csv" })));
+    await setUpAndAnalyze(new File([RUNS], "runs.csv", { type: "text/csv" }), { target: "titer_g_L" });
     await screen.findByRole("region", { name: "Analysis progress" });
     await screen.findByRole("heading", { name: "Did Kalos read your columns right?" }, { timeout: 4000 });
     expect(uploads).toBe(1);
+    // One place to change the target after an upload: the column check (no second picker above it).
+    const targetSection = screen.getByRole("region", { name: "Target and inputs" });
+    expect(within(targetSection).getAllByRole("combobox")).toHaveLength(1);
+    expect(within(targetSection).getByLabelText("Target")).toBeTruthy();
     expect(screen.getByText(/Roles you declare apply to this upload only/)).toBeTruthy();
     // Confirming is advisory; Continue stays available (secondary until confirmed).
     expect(screen.getByRole("link", { name: /Continue to Predict/ })).toBeTruthy();
@@ -246,5 +345,55 @@ describe("Harmonize: with an analysis", () => {
     await screen.findByRole("region", { name: "Analysis progress" });
     expect(screen.queryByRole("link", { name: /Continue to Predict/ })).toBeNull();
     expect(screen.getByText(/Shown until the new analysis is ready/)).toBeTruthy();
+  });
+});
+
+describe("Harmonize: campaign setup on a seeded campaign", () => {
+  beforeEach(() => {
+    analysis = { ...analysisFixture, ...refusedSetup };
+    setupView = { ...setupOutOfSync, campaign_id: ID };
+  });
+
+  it("shows the engine's refused setup with its reason and fix, and the target read-only (no picker without the file)", async () => {
+    await renderPage();
+    const section = await screen.findByRole("region", { name: "Campaign setup" });
+    expect(within(section).getByText(/Setup refused: Linear constraints cannot be used with this sheet/)).toBeTruthy();
+    expect(within(section).getByText(/optimizer does not support linear constraints together with categorical dimensions/)).toBeTruthy();
+    expect(within(section).getByText(/bound on pH reaches past your data/)).toBeTruthy();
+    const target = screen.getByRole("region", { name: "Target and inputs" });
+    expect(within(target).queryAllByRole("combobox")).toHaveLength(0);
+    expect(within(target).getByText("Minimize")).toBeTruthy();
+    expect(within(target).getByText(/set in the campaign setup/)).toBeTruthy();
+  });
+
+  it("says a changed setup needs a re-upload when nothing is measured, and a re-analysis (linked) when something is", async () => {
+    await renderPage();
+    await screen.findByText(/A re-analysis needs at least one measured result and this campaign has none yet/);
+    cleanup();
+    detail = { campaign: { ...meta, seeded: true }, summary: { has_campaign: true, target: "titer_g_L", features: [], n_base: 160, best: 1, round: 0, history: [], pending: [], n_awaiting: 0, n_measured: 2 } };
+    await renderPage();
+    const link = await screen.findByRole("link", { name: /Re-analyze on Validate/ });
+    expect(link.getAttribute("href")).toBe(`/campaigns/${ID}/validate#reanalyze`);
+  });
+
+  it("edits the stored setup with the engine's observed and searched ranges, and PUTs the change", async () => {
+    await renderPage();
+    const low = (await screen.findByLabelText("Low bound for pH")) as HTMLInputElement;
+    expect(low.value).toBe("6.5");
+    const row = low.closest("tr")!;
+    expect(row.textContent).toMatch(/Searched: 6\.50 to 7\.59/);
+    expect(row.textContent).toMatch(/reaches past the data/);
+    fireEvent.change(screen.getByLabelText("High bound for pH"), { target: { value: "7.2" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Save the setup" })));
+    await screen.findByText(/Saved\./);
+    expect(setupPuts).toEqual([{ goal: "minimize", bounds: { pH: { lo: 6.5, hi: 7.2 } }, linear_constraints: [], target_unit: "g/L" }]);
+  });
+
+  it("is read-only on an archived campaign", async () => {
+    detail = { campaign: { ...meta, seeded: true, archived: true, archived_at: 2 }, summary: { has_campaign: false } };
+    await renderPage();
+    await screen.findByText(/archived, so its setup is read-only/);
+    expect(screen.queryByRole("button", { name: "Save the setup" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Replace the data" })).toBeNull();
   });
 });

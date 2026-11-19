@@ -1,129 +1,156 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Pencil } from "lucide-react";
+import { Archive, Loader2, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
 import { formatTimestamp } from "@/components/kit/source-line";
+import { TONE_ICON, TONE_TEXT, type Tone } from "@/components/kit/tone";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { getCampaignDetail, type CampaignDetail, type CampaignMeta } from "@/lib/api";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Num, NumState } from "@/components/viz/num";
-import { formatValue, parseUnit } from "@/lib/num";
-import { campaignRowSummary } from "@/lib/home";
+import type { CampaignSummaryRow } from "@/lib/api";
+import { formatValue } from "@/lib/num";
+import { summaryRowView, type SummaryRowView } from "@/lib/home";
 import { campaignHref } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 /**
- * Every campaign as one row. The list itself (GET /api/campaigns) only says
- * which campaigns exist; each row then reads its own summary
- * (GET /api/campaigns/{id}) for the round, target, measured best, runs
- * awaiting results and the engine's next action. A row whose summary fails
- * says so; it never shows zeros in place of missing numbers.
+ * Every campaign as one row, from the campaign list's summary fields alone (GET /api/campaigns?summary=true,
+ * one request for the whole list): target, measured best in the goal's direction, the model's reliability
+ * verdict and whether the analysis predates newer results, the stage a person recorded, the latest gate
+ * decision and an engine job in progress. No request per campaign.
  */
-export function CampaignList({ campaigns, onRename }: { campaigns: CampaignMeta[]; onRename: (c: CampaignMeta) => void }) {
+export function CampaignList({
+  campaigns,
+  onRename,
+  onArchive,
+}: {
+  campaigns: CampaignSummaryRow[];
+  onRename: (c: CampaignSummaryRow) => void;
+  onArchive: (c: CampaignSummaryRow) => void;
+}) {
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
       {campaigns.map((c) => (
-        <CampaignRow key={c.id} meta={c} onRename={() => onRename(c)} />
+        <CampaignRow key={c.id} row={c} onRename={() => onRename(c)} onArchive={() => onArchive(c)} />
       ))}
     </ul>
   );
 }
 
-type RowState = { status: "loading" } | { status: "error" } | { status: "data"; detail: CampaignDetail };
+const RELIABILITY_TONE: Record<string, Tone> = { reliable: "good", "not-yet": "warn", insufficient: "neutral" };
 
-/** The campaign's summary, refetched when the list reports the campaign changed. */
-function useRowDetail(id: string, updatedAt: number) {
-  const [state, setState] = useState<RowState>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    getCampaignDetail(id).then(
-      (detail) => !cancelled && setState({ status: "data", detail }),
-      () => !cancelled && setState((s) => (s.status === "data" ? s : { status: "error" })),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [id, updatedAt, attempt]);
-  const retry = useCallback(() => {
-    setState({ status: "loading" });
-    setAttempt((n) => n + 1);
-  }, []);
-  return [state, retry] as const;
-}
-
-function CampaignRow({ meta, onRename }: { meta: CampaignMeta; onRename: () => void }) {
-  const [state, retry] = useRowDetail(meta.id, meta.updated_at);
-  const row = state.status === "data" ? campaignRowSummary(state.detail) : null;
-  const unit = row?.target ? parseUnit(row.target).unit : null;
-  const count = (v: number | null) => formatValue(v, { quantity: "count" }).text;
+function CampaignRow({ row, onRename, onArchive }: { row: CampaignSummaryRow; onRename: () => void; onArchive: () => void }) {
+  const v = summaryRowView(row);
   return (
-    <li className="relative flex flex-col gap-4 p-panel transition-colors hover:bg-subtle md:flex-row md:items-center md:gap-6">
-      <div className="min-w-0 flex-1">
+    <li className="relative flex flex-col gap-4 p-panel transition-colors hover:bg-subtle md:flex-row md:items-start md:gap-6">
+      <div className="min-w-0 flex-1 pr-10 md:pr-0">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <Link href={campaignHref(meta.id)} className="min-w-0 text-heading break-words text-fg after:absolute after:inset-0 after:content-['']">
-            {meta.name}
+          <Link href={campaignHref(row.id)} className="min-w-0 text-heading break-words text-fg after:absolute after:inset-0 after:content-['']">
+            {row.name}
           </Link>
-          {meta.is_default ? <Badge variant="outline">Default</Badge> : null}
-          {row?.round != null ? <Badge tone="accent">Round {row.round}</Badge> : null}
-          {!meta.seeded ? <Badge variant="outline">No data yet</Badge> : null}
+          {row.is_default ? <Badge variant="outline">Default</Badge> : null}
+          {v.round != null ? <Badge tone="accent">Round {v.round}</Badge> : null}
+          {!v.hasData ? <Badge variant="outline">No data yet</Badge> : null}
         </div>
-        <p className="mt-1 text-caption text-fg-muted">
-          {row?.target ? (
+        <p className="mt-1 text-caption break-words text-fg-muted">
+          {v.target ? (
             <>
-              Maximize <span className="font-mono text-code text-fg">{row.target}</span>
+              {v.goal === "minimize" ? "Minimize" : "Maximize"} <span className="font-mono text-code text-fg">{v.target}</span>
               {" · "}
             </>
           ) : null}
-          Updated {formatTimestamp(meta.updated_at)}
+          Updated {formatTimestamp(row.updated_at)}
         </p>
+        {v.job ? <JobLine job={v.job} /> : null}
       </div>
 
-      {state.status === "loading" ? (
-        <div className="flex flex-col gap-2 md:w-[26rem]" role="status" aria-label={`Loading ${meta.name}`}>
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-      ) : state.status === "error" ? (
-        <div className="relative z-10 flex items-center gap-3 md:w-[26rem]">
-          <p className="text-caption text-fg-muted">Could not load this campaign&apos;s summary. This is a connection problem, not a result.</p>
-          <Button variant="outline" size="sm" onClick={retry}>
-            Try again
-          </Button>
-        </div>
-      ) : row ? (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 md:w-[26rem] md:grid-cols-[auto_1fr]">
-          {row.hasData ? (
-            <>
-              <div>
-                <dt className="text-caption text-fg-muted">Best measured</dt>
-                <dd className="text-label">
-                  {row.best != null ? <Num value={row.best} basis="measured" unit={unit} /> : <NumState state={{ kind: "na", reason: "no measured best yet" }} />}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-caption text-fg-muted">Runs awaiting results</dt>
-                <dd className="text-label text-fg tabular-nums">
-                  {count(row.awaiting)}
-                  <span className="text-caption text-fg-muted"> · {count(row.runs)} measured in the model</span>
-                </dd>
-              </div>
-            </>
-          ) : null}
-          <div className="col-span-2">
-            <dt className="text-caption text-fg-muted">Next</dt>
-            <dd className="flex items-center gap-1 text-label text-fg">
-              {row.next.action}
-              <ArrowRight className="size-3.5 shrink-0 text-fg-muted" aria-hidden />
-            </dd>
-          </div>
-        </dl>
-      ) : null}
+      {v.hasData ? <RowFacts v={v} /> : <p className="text-caption text-fg-muted md:w-[30rem]">Upload the prior runs on Harmonize to start.</p>}
 
-      <Button variant="ghost" size="icon-sm" onClick={onRename} aria-label={`Rename ${meta.name}`} className="relative z-10 self-start md:self-center">
-        <Pencil aria-hidden />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`Actions for ${row.name}`}
+          className="absolute top-3 right-3 z-10 grid size-8 shrink-0 place-items-center rounded-lg text-fg hover:bg-surface data-popup-open:bg-surface md:relative md:top-auto md:right-auto md:self-start"
+        >
+          <MoreHorizontal className="size-4" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={onRename}>
+            <Pencil aria-hidden />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onArchive}>
+            <Archive aria-hidden />
+            Archive…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </li>
+  );
+}
+
+function RowFacts({ v }: { v: SummaryRowView }) {
+  const Icon = v.reliability.kind === "verdict" ? TONE_ICON[RELIABILITY_TONE[v.reliability.state] ?? "neutral"] : null;
+  return (
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 md:w-[30rem]">
+      <div className="min-w-0">
+        <dt className="text-caption text-fg-muted">Best so far</dt>
+        <dd className="text-label">
+          {v.best.value != null ? (
+            <>
+              <Num value={v.best.value} basis="measured" unit={v.unit} />
+              <span className="block text-caption font-normal text-fg-muted">{v.best.word}</span>
+            </>
+          ) : (
+            <NumState state={{ kind: "na", reason: "no measured result yet" }} />
+          )}
+        </dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="text-caption text-fg-muted">Model reliability</dt>
+        <dd className="text-label text-fg">
+          {v.reliability.kind === "verdict" ? (
+            <span className="flex items-center gap-1.5" title={v.reliability.reason}>
+              {Icon ? <Icon className={cn("size-4 shrink-0", TONE_TEXT[RELIABILITY_TONE[v.reliability.state] ?? "neutral"])} aria-hidden /> : null}
+              {v.reliability.label}
+            </span>
+          ) : (
+            <NumState state={{ kind: "na", reason: v.reliability.reason }} />
+          )}
+          {v.stale ? (
+            <span className="mt-0.5 flex items-center gap-1 text-caption font-normal text-fg-muted">
+              <RefreshCw className="size-3.5 shrink-0 text-warn" aria-hidden />
+              Analysis predates new results
+            </span>
+          ) : null}
+        </dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="text-caption text-fg-muted">Scale-up stage</dt>
+        <dd className="text-label text-fg">{v.stage ? <span className="font-mono text-code">{v.stage}</span> : <span className="font-normal text-fg-muted">not set</span>}</dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="text-caption text-fg-muted">Latest gate decision</dt>
+        <dd className="text-label text-fg">
+          {v.gate ? (
+            <>
+              {v.gate.word} <span className="font-normal text-fg-muted">at</span> <span className="font-mono text-code">{v.gate.gate}</span>
+              <span className="block text-caption font-normal text-fg-muted">{formatTimestamp(v.gate.decidedAt)}</span>
+            </>
+          ) : (
+            <span className="font-normal text-fg-muted">none recorded</span>
+          )}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+function JobLine({ job }: { job: NonNullable<SummaryRowView["job"]> }) {
+  return (
+    <p role="status" className="mt-2 flex items-center gap-1.5 text-caption text-fg">
+      <Loader2 className="size-3.5 shrink-0 animate-spin text-accent motion-reduce:animate-none" aria-hidden />
+      {job.kind} running: {job.stage}
+      {job.progress != null ? <span className="text-fg-muted tabular-nums"> · {formatValue(job.progress, { quantity: "pct" }).text} (engine-reported)</span> : null}
+    </p>
   );
 }

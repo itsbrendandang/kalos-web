@@ -4,7 +4,18 @@ import { formatValue } from "@/lib/num";
 import type { SheetSelector } from "@/lib/sheet-choice";
 
 /** "Which sheet?" for a multi-sheet workbook; choosing re-submits the held file with that sheet. */
-export function SheetPicker({ selector, busy, onPick }: { selector: SheetSelector; busy: boolean; onPick: (file: File, sheet: string) => void }) {
+export function SheetPicker({
+  selector,
+  busy,
+  onPick,
+  note = "Choosing one re-fits the model from that sheet.",
+}: {
+  selector: SheetSelector;
+  busy: boolean;
+  onPick: (file: File, sheet: string) => void;
+  /** What choosing does (re-fit after an upload; just reading the sheet before one). */
+  note?: string;
+}) {
   return (
     <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
       Worksheet in {selector.target.name}
@@ -21,7 +32,7 @@ export function SheetPicker({ selector, busy, onPick }: { selector: SheetSelecto
           </option>
         ))}
       </select>
-      <span className="text-caption font-normal text-fg-muted">This workbook has {formatValue(selector.sheets.length, { quantity: "count" }).text} sheets. Choosing one re-fits the model from that sheet.</span>
+      <span className="text-caption font-normal text-fg-muted">This workbook has {formatValue(selector.sheets.length, { quantity: "count" }).text} sheets. {note}</span>
     </label>
   );
 }

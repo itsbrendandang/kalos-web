@@ -16,25 +16,32 @@ import { Callout } from "@/components/kit/callout";
 import { CycleStepper } from "@/components/kit/cycle-stepper";
 import { ElapsedProgress, JobProgress } from "@/components/kit/job-progress";
 import { PageHeader } from "@/components/kit/page-header";
+import { FirstRunSetup } from "@/components/setup/first-run-setup";
+import { SetupSection } from "@/components/setup/setup-section";
 import { Section } from "@/components/kit/section";
 import { formatTimestamp, shortHash, SourceLine } from "@/components/kit/source-line";
 import { Verdict } from "@/components/kit/verdict";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { isNotFound, useCampaign, useCampaignId, useEngineWrites, useLatest, useUploadJob } from "@/hooks/use-engine";
-import { CampaignHasRunsError, isJobActive, type ColumnRolesInput, type PopulatedResult, type ProvenanceEntry } from "@/lib/api";
+import { isNotFound, useCampaign, useCampaignDetail, useCampaignId, useEngineWrites, useLatest, useUploadJob } from "@/hooks/use-engine";
+import { CampaignHasRunsError, isJobActive, targetUnitOf, type ColumnRolesInput, type PopulatedResult, type ProvenanceEntry } from "@/lib/api";
 import { campaignStage, cycleSteps } from "@/lib/campaign-stage";
 import { EngineError, engineMessage, errorMessage } from "@/lib/engine-error";
 import { formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
-import { canActOnAnalysis, canChangeTarget, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice } from "@/lib/setup-attempt";
+import { canActOnAnalysis, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice } from "@/lib/setup-attempt";
 import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
 import { scanSheet, type DataTypeCounts, type SheetScan } from "@/lib/sheet-columns";
 import { columnsFromProvenance, mergeTargets } from "@/lib/sheet-roles";
 
 /**
- * Harmonize (cycle step 1): bring the prior runs, choose the one target, and see what the engine read.
+ * Harmonize (cycle step 1): bring the prior runs, choose the one target and the campaign setup, and see
+ * what the engine read.
+ *
+ * First run: the user picks a sheet, the browser reads its columns, the target is chosen once, then the
+ * campaign setup (goal, unit, bounds, constraints) is saved with PUT /setup, and only then is the upload job
+ * submitted (components/setup/first-run-setup.tsx). With an analysis, the target can be changed in one place
+ * only, the column check (ColumnConfirm), and the setup section shows how the setup was applied and edits it.
  *
  * Uploads run as engine background jobs held by the campaign's EngineDataProvider, so progress shows
  * from `useUploadJob().job` even when this page instance did not start the job (navigation, reload,
@@ -46,6 +53,8 @@ export default function HarmonizePage() {
   const id = useCampaignId();
   const latest = useLatest();
   const campaign = useCampaign();
+  const detail = useCampaignDetail();
+  const archived = detail.data?.campaign.archived === true;
   const upload = useUploadJob();
   const { runFile } = useEngineWrites();
   const router = useRouter();
@@ -68,6 +77,9 @@ export default function HarmonizePage() {
   // An upload refused with 409 campaign_has_runs, held until the user answers the replace dialog.
   const [pending, setPending] = useState<{ file: File; target?: string; roles?: ColumnRolesInput; sheet?: string; refusal: CampaignHasRunsError } | null>(null);
   const flight = useRef(singleFlight());
+  // First run: the sheet the user picked, held in the browser for the setup step until "Save and analyze".
+  const [draftFile, setDraftFile] = useState<File | null>(null);
+  const [draftTarget, setDraftTarget] = useState<string | undefined>(undefined);
 
   const job = upload.job;
   const jobActive = isJobActive(job);
@@ -136,7 +148,7 @@ export default function HarmonizePage() {
       <PageHeader
         eyebrow="Step 1 of 3"
         title="Harmonize your data"
-        description="Bring the runs you already have, choose the one outcome to maximize, and check what Kalos read from the sheet."
+        description="Bring the runs you already have, choose the one outcome to improve and the campaign's goal, and check what Kalos read from the sheet."
         action={action}
       />
       <CycleStepper steps={cycleSteps(stage, id)} round={stage.round} active="harmonize" />
@@ -266,21 +278,37 @@ export default function HarmonizePage() {
           busy={busy}
           file={file}
           confirmed={confirmed}
-          canAct={canActOnAnalysis(state)}
-          canTarget={canChangeTarget(state, busy)}
+          canAct={canActOnAnalysis(state) && !archived}
+          archived={archived}
+          campaignId={id}
+          nMeasured={campaign.data?.has_campaign ? campaign.data.n_measured : null}
           targetChoices={candidates.length ? candidates : (analysis.targets ?? [])}
           roles={{ sentRoles: roles, formerTargets, baseline }}
           scan={scan}
           picker={picker && !failed ? <SheetPicker selector={picker} busy={busy} onPick={(f, sh) => void analyze(f, undefined, undefined, sh)} /> : null}
-          onTarget={(t) => file && void analyze(file, t, roles ? { target: t, features: roles.features.filter((c) => c !== t) } : undefined)}
           onConfirm={() => dispatch({ type: "confirm" })}
           onRefit={(r) => file && void analyze(file, r.target, r)}
           onFile={(f) => void analyze(f)}
         />
-      ) : busy ? null : (
+      ) : busy ? null : archived ? (
+        <p className="text-body text-fg-muted">This campaign is archived, so it is read-only: no sheet can be uploaded. An organization admin can unarchive it from the campaign list.</p>
+      ) : draftFile ? (
+        <FirstRunSetup
+          key={`${draftFile.name}:${draftFile.lastModified}:${draftFile.size}`}
+          campaignId={id}
+          file={draftFile}
+          busy={busy}
+          onChooseAnother={() => setDraftFile(null)}
+          initialTarget={draftTarget}
+          onAnalyze={(f, t, sh) => {
+            setDraftTarget(t);
+            void analyze(f, t, undefined, sh);
+          }}
+        />
+      ) : (
         <>
           <PriorDataIntro />
-          <UploadZone onFile={(f) => void analyze(f)} disabled={busy} />
+          <UploadZone onFile={setDraftFile} disabled={busy} />
         </>
       )}
     </div>
@@ -294,12 +322,13 @@ function AnalysisView({
   file,
   confirmed,
   canAct,
-  canTarget,
+  archived,
+  campaignId,
+  nMeasured,
   targetChoices,
   roles,
   scan,
   picker,
-  onTarget,
   onConfirm,
   onRefit,
   onFile,
@@ -310,12 +339,13 @@ function AnalysisView({
   file: File | null;
   confirmed: boolean;
   canAct: boolean;
-  canTarget: boolean;
+  archived: boolean;
+  campaignId: string;
+  nMeasured: number | null;
   targetChoices: string[];
   roles: { sentRoles?: ColumnRolesInput; formerTargets: string[]; baseline: ProvenanceEntry[] };
   scan: SheetScan | null;
   picker: ReactNode;
-  onTarget: (t: string) => void;
   onConfirm: () => void;
   onRefit: (r: ColumnRolesInput) => void;
   onFile: (f: File) => void;
@@ -334,31 +364,7 @@ function AnalysisView({
         title="Target and inputs"
         description={`${analysis.dataset}: ${count(analysis.n)} runs used, ${count(analysis.d)} inputs.${busy ? " Shown until the new analysis is ready." : ""}`}
       >
-        <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
-          Maximize
-          <Select value={analysis.target} onValueChange={(t) => canTarget && file && t && onTarget(t)} disabled={!canTarget}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {targetChoices.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-caption font-normal text-fg-muted">
-            The engine always maximizes the target; there is no minimize option.{" "}
-            {stale
-              ? "Unavailable: this is the previous analysis."
-              : busy
-                ? "Unavailable while an upload is being analyzed."
-                : file
-                  ? "Choosing another column re-fits the model from the same file."
-                  : "To change it, upload the sheet again."}
-          </span>
-        </label>
+        <TargetLine analysis={analysis} />
         {picker}
         {canAct && file && !confirmed && columns.length > 0 ? (
           <ColumnConfirm
@@ -373,7 +379,17 @@ function AnalysisView({
         ) : (
           <p className="text-caption text-fg-muted">
             Inputs used: {analysis.features.join(", ")}.
-            {file ? (confirmed ? " You confirmed these columns." : "") : " To change the columns, upload the sheet again."}{" "}
+            {archived
+              ? " This campaign is archived, so its columns cannot change."
+              : stale
+                ? " The target and the columns cannot change while the previous analysis is shown."
+                : busy
+                  ? " They cannot change while an upload is being analyzed."
+                  : file
+                    ? confirmed
+                      ? " You confirmed these columns."
+                      : ""
+                    : " To change the target or the columns, upload the sheet again."}{" "}
             {run?.roles_declared
               ? "This fit used column roles you declared. They apply to this upload only: a later re-analysis infers roles from the column names again."
               : "Roles were inferred from the column names. Roles you declare apply to one upload; a later re-analysis infers them again."}
@@ -387,6 +403,8 @@ function AnalysisView({
           </p>
         ) : null}
       </Section>
+
+      <SetupSection campaignId={campaignId} analysis={analysis} archived={archived} nMeasured={nMeasured} />
 
       <Section id="data-check" title="Data check" description="The engine's checks on the sheet, run before the model was fitted.">
         {report ? (
@@ -410,14 +428,51 @@ function AnalysisView({
         ]}
       />
 
-      <Section
-        id="replace"
-        title="Replace the data"
-        description="A new sheet replaces this campaign's base runs and discards its pending runs, awaiting or measured. If there are any, Kalos asks before replacing anything."
-      >
-        <UploadZone onFile={onFile} disabled={busy} compact label="Upload a different run sheet" />
-      </Section>
+      {archived ? null : (
+        <Section
+          id="replace"
+          title="Replace the data"
+          description="A new sheet replaces this campaign's base runs and discards its pending runs, awaiting or measured. If there are any, Kalos asks before replacing anything. The campaign setup stays and is applied to the new sheet."
+        >
+          <UploadZone onFile={onFile} disabled={busy} compact label="Upload a different run sheet" />
+        </Section>
+      )}
     </div>
+  );
+}
+
+/**
+ * The target, its unit and the goal, read-only: the target is changed in one place, the column check below
+ * (or by uploading the sheet again), and the goal and unit in the campaign setup.
+ */
+function TargetLine({ analysis }: { analysis: PopulatedResult }) {
+  const unit = analysis.target_unit;
+  return (
+    <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-3">
+      <div>
+        <dt className="text-caption text-fg-muted">Target</dt>
+        <dd className="font-mono text-code break-all text-fg">{analysis.target}</dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">Goal</dt>
+        <dd className="text-body text-fg">{analysis.goal === "minimize" ? "Minimize" : "Maximize"}</dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">Unit</dt>
+        <dd className="text-body text-fg">
+          {unit === undefined ? (
+            (targetUnitOf(analysis) ?? "n/a")
+          ) : unit.unit ? (
+            <>
+              {unit.unit}{" "}
+              <span className="text-caption text-fg-muted">{unit.source === "user" ? "(set in the campaign setup)" : "(read from the column header)"}</span>
+            </>
+          ) : (
+            <span className="text-fg-muted">None: the header states no recognized unit. Set one in the campaign setup.</span>
+          )}
+        </dd>
+      </div>
+    </dl>
   );
 }
 

@@ -47,11 +47,12 @@ COPY . .
 # TIME, not read when the container starts. The production image deliberately
 # accepts NO build arg for the engine URL: the browser always calls the
 # same-origin /api/engine proxy (app/api/engine/[...path]/route.ts), which
-# runs server-side, attaches KALOS_ENGINE_TOKEN and forwards to the engine at
-# KALOS_ENGINE_URL. That URL and token are RUNTIME environment variables on
-# the `web` container, so changing the engine address needs a container
-# restart, not an image rebuild. Baking NEXT_PUBLIC_API_URL into the image
-# would route browsers around the proxy and its token. (Local dev can still
+# runs server-side, checks the session, mints a per-request 60 s EdDSA engine
+# token (key from KALOS_ENGINE_JWT_PRIVATE_KEY_FILE; no static token is ever
+# sent) and forwards to the engine at KALOS_ENGINE_URL. Those are RUNTIME
+# environment variables on the `web` container, so changing the engine
+# address needs a container restart, not an image rebuild. Baking
+# NEXT_PUBLIC_API_URL into the image would route browsers around the proxy. (Local dev can still
 # set it outside Docker; see env.example.)
 ARG NEXT_PUBLIC_DEMO_MODE=""
 ENV NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE} \

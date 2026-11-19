@@ -116,8 +116,9 @@ Configure it in `.env.local` (placeholders in [`env.example`](env.example)):
 | `KALOS_ENGINE_URL` | server only | Engine base URL, for example `http://127.0.0.1:8050`. If unset, the proxy answers 502 "engine unreachable". |
 | `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE`, `KALOS_ENGINE_JWT_KID` | server only | The Ed25519 key the proxy signs per-request engine tokens with, and its key id. The engine trusts the matching public JWKS (see `docs/ENGINE_AUTH.md`). |
 | `KALOS_TENANT_MAP_FILE` | server only | Maps each organization to its engine tenant. Unmapped organizations are refused. |
+| `KALOS_ENGINE_TOKEN` | not used | There is no static engine token. The proxy only sends the per-request token it mints; a `KALOS_ENGINE_TOKEN` left in the environment is ignored and never sent. |
 | `NEXT_PUBLIC_DEMO_MODE` | build time | Set to `true` to render example data where the engine has none (see below). Default off. |
-| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch (not available in the Docker image, which has no build arg for it) that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires a token. |
+| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch (not available in the Docker image, which has no build arg for it) that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires auth: the browser would call it with no session check and no token. |
 
 To try the app with data, create a campaign and upload the synthetic example sheet from the engine repo (`examples/synthetic_bioprocess/synthetic_bioprocess.csv`) on Harmonize.
 That sheet is generated, not measured.

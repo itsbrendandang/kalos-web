@@ -9,6 +9,7 @@
 import type { PlanAnalysis } from "@/components/campaign/plan-view";
 import {
   isUnmeasuredFailure,
+  Z_STD_TOLERANCE,
   type Diagnostics,
   type Driver,
   type Promotion,
@@ -105,9 +106,8 @@ export function calibrationHeadline(cal: Reliability["calibration"]): string {
   if (!cal) return "Not reported";
   if (!cal.available) return "Not scored";
   if (cal.z_std == null) return "Scored";
-  if (cal.z_std > 1) return "Bands read too narrow";
-  if (cal.z_std < 1) return "Bands read too wide";
-  return "Well calibrated";
+  if (Math.abs(cal.z_std - 1) <= Z_STD_TOLERANCE) return "Close to calibrated";
+  return cal.z_std > 1 ? "Bands read too narrow" : "Bands read too wide";
 }
 
 // --- Promotion -----------------------------------------------------------------------

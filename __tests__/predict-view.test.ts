@@ -69,6 +69,9 @@ describe("trust facts", () => {
     expect(calibrationHeadline({ available: false, reason: "few points", n: 3, ece: null, z_std: null, levels: [] })).toBe("Not scored");
     expect(calibrationHeadline({ available: true, reason: null, n: 30, ece: 0.1, z_std: 1.4, levels: [] })).toBe("Bands read too narrow");
     expect(calibrationHeadline({ available: true, reason: null, n: 30, ece: 0.1, z_std: 0.7, levels: [] })).toBe("Bands read too wide");
+    // Within the tolerance the honest reading is "close", not a direction (live kaggle sheet: z_std 1.03).
+    expect(calibrationHeadline({ available: true, reason: null, n: 715, ece: 0.01, z_std: 1.03, levels: [] })).toBe("Close to calibrated");
+    expect(calibrationHeadline({ available: true, reason: null, n: 715, ece: 0.01, z_std: 0.95, levels: [] })).toBe("Close to calibrated");
   });
 
   it("maps reliability states to tones", () => {

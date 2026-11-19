@@ -791,12 +791,20 @@ export function driverSelectionNote(sel: DriverSelection | null | undefined): st
  * measure it on this sheet (`available: false`), returns the engine's own
  * reason rather than a fabricated ECE.
  */
+/**
+ * How far `z_std` may sit from 1 before the UI calls the bands narrow or
+ * wide. The engine reports the number, not a verdict; within this distance
+ * (about the sampling noise of z_std at a few dozen held-out points) the
+ * honest reading is "close to calibrated", not "too narrow".
+ */
+export const Z_STD_TOLERANCE = 0.1;
+
 export function calibrationNote(cal: Calibration | null | undefined): string | null {
   if (!cal) return null;
   if (!cal.available) return `Not scored - ${cal.reason ?? "not enough held-out points"}.`;
   const parts = [`ECE ${cal.ece != null ? cal.ece.toFixed(2) : "n/a"}`];
   if (cal.z_std != null) {
-    const shape = cal.z_std > 1 ? "bands read narrow, overconfident" : cal.z_std < 1 ? "bands read wide" : "well-calibrated";
+    const shape = Math.abs(cal.z_std - 1) <= Z_STD_TOLERANCE ? "close to calibrated" : cal.z_std > 1 ? "bands read narrow, overconfident" : "bands read wide";
     parts.push(`z_std ${cal.z_std.toFixed(2)} (${shape})`);
   }
   return `${parts.join(" - ")}, n=${cal.n}.`;

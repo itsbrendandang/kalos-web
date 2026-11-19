@@ -20,8 +20,10 @@ import { shortId } from "@/lib/workbench";
 type Props = {
   unit: string | null;
   best: number | null;
-  /** The run's band when the current analysis proposed it, else null (shown as "band n/a"). */
+  /** The run's band (recorded at start, or the current analysis' for a legacy run), else null (shown as "band n/a"). */
   interval?: IntervalSpec | null;
+  /** The engine's prediction for the run; null when it recorded none (a recipe it did not propose). Defaults to `run.pred`. */
+  pred?: number | null;
   /** Shared column decimals from the Record table, so the dialog prints the same digits. */
   decimals?: { pred: number; measured: number };
   /** Measured precision (replicate noise SD) when the engine reported one. */
@@ -46,7 +48,8 @@ export function CorrectResultDialog({
 
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
-function CorrectionForm({ run, unit, best, interval = null, decimals, measuredU = null, onClose, onSave }: Props & { run: CampaignRun }) {
+function CorrectionForm({ run, unit, best, interval = null, pred: enginePred, decimals, measuredU = null, onClose, onSave }: Props & { run: CampaignRun }) {
+  const pred = enginePred === undefined ? run.pred : enginePred;
   const [valueText, setValueText] = useState("");
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
@@ -93,8 +96,14 @@ function CorrectionForm({ run, unit, best, interval = null, decimals, measuredU 
         </dd>
         <dt className="text-fg-muted">Predicted</dt>
         <dd className="flex flex-wrap items-baseline gap-x-2">
-          <Num value={run.pred} basis="predicted" unit={unit} interval={interval} options={decimals ? { decimals: decimals.pred } : undefined} />
-          {interval ? null : <span className="text-caption text-fg-muted">band n/a</span>}
+          {pred != null ? (
+            <>
+              <Num value={pred} basis="predicted" unit={unit} interval={interval} options={decimals ? { decimals: decimals.pred } : undefined} />
+              {interval ? null : <span className="text-caption text-fg-muted">band n/a</span>}
+            </>
+          ) : (
+            <span className="text-caption text-fg-muted">No engine prediction (the recipe was not one of its proposals)</span>
+          )}
         </dd>
       </dl>
       <label className="flex flex-col gap-1.5">

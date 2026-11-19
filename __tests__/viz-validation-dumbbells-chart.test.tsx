@@ -11,7 +11,18 @@ const run = (id: string, pred: number, result: number | null, over: Partial<Camp
   id, recipe: {}, pred, std: 0.07, mode: "exploit", reason: "", result, awaiting: result == null, round: 0,
   analysis_provenance: { provenance_sha256: HASH, timestamp: 1000, engine_version: "0.1.0" }, ...over,
 });
-const runs = [run("60ad5599d4", 1.75, 1.64), run("ba5d212105", 1.736, null), run("f7a48e5666", 1.715, 1.5)];
+/** A run started since R5: the engine recorded its prediction and band (pred ± 0.2036 at 90%) at start. */
+const rec = (id: string, pred: number, result: number | null): CampaignRun =>
+  run(id, pred, result, {
+    pred_source: "engine",
+    prediction_at_start: {
+      available: true, basis: "predicted", pred, std: 0.07,
+      interval: { lo: pred - 0.2036, hi: pred + 0.2036, half_width: 0.2036, coverage: 0.9, method: "conformal_global" }, interval_unavailable_reason: null,
+    },
+    residual: result == null ? null : result - pred,
+    inside_band: result == null ? null : Math.abs(result - pred) <= 0.2036,
+  });
+const runs = [rec("60ad5599d4", 1.75, 1.64), rec("ba5d212105", 1.736, null), rec("f7a48e5666", 1.715, 1.5)];
 const source = { label: "Analysis of synthetic_bioprocess.csv", field: "conformal_q", basis: "predicted" as const, engineVersion: "0.1.0" };
 
 afterEach(cleanup);
@@ -50,10 +61,10 @@ describe("ValidationDumbbells", () => {
 
   it("states the hit rate with exact counts and the engine's coverage, and where the band comes from", () => {
     renderChart(runs);
-    expect(screen.getByText(/Hit rate: 1 of 2 inside the 90% band \(50%\)/)).toBeTruthy();
-    expect(screen.getByText(/the engine does not record the band a run was started with/)).toBeTruthy();
-    expect(screen.getByText(/From: Analysis of synthetic_bioprocess.csv · n = 3 started · held-out conformal band \(90%\) · engine 0.1.0/)).toBeTruthy();
-    expect(screen.getByText("Predicted (90% band)")).toBeTruthy();
+    expect(screen.getByText(/Hit rate: 1 of 2 inside the 90% band recorded when they started \(50%\)\. Counts only runs with a band recorded when they started\./)).toBeTruthy();
+    expect(screen.getByText(/Each band was recorded by the engine when the run started/)).toBeTruthy();
+    expect(screen.getByText(/From: Analysis of synthetic_bioprocess.csv · n = 3 started · held-out conformal band \(90%\), recorded per run at start · engine 0.1.0/)).toBeTruthy();
+    expect(screen.getByText("Predicted (90% band recorded at start)")).toBeTruthy();
   });
 
   it("pins a tooltip from the keyboard: measured first, then predicted with its band and coverage, then the source", () => {
@@ -71,25 +82,48 @@ describe("ValidationDumbbells", () => {
   });
 
   it("all awaiting: intervals only and the caption that results appear as recorded", () => {
-    renderChart([run("a1", 1.7, null), run("b2", 1.8, null)]);
-    expect(screen.getByText("Results appear here as you record them.")).toBeTruthy();
+    renderChart([rec("a1", 1.7, null), rec("b2", 1.8, null)]);
+    expect(screen.getByText(/^Results appear here as you record them\./)).toBeTruthy();
     expect(screen.queryByText(/Hit rate/)).toBeNull();
   });
 
-  it("missing band: no intervals and no inside/outside column; residuals still shown", () => {
-    const { container } = renderChart(runs, null);
+  it("legacy runs without a band: no intervals and no inside/outside column; residuals still shown", () => {
+    const { container } = renderChart([run("60ad5599d4", 1.75, 1.64), run("f7a48e5666", 1.715, 1.5)], null);
     const svg = container.querySelector("svg[role=group]")!;
     expect(svg.textContent).not.toMatch(/\bBand\b|inside|outside/);
     expect(svg.textContent).toContain("\u22120.11");
     expect(screen.getByText("Predicted (no interval reported)")).toBeTruthy();
   });
 
-  it("a run from another analysis reads band n/a with the reason in its tooltip", () => {
-    const { container } = renderChart([run("60ad5599d4", 1.75, 1.64, { analysis_provenance: { provenance_sha256: "older" } })]);
+  it("a legacy run from another analysis reads band n/a with the reason in its tooltip, and is not scored", () => {
+    const { container } = renderChart([run("60ad5599d4", 1.75, 1.64, { analysis_provenance: { provenance_sha256: "older" } }), rec("f7a48e5666", 1.715, 1.5)]);
     expect(container.querySelector("svg[role=group]")!.textContent).toContain("band n/a");
-    expect(screen.getByText(/No measured run has a band from the current analysis to check against/)).toBeTruthy();
+    expect(screen.getByText(/1 measured run without a band recorded at start is left out\./)).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("button", { name: /^Run 60ad559:/ }), { key: "Enter" });
-    expect(screen.getByText(/\(no interval reported\) Proposed by an earlier analysis/)).toBeTruthy();
+    expect(screen.getByText(/\(no interval reported\) Started before the engine recorded each run's band, and proposed by an earlier analysis/)).toBeTruthy();
+  });
+
+  it("a legacy run from the current analysis keeps its band, marked * and named in the footer", () => {
+    const { container } = renderChart([run("60ad5599d4", 1.75, 1.64), rec("f7a48e5666", 1.715, 1.5)]);
+    expect(container.querySelector("svg[role=group]")!.textContent).toContain("60ad559*");
+    expect(screen.getByText(/\* Band from the current analysis/)).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Run 60ad559:/ }), { key: "Enter" });
+    expect(screen.getByText("band from the current analysis (not recorded at start)")).toBeTruthy();
+  });
+
+  it("a run without an engine prediction draws the measured dot only, with the engine's reason and the caller's number labelled", () => {
+    const reason = "recipe is not one of the published proposals; the engine has no prediction recorded for it";
+    const { container } = renderChart([run("c0ffee1234", 1.9, 1.7, { pred_source: "caller", prediction_at_start: { available: false, reason } }), rec("f7a48e5666", 1.715, 1.5)]);
+    const row = screen.getByRole("button", { name: /^Run c0ffee1: no engine prediction, measured 1\.70/ }).parentElement!;
+    expect(row.querySelectorAll('circle[stroke="var(--chart-predicted)"]')).toHaveLength(0);
+    expect(row.querySelectorAll('circle[fill="var(--chart-measured)"]')).toHaveLength(1);
+    expect(container.querySelector("svg[role=group]")!.textContent).toContain("not proposed");
+    expect(screen.getByText(/1 run has no engine prediction: the recipe was not one of its proposals/)).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Run c0ffee1:/ }), { key: "Enter" });
+    const tip = within(screen.getByRole("dialog", { name: "Mark details" }));
+    expect(tip.getByText("No engine prediction")).toBeTruthy();
+    expect(tip.getByText(new RegExp(reason))).toBeTruthy();
+    expect(tip.getByText("Your prediction, not the engine's")).toBeTruthy();
   });
 
   it("no started runs: the empty state, no ghost chart", () => {

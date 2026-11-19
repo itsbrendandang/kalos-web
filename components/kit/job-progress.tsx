@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { formatElapsed } from "@/lib/sheet-columns";
 import { cn } from "@/lib/utils";
 
-/** The engine's job stages in order (kalos-engine docs/JOBS.md), with what each one does in plain words. */
-export const JOB_STAGES: { key: string; label: string }[] = [
+export type JobStage = { key: string; label: string };
+
+/** The engine's upload-analysis job stages in order (kalos-engine docs/JOBS.md), with what each one does in plain words. */
+export const JOB_STAGES: JobStage[] = [
   { key: "queued", label: "Waiting for a free analysis slot" },
   { key: "parsing", label: "Reading and checking the sheet" },
   { key: "fitting", label: "Fitting the model and cross-validating" },
@@ -17,9 +19,30 @@ export const JOB_STAGES: { key: string; label: string }[] = [
   { key: "publishing", label: "Saving the analysis to the campaign" },
 ];
 
-export function jobStageIndex(stage: string): number {
-  const i = JOB_STAGES.findIndex((s) => s.key === stage);
+/** The engine's re-analysis job stages in order (POST /reanalyze/jobs, ENGINE_API_V2 section 3). */
+export const REANALYZE_STAGES: JobStage[] = [
+  { key: "queued", label: "Waiting for a free analysis slot" },
+  { key: "planning", label: "Gathering the measured results to fold in" },
+  { key: "fitting", label: "Re-fitting the model and cross-validating" },
+  { key: "calibrating", label: "Checking the model's reliability and intervals" },
+  { key: "proposing", label: "Proposing the next batch" },
+  { key: "publishing", label: "Saving the new round to the campaign" },
+];
+
+/** The stage list for a job, by its engine `kind` ("reanalyze" or the upload "analysis"). */
+export function jobStages(kind: string | null | undefined): JobStage[] {
+  return kind === "reanalyze" ? REANALYZE_STAGES : JOB_STAGES;
+}
+
+/** Where a stage sits in the job's list (0 = queued for an unknown stage). */
+export function jobStageIndex(stage: string, kind?: string | null): number {
+  const i = jobStages(kind).findIndex((s) => s.key === stage);
   return i === -1 ? 0 : i;
+}
+
+/** The engine's current stage in plain words; an unknown stage name falls back to "Working". */
+export function jobStageLabel(job: Pick<Job, "stage" | "kind">): string {
+  return jobStages(job.kind).find((s) => s.key === job.stage)?.label ?? "Working";
 }
 
 /** Seconds since an epoch-seconds timestamp, ticking once a second while `live`. */
@@ -35,10 +58,10 @@ export function useSecondsSince(since: number | null | undefined, live: boolean)
 }
 
 /**
- * An upload being analyzed as an engine background job: the engine's own
- * stage list and progress (reported at stage boundaries, so the bar moves in
- * steps, not smoothly), the elapsed time, and Cancel. It keeps running if the
- * user leaves the page.
+ * An engine background job (an upload being analyzed, or a re-analysis): the
+ * engine's own stage list for that job kind and its progress (reported at
+ * stage boundaries, so the bar moves in steps, not smoothly), the elapsed
+ * time, and Cancel. It keeps running if the user leaves the page.
  */
 export function JobProgress({
   job,
@@ -55,19 +78,28 @@ export function JobProgress({
 }) {
   const live = job.state === "queued" || job.state === "running";
   const elapsed = useSecondsSince(job.started_at ?? job.created_at, live);
-  const at = jobStageIndex(job.stage);
+  const stages = jobStages(job.kind);
+  const reanalyze = job.kind === "reanalyze";
+  const at = jobStageIndex(job.stage, job.kind);
   const pct = Math.round(Math.min(1, Math.max(0, job.progress)) * 100);
-  const announced = JOB_STAGES[at]?.label ?? job.stage;
+  const announced = stages[at]?.label ?? job.stage;
   return (
-    <section aria-label="Analysis progress" className={cn("rounded-xl border border-border bg-surface p-panel", className)}>
+    <section aria-label={reanalyze ? "Re-analysis progress" : "Analysis progress"} className={cn("rounded-xl border border-border bg-surface p-panel", className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-label text-fg">
             <Loader2 className="size-4 animate-spin text-accent motion-reduce:animate-none" aria-hidden />
-            {job.cancel_requested ? "Cancelling the analysis" : "Analyzing your sheet"}
+            {job.cancel_requested
+              ? reanalyze
+                ? "Cancelling the re-analysis"
+                : "Cancelling the analysis"
+              : reanalyze
+                ? "Re-analyzing with the measured results"
+                : "Analyzing your sheet"}
           </p>
           <p className="mt-0.5 text-caption text-fg-muted">
             Runs on the engine in the background: you can leave this page and come back. Progress is reported by the engine at each stage.
+            {reanalyze ? " Nothing is written until it finishes, so cancelling leaves the campaign as it was." : ""}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -93,7 +125,7 @@ export function JobProgress({
         <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
       </div>
       <ol className="mt-4 grid gap-1.5 sm:grid-flow-col sm:grid-rows-3">
-        {JOB_STAGES.map((s, i) => {
+        {stages.map((s, i) => {
           const state = i < at ? "done" : i === at ? "current" : "upcoming";
           return (
             <li key={s.key} className={cn("flex items-center gap-2 text-caption", state === "upcoming" ? "text-fg-muted" : "text-fg")}>
@@ -121,8 +153,8 @@ export function JobProgress({
 }
 
 /**
- * A synchronous engine call with no stage reporting (re-analysis has no job
- * route): an elapsed timer and a plain statement that the engine does not
+ * A synchronous engine call with no stage reporting (e.g. the scale-up
+ * readout): an elapsed timer and a plain statement that the engine does not
  * report progress for it, never a fake percentage.
  */
 export function ElapsedProgress({ title, note, startedAt, className }: { title: string; note: string; startedAt: number | null; className?: string }) {

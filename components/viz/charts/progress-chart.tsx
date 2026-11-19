@@ -9,8 +9,10 @@ import { formatValue, type IntervalSpec } from "@/lib/num";
 import type { Source } from "@/lib/source";
 import { MAX_FOCUSABLE_MARKS } from "@/lib/viz-thresholds";
 import {
+  BAND_FROM,
   bandName,
   describeProgress,
+  goalPhrase,
   hitRateText,
   markInterval,
   progressExtent,
@@ -21,12 +23,14 @@ import {
 } from "@/lib/viz-data/progress-chart";
 
 /*
- * C1 ProgressChart (VIZ_SPEC 5): is the campaign improving, and did the
- * model's predictions hold up? The measured best so far is a solid ink step
- * line with filled dots (a round with no measured best is a gap). Each
- * round's started runs sit to the left of the round: hollow predicted ring
- * with its band (when the run came from the current analysis), joined to the
- * filled measured result, or a dashed "awaiting" ring. Past a dotted divider,
+ * C1 ProgressChart (VIZ_SPEC 5): is the campaign getting better (in the
+ * goal's direction), and did the model's predictions hold up? The measured
+ * best so far is a solid ink step line with filled dots (a round with no
+ * measured best is a gap). Each round's started runs sit to the left of the
+ * round: hollow predicted ring with the band the engine recorded when the run
+ * started (legacy runs: the current analysis' band, labelled), joined to the
+ * filled measured result, or a dashed "awaiting" ring. A run without an engine
+ * prediction shows its measured result only. Past a dotted divider,
  * the next batch is predicted only and labelled "proposed, not run". The
  * incumbent is a dotted rule. Measured marks are always drawn last (on top).
  */
@@ -56,6 +60,10 @@ export function ProgressChart({
   const u = data.unit;
   const hasRuns = data.runs.length > 0;
   const hasNext = data.next != null;
+  const runCovs = [...new Set(data.runs.filter((r) => r.lo != null).map((r) => r.coverage))];
+  const anyBand = runCovs.length > 0 || (hasNext && data.halfWidth != null);
+  const legendCov = runCovs.length === 1 ? runCovs[0] : runCovs.length === 0 ? data.coverage : null;
+  const caller = data.runs.filter((r) => !r.enginePred).length;
   const insufficient = data.measuredRounds < 2 && !hasRuns && !hasNext;
   const hit = hitRateText(data);
   const description = describeProgress(data);
@@ -64,15 +72,18 @@ export function ProgressChart({
     <>
       <LegendItem mark="measured">Measured{u ? ` (${u})` : ""}</LegendItem>
       {hasRuns || hasNext ? (
-        <LegendItem mark="predicted">{data.halfWidth != null ? `Predicted (${bandName(data.coverage)})` : "Predicted (no interval reported)"}</LegendItem>
+        <LegendItem mark="predicted">{anyBand ? `Predicted (${bandName(legendCov ?? null)})` : "Predicted (no interval reported)"}</LegendItem>
       ) : null}
-      {data.runs.some((r) => r.result == null) ? <LegendItem mark="pending">Awaiting result</LegendItem> : null}
+      {data.runs.some((r) => r.result == null && r.enginePred) ? <LegendItem mark="pending">Awaiting result</LegendItem> : null}
       {data.incumbent ? <LegendItem mark="reference">{capitalize(data.incumbent.label)}</LegendItem> : null}
     </>
   );
   const footer = [
     hit,
-    data.runs.some((r) => r.band === "earlier-analysis") ? "Runs started from an earlier analysis show no band: the engine does not store each run's band, and today's band does not describe them." : null,
+    data.runs.some((r) => r.band === "recorded") ? "Each started run's band was recorded by the engine when the run started." : null,
+    data.legacy > 0 ? `${data.legacy === 1 ? "1 run was" : `${data.legacy} runs were`} started before the engine recorded bands and ${data.legacy === 1 ? "shows" : "show"} the current analysis' band instead.` : null,
+    data.runs.some((r) => r.band === "earlier-analysis") ? "Older runs from an earlier analysis show no band: their band was not stored, and today's band does not describe them." : null,
+    caller > 0 ? `${caller === 1 ? "1 run has" : `${caller} runs have`} no engine prediction (the recipe was not one of its proposals), so only ${caller === 1 ? "its" : "their"} measured result is drawn.` : null,
     `From: ${source.label} · n = ${formatValue(lastNBase(data.columns), { quantity: "count" }).text} measured rows · held-out conformal band${source.engineVersion ? ` · engine ${source.engineVersion}` : ""}`,
     footerExtra ?? null,
   ]
@@ -82,7 +93,12 @@ export function ProgressChart({
   return (
     <ChartFrame
       title={title}
-      subtitle={subtitle ?? (data.measuredRounds < 2 ? "The trend appears after your first recorded round." : `Measured best so far${u ? ` (${u})` : ""}, with each round's predictions against what was measured.`)}
+      subtitle={
+        subtitle ??
+        (data.measuredRounds < 2
+          ? "The trend appears after your first recorded round."
+          : `Measured best so far${u ? ` (${u})` : ""}, ${goalPhrase(data.goal)}, with each round's predictions against what was measured.`)
+      }
       state={insufficient ? { kind: "insufficient", text: "Only the uploaded sheet so far. The trend appears after your first recorded round." } : { kind: "ready" }}
       stale={data.stale}
       legend={legend}
@@ -143,10 +159,9 @@ function Plot({ data, width, description, source }: { data: ProgressData; width:
     <div className="flex flex-col gap-1">
       <p className="text-label">Run {r.id.slice(0, 7)}</p>
       <TipRow label="Measured">{r.result != null ? formatValue(r.result, { unit: u, basis: "measured" }).text : "Awaiting result"}</TipRow>
-      <TipRow label="Predicted">{formatValue(r.pred, { unit: u, interval, basis: "predicted" }).text}</TipRow>
-      <TipRow label="Band">
-        {interval ? bandName(data.coverage) : r.band === "earlier-analysis" ? "n/a: started from an earlier analysis" : "n/a: no interval reported"}
-      </TipRow>
+      <TipRow label="Predicted">{r.enginePred ? formatValue(r.pred, { unit: u, interval, basis: "predicted" }).text : "No engine prediction"}</TipRow>
+      <TipRow label="Band">{interval ? `${bandName(r.coverage)}, ${BAND_FROM[r.band]}` : `n/a: ${BAND_FROM[r.band]}`}</TipRow>
+      {r.bandReason && !interval ? <p className="max-w-72 text-fg-muted">{r.bandReason}</p> : null}
       {r.inside != null ? <TipRow label="Result">{r.inside ? "inside its band" : "outside its band"}</TipRow> : null}
       <TipSource>campaign.pending[id={r.id.slice(0, 7)}] · {sourceText}</TipSource>
     </div>
@@ -213,7 +228,8 @@ function Plot({ data, width, description, source }: { data: ProgressData; width:
             <g key={c.key}>
               {rs.map((r, i) => {
                 const cx = at(i);
-                const interval = markInterval(r.lo, r.hi, data.coverage);
+                const interval = markInterval(r.lo, r.hi, r.coverage);
+                if (!r.enginePred) return null;
                 return (
                   <g key={r.id}>
                     {interval ? <IntervalBar orientation="vertical" at={cx - off} from={yy(interval.lo)} to={yy(interval.hi)} cap={5} /> : null}
@@ -267,7 +283,9 @@ function Plot({ data, width, description, source }: { data: ProgressData; width:
             <g key={c.key}>
               {rs.map((r, i) => {
                 const cx = at(i);
-                const interval = markInterval(r.lo, r.hi, data.coverage);
+                const interval = markInterval(r.lo, r.hi, r.coverage);
+                // A caller-predicted run has no engine number to place an awaiting mark at: it stays in the Data table.
+                if (r.result == null && !r.enginePred) return null;
                 const vy = yy(r.result ?? r.pred);
                 return (
                   <g key={r.id}>
@@ -279,7 +297,7 @@ function Plot({ data, width, description, source }: { data: ProgressData; width:
                         cx,
                         vy,
                         runTip(r, interval),
-                        `Run ${r.id.slice(0, 7)}: ${r.result != null ? formatValue(r.result, { unit: u, basis: "measured" }).aria : "awaiting result"}, ${formatValue(r.pred, { unit: u, interval, basis: "predicted" }).aria}`,
+                        `Run ${r.id.slice(0, 7)}: ${r.result != null ? formatValue(r.result, { unit: u, basis: "measured" }).aria : "awaiting result"}, ${r.enginePred ? formatValue(r.pred, { unit: u, interval, basis: "predicted" }).aria : "no engine prediction"}`,
                         focusable,
                       )}
                     />
@@ -297,11 +315,11 @@ function Plot({ data, width, description, source }: { data: ProgressData; width:
 
 /** More than MAX_RUNS_PER_ROUND runs: min-max rules (exact) for predicted and measured; every run stays in the Data table. */
 function Collapsed({ runs, x, y }: { runs: ProgressRun[]; x: number; y: (v: number) => number }) {
-  const preds = runs.map((r) => r.pred);
+  const preds = runs.filter((r) => r.enginePred).map((r) => r.pred);
   const results = runs.map((r) => r.result).filter((v): v is number => v != null);
   return (
     <g aria-hidden>
-      <line x1={x - 5} x2={x - 5} y1={y(Math.min(...preds))} y2={y(Math.max(...preds))} stroke="var(--chart-predicted)" strokeWidth={1.5} strokeDasharray="4 3" />
+      {preds.length ? <line x1={x - 5} x2={x - 5} y1={y(Math.min(...preds))} y2={y(Math.max(...preds))} stroke="var(--chart-predicted)" strokeWidth={1.5} strokeDasharray="4 3" /> : null}
       {results.length ? <line x1={x + 5} x2={x + 5} y1={y(Math.min(...results))} y2={y(Math.max(...results))} stroke="var(--chart-measured)" strokeWidth={3} /> : null}
     </g>
   );

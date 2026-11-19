@@ -1,0 +1,220 @@
+{
+ "_source": "Captured from the live engine (feat/web-redesign-apis): campaign cmp_a28912911eee460dae2524ecd4047e7b. corrected = POST .../runs/{id}/result response after a correction (v2); awaiting = a run from POST .../runs started[]. Both carry prediction_at_start with the band recorded at start (R5).",
+ "corrected": {
+  "id": "3f40bff3058e482cb56d4482505208b3",
+  "recipe": {
+   "pH": 6.974,
+   "temperature_C": 36.194,
+   "glucose_gL": 8.275,
+   "glutamine_mM": 5.089,
+   "feed_rate_mLh": 1.653,
+   "DO_pct": 54.593,
+   "agitation_rpm": 216.403,
+   "inoculum_1e6": 1.143,
+   "antifoam_mgL": 30.003,
+   "osmolality_mOsm": 310.452,
+   "medium_base": "ProCHO"
+  },
+  "pred": 1.75,
+  "std": 0.069,
+  "pred_source": "engine",
+  "prediction_at_start": {
+   "available": true,
+   "basis": "predicted",
+   "pred": 1.75,
+   "std": 0.069,
+   "std_method": "gp_posterior",
+   "interval": {
+    "lo": 1.5464,
+    "hi": 1.9536,
+    "half_width": 0.2036,
+    "coverage": 0.9,
+    "method": "conformal_global"
+   },
+   "interval_unavailable_reason": null,
+   "proposal_index": 0,
+   "analysis_provenance": {
+    "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0",
+    "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+    "config_sha256": "333802cd5f07850c8eba9510b0ae871f6ce0dfd5ebdd4d6f6b7eb8f21e456b22",
+    "engine_version": "0.1.0",
+    "seed": 1234,
+    "timestamp": 1795116328
+   },
+   "analysis_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+   "recorded_at": 1795116379.186023,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5951,
+     "hi": 1.9051,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5242,
+     "hi": 1.976,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6322,
+     "hi": 1.868
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6096,
+     "hi": 1.8906
+    }
+   ]
+  },
+  "mode": "exploit",
+  "reason": "predicted high (+0.328 vs best)",
+  "result": 1.68,
+  "round": 0,
+  "created_at": 1795116379.186023,
+  "measured_at": 1795116379.2630699,
+  "analysis_provenance": {
+   "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0",
+   "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+   "config_sha256": "333802cd5f07850c8eba9510b0ae871f6ce0dfd5ebdd4d6f6b7eb8f21e456b22",
+   "engine_version": "0.1.0",
+   "seed": 1234,
+   "timestamp": 1795116328
+  },
+  "result_version": 2,
+  "residual": -0.07,
+  "residual_basis": "derived",
+  "inside_band": true,
+  "previous_result": 1.6,
+  "result_reason": "E2E fixture: re-read plate",
+  "result_actor": "dev-user",
+  "result_recorded_at": 1795116379.2630699
+ },
+ "awaiting": {
+  "id": "a0b0a924fe0c463e96281ebf4e5e825d",
+  "recipe": {
+   "pH": 6.967,
+   "temperature_C": 36.166,
+   "glucose_gL": 8.317,
+   "glutamine_mM": 5.16,
+   "feed_rate_mLh": 0.789,
+   "DO_pct": 54.877,
+   "agitation_rpm": 234.296,
+   "inoculum_1e6": 1.098,
+   "antifoam_mgL": 49.971,
+   "osmolality_mOsm": 309.519,
+   "medium_base": "CD-CHO"
+  },
+  "pred": 1.715,
+  "std": 0.064,
+  "pred_source": "engine",
+  "prediction_at_start": {
+   "available": true,
+   "basis": "predicted",
+   "pred": 1.715,
+   "std": 0.064,
+   "std_method": "gp_posterior",
+   "interval": {
+    "lo": 1.5114,
+    "hi": 1.9186,
+    "half_width": 0.2036,
+    "coverage": 0.9,
+    "method": "conformal_global"
+   },
+   "interval_unavailable_reason": null,
+   "proposal_index": 1,
+   "analysis_provenance": {
+    "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0",
+    "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+    "config_sha256": "333802cd5f07850c8eba9510b0ae871f6ce0dfd5ebdd4d6f6b7eb8f21e456b22",
+    "engine_version": "0.1.0",
+    "seed": 1234,
+    "timestamp": 1795116328
+   },
+   "analysis_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+   "recorded_at": 1795116379.186023,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.571,
+     "hi": 1.8592,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.505,
+     "hi": 1.9252,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6054,
+     "hi": 1.8248
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.5844,
+     "hi": 1.8458
+    }
+   ]
+  },
+  "mode": "exploit",
+  "reason": "predicted high (+0.293 vs best)",
+  "result": null,
+  "round": 0,
+  "created_at": 1795116379.186023,
+  "measured_at": null,
+  "analysis_provenance": {
+   "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0",
+   "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+   "config_sha256": "333802cd5f07850c8eba9510b0ae871f6ce0dfd5ebdd4d6f6b7eb8f21e456b22",
+   "engine_version": "0.1.0",
+   "seed": 1234,
+   "timestamp": 1795116328
+  },
+  "residual": null,
+  "residual_basis": null,
+  "inside_band": null
+ }
+}

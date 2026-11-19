@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CircleAlert } from "lucide-react";
-import { BAND_MISSING, resultHistory, type SessionCorrection } from "@/components/campaign/learn";
+import { BAND_SOURCE_LABEL, latestHistoryRows, resultHistory, type HistoryRow, type SessionCorrection } from "@/components/campaign/learn";
 import { changedRows, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
 import { formatTimestamp } from "@/components/kit/source-line";
 import { CorrectResultDialog } from "@/components/validate/correct-result-dialog";
@@ -12,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Num, NumState, SourceButton } from "@/components/viz/num";
 import { useEngineWrites } from "@/hooks/use-engine";
-import type { CampaignRun } from "@/lib/api";
+import { getResultHistory, type CampaignRun } from "@/lib/api";
 import { errorMessage } from "@/lib/engine-error";
 import { coverageText, formatValue } from "@/lib/num";
+import { campaignHref } from "@/lib/routes";
 import { sourceFromRun } from "@/lib/source";
 import { fmtInterval, fmtResidual, toDumbbellData, type DumbbellAnalysis, type DumbbellRun } from "@/lib/viz-data/validation-dumbbells";
 import { shortId } from "@/lib/workbench";
@@ -23,16 +25,51 @@ type Row = { id: string; value: number };
 
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
+/** Where the full result history (every version, with reasons and who recorded it) lives. */
+export const historyHref = (campaignId: string) => `${campaignHref(campaignId, "report")}#history`;
+
+/**
+ * The engine's result history rows for corrected runs (GET /results/history, newest first). The campaign summary
+ * carries `result_version` but not the earlier value or the reason, so a corrected run's previous value and reason
+ * come from here. Fetched only while some run is corrected, again whenever a version changes.
+ */
+function useCorrectionRows(campaignId: string | undefined, runs: readonly CampaignRun[]): { rows: Map<string, HistoryRow> | null; failed: boolean } {
+  const key = runs
+    .filter((r) => (r.result_version ?? 0) > 1 && r.previous_result === undefined && !r.result_reason)
+    .map((r) => `${r.id}:${r.result_version}`)
+    .join(",");
+  const [state, setState] = useState<{ key: string; rows: Map<string, HistoryRow> | null; failed: boolean }>({ key: "", rows: null, failed: false });
+  useEffect(() => {
+    if (!campaignId || !key) return;
+    let cancelled = false;
+    getResultHistory(campaignId, { section: "results", limit: 500 }).then(
+      (h) => {
+        if (!cancelled) setState({ key, rows: latestHistoryRows(h.results?.items ?? []), failed: false });
+      },
+      () => {
+        if (!cancelled) setState((s) => ({ ...s, key, failed: true }));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId, key]);
+  return { rows: state.rows, failed: state.key === key && state.failed };
+}
+
 /**
  * Enter measured results, one input per awaiting run; recorded runs show the
  * measured value (filled ink, first) beside the prediction (hollow ring) and
  * its band, the signed residual (measured − predicted), whether it landed
- * inside the band, and its version history. Saving writes
+ * inside the band the engine recorded when the run started (the engine's own
+ * residual and inside/outside), and its version history (a correction's earlier
+ * value and reason from the engine's result history). Saving writes
  * the entered rows one at a time, so a failure leaves the earlier rows saved.
  * A recorded value is corrected through a dialog that asks for the reason the
  * engine requires (results are append-only and versioned).
  */
 export function RecordForm({
+  campaignId,
   runs,
   analysis,
   best,
@@ -41,6 +78,8 @@ export function RecordForm({
   readOnly = false,
   onSavingChange,
 }: {
+  /** For the engine's result history (corrections) and the link to the Report's history. */
+  campaignId?: string;
   runs: CampaignRun[];
   analysis: DumbbellAnalysis | null;
   best: number | null;
@@ -72,6 +111,8 @@ export function RecordForm({
   const byId = new Map(d.runs.map((r) => [r.id, r]));
   const cov = coverageText(d.coverage);
   const measuredText = (v: number | null) => formatValue(v, { basis: "measured", unit, uncertainty: d.measuredU }).text;
+  const history = useCorrectionRows(campaignId, runs);
+  const anyCorrected = runs.some((r) => (r.result_version ?? 0) > 1);
 
   async function save(rows: Row[]) {
     setConfirm(null);
@@ -156,23 +197,31 @@ export function RecordForm({
                         decimals={d.decimals.measured}
                         format={measuredText}
                         session={corrections[r.id]}
+                        historyRow={history.rows?.get(r.id) ?? null}
                         onCorrect={readOnly ? undefined : () => setCorrecting(r)}
                         disabled={saving}
                       />
                     )}
                   </TableCell>
                   <TableCell numeric className="align-top">
-                    <Num value={r.pred} basis="predicted" options={{ decimals: d.decimals.pred }} />
+                    {row && row.pred != null ? (
+                      <Num value={row.pred} basis="predicted" options={{ decimals: d.decimals.pred }} />
+                    ) : (
+                      <span className="text-caption text-fg-muted" title={row?.bandReason ?? undefined}>
+                        No engine prediction
+                      </span>
+                    )}
                   </TableCell>
                   {d.bandAvailable ? (
-                    <TableCell numeric className="align-top text-caption text-fg-muted" title={row?.bandWhy ? BAND_MISSING[row.bandWhy] : undefined}>
-                      {row && row.interval ? fmtInterval(d, row) : "band n/a"}
+                    <TableCell numeric className="align-top text-caption text-fg-muted" title={row?.bandReason ?? (row?.bandSource ? BAND_SOURCE_LABEL[row.bandSource] : undefined)}>
+                      {row && row.interval ? fmtInterval(d, row) : row?.pred == null ? "n/a" : "band n/a"}
+                      {row?.bandSource === "current-analysis" ? <span className="block">current analysis</span> : null}
                     </TableCell>
                   ) : null}
                   {row && !row.awaiting ? (
                     <>
                       <TableCell numeric className="align-top">
-                        <span className="text-fg">{fmtResidual(d, row, null).text}</span>
+                        {row.residual != null ? <span className="text-fg">{fmtResidual(d, row, null).text}</span> : <span className="text-fg-muted">n/a</span>}
                       </TableCell>
                       <TableCell className="align-top text-body">
                         <BandCheck row={row} />
@@ -192,6 +241,15 @@ export function RecordForm({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-caption text-fg-muted" aria-live="polite">
+          {anyCorrected && campaignId ? (
+            <span className="mr-2">
+              Corrections keep every version.{" "}
+              <Link href={historyHref(campaignId)} className="text-accent hover:underline">
+                Full result history in the Report
+              </Link>
+              {history.failed ? " (the history could not be loaded here)" : ""}.
+            </span>
+          ) : null}
           {error ? (
             <span role="alert" className="text-bad">
               {error}
@@ -212,6 +270,7 @@ export function RecordForm({
         unit={unit}
         best={best}
         interval={correcting ? (byId.get(correcting.id)?.interval ?? null) : null}
+        pred={correcting ? (byId.get(correcting.id)?.pred ?? null) : null}
         decimals={d.decimals}
         measuredU={d.measuredU}
         onClose={() => setCorrecting(null)}
@@ -243,14 +302,35 @@ export function RecordForm({
   );
 }
 
-/** Inside / outside / no band, as a word with an icon (never color alone). */
+/** Inside / outside / no band, as a word with an icon (never color alone); a legacy run says whose band it was. */
 function BandCheck({ row }: { row: DumbbellRun }) {
-  if (row.inside == null) return <span className="text-fg-muted" title={row.bandWhy ? BAND_MISSING[row.bandWhy] : undefined}>band n/a</span>;
-  if (row.inside) return <span className="text-fg">Inside the band</span>;
+  if (row.pred == null)
+    return (
+      <span className="text-fg-muted" title={row.bandReason ?? undefined}>
+        No engine prediction
+      </span>
+    );
+  if (row.inside == null)
+    return (
+      <span className="text-fg-muted" title={row.bandReason ?? undefined}>
+        band n/a
+      </span>
+    );
+  const legacy = row.bandSource === "current-analysis" ? <span className="block text-caption text-fg-muted">current analysis&apos; band</span> : null;
+  if (row.inside)
+    return (
+      <span className="text-fg">
+        Inside the band
+        {legacy}
+      </span>
+    );
   return (
-    <span className="inline-flex items-center gap-1.5 text-fg">
-      <CircleAlert className="size-4 shrink-0 text-warn" aria-hidden />
-      Outside the band
+    <span className="text-fg">
+      <span className="inline-flex items-center gap-1.5">
+        <CircleAlert className="size-4 shrink-0 text-warn" aria-hidden />
+        Outside the band
+      </span>
+      {legacy}
     </span>
   );
 }
@@ -262,6 +342,7 @@ function RecordedValue({
   decimals,
   format,
   session,
+  historyRow,
   onCorrect,
   disabled,
 }: {
@@ -270,10 +351,11 @@ function RecordedValue({
   decimals: number;
   format: (v: number | null) => string;
   session?: SessionCorrection;
+  historyRow?: HistoryRow | null;
   onCorrect?: () => void;
   disabled: boolean;
 }) {
-  const h = resultHistory(run, session);
+  const h = resultHistory(run, session, historyRow);
   const corrected = h.version != null && h.version > 1;
   const when = run.result_recorded_at ?? run.measured_at;
   return (
@@ -288,7 +370,7 @@ function RecordedValue({
         ) : null}
       </span>
       <span className="max-w-72 text-right text-caption whitespace-normal text-fg-muted tabular-nums">
-        {h.version != null ? `Version ${count(h.version)}` : "Recorded"}
+        {h.version != null ? `Version ${count(h.version)}${corrected ? " (corrected)" : ""}` : "Recorded"}
         {h.source && h.previous != null ? `, was ${format(h.previous)}` : ""}
         {when != null ? `, ${formatTimestamp(when)}` : ""}
       </span>
@@ -298,7 +380,7 @@ function RecordedValue({
         </span>
       ) : corrected && h.source == null ? (
         <span className="max-w-72 text-right text-caption whitespace-normal text-fg-muted">
-          Corrected. The engine keeps the earlier value and the reason but does not return them here.
+          Corrected. The earlier value and the reason are in the Report&apos;s result history.
         </span>
       ) : null}
     </div>

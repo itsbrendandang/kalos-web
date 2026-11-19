@@ -14,6 +14,7 @@ import { MAX_DUMBBELL_RUNS, MAX_FOCUSABLE_MARKS } from "@/lib/viz-thresholds";
 import {
   bandCheck,
   bandMissingReason,
+  bandSourceLabel,
   describeDumbbells,
   dumbbellDomain,
   dumbbellTable,
@@ -23,6 +24,7 @@ import {
   fmtResidual,
   hitRateText,
   paginateGroups,
+  unscoredText,
   type DumbbellData,
   type DumbbellRun,
 } from "@/lib/viz-data/validation-dumbbells";
@@ -30,11 +32,14 @@ import { shortId } from "@/lib/workbench";
 
 /*
  * C10 ValidationDumbbells (VIZ_SPEC 5): one row per started run, grouped by
- * round, newest first. The predicted interval is an accent bar with a hollow
- * dot; the measured result is a filled ink dot drawn last and larger (r=5 vs
- * 4) so it outranks the prediction; a thin muted connector joins them. The
- * right-hand columns give the signed residual (measured − predicted) and the
+ * round, newest first. The predicted interval (the band the engine recorded
+ * when the run started) is an accent bar with a hollow dot; the measured
+ * result is a filled ink dot drawn last and larger (r=5 vs 4) so it outranks
+ * the prediction; a thin muted connector joins them. The right-hand columns
+ * give the engine's signed residual (measured − predicted) and the
  * inside/outside chip. Awaiting runs show the interval and a pending glyph.
+ * A run without an engine prediction (its recipe was not proposed) shows the
+ * measured dot only; a legacy run's current-analysis band is marked "*".
  */
 
 const HEAD = 22;
@@ -88,28 +93,35 @@ export function ValidationDumbbells({
 
   const subtitle =
     d.runs.length > 0 && d.measured === 0
-      ? "Results appear here as you record them."
-      : `${d.bandAvailable ? `Each prediction carries its ${cov ? `${cov} ` : ""}held-out band. ${d.bandNote}` : "The analysis reported no prediction band, so only the predictions are shown."}`;
+      ? `Results appear here as you record them.${d.bandNote ? ` ${d.bandNote}` : ""}`
+      : d.bandAvailable
+        ? `Each prediction carries its ${cov ? `${cov} ` : ""}held-out band. ${d.bandNote}`
+        : "No run has a prediction band, so only the predictions are shown.";
+  const unscored = d.hit ? unscoredText(d.hit) : null;
 
   const footer = (
     <>
-      {d.hit && d.hit.total > 0 ? (
+      {d.hit && d.measured > 0 ? (
         <span className="block text-fg">
           Hit rate: {hitRateText(d.hit, d.coverage)}
-          {d.hit.unscored > 0 ? `, ${formatValue(d.hit.unscored, { quantity: "count" }).text} measured without a band left out` : ""}
+          {d.hit.total > 0 ? ". Counts only runs with a band recorded when they started." : ""}
+          {unscored ? ` ${unscored}` : ""}
           {d.meanAbsResidual != null ? (
             <span className="text-fg-muted"> · mean |measured − predicted| {formatValue(d.meanAbsResidual, { unit, decimals: d.decimals.residual }).text}</span>
           ) : null}
         </span>
       ) : d.meanAbsResidual != null ? (
-        <span className="block text-fg">
-          {d.hit ? "No measured run has a band from the current analysis to check against. " : ""}
-          mean |measured − predicted| {formatValue(d.meanAbsResidual, { unit, decimals: d.decimals.residual }).text}
+        <span className="block text-fg">mean |measured − predicted| {formatValue(d.meanAbsResidual, { unit, decimals: d.decimals.residual }).text}</span>
+      ) : null}
+      {d.legacy > 0 ? <span className="block">* Band from the current analysis: the run was started before the engine recorded each run&apos;s band.</span> : null}
+      {d.callerPredicted > 0 ? (
+        <span className="block">
+          {formatValue(d.callerPredicted, { quantity: "count" }).text} {d.callerPredicted === 1 ? "run has" : "runs have"} no engine prediction: the recipe was not one of its proposals, so only the measured value is drawn.
         </span>
       ) : null}
       <span className="block">
         From: {source?.label ?? "Campaign runs"} · n = {formatValue(d.runs.length, { quantity: "count" }).text} started
-        {d.bandAvailable ? ` · held-out conformal band${cov ? ` (${cov})` : ""}` : ""}
+        {d.bandAvailable ? ` · held-out conformal band${cov ? ` (${cov})` : ""}, recorded per run at start` : ""}
         {source?.engineVersion ? ` · engine ${source.engineVersion}` : ""}
       </span>
     </>
@@ -129,7 +141,7 @@ export function ValidationDumbbells({
       legend={
         <>
           <LegendItem mark="measured">Measured</LegendItem>
-          <LegendItem mark="predicted">{d.bandAvailable ? `Predicted (${cov ? `${cov} ` : ""}band)` : "Predicted (no interval reported)"}</LegendItem>
+          <LegendItem mark="predicted">{d.bandAvailable ? `Predicted (${cov ? `${cov} ` : ""}band recorded at start)` : "Predicted (no interval reported)"}</LegendItem>
           {d.awaiting > 0 ? <LegendItem mark="pending">Awaiting result</LegendItem> : null}
           {d.bandAvailable ? <LegendItem mark="outside">Outside the band</LegendItem> : null}
         </>
@@ -137,7 +149,7 @@ export function ValidationDumbbells({
     >
       {(w) => {
         if (!domain) return null;
-        const L = layout(w, d.bandAvailable);
+        const L = layout(w, d.bandAvailable || d.callerPredicted > 0);
         const x = scaleLinear<number>({ domain, range: [L.x0, L.x1], nice: true });
         const ticks = x.ticks(L.wide ? 5 : 3);
         const fmt = tickFormatter(ticks);
@@ -236,30 +248,37 @@ function RunRow({
   isStatic: boolean;
   markProps: MarkProps;
 }) {
-  const px = x(r.pred);
+  const px = r.pred != null ? x(r.pred) : null;
   const mx = r.result != null ? x(r.result) : null;
   const check = bandCheck(r);
-  const residual = r.awaiting ? null : fmtResidual(d, r, unit);
-  const label = `Run ${shortId(r.id)}: predicted ${fmtPred(d, r, unit).text}${r.interval ? ` ${fmtInterval(d, r)}` : ""}, ${r.awaiting ? "awaiting a result" : `measured ${fmtMeasured(d, r, unit).text}, ${check}`}`;
-  const hit = isStatic ? {} : markProps(px, cy, <RunTip r={r} d={d} unit={unit} target={target} />, label, focusable);
+  const residual = r.awaiting || r.residual == null ? null : fmtResidual(d, r, unit);
+  const predWords = r.pred != null ? `predicted ${fmtPred(d, r, unit).text}${r.interval ? ` ${fmtInterval(d, r)}` : ""}` : "no engine prediction";
+  const label = `Run ${shortId(r.id)}: ${predWords}, ${r.awaiting ? "awaiting a result" : `measured ${fmtMeasured(d, r, unit).text}, ${check}`}`;
+  const anchor = px ?? mx ?? L.x0;
+  const hit = isStatic ? {} : markProps(anchor, cy, <RunTip r={r} d={d} unit={unit} target={target} />, label, focusable);
   return (
     <g>
       <g aria-hidden>
         <text x={0} y={cy + 4} className="fill-fg font-mono text-code" fontSize={12}>
           {shortId(r.id)}
+          {r.bandSource === "current-analysis" ? <tspan className="fill-fg-muted">*</tspan> : null}
         </text>
         {L.wide ? (
           <text x={64} y={cy + 4} className="fill-fg-muted text-caption" fontSize={12}>
-            {r.mode}
+            {r.pred == null ? "not proposed" : r.mode}
           </text>
         ) : null}
         {r.interval ? <IntervalBar orientation="horizontal" at={cy} from={x(r.interval.lo)} to={x(r.interval.hi)} /> : null}
-        {mx != null ? <line x1={px} x2={mx} y1={cy} y2={cy} stroke="var(--fg-muted)" strokeWidth={1} /> : null}
-        <PredictedDot x={px} y={cy} r={4} />
+        {mx != null && px != null ? <line x1={px} x2={mx} y1={cy} y2={cy} stroke="var(--fg-muted)" strokeWidth={1} /> : null}
+        {px != null ? <PredictedDot x={px} y={cy} r={4} /> : null}
         {mx != null ? <MeasuredDot x={mx} y={cy} r={5} /> : null}
         {residual ? (
           <text x={resX} y={cy + 4} textAnchor="end" className="fill-fg text-caption tabular-nums" fontSize={12}>
             {residual.text}
+          </text>
+        ) : !r.awaiting ? (
+          <text x={resX} y={cy + 4} textAnchor="end" className="fill-fg-muted text-caption" fontSize={12}>
+            n/a
           </text>
         ) : (
           <g>
@@ -269,7 +288,7 @@ function RunRow({
             </text>
           </g>
         )}
-        {d.bandAvailable && !r.awaiting ? <Chip x={chipX} cy={cy} check={check} width={L.chip - 8} compact={!L.wide} /> : null}
+        {(d.bandAvailable || r.pred == null) && !r.awaiting ? <Chip x={chipX} cy={cy} check={check} width={L.chip - 8} compact={!L.wide} /> : null}
       </g>
       {!isStatic ? <HitTarget x={12} y={cy - 3} width={L.x1 + 18 + L.res + L.chip} height={ROW} {...hit} /> : null}
     </g>
@@ -277,10 +296,10 @@ function RunRow({
 }
 
 function Chip({ x, cy, check, width, compact }: { x: number; cy: number; check: ReturnType<typeof bandCheck>; width: number; compact: boolean }) {
-  if (check === "band n/a")
+  if (check === "band n/a" || check === "no engine prediction")
     return (
       <text x={x} y={cy + 4} className="fill-fg-muted text-caption" fontSize={12}>
-        {compact ? "n/a" : "band n/a"}
+        {compact ? "n/a" : check === "band n/a" ? "band n/a" : "no prediction"}
       </text>
     );
   const outside = check === "outside";
@@ -307,8 +326,9 @@ function Chip({ x, cy, check, width, compact }: { x: number; cy: number; check: 
 
 /** Tooltip: measured first, then predicted with its band and coverage, the residual, the band check and the source. */
 function RunTip({ r, d, unit, target }: { r: DumbbellRun; d: DumbbellData; unit: string | null; target: string }) {
-  const p = formatValue(r.pred, { basis: "predicted", unit, interval: r.interval, decimals: d.decimals.pred });
+  const p = r.pred != null ? formatValue(r.pred, { basis: "predicted", unit, interval: r.interval, decimals: d.decimals.pred }) : null;
   const why = bandMissingReason(r);
+  const from = bandSourceLabel(r);
   const runSource = sourceFromRun({ target }, r.run, r.awaiting ? "predicted" : "measured");
   return (
     <div className="flex flex-col gap-1 pr-5">
@@ -321,18 +341,28 @@ function RunTip({ r, d, unit, target }: { r: DumbbellRun; d: DumbbellData; unit:
         </span>
       </p>
       <TipRow label="Measured">{r.awaiting ? "Awaiting result" : <span className="font-semibold">{fmtMeasured(d, r, unit).text}</span>}</TipRow>
-      <TipRow label="Predicted">{p.value}{unit ? `\u00A0${unit}` : ""}</TipRow>
-      {r.interval ? (
+      {p ? (
+        <TipRow label="Predicted">
+          {p.value}
+          {unit ? `\u00A0${unit}` : ""}
+        </TipRow>
+      ) : (
+        <TipRow label="Predicted">No engine prediction</TipRow>
+      )}
+      {r.interval && p ? (
         <TipRow label={`${p.coverage ? `${p.coverage} ` : ""}held-out band`}>{p.interval}</TipRow>
       ) : (
-        <p className="text-fg-muted">(no interval reported){why ? ` ${why}` : ""}</p>
+        <p className="max-w-72 text-fg-muted">{p ? "(no interval reported) " : ""}{why}</p>
       )}
-      {!r.awaiting ? <TipRow label="Measured − predicted">{fmtResidual(d, r, unit).text}</TipRow> : null}
+      {from ? <p className="text-fg-muted">{from}</p> : null}
+      {r.callerPred != null ? (
+        <TipRow label="Your prediction, not the engine's">{formatValue(r.callerPred, { unit }).text}</TipRow>
+      ) : null}
+      {!r.awaiting && r.residual != null ? <TipRow label="Measured − predicted">{fmtResidual(d, r, unit).text}</TipRow> : null}
       {r.inside != null ? <TipRow label="Band check">{r.inside ? "inside" : "outside"}</TipRow> : null}
       <TipSource>
         <span className="font-mono text-code">{runSource.field}</span>
-        {r.interval ? <span className="block">{d.bandNote}</span> : null}
-        <SourceButton source={runSource} full={String(r.awaiting ? r.pred : r.result)} className="ml-1" />
+        <SourceButton source={runSource} full={String(r.awaiting ? (r.pred ?? "") : r.result)} className="ml-1" />
       </TipSource>
     </div>
   );

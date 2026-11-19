@@ -14,9 +14,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { LegendItem } from "@/components/viz/frame";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useCampaignDetail, useCampaignId, useLatest, useUploadJob } from "@/hooks/use-engine";
-import { isJobActive, type PopulatedResult } from "@/lib/api";
+import { isJobActive, targetUnitOf, type PopulatedResult } from "@/lib/api";
 import { campaignStage, cycleSteps, displayRound } from "@/lib/campaign-stage";
 import { coverageText, formatValue, parseUnit } from "@/lib/num";
+import { toDumbbellData } from "@/lib/viz-data/validation-dumbbells";
 import { campaignHref } from "@/lib/routes";
 import { inFlight, measured } from "@/lib/workbench";
 
@@ -51,7 +52,7 @@ export default function ValidatePage() {
     if (!ready || scrolled.current) return;
     scrolled.current = true;
     const target = window.location.hash.slice(1);
-    if (target === "run" || target === "record" || target === "learn") document.getElementById(target)?.scrollIntoView();
+    if (target === "run" || target === "record" || target === "learn" || target === "reanalyze") document.getElementById(target)?.scrollIntoView();
   }, [ready]);
 
   const top = (
@@ -106,8 +107,11 @@ export default function ValidatePage() {
     );
   }
 
-  const { unit } = parseUnit(c.target);
+  // The analysis' target unit (user setup, then the header) when it is loaded; the header otherwise.
+  const unit = analysis ? targetUnitOf(analysis) : parseUnit(c.target).unit;
   const awaiting = inFlight(c);
+  const labBands = toDumbbellData(awaiting, analysis);
+  const labCov = coverageText(labBands.coverage);
   const done = measured(c);
   const archived = detail.data?.campaign.archived ?? false;
   const drivers = analysis?.drivers.map((d) => d.name) ?? [];
@@ -158,11 +162,11 @@ export default function ValidatePage() {
           <>
             <RunsTable runs={awaiting} drivers={drivers} analysis={analysis} featureRanges={analysis?.feature_ranges ?? null} target={c.target} unit={unit} />
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
-              <LegendItem mark="predicted">Predicted by the model</LegendItem>
+              <LegendItem mark="predicted">Predicted by the engine</LegendItem>
               <span>
-                {analysis?.conformal_q != null
-                  ? `Band: the ${[coverageText(analysis.conformal_coverage), "held-out band"].filter(Boolean).join(" ")} of the analysis that proposed the run`
-                  : "No prediction band reported by the analysis"}
+                {labBands.bandAvailable
+                  ? `Band: the ${[labCov, "held-out band"].filter(Boolean).join(" ")} the engine recorded when the run started.${labBands.legacy > 0 ? " Runs started before that show the current analysis' band, labelled as such." : ""}`
+                  : "No prediction band recorded for these runs."}
               </span>
             </p>
           </>
@@ -183,7 +187,7 @@ export default function ValidatePage() {
             : "Results are recorded here once a batch is running."
         }
       >
-        {started > 0 ? <RecordForm runs={c.pending} analysis={analysis} best={c.best} target={c.target} unit={unit} readOnly={archived} onSavingChange={setSaving} /> : null}
+        {started > 0 ? <RecordForm campaignId={id} runs={c.pending} analysis={analysis} best={c.best} target={c.target} unit={unit} readOnly={archived} onSavingChange={setSaving} /> : null}
       </Section>
 
       <LearnSection

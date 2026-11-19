@@ -4,23 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
-import {
-  calibrationSentence,
-  reanalysisFailure,
-  reanalyzeBlock,
-  roundCalibration,
-  roundLesson,
-  syncNote,
-} from "@/components/campaign/learn";
+import { calibrationSentence, reanalysisErrorCopy, reanalyzeBlock, roundCalibration, roundLesson, syncNote } from "@/components/campaign/learn";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
-import { ElapsedProgress } from "@/components/kit/job-progress";
+import { JobProgress } from "@/components/kit/job-progress";
 import { Section, Panel } from "@/components/kit/section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ValidationDumbbells } from "@/components/viz/charts/validation-dumbbells";
 import { Delta, Num } from "@/components/viz/num";
 import { useEngineWrites, useReanalysis } from "@/hooks/use-engine";
 import { campaignComparisons, type AnalyzeResult } from "@/lib/api";
+import { EngineError } from "@/lib/engine-error";
 import { coverageText, formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
 import { sourceFromAnalysis } from "@/lib/source";
@@ -33,10 +27,12 @@ const roundName = (r: number) => (r === 0 ? "the uploaded data" : `round ${r}`);
 
 /**
  * Learn and re-propose: what this round's measured results say against the
- * best before it and against their predictions (arithmetic, no verdict), then
- * the one action that closes the loop. Re-analysis is synchronous on the
- * engine with no job route, so it shows elapsed time only; it is tracked by
- * the campaign's data provider, so it keeps running across pages.
+ * best before it (in the campaign goal's direction) and against the bands the
+ * engine recorded when the runs started (arithmetic, no verdict), then the one
+ * action that closes the loop. Re-analysis is an engine background job
+ * (POST /reanalyze/jobs): the engine's own stage and progress, Cancel, and an
+ * error that persists across navigation until dismissed (all tracked by the
+ * campaign's data provider, so it keeps running across pages).
  */
 export function LearnSection({
   campaignId,
@@ -49,7 +45,7 @@ export function LearnSection({
 }: {
   campaignId: string;
   campaign: ActiveCampaign;
-  /** The current analysis: band fields, replicate noise and its provenance (for the chart's source line). */
+  /** The current analysis: legacy band fields, replicate noise and its provenance (for the chart's source line). */
   analysis: (DumbbellAnalysis & Partial<Pick<AnalyzeResult, "run" | "engine_version" | "seed">> & { dataset?: string; updated?: number }) | null;
   unit: string | null;
   archived: boolean;
@@ -58,31 +54,60 @@ export function LearnSection({
 }) {
   const { reanalyze } = useEngineWrites();
   const reanalysis = useReanalysis();
-  const [failure, setFailure] = useState<ReturnType<typeof reanalysisFailure> | null>(null);
   const [proposed, setProposed] = useState<number | null>(null);
+  const [localFailure, setLocalFailure] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelFailure, setCancelFailure] = useState<string | null>(null);
 
   const lesson = roundLesson(c);
   const next = lesson.round + 1;
   const cal = roundCalibration(c.pending, analysis);
-  const coverage = coverageText(analysis?.conformal_coverage);
+  const coverage = coverageText(cal.coverage);
   const comparisons = campaignComparisons(c);
   const sync = syncNote(c);
   const block = reanalyzeBlock({ campaign: c, running: reanalysis.running, uploadActive, archived, saving });
   const dumbbells = toDumbbellData(c.pending, analysis);
   const measuredU = measuredUncertainty(analysis);
   const nMeasured = measured(c).length;
+  const minimize = lesson.goal === "minimize";
   // Relative change only for a ratio-scale target with a unit (VIZ_SPEC 2.5).
   const relative = unit != null;
 
+  const job = reanalysis.job?.kind === "reanalyze" ? reanalysis.job : null;
+  const error = reanalysis.error;
+  const copy = error ? reanalysisErrorCopy(error) : null;
+  const succeeded = !error && !reanalysis.running && job?.state === "succeeded";
+  const cancelled = !error && !reanalysis.running && job?.state === "cancelled";
+
   async function run() {
-    setFailure(null);
     setProposed(null);
+    setLocalFailure(null);
+    setCancelFailure(null);
     try {
-      await reanalyze();
-      setProposed(next);
+      const out = await reanalyze();
+      if (out.kind === "succeeded") setProposed(next);
     } catch (e) {
-      setFailure(reanalysisFailure(e));
+      // A refusal before queueing is kept by the provider (useReanalysis().error); anything else is shown here.
+      if (!(e instanceof EngineError)) setLocalFailure(reanalysisErrorCopy(e).message);
     }
+  }
+
+  async function cancel() {
+    setCancelling(true);
+    setCancelFailure(null);
+    try {
+      await reanalysis.cancel();
+    } catch {
+      setCancelFailure("The cancel request did not reach the engine. The re-analysis may still be running; try again.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  function dismiss() {
+    setProposed(null);
+    setLocalFailure(null);
+    reanalysis.dismiss();
   }
 
   return (
@@ -93,7 +118,7 @@ export function LearnSection({
         ) : (
           <div className="flex flex-col gap-1">
             <p className="flex flex-wrap items-baseline gap-x-2 text-body text-fg">
-              <span>Best measured result this round:</span>
+              <span>{minimize ? "Best (lowest) measured result this round:" : "Best measured result this round:"}</span>
               <Num value={lesson.roundBest} basis="measured" unit={unit} size="title" options={{ uncertainty: measuredU }} />
               {lesson.roundBestRun ? (
                 <span className="text-fg-muted">
@@ -105,7 +130,8 @@ export function LearnSection({
               <p className="flex flex-wrap items-baseline gap-x-2 text-body text-fg-muted">
                 <Delta current={lesson.roundBest} baseline={lesson.priorBest} unit={unit} relative={relative} baselineLabel="the best measured before this round" options={{ uncertainty: measuredU }} />
                 <span>
-                  (that best was <Num value={lesson.priorBest} basis="measured" unit={unit} glyph={false} options={{ uncertainty: measuredU }} />)
+                  (that best was <Num value={lesson.priorBest} basis="measured" unit={unit} glyph={false} options={{ uncertainty: measuredU }} />
+                  {minimize ? "; the goal is to minimize, so lower is better" : ""})
                 </span>
               </p>
             ) : (
@@ -116,13 +142,13 @@ export function LearnSection({
         )}
         {lesson.measured > 0 ? (
           <p className="text-body text-fg">
-            {cal == null
-              ? "The engine reported no prediction band for this analysis, so the results cannot be checked against one."
-              : cal.total === 0
-                ? "None of the measured runs has a band from the current analysis to check against."
-                : calibrationSentence(cal, analysis?.conformal_coverage)}
-            {cal && cal.unscored > 0 ? ` ${plural(cal.unscored, "run")} proposed by an earlier analysis ${cal.unscored === 1 ? "is" : "are"} left out: ${cal.unscored === 1 ? "its" : "their"} band was not stored.` : ""}{" "}
-            {cal && cal.total > 0 ? (
+            {cal.total === 0
+              ? "None of the measured runs has a band the engine recorded when it started, so the results are not checked against one."
+              : calibrationSentence(cal, cal.coverage)}
+            {cal.total > 0 && cal.unscored > 0
+              ? ` ${plural(cal.unscored, "other measured run")} ${cal.unscored === 1 ? "has" : "have"} no recorded band and ${cal.unscored === 1 ? "is" : "are"} left out.`
+              : ""}{" "}
+            {cal.total > 0 ? (
               <span className="text-fg-muted">
                 {coverage
                   ? `Over many runs, about ${coverage} of results are expected inside a ${coverage} band; a handful of runs cannot confirm or rule that out.`
@@ -138,10 +164,10 @@ export function LearnSection({
           data={dumbbells}
           target={c.target}
           unit={unit}
-          source={analysis ? sourceFromAnalysis(analysis, "conformal_q", "predicted", "held-out conformal band") : null}
+          source={analysis ? sourceFromAnalysis(analysis, "campaign.pending[].prediction_at_start", "predicted", "held-out conformal band recorded at start") : null}
           stale={
             c.analysis_in_sync === false && nMeasured > 0
-              ? { nNew: nMeasured, text: "The analysis predates the results recorded here. The bands shown are the ones it proposed these runs with; re-analyze to fold the results in." }
+              ? { nNew: nMeasured, text: "The analysis predates the results recorded here. The bands shown are the ones recorded when the runs started; re-analyze to fold the results in." }
               : null
           }
         />
@@ -160,6 +186,7 @@ export function LearnSection({
               </li>
             ))}
           </ul>
+          {minimize ? <p className="text-caption text-fg-muted">The goal is to minimize, so the best is the lowest measured value.</p> : null}
           {c.history.length >= 2 ? (
             <Disclosure summary="Best so far, by round" meta="measured only">
               <BestSoFarChart campaign={c} bare />
@@ -168,7 +195,7 @@ export function LearnSection({
         </div>
       ) : null}
 
-      <Panel className="flex flex-col gap-4">
+      <Panel id="reanalyze" className="flex scroll-mt-6 flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-[60ch]">
             <h3 className="text-heading text-fg">Re-analyze and propose round {count(next)}</h3>
@@ -189,38 +216,96 @@ export function LearnSection({
             {block && !reanalysis.running ? <p className="max-w-72 text-right text-caption text-fg-muted">{block}</p> : null}
           </div>
         </div>
-        {reanalysis.running ? (
-          <ElapsedProgress
-            title="Re-analyzing the campaign"
-            startedAt={reanalysis.startedAt}
-            note="The engine does not report stages for a re-analysis, so this shows elapsed time only. It usually takes 20 seconds to 2 minutes, and it keeps running if you move to another page in this campaign."
-          />
+        {reanalysis.running && job ? (
+          <>
+            <JobProgress job={job} onCancel={() => void cancel()} cancelling={cancelling} pollTrouble={reanalysis.pollTrouble} />
+            {cancelFailure ? (
+              <p role="alert" className="text-caption text-bad">
+                {cancelFailure}
+              </p>
+            ) : null}
+          </>
         ) : null}
-        {failure ? (
+        {copy && error ? (
           <Callout
             tone="bad"
             title="The re-analysis did not finish"
             action={
-              failure.retry ? (
-                <Button variant="outline" size="sm" onClick={() => void run()} disabled={block != null}>
-                  <RefreshCw aria-hidden />
-                  Try again
+              <div className="flex flex-wrap gap-2">
+                {copy.retry ? (
+                  <Button variant="outline" size="sm" onClick={() => void run()} disabled={block != null}>
+                    <RefreshCw aria-hidden />
+                    Try again
+                  </Button>
+                ) : null}
+                <Button variant="ghost" size="sm" onClick={dismiss}>
+                  Dismiss
                 </Button>
-              ) : null
+              </div>
             }
           >
-            {failure.message}
+            <p>{copy.message}</p>
+            <Disclosure summary="Engine details" className="mt-2">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-caption">
+                <dt className="text-fg-muted">Code</dt>
+                <dd>
+                  <code className="font-mono text-code">{error.code}</code>
+                </dd>
+                {error.message ? (
+                  <>
+                    <dt className="text-fg-muted">Engine message</dt>
+                    <dd className="text-fg">{error.message}</dd>
+                  </>
+                ) : null}
+                {job?.id ? (
+                  <>
+                    <dt className="text-fg-muted">Job</dt>
+                    <dd>
+                      <code className="font-mono text-code">{job.id}</code>
+                    </dd>
+                  </>
+                ) : null}
+              </dl>
+            </Disclosure>
           </Callout>
-        ) : null}
-        {proposed != null && !reanalysis.running ? (
+        ) : localFailure ? (
+          <Callout
+            tone="bad"
+            title="The re-analysis did not start"
+            action={
+              <Button variant="outline" size="sm" onClick={() => void run()} disabled={block != null}>
+                <RefreshCw aria-hidden />
+                Try again
+              </Button>
+            }
+          >
+            {localFailure}
+          </Callout>
+        ) : cancelled ? (
+          <Callout
+            title="The re-analysis was cancelled"
+            action={
+              <Button variant="ghost" size="sm" onClick={dismiss}>
+                Dismiss
+              </Button>
+            }
+          >
+            Nothing was written: the recorded results and the current analysis are unchanged. Re-analyze again when you are ready.
+          </Callout>
+        ) : succeeded ? (
           <Callout
             tone="good"
-            title={`Round ${count(proposed)} is proposed`}
+            title={proposed != null ? `Round ${count(proposed)} is proposed` : "The re-analysis finished and the next batch is proposed"}
             action={
-              <Link href={campaignHref(campaignId, "predict")} className={buttonVariants({ size: "sm" })}>
-                Review round {count(proposed)} on Predict
-                <ArrowRight aria-hidden />
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href={campaignHref(campaignId, "predict")} className={buttonVariants({ size: "sm" })}>
+                  {proposed != null ? `Review round ${count(proposed)} on Predict` : "Review the new batch on Predict"}
+                  <ArrowRight aria-hidden />
+                </Link>
+                <Button variant="ghost" size="sm" onClick={dismiss}>
+                  Dismiss
+                </Button>
+              </div>
             }
           >
             The measured results are folded into the dataset and the model was re-fitted. Check its reliability before starting the new batch.

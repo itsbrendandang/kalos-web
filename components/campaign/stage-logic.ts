@@ -3,6 +3,7 @@
  * so they are unit tested directly (__tests__/stage-pages.test.ts).
  */
 
+import { enginePrediction } from "@/components/campaign/learn";
 import type { CampaignRun } from "@/lib/api";
 import { formatSetting } from "@/lib/num";
 import { sortFindings, type ValidationFinding } from "@/lib/validation";
@@ -35,7 +36,7 @@ export function sortRuns(runs: CampaignRun[], sort: RunSort): CampaignRun[] {
   if (!sort) return runs;
   const sign = sort.direction === "ascending" ? 1 : -1;
   const value = (r: CampaignRun): number | string | null =>
-    sort.key === "id" ? r.id : sort.key === "pred" ? r.pred : sort.key === "result" ? r.result : r.awaiting ? 0 : 1;
+    sort.key === "id" ? r.id : sort.key === "pred" ? enginePrediction(r) : sort.key === "result" ? r.result : r.awaiting ? 0 : 1;
   return [...runs].sort((a, b) => {
     const [x, y] = [value(a), value(b)];
     if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;

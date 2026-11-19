@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { BAND_MISSING, runBand, type BandAnalysis } from "@/components/campaign/learn";
+import { BAND_SOURCE_LABEL, bandMissingText, enginePrediction, runBand, type BandAnalysis } from "@/components/campaign/learn";
 import { clampPage, formatRecipeValue, inlineRecipeKeys, nextSort, RUN_PAGE_SIZE, sortRuns, type RunSort, type RunSortKey } from "@/components/campaign/stage-logic";
 import { formatTimestamp } from "@/components/kit/source-line";
 import { ModeBadge } from "@/components/ui/badge";
@@ -10,15 +10,18 @@ import { SortableHead, Table, TableBody, TableCell, TableHead, TableHeader, Tabl
 import { Num, SourceButton } from "@/components/viz/num";
 import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
-import { columnDecimals, conformalInterval, coverageText, formatValue } from "@/lib/num";
+import { columnDecimals, coverageText, formatValue, type IntervalSpec } from "@/lib/num";
 import { sourceFromRun } from "@/lib/source";
 import { shortId } from "@/lib/workbench";
 import { cn } from "@/lib/utils";
 
 /**
- * Runs in the lab: each awaiting run's recipe and its predicted value with the
- * conformal band of the analysis that proposed it (a separate "[lo, hi]"
- * column labelled with the engine's coverage). Read-only; results are
+ * Runs in the lab: each awaiting run's recipe and the engine's prediction with
+ * the band it recorded when the run started (a separate "[lo, hi]" column
+ * labelled with the engine's coverage; legacy runs show the current
+ * analysis' band, marked as such). A run whose recipe was not one of the
+ * engine's proposals has no engine prediction: the engine's reason is shown,
+ * and the stored number is labelled as the user's, never as the engine's. Read-only; results are
  * entered in the Record section. Sortable, paged at 10, the full recipe one
  * click on a row. Setpoints print at the precision their search range
  * supports. The model's own std is never shown here.
@@ -60,9 +63,11 @@ export function RunsTable({
       return next;
     });
   const bands = new Map(runs.map((r) => [r.id, runBand(r, analysis)]));
+  const preds = new Map(runs.map((r) => [r.id, enginePrediction(r)]));
   // One decimal count for the whole column, so the decimal points line up (VIZ_SPEC 2.2 step 7).
-  const decimals = columnDecimals(runs.map((r) => ({ value: r.pred, u: bands.get(r.id)?.halfWidth ?? null })));
-  const cov = coverageText(analysis?.conformal_coverage);
+  const decimals = columnDecimals(runs.filter((r) => preds.get(r.id) != null).map((r) => ({ value: preds.get(r.id) as number, u: bands.get(r.id)?.halfWidth ?? null })));
+  const covs = [...new Set([...bands.values()].filter((b) => b.halfWidth != null).map((b) => b.coverage))];
+  const cov = coverageText(covs.length === 1 ? covs[0] : null);
   const range = (k: string) => featureRanges?.[k] ?? null;
 
   return (
@@ -84,8 +89,10 @@ export function RunsTable({
           {rows.map((r) => {
             const expanded = open.has(r.id);
             const band = bands.get(r.id) ?? runBand(r, analysis);
-            const interval = band.halfWidth != null ? conformalInterval(r.pred, band.halfWidth, band.coverage) : null;
-            const bandText = interval ? formatValue(r.pred, { interval, decimals }).interval : null;
+            const pred = preds.get(r.id) ?? null;
+            const interval: IntervalSpec | null = band.halfWidth != null ? { lo: band.lo, hi: band.hi, coverage: band.coverage, method: "conformal" } : null;
+            const bandText = interval && pred != null ? formatValue(pred, { interval, decimals }).interval : null;
+            const missing = bandMissingText(band);
             return (
               <Fragment key={r.id}>
                 <TableRow id={`run-${r.id}`} className="scroll-mt-12">
@@ -109,10 +116,17 @@ export function RunsTable({
                     </button>
                   </TableCell>
                   <TableCell numeric>
-                    <Num value={r.pred} basis="predicted" options={{ decimals }} />
+                    {pred != null ? (
+                      <Num value={pred} basis="predicted" options={{ decimals }} />
+                    ) : (
+                      <span className="text-caption text-fg-muted" title={missing ?? undefined}>
+                        No engine prediction
+                      </span>
+                    )}
                   </TableCell>
-                  <TableCell numeric className="text-caption text-fg-muted tabular-nums" title={band.why ? BAND_MISSING[band.why] : undefined}>
-                    {bandText ?? "band n/a"}
+                  <TableCell numeric className="text-caption text-fg-muted tabular-nums" title={missing ?? (band.source ? BAND_SOURCE_LABEL[band.source] : undefined)}>
+                    {bandText ?? (pred == null ? "n/a" : "band n/a")}
+                    {bandText && band.source === "current-analysis" ? <span className="block">current analysis</span> : null}
                   </TableCell>
                   <TableCell className="text-caption text-fg-muted tabular-nums">
                     {r.round != null ? `Round ${formatValue(displayRound(r.round), { quantity: "count" }).text}, ` : ""}
@@ -133,7 +147,13 @@ export function RunsTable({
                           </span>
                         ))}
                       </div>
-                      {band.why ? <p className="mt-2 text-caption text-fg-muted">{BAND_MISSING[band.why]}</p> : null}
+                      {missing ? <p className="mt-2 text-caption text-fg-muted">{missing}</p> : null}
+                      {pred == null && Number.isFinite(r.pred) ? (
+                        <p className="mt-1 text-caption text-fg-muted">
+                          Your prediction, not the engine&apos;s: <span className="text-fg tabular-nums">{formatValue(r.pred).text}</span>
+                        </p>
+                      ) : null}
+                      {band.source ? <p className="mt-2 text-caption text-fg-muted">Band: {BAND_SOURCE_LABEL[band.source]}.</p> : null}
                     </TableCell>
                   </TableRow>
                 ) : null}

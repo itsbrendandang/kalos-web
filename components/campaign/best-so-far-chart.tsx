@@ -11,8 +11,9 @@ import { toProgressData, type ProgressAnalysis, type ProgressCampaign } from "@/
  * Overview and Validate both render it through this name. `analysis` is
  * optional; inside a campaign the current analysis is read from the
  * campaign's data provider, so each started run's band (and the next batch)
- * come from the same engine response the rest of the page shows. `unit` is
- * accepted for older callers; the unit is parsed from the target header.
+ * come from the same engine response the rest of the page shows. The unit is
+ * the analysis' `target_unit` (targetUnitOf), else the target header; `unit`
+ * is accepted for older callers and ignored.
  */
 export function BestSoFarChart({
   campaign,
@@ -23,7 +24,7 @@ export function BestSoFarChart({
 }: {
   campaign: ProgressCampaign;
   analysis?: ProgressAnalysis | null;
-  /** Deprecated: the unit comes from the target header (lib/num parseUnit). */
+  /** Deprecated and ignored: the unit comes from the analysis' target_unit (see progressUnit). */
   unit?: string;
   className?: string;
   title?: string;

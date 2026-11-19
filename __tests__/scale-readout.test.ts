@@ -212,7 +212,7 @@ describe("runScaleReadout", () => {
 
   it("maps 503 with Retry-After to kind: busy", async () => {
     stubFetch(
-      new Response(JSON.stringify({ error: "busy" }), {
+      new Response(JSON.stringify({ error: "another analysis is running", code: "engine_busy" }), {
         status: 503,
         headers: { "content-type": "application/json", "retry-after": "12" },
       }),
@@ -227,16 +227,30 @@ describe("runScaleReadout", () => {
     expect(result).toEqual({ kind: "busy", retryAfterSeconds: null });
   });
 
-  it("maps 401 to kind: auth", async () => {
-    stubFetch(new Response(null, { status: 401 }));
+  it("maps a proxy 503 that is not engine_busy to kind: unavailable, not busy", async () => {
+    stubFetch(new Response(JSON.stringify({ error: "engine_credentials_unavailable" }), { status: 503, headers: { "content-type": "application/json" } }));
     const result = await runScaleReadout(file, target);
-    expect(result).toEqual({ kind: "auth" });
+    expect(result.kind).toBe("unavailable");
   });
 
-  it("maps 403 to kind: auth", async () => {
-    stubFetch(new Response(null, { status: 403 }));
+  it("maps 401 to kind: auth that asks the user to sign in again", async () => {
+    stubFetch(new Response(null, { status: 401 }));
     const result = await runScaleReadout(file, target);
-    expect(result).toEqual({ kind: "auth" });
+    expect(result).toMatchObject({ kind: "auth", signIn: true });
+  });
+
+  it("maps 403 to kind: auth with plain copy for the proxy's code, never the raw code", async () => {
+    stubFetch(new Response(JSON.stringify({ error: "insufficient_scope" }), { status: 403, headers: { "content-type": "application/json" } }));
+    const result = await runScaleReadout(file, target);
+    expect(result).toMatchObject({ kind: "auth", signIn: false });
+    expect(result.kind === "auth" && result.message).toMatch(/write access/);
+    expect(result.kind === "auth" && result.message).not.toMatch(/insufficient_scope/);
+  });
+
+  it("maps 413 to kind: upload with the size-limit copy", async () => {
+    stubFetch(new Response(JSON.stringify({ error: "payload_too_large", limit_mb: 25 }), { status: 413, headers: { "content-type": "application/json" } }));
+    const result = await runScaleReadout(file, target);
+    expect(result).toEqual({ kind: "upload", message: expect.stringContaining("25 MB") });
   });
 
   it("maps 400 to kind: upload with the engine's message", async () => {
@@ -261,5 +275,11 @@ describe("runScaleReadout", () => {
     stubFetch(new Response(null, { status: 502 }));
     const result = await runScaleReadout(file, target);
     expect(result.kind).toBe("unavailable");
+  });
+
+  it("maps the proxy's 504 to the timeout copy", async () => {
+    stubFetch(new Response(JSON.stringify({ error: "engine_timeout" }), { status: 504, headers: { "content-type": "application/json" } }));
+    const result = await runScaleReadout(file, target);
+    expect(result).toEqual({ kind: "unavailable", message: expect.stringMatching(/took too long/) });
   });
 });

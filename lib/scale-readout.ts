@@ -3,6 +3,7 @@
 // URL as lib/api.ts. No React here on purpose - every helper below is
 // unit-testable without a DOM (see __tests__/scale-readout.test.ts).
 import { API, mutationHeaders } from "@/lib/api";
+import { engineMessage } from "@/lib/engine-error";
 
 /** Thrown by `buildReadoutTarget` on a bad or incomplete form - the message
  *  is written to be shown directly to the scientist filling out the form. */
@@ -154,28 +155,40 @@ export function buildReadoutTarget(input: BuildReadoutTargetInput): ReadoutTarge
 
 /**
  * Every outcome `POST /api/scale/readout` can produce, as a discriminated
- * union - never thrown for an EXPECTED HTTP outcome (200/400/401/403/422/503),
- * only for a genuine transport failure (caught below and folded into
- * "unavailable" so callers never need a try/catch of their own).
+ * union - never thrown for an EXPECTED HTTP outcome, only for a genuine
+ * transport failure (caught below and folded into "unavailable" so callers
+ * never need a try/catch of their own). Messages are plain sentences from
+ * lib/engine-error.ts; raw codes are never shown.
  */
 export type ReadoutResult =
   | { kind: "html"; html: string }
   | { kind: "gate"; failedCheck: string; detail: string }
   | { kind: "busy"; retryAfterSeconds: number | null }
-  | { kind: "auth" }
+  | { kind: "auth"; message: string; signIn: boolean }
   | { kind: "upload"; message: string }
   | { kind: "unavailable"; message: string };
 
-async function readJsonSafely<T>(r: Response): Promise<T | null> {
+async function readJsonSafely(r: Response): Promise<Record<string, unknown> | null> {
   try {
-    return (await r.json()) as T;
+    const v: unknown = await r.json();
+    return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
   } catch {
     return null;
   }
 }
 
+const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
+
+const FORBIDDEN_COPY: Record<string, string> = {
+  insufficient_scope: "Your account can read campaigns but not run analyses, which a readout needs. Ask an organization admin for write access.",
+  mfa_required: "Your organization requires two-step sign-in before running analyses. Set it up in Settings, then try again.",
+  step_up_required: "Confirm your sign-in again, then run the readout.",
+  organization_not_provisioned: "Your organization is not set up on the analysis service yet. Ask your administrator.",
+};
+
 /** Posts the run sheet + target JSON to the engine and maps every documented
- *  response (kalos/docs/SCALE_READOUT.md) onto `ReadoutResult`. */
+ *  response (kalos-engine docs/SCALE_READOUT.md, plus the web proxy's own
+ *  failures) onto `ReadoutResult`. */
 export async function runScaleReadout(file: File, target: ReadoutTarget): Promise<ReadoutResult> {
   const fd = new FormData();
   fd.append("file", file);
@@ -185,31 +198,357 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
   try {
     r = await fetch(`${API}/api/scale/readout`, { method: "POST", body: fd, headers: mutationHeaders() });
   } catch {
-    return { kind: "unavailable", message: "The scale-up readout service is unreachable. Try again in a moment." };
+    return { kind: "unavailable", message: engineMessage({ code: "engine_unreachable" }).message };
   }
 
   if (r.status === 200) {
     return { kind: "html", html: await r.text() };
   }
+  const body = await readJsonSafely(r);
+  const code = str(body?.code) ?? (str(body?.error) && /^[a-z][a-z0-9_]*$/.test(str(body?.error)!) ? str(body?.error) : undefined);
+  const error = str(body?.error);
+  const limitMb = typeof body?.limit_mb === "number" ? body.limit_mb : undefined;
+
   if (r.status === 422) {
-    const body = await readJsonSafely<{ failed_check?: string; detail?: string }>(r);
     return {
       kind: "gate",
-      failedCheck: body?.failed_check ?? "invalid_target",
-      detail: body?.detail ?? "The engine rejected this sheet or target.",
+      failedCheck: str(body?.failed_check) ?? code ?? "invalid_target",
+      detail: str(body?.detail) ?? error ?? "",
     };
   }
-  if (r.status === 503) {
+  if (r.status === 503 && code !== "engine_credentials_unavailable") {
     const header = r.headers.get("retry-after");
     const parsed = header ? Number(header) : NaN;
     return { kind: "busy", retryAfterSeconds: Number.isFinite(parsed) ? parsed : null };
   }
-  if (r.status === 401 || r.status === 403) {
-    return { kind: "auth" };
+  if (r.status === 401) {
+    return { kind: "auth", message: engineMessage({ code: "unauthenticated" }).message, signIn: true };
   }
-  if (r.status === 400) {
-    const body = await readJsonSafely<{ error?: string }>(r);
-    return { kind: "upload", message: body?.error ?? "The upload was rejected." };
+  if (r.status === 403) {
+    return {
+      kind: "auth",
+      message: (code && FORBIDDEN_COPY[code]) ?? "The analysis service did not accept this request for your account. Sign in again, or ask your organization admin.",
+      signIn: false,
+    };
   }
-  return { kind: "unavailable", message: `The engine responded ${r.status}.` };
+  if (r.status === 400 || r.status === 413) {
+    return { kind: "upload", message: engineMessage({ code: code ?? (r.status === 413 ? "payload_too_large" : null), error, limitMb }).message };
+  }
+  const fallback = r.status === 429 ? "rate_limited" : r.status === 504 ? "engine_timeout" : r.status === 502 ? "engine_unreachable" : "engine_error";
+  return { kind: "unavailable", message: engineMessage({ code: code ?? fallback }).message };
+}
+
+/* ---------------------------------------------------------------------------
+ * Reading the engine's readout page.
+ *
+ * The engine answers with one self-contained HTML page (kalos-engine
+ * kalos/portal/scale_routes.py `render_readout_html`). The page itself stays
+ * the printable record; the app also reads its decision, prediction, ladder
+ * and "What it would take" lines out of it so they can be shown in the app's
+ * own type. Values are copied as the engine printed them (already rounded by
+ * the engine), never recomputed. A field the page does not carry is null.
+ * ------------------------------------------------------------------------ */
+
+export type ReadoutDecision = "NUMBER" | "NUMBER_WITH_WARNING" | "REFUSAL";
+
+export type ReadoutRung = {
+  scale: string;
+  stepRatio: string;
+  n: string;
+  mae: string;
+  naiveMeanMae: string;
+  naiveNnMae: string;
+  beatsBoth: string;
+};
+
+export type ReadoutReason = { plain: string; raw: string };
+
+/**
+ * The engine's refusal and warning sentences (kalos-engine kalos/scale/readout.py
+ * `decide`), each with plain wording. Numbers are copied from the engine's
+ * sentence, never assumed. A sentence matching none of these is kept as the
+ * engine wrote it.
+ */
+const REASON_TEMPLATES: { re: RegExp; plain: (m: RegExpExecArray) => string }[] = [
+  {
+    re: /only (\d+) pooled ladder residual\(s\); need at least (\d+)/g,
+    plain: (m) => `Too few held-out runs to judge the model: ${m[1]} so far, and the engine needs at least ${m[2]}.`,
+  },
+  {
+    re: /no rung with at least (\d+) runs, within ([\d.]+) decade\(s\) of the largest trained scale, beat both naive baselines to license a reference step ratio/g,
+    plain: (m) =>
+      `No tested scale with at least ${m[1]} runs, within ${m[2] === "1" ? "a factor of 10" : `${m[2]} decades`} of your largest scale, beat both naive baselines, so no backtested step can vouch for this one.`,
+  },
+  {
+    re: /pooled ladder MAE does not beat both naive baselines/g,
+    plain: () => "Across the whole backtest, the model did not beat both naive baselines.",
+  },
+  {
+    re: /target ratio ([\d.]+x) exceeds (\d+)x the reference step ratio ([\d.]+x)/g,
+    plain: (m) => `The step to the target (${m[1]}) is more than ${m[2]} times the largest step the backtest supports (${m[3]}).`,
+  },
+  {
+    re: /process parameter\(s\) outside the trained range: ([^;]+)/g,
+    plain: (m) => `Planned values outside the range run in your sheet: ${m[1].trim()}.`,
+  },
+];
+
+/** Splits the engine's reasons (one string, or a "; "-joined refusal headline) into known sentences, in order. */
+export function readReasons(joined: string): ReadoutReason[] {
+  const found: { at: number; end: number; reason: ReadoutReason }[] = [];
+  for (const t of REASON_TEMPLATES) {
+    const re = new RegExp(t.re.source, "g");
+    for (let m = re.exec(joined); m; m = re.exec(joined)) {
+      found.push({ at: m.index, end: m.index + m[0].length, reason: { plain: t.plain(m), raw: m[0] } });
+    }
+  }
+  found.sort((a, b) => a.at - b.at);
+  const out: ReadoutReason[] = [];
+  let cursor = 0;
+  const leftover = (to: number) => {
+    for (const piece of joined.slice(cursor, to).split(/;\s*/)) {
+      const raw = piece.trim();
+      if (raw) out.push({ plain: raw, raw });
+    }
+  };
+  for (const f of found) {
+    if (f.at < cursor) continue;
+    leftover(f.at);
+    out.push(f.reason);
+    cursor = f.end;
+  }
+  leftover(joined.length);
+  return out;
+}
+
+export type ReadoutSummary = {
+  /** The engine's decision; null if the page carries no recognisable banner. */
+  decision: ReadoutDecision | null;
+  /** Why the engine refused, or what it warned about: plain wording plus the engine's own sentence. */
+  reasons: ReadoutReason[];
+  /** The neutral scale-only note (sheet lacks agitation/airflow), when present. */
+  scaleOnlyNote: string | null;
+  prediction: {
+    label: string;
+    value: string;
+    intervalLabel: string;
+    low: string | null;
+    high: string | null;
+    intervalRaw: string;
+  } | null;
+  rungs: ReadoutRung[];
+  skippedRungs: string[];
+  referenceRatio: string | null;
+  requestedRatio: string | null;
+  outOfRange: string | null;
+  baseline: {
+    modelMae: string | null;
+    naiveMeanMae: string | null;
+    naiveNnMae: string | null;
+    beatsBoth: string | null;
+    nResiduals: string | null;
+  } | null;
+  /** "What it would take": the engine's own data plan lines. */
+  dataPlan: string[];
+  generatedAt: string | null;
+  engineVersion: string | null;
+  alpha: string | null;
+  uploadSha256: string | null;
+};
+
+const DECISIONS: ReadoutDecision[] = ["NUMBER", "NUMBER_WITH_WARNING", "REFUSAL"];
+const BANNER_CLASS: Record<string, ReadoutDecision> = {
+  "banner-number": "NUMBER",
+  "banner-warning": "NUMBER_WITH_WARNING",
+  "banner-refusal": "REFUSAL",
+};
+
+const text = (el: Element | null | undefined): string => (el?.textContent ?? "").replace(/\s+/g, " ").trim();
+
+/** Reads a parsed readout page (`new DOMParser().parseFromString(html, "text/html")`,
+ *  which runs no script and loads nothing). Never throws. */
+export function parseReadoutDocument(doc: Document): ReadoutSummary {
+  const banner = doc.querySelector(".banner");
+  const machine = text(banner?.querySelector(".banner-machine"));
+  let decision: ReadoutDecision | null = (DECISIONS as string[]).includes(machine) ? (machine as ReadoutDecision) : null;
+  if (!decision && banner) {
+    for (const cls of Array.from(banner.classList)) if (BANNER_CLASS[cls]) decision = BANNER_CLASS[cls];
+  }
+  const headline = text(banner?.querySelector(".banner-headline"));
+
+  let reasons: ReadoutReason[] = [];
+  if (decision === "REFUSAL") {
+    const joined = headline.replace(/^No prediction:\s*/i, "");
+    reasons = joined && joined !== "no reason given" ? readReasons(joined) : [];
+  } else {
+    reasons = Array.from(doc.querySelectorAll("ul.reasons li")).map(text).filter(Boolean).flatMap(readReasons);
+  }
+
+  // Key/value rows grouped by the h2 they sit under, in document order.
+  const sections = new Map<string, { k: string; v: string }[]>();
+  let current = "";
+  let ladderTable: Element | null = null;
+  for (const el of Array.from(doc.querySelectorAll("h2, .kv, table"))) {
+    if (el.tagName === "H2") {
+      current = text(el);
+      continue;
+    }
+    if (el.tagName === "TABLE") {
+      if (!ladderTable && current === "Backtest ladder" && !el.classList.contains("const-table")) ladderTable = el;
+      continue;
+    }
+    const list = sections.get(current) ?? [];
+    list.push({ k: text(el.querySelector(".k")), v: text(el.querySelector(".v")) });
+    sections.set(current, list);
+  }
+  const kv = (section: string, match: (k: string) => boolean): { k: string; v: string } | null =>
+    (sections.get(section) ?? []).find((row) => match(row.k)) ?? null;
+  const val = (section: string, key: string): string | null => kv(section, (k) => k === key)?.v || null;
+
+  let prediction: ReadoutSummary["prediction"] = null;
+  const predicted = kv("Prediction", (k) => k.startsWith("Predicted"));
+  const interval = kv("Prediction", (k) => k.startsWith("Interval"));
+  if (predicted?.v) {
+    const m = interval?.v.match(/^\[\s*([^,\]]+?)\s*,\s*([^\]]+?)\s*\]$/);
+    prediction = {
+      label: predicted.k,
+      value: predicted.v,
+      intervalLabel: interval?.k.match(/\(([^)]+)\)/)?.[1] ?? "approximate coverage",
+      low: m?.[1] ?? null,
+      high: m?.[2] ?? null,
+      intervalRaw: interval?.v ?? "",
+    };
+  }
+
+  const rungs: ReadoutRung[] = [];
+  if (ladderTable) {
+    const heads = Array.from(ladderTable.querySelectorAll("thead th")).map((th) => text(th).toLowerCase());
+    const col = (name: string) => heads.indexOf(name);
+    for (const tr of Array.from(ladderTable.querySelectorAll("tbody tr"))) {
+      const cells = Array.from(tr.querySelectorAll("td")).map(text);
+      const at = (name: string, fallback: number) => cells[col(name) >= 0 ? col(name) : fallback] ?? "";
+      rungs.push({
+        scale: at("scale", 0),
+        stepRatio: at("step ratio", 1),
+        n: at("n", 2),
+        mae: at("mae", 3),
+        naiveMeanMae: at("naive_mean mae", 4),
+        naiveNnMae: at("naive_nn mae", 5),
+        beatsBoth: at("beats both", 6),
+      });
+    }
+  }
+
+  const baselineSection = Array.from(sections.keys()).find((k) => k.startsWith("Baseline comparison"));
+  const baseline = baselineSection
+    ? {
+        modelMae: val(baselineSection, "Model MAE"),
+        naiveMeanMae: val(baselineSection, "naive_mean MAE"),
+        naiveNnMae: val(baselineSection, "naive_nn MAE"),
+        beatsBoth: val(baselineSection, "beats both baselines"),
+        nResiduals: val(baselineSection, "pooled residuals (n)"),
+      }
+    : null;
+
+  const outOfRangeLine = Array.from(doc.querySelectorAll("p.muted"))
+    .map(text)
+    .find((t) => t.startsWith("Out-of-range process parameter"));
+  const timestamp = text(doc.querySelector(".timestamp")).replace(/^Generated\s*/i, "");
+
+  return {
+    decision,
+    reasons,
+    scaleOnlyNote: text(doc.querySelector(".note-info")) || null,
+    prediction,
+    rungs,
+    skippedRungs: Array.from(doc.querySelectorAll("ul.skipped-reasons li")).map(text).filter(Boolean),
+    referenceRatio: val("Step ratio", "Reference (backtested) ratio"),
+    requestedRatio: val("Step ratio", "Requested (target) ratio"),
+    outOfRange: outOfRangeLine ? outOfRangeLine.replace(/^[^:]*:\s*/, "") : null,
+    baseline,
+    dataPlan: Array.from(doc.querySelectorAll("ul.data-plan li")).map(text).filter(Boolean),
+    generatedAt: timestamp || null,
+    engineVersion: val("Provenance", "engine version"),
+    alpha: val("Provenance", "alpha"),
+    uploadSha256: val("Provenance", "raw upload SHA-256"),
+  };
+}
+
+/* ---------------------------------------------------------------------------
+ * A 422 from the gate, in plain words.
+ *
+ * The gate's checks and thresholds are the engine's (kalos-engine
+ * kalos/scale/readout.py `gate`, docs/SCALE_READOUT.md "How the decision is
+ * made"). Thresholds are read out of the engine's own detail sentence when it
+ * carries them, so the copy never states a limit the engine did not send.
+ * ------------------------------------------------------------------------ */
+
+export type GateRefusal = {
+  /** One plain sentence: what the engine refused and why. */
+  statement: string;
+  /** What data or input change would get past the check. */
+  fix: string[];
+};
+
+export function gateRefusal(failedCheck: string, detail: string): GateRefusal {
+  switch (failedCheck) {
+    case "required_columns": {
+      const names = detail.match(/\[(.*)\]/)?.[1]?.replace(/['"]/g, "").trim();
+      return {
+        statement: names ? `The sheet is missing a column the readout needs: ${names}.` : "The sheet is missing a column the readout needs.",
+        fix: [
+          "Add the missing column to the sheet, or choose a target and process columns the sheet records.",
+          "Every run needs its vessel volume in a scale_L column.",
+        ],
+      };
+    }
+    case "min_distinct_scales": {
+      const have = detail.match(/only (\d+) distinct/)?.[1];
+      const more = detail.match(/need (\d+) more/)?.[1];
+      const min = detail.match(/at least (\d+) distinct/)?.[1];
+      return {
+        statement: have
+          ? `The sheet has runs at ${have} distinct scale${have === "1" ? "" : "s"}${min ? `; the readout needs at least ${min}` : ""} to test itself on a scale ladder.`
+          : "The sheet has runs at too few distinct scales for the readout to test itself on a scale ladder.",
+        fix: [more ? `Runs at ${more} more distinct scale${more === "1" ? "" : "s"}.` : "Runs at more distinct scales."],
+      };
+    }
+    case "non_finite_dropped_fraction": {
+      const share = detail.match(/\(([\d.]+%)\)/)?.[1];
+      const cap = detail.match(/the ([\d.]+%) cap/)?.[1];
+      return {
+        statement: `Too many rows have a blank or non-numeric value in a column the readout uses${share ? ` (${share} of rows` : ""}${share && cap ? `, over the ${cap} limit)` : share ? ")" : ""}.`,
+        fix: ["Fill in or remove rows with blank cells in the target, process and scale_L columns."],
+      };
+    }
+    case "target_not_interpolation":
+      return {
+        statement: "The target scale is not larger than every scale in the sheet. The readout only predicts a scale you have not run yet.",
+        fix: [
+          "Choose a target scale larger than the largest scale_L in the sheet.",
+          "For a scale you have already run, the measured runs are the evidence; use a campaign at that scale.",
+        ],
+      };
+    case "target_ratio_hard_cap": {
+      const ratio = detail.match(/ratio ([\d.]+x)/)?.[1];
+      const cap = detail.match(/the ([\d.]+x) hard cap/)?.[1];
+      return {
+        statement: `The target is too far beyond the largest scale in the sheet${ratio ? ` (${ratio}` : ""}${ratio && cap ? `; the limit is ${cap})` : ratio ? ")" : ""}.`,
+        fix: [
+          cap ? `Choose a target at most ${cap} the largest scale in the sheet.` : "Choose a target closer to the largest scale in the sheet.",
+          "Or run at a larger intermediate scale first, then read out from there.",
+        ],
+      };
+    }
+    case "invalid_target":
+      return {
+        statement: "The engine could not use these inputs with this sheet.",
+        fix: ["Check that the target column, the process columns and their planned values match the sheet, and that every value is a number."],
+      };
+    default:
+      return {
+        statement: "The engine did not run the readout on this sheet.",
+        fix: ["Check the sheet and the inputs against the engine's reason below."],
+      };
+  }
 }

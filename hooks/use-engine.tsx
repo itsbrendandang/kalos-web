@@ -6,7 +6,7 @@ import {
   getCampaignAnalysis,
   getCampaignDetail,
   isJobActive,
-  listCampaignSummaries,
+  listAllCampaignSummaries,
   type AnalyzeResult,
   type Campaign,
   type CampaignDetail,
@@ -91,23 +91,36 @@ export const isNotFound = (r: Pick<EngineResource<unknown>, "failure">): boolean
 
 // --- Campaign list (app-wide) -------------------------------------------------
 
-const CampaignsContext = createContext<EngineResource<CampaignSummaryRow[]> | null>(null);
+/** The campaign list; `more` is true when the engine had pages beyond the ones read (see CampaignsProvider). */
+export type CampaignsResource = EngineResource<CampaignSummaryRow[]> & { more: boolean };
+
+const CampaignsContext = createContext<CampaignsResource | null>(null);
 
 /**
  * Mounted once by the app shell: the tenant's campaigns (archived ones
  * excluded) with the engine's summary fields (best measured, reliability,
- * goal, stage, latest gate decision, active job), from ONE list request
- * (GET /api/campaigns?summary=true), never a request per campaign. The engine
- * caps a page at 200; more than that is a known gap (no pager yet).
+ * goal, stage, latest gate decision, active job), from the summary list
+ * (GET /api/campaigns?summary=true, 200 per page), never a request per
+ * campaign. Pages are followed through `next_cursor`; past the page cap the
+ * list says it is partial (`more`) rather than look complete.
  */
 export function CampaignsProvider({ children }: { children: ReactNode }) {
-  const fetcher = useCallback(() => listCampaignSummaries({ limit: 200 }).then((d) => d.campaigns), []);
+  const [more, setMore] = useState(false);
+  const fetcher = useCallback(
+    () =>
+      listAllCampaignSummaries({ limit: 200 }).then((d) => {
+        setMore(!d.complete);
+        return d.campaigns;
+      }),
+    [],
+  );
   const campaigns = useEngineResource(fetcher);
-  return <CampaignsContext.Provider value={campaigns}>{children}</CampaignsContext.Provider>;
+  const value = useMemo(() => ({ ...campaigns, more }), [campaigns, more]);
+  return <CampaignsContext.Provider value={value}>{children}</CampaignsContext.Provider>;
 }
 
-/** GET /api/campaigns?summary=true. */
-export function useCampaigns(): EngineResource<CampaignSummaryRow[]> {
+/** GET /api/campaigns?summary=true, every page. */
+export function useCampaigns(): CampaignsResource {
   const c = useContext(CampaignsContext);
   if (!c) throw new Error("useCampaigns needs <CampaignsProvider> (mounted by the app shell)");
   return c;

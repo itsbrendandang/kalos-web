@@ -6,14 +6,14 @@ import { formatTimestamp } from "@/components/kit/source-line";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listCampaignSummaries, type CampaignSummaryRow } from "@/lib/api";
+import { listAllCampaignSummaries, type CampaignSummaryRow } from "@/lib/api";
 import { errorMessage } from "@/lib/engine-error";
 import { sortCampaigns } from "@/lib/home";
 import { campaignHref } from "@/lib/routes";
 
 /**
  * The archived campaigns, read from the same summary list with archived ones included
- * (GET /api/campaigns?summary=true&include_archived=true, one request), mounted only when the user opens
+ * (GET /api/campaigns?summary=true&include_archived=true, every page through next_cursor), mounted only when the user opens
  * "Archived campaigns". Each can be opened read-only or unarchived (an admin action, see ArchiveDialog).
  * `version` changes after an archive or unarchive so the list reloads.
  */
@@ -24,8 +24,8 @@ export function ArchivedCampaigns({ version, onUnarchive }: { version: number; o
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    listCampaignSummaries({ includeArchived: true, limit: 200 }).then(
-      (d) => !cancelled && setState({ status: "data", list: sortCampaigns(d.campaigns.filter((c) => c.archived)), more: d.next_cursor != null }),
+    listAllCampaignSummaries({ includeArchived: true, limit: 200 }).then(
+      (d) => !cancelled && setState({ status: "data", list: sortCampaigns(d.campaigns.filter((c) => c.archived)), more: !d.complete }),
       (err) => !cancelled && setState({ status: "error", message: errorMessage(err).message }),
     );
     return () => {
@@ -72,7 +72,7 @@ export function ArchivedCampaigns({ version, onUnarchive }: { version: number; o
           </li>
         ))}
       </ul>
-      {state.more ? <p className="text-caption text-fg-muted">The engine returned its first 200 campaigns; archived campaigns beyond those are not listed here yet.</p> : null}
+      {state.more ? <p className="text-caption text-fg-muted">Showing the archived campaigns among the pages read; the engine has more campaigns, and archived ones beyond those are not listed here.</p> : null}
     </div>
   );
 }

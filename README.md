@@ -177,7 +177,7 @@ The UI's reliability verdict is a transparent rule on the engine's held-out metr
 
 ## Current limitations
 
-- The campaign list reads at most 200 campaigns (one engine page); there is no pager yet.
+- The campaign list follows the engine's pages (200 campaigns each) up to 25 pages; beyond that it says "showing N of more" rather than look complete.
 - Bounds and linear constraints narrow the search inside the observed data only; the engine does not extrapolate, and it refuses linear constraints when the design has a categorical input.
 - Everything the UI can do depends on a running engine; there is no offline mode.
 - A few older pages still show internal engine vocabulary.

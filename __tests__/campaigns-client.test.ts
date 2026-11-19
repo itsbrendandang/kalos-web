@@ -9,6 +9,7 @@ import {
   getJob,
   isJobActive,
   listCampaigns,
+  listAllCampaignSummaries,
   listCampaignSummaries,
   listJobs,
   submitReanalyzeJob,
@@ -226,6 +227,28 @@ describe("multi-campaign client (lib/api.ts)", () => {
       fetchMock.mockResolvedValueOnce(json({ campaigns: [], next_cursor: null, limit: 200 }));
       await listCampaignSummaries({ includeArchived: true, limit: 200 });
       expect(lastCall()[0]).toBe(`${API}/api/campaigns?summary=true&include_archived=true&limit=200`);
+    });
+
+    it("follows next_cursor through every page of the summary list", async () => {
+      const row = (id: string) => ({ id, name: id }) as never;
+      fetchMock.mockResolvedValueOnce(json({ campaigns: [row("a"), row("b")], next_cursor: "c1" }));
+      fetchMock.mockResolvedValueOnce(json({ campaigns: [row("c")], next_cursor: null }));
+      const d = await listAllCampaignSummaries({ limit: 2 });
+      expect(d).toEqual({ campaigns: [row("a"), row("b"), row("c")], complete: true });
+      expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([`${API}/api/campaigns?summary=true&limit=2`, `${API}/api/campaigns?summary=true&limit=2&cursor=c1`]);
+    });
+
+    it("says the list is partial past the page cap, or when the engine repeats a cursor", async () => {
+      fetchMock.mockImplementation(async () => json({ campaigns: [{ id: "x", name: "x" }], next_cursor: "again" }));
+      expect((await listAllCampaignSummaries({ maxPages: 3 })).complete).toBe(false);
+      expect(fetchMock).toHaveBeenCalledTimes(2); // the second "again" is a repeat: stop
+      fetchMock.mockReset();
+      let n = 0;
+      fetchMock.mockImplementation(async () => json({ campaigns: [{ id: `c${n}`, name: "x" }], next_cursor: `p${++n}` }));
+      const capped = await listAllCampaignSummaries({ maxPages: 3 });
+      expect(capped.complete).toBe(false);
+      expect(capped.campaigns).toHaveLength(3);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
   });
 });

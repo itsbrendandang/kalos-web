@@ -1479,6 +1479,28 @@ export const listCampaignSummaries = (opts: { includeArchived?: boolean; limit?:
   return call<{ campaigns: CampaignSummaryRow[]; next_cursor?: string | null }>(`/api/campaigns?${q}`).then((d) => ({ campaigns: d.campaigns, next_cursor: d.next_cursor ?? null }));
 };
 
+/**
+ * Every page of the summary list, following `next_cursor`. Stops after `maxPages` requests (or if the engine repeats
+ * a cursor) and says so with `complete: false`, so the caller can show "showing N of more" instead of a short list.
+ */
+export async function listAllCampaignSummaries(
+  opts: { includeArchived?: boolean; limit?: number; maxPages?: number } = {},
+): Promise<{ campaigns: CampaignSummaryRow[]; complete: boolean }> {
+  const { maxPages = 25, ...page } = opts;
+  const campaigns: CampaignSummaryRow[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  for (let n = 0; n < maxPages; n++) {
+    const d = await listCampaignSummaries({ ...page, cursor });
+    campaigns.push(...d.campaigns);
+    if (!d.next_cursor) return { campaigns, complete: true };
+    if (seen.has(d.next_cursor)) break;
+    seen.add(d.next_cursor);
+    cursor = d.next_cursor;
+  }
+  return { campaigns, complete: false };
+}
+
 // --- Setup: goal, bounds, linear constraints, target unit (GET/PUT /setup) ----
 
 export type LinearConstraint = { coefficients: Record<string, number>; op: "<=" | ">="; rhs: number };

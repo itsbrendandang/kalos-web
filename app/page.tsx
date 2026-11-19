@@ -121,10 +121,14 @@ function CampaignsOverview({ list, stale, autoFocus }: { list: CampaignSummaryRo
       <section aria-labelledby="list-title" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="list-title" className="text-heading text-fg">
-            Your campaigns <span className="text-fg-muted tabular-nums">{formatValue(sorted.length, { quantity: "count" }).text}</span>
+            Your campaigns{" "}
+            <span className="text-fg-muted tabular-nums">
+              {campaigns.more ? `showing ${formatValue(sorted.length, { quantity: "count" }).text} of more` : formatValue(sorted.length, { quantity: "count" }).text}
+            </span>
           </h2>
           <p className="text-caption text-fg-muted">
             {stale ? "Could not refresh the list just now (connection problem); showing the last answer." : "Most recently updated first."}
+            {campaigns.more ? " The engine has more campaigns than this page reads; the rest are not listed here." : ""}
           </p>
         </div>
         <CampaignList campaigns={sorted} onRename={setRenaming} onArchive={(c) => archive.ask(c, "archive")} />

@@ -6,7 +6,7 @@ const CMP = "cmp_0123456789abcdef0123456789abcdef";
 const RUN = "0123456789abcdef0123456789abcdef";
 
 type ManifestEntry = { method: string; path: string; scopes: string[]; auth: string; conditional_scopes?: { scope: string; when: string }[] };
-// kalos-engine docs/route-scopes.json (feat/web-redesign-apis 0fc05c3), vendored: the scope each engine route enforces.
+// kalos-engine docs/route-scopes.json (feat/web-redesign-apis a9f020c), vendored: the scope each engine route enforces.
 const MANIFEST = manifestJson as ManifestEntry[];
 const ENGINE_SCOPE: Record<string, string> = { read: "campaigns:read", write: "campaigns:write", admin: "org:admin" };
 const GATE = "S3";
@@ -33,7 +33,6 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
     ["GET", `api/campaigns/${CMP}/gates/${GATE}/history`, ["campaigns:read"]],
     ["GET", `api/campaigns/${CMP}/export/rows`, ["campaigns:read"]],
     ["GET", `api/campaigns/${CMP}/results/history`, ["campaigns:read"]],
-    ["GET", `api/campaigns/${CMP}/operating-ranges`, ["campaigns:read"]],
     ["POST", `api/campaigns/${CMP}/operating-ranges`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/jobs`, ["campaigns:write"]],
     ["GET", `api/campaigns/${CMP}/jobs`, ["campaigns:read"]],
@@ -61,6 +60,11 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
         expect(r.admin).toBe("archived-field");
       }
     }
+  });
+
+  it("GET operating-ranges is not proxied: it refits the GP, so the engine needs write (manifest a9f020c); the web uses POST", () => {
+    expect(matchEngineRoute("GET", `api/campaigns/${CMP}/operating-ranges`.split("/")).kind).toBe("method_not_allowed");
+    expect(ENGINE_ROUTES.filter((r) => r.method === "GET").every((r) => r.scopes.every((s) => s === "campaigns:read"))).toBe(true);
   });
 
   it("removed legacy, demo and unused routes stay unreachable", () => {

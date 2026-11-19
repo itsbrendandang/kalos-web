@@ -79,10 +79,10 @@ export const ENGINE_ROUTES: readonly EngineRoute[] = Object.freeze([
   route("GET", "api/campaigns/:id/gates", R, "none"),
   route("PUT", "api/campaigns/:id/gates/:id", W, "json"),
   route("GET", "api/campaigns/:id/gates/:id/history", R, "none"),
-  // Report: raw rows, result history + audit log, operating ranges (POST computes: write).
+  // Report: raw rows, result history + audit log, operating ranges. Both engine forms refit the GP and need
+  // write; only POST is proxied, so no GET ever mints write (GET operating-ranges stays unreachable).
   route("GET", "api/campaigns/:id/export/rows", R, "none"),
   route("GET", "api/campaigns/:id/results/history", R, "none"),
-  route("GET", "api/campaigns/:id/operating-ranges", R, "none"),
   route("POST", "api/campaigns/:id/operating-ranges", W, "json"),
   // Background jobs (kalos-engine docs/JOBS.md): an upload or a re-analysis
   // is submitted (202), then polled for its engine-reported stage and

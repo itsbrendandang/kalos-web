@@ -1693,11 +1693,8 @@ export type OperatingRanges =
     }
   | { campaign_id?: string; status: "not_computed"; reason_code: string; reason: string; what_would_fix_it?: string; diagnostics?: Record<string, unknown> };
 
-/** Compute (write scope: it occupies the analysis slot) the model-based operating box, or the engine's not_computed reason. */
+/** Compute (write scope: it refits the GP and occupies the analysis slot; the proxy offers only this POST form) the model-based operating box, or the engine's not_computed reason. */
 export const computeOperatingRanges = (campaignId: string, body: { threshold: number; probability: number }): Promise<OperatingRanges> =>
   call<OperatingRanges>(`/api/campaigns/${enc(campaignId)}/operating-ranges`, jsonInit("POST", { ...body, basis: "target" }));
-
-export const getOperatingRanges = (campaignId: string, q: { threshold: number; probability: number }): Promise<OperatingRanges> =>
-  call<OperatingRanges>(`/api/campaigns/${enc(campaignId)}/operating-ranges?threshold=${enc(String(q.threshold))}&probability=${enc(String(q.probability))}`);
 
 export { API };

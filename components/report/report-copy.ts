@@ -83,4 +83,11 @@ export const OPERATING_RANGE_REASONS: Record<string, { reason: string; fix?: str
     fix: "Lower the threshold or the probability, or measure more runs near the best recipe.",
   },
   region_too_small: { reason: "The region that meets the rule holds too few of the engine's sample points to state a range." },
+  // The campaign setup (goal, bounds, constraints) is applied to the search (engine 0f1b826); fixes come from the engine.
+  setup_goal_mismatch: { reason: "The analysis was computed for a different goal than the campaign setup now names." },
+  setup_out_of_sync: { reason: "The campaign setup changed after the analysis was computed, so its search region is out of date." },
+  setup_not_applied: { reason: "The analysis did not apply the campaign setup's bounds and constraints, so a range from it could fall outside them." },
+  setup_unreadable: { reason: "The engine could not read the stored campaign setup." },
+  no_measured_run_in_setup_region: { reason: "No measured run lies inside the setup's bounds and constraints, so there is no anchor to grow a region from." },
+  setup_region_too_small: { reason: "Too few of the engine's sample points satisfy the setup's bounds and constraints to state a range." },
 };

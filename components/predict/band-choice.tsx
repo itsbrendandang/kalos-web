@@ -91,7 +91,8 @@ function BandMethod({ mode }: { mode: Extract<IntervalMode, { kind: "per-proposa
       <p className="text-fg">
         The engine scores how far each held-out run landed from the model&apos;s out-of-fold prediction, in units of the model&apos;s own spread, then scales a quantile of those scores by each proposal&apos;s
         predictive spread. A recipe the model is less sure about gets a wider band.
-        {mode.nCalibration != null ? ` Calibrated on ${count(mode.nCalibration)} held-out scores.` : ""}
+        {mode.nCalibration != null ? ` The quantile comes from ${count(mode.nCalibration)} held-out scores.` : ""} Its coverage holds for runs like the held-out
+        ones; proposals are chosen for high predicted values, so coverage at proposals is lower (the caveat under the strip).
       </p>
       {mode.guarantee ? (
         <p className="text-caption text-fg-muted">

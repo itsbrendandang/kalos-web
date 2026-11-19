@@ -10,6 +10,7 @@
 // field list and these types in sync when the web starts or stops using a field.
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
+import type { CoverageAtProposalsEstimate, EngineIntervalCaveat } from "@/lib/proposal-caveat";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
 import { formatValue, parseUnit } from "@/lib/num";
@@ -96,7 +97,15 @@ export type ProposalInterval = {
   lo: number | null;
   hi: number | null;
   q_norm?: number;
+  /** Selection-aware quantile (engine F15, `conformal_selection_aware`). */
+  q_sel?: number;
   empirical_oof_coverage?: number;
+  /** What the coverage claim rests on, e.g. "held_out_past_runs" (engine trust layer; `interval_basis` on newer builds). */
+  coverage_basis?: string | null;
+  interval_basis?: string | null;
+  /** The engine's caveat for this proposal interval: plain message plus the coverage measured at proposals. */
+  caveat?: EngineIntervalCaveat | null;
+  coverage_at_proposals_estimate?: CoverageAtProposalsEstimate | null;
   code?: string;
   reason?: string;
   what_would_fix_it?: string;
@@ -550,6 +559,8 @@ export type AnalyzeResult = Partial<Diagnostics> & {
    * it's missing. See `coveragePct` below.
    */
   conformal_coverage?: number;
+  /** The engine's caveat for the `conformal_q` band at proposals (trust layer). Absent on older engines. */
+  conformal_caveat?: EngineIntervalCaveat | null;
   reliability?: Reliability;
   /** Fail-closed promotion verdict, REPORTED not enforced. Absent on older engine builds. */
   promotion?: Promotion;

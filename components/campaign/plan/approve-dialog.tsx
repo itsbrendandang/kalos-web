@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
-import { predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
+import { BatchCaveats, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
 import { exactSetpoint } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -101,6 +101,7 @@ export function ApproveDialog({
           Values are exactly what will be sent, unrounded. The table on the page rounds them to each input&apos;s range precision.{" "}
           {ctx.model.intervals.kind === "none" ? "The engine reported no prediction band." : `Predicted with the ${bandLegend(ctx.model)}.`}
         </p>
+        <BatchCaveats ctx={ctx} />
 
         {flagged.length ? (
           <p className="flex items-start gap-2 text-body text-fg">

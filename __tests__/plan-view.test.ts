@@ -168,7 +168,7 @@ describe("uncertainty display", () => {
     expect(bandLabel(0.9)).toBe("90% held-out band");
     expect(bandLabel(undefined)).toBe("held-out band");
     expect(bandLabel(null)).toBe("held-out band");
-    expect(BAND_CAVEAT).toMatch(/not guaranteed for proposals/);
+    expect(BAND_CAVEAT).toMatch(/at proposed recipes coverage measured lower in simulation/);
   });
   it("builds one padded axis for the batch strips that holds every interval and the best", () => {
     const [lo, hi] = stripDomain([50, 45], 2, 49)!;

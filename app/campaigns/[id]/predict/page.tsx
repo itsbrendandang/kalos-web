@@ -19,7 +19,6 @@ import {
   recipeFlags,
   recipeKeys,
   activeRejection,
-  BAND_CAVEAT,
   rejectionCopy,
   toggleCompare,
   type ObservedRange,
@@ -612,18 +611,18 @@ function BatchCharts({
       />
       {strip.intervals.kind === "per-proposal" ? (
         <p className="text-caption text-fg-muted">
-          Each proposal has its own band ({PER_PROPOSAL_METHOD}). Explore proposals are chosen to learn; exploit proposals for a {strip.goal === "minimize" ? "low" : "high"} predicted value. The engine&apos;s reason for each is under its details.
+          Each proposal has its own band ({PER_PROPOSAL_METHOD}); its caveat is under the strip. Explore proposals are chosen to learn; exploit proposals for a {strip.goal === "minimize" ? "low" : "high"} predicted value. The engine&apos;s reason for each is under its details.
         </p>
       ) : strip.halfWidth != null ? (
         <p className="text-caption text-fg-muted">
-          {BAND_CAVEAT} The engine reports one band width for the whole batch. Explore proposals are chosen to learn; exploit proposals for a {strip.goal === "minimize" ? "low" : "high"} predicted value. The engine&apos;s reason for each is under its details.
+          The engine reports one band width for the whole batch; its caveat is under the strip. Explore proposals are chosen to learn; exploit proposals for a {strip.goal === "minimize" ? "low" : "high"} predicted value. The engine&apos;s reason for each is under its details.
         </p>
       ) : (
         <p className="text-caption text-fg-muted">The engine reported no prediction band, so predictions are shown without an interval and the model σ is not turned into one.</p>
       )}
       {strip.hasImprovement ? (
         <p className="text-caption text-fg-muted">
-          The chance to {strip.goal === "minimize" ? "go below" : "beat"} the incumbent, the expected improvement and the quantiles are {MODEL_BASED}
+          The chance the model&apos;s mean {strip.goal === "minimize" ? "goes below" : "beats"} the incumbent, the expected improvement and the quantiles are {MODEL_BASED}
           {(() => {
             const inc = improvementIncumbent(strip.rows.find((r) => r.pImprove ?? r.ei)?.pImprove ?? strip.rows.find((r) => r.ei)?.ei ?? null, strip.unit);
             return inc ? `, compared with the ${inc}` : "";

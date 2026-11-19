@@ -79,11 +79,11 @@ describe("Predict on a v2 analysis: per-proposal bands", () => {
     expect(radios.map((r) => r.closest("label")?.textContent)).toEqual(["90%", "95%"]);
     expect(radios[0].checked).toBe(true);
     const t = within(batchTable());
-    expect(t.getByRole("columnheader", { name: "90% held-out band, per recipe" })).toBeTruthy();
+    expect(t.getByRole("columnheader", { name: /^90% held-out band, per recipe/ })).toBeTruthy();
     // P1's own 90% entry [1.5951, 1.9051].
     expect(t.getAllByRole("row")[1].textContent).toContain("[1.60, 1.91]");
     fireEvent.click(radios[1]);
-    expect(within(batchTable()).getByRole("columnheader", { name: "95% held-out band, per recipe" })).toBeTruthy();
+    expect(within(batchTable()).getByRole("columnheader", { name: /^95% held-out band, per recipe/ })).toBeTruthy();
     expect(within(batchTable()).getAllByRole("row")[1].textContent).toContain("[1.52, 1.98]");
     expect(screen.getAllByText(/held-out conformal, scaled per recipe; approximate coverage/).length).toBeGreaterThan(0);
   });
@@ -107,13 +107,13 @@ describe("Predict on a v2 analysis: per-proposal bands", () => {
   it("adds the model-based chance to beat the named incumbent, EI and the distance to the nearest measured run", async () => {
     await renderPredict();
     const t = within(batchTable());
-    expect(t.getByRole("columnheader", { name: /Chance to beat it/ })).toBeTruthy();
+    expect(t.getByRole("columnheader", { name: /Chance the model's mean beats the best measured/ })).toBeTruthy();
     expect(t.getByRole("columnheader", { name: /Nearest measured run/ })).toBeTruthy();
     const p1 = t.getAllByRole("row")[1].textContent ?? "";
     expect(p1).toContain(">99%");
     expect(p1).toContain("0.60");
     expect(p1).toContain("0.81× typical spacing");
-    expect(screen.getByText(/model-based \(GP posterior\), not held-out calibrated, compared with the best measured run 1\.42/)).toBeTruthy();
+    expect(screen.getByText(/model-based \(GP posterior\), not checked on held-out runs, compared with the best measured run 1\.42/)).toBeTruthy();
     expect(screen.getByText("How far each proposal is from the measured runs")).toBeTruthy();
   });
 

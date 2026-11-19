@@ -16,6 +16,8 @@ import {
   type PackageAnalysis,
 } from "@/lib/report-package";
 
+const CAVEAT = "Calibrated on held-out runs similar to past runs; at proposed recipes coverage measured lower in simulation (about 60-80% for a nominal 90%).";
+
 const meta: Pick<CampaignMeta, "id" | "name" | "created_at"> = { id: "cmp_1", name: "Fed-batch CHO", created_at: 1795058340 };
 const AT = new Date("2026-11-19T10:30:00Z");
 
@@ -123,7 +125,7 @@ describe("buildPackage", () => {
   });
 
   it("reports the conformal band with the engine's coverage and promotion as not enforced", () => {
-    expect(pkg.model.conformal).toEqual({ half_width: 0.2036, coverage: 0.9 });
+    expect(pkg.model.conformal).toEqual({ half_width: 0.2036, coverage: 0.9, caveat: null });
     expect(pkg.model.promotion).toMatchObject({ passed: false, enforced: false, failures: ["feasibility_auc=0.626 < min 0.65"] });
     expect(pkg.model.reliability).toMatchObject({ verdict: "reliable", label: "Reliable" });
     expect(pkg.model.cv_ci95).toEqual([0.539, 0.767]);
@@ -135,7 +137,20 @@ describe("buildPackage", () => {
       recipe: { pH: 7, temperature_C: 36 },
       mode: "exploit",
       reason: "predicted high",
-      predicted: { value: 1.75, sd: 0.069, band_half_width: 0.2036, band_coverage: 0.9, p_feasible: null, predictive_std: null, intervals: [], gp_intervals: [] },
+      predicted: {
+        value: 1.75,
+        sd: 0.069,
+        band_half_width: 0.2036,
+        band_coverage: 0.9,
+        p_feasible: null,
+        predictive_std: null,
+        intervals: [],
+        gp_intervals: [],
+        // The global band travels with its trust caveat (the fixed text: this analysis sent no engine caveat).
+        interval_caveats: [
+          { applies_to: "global_band", coverage: 0.9, text: CAVEAT, source: "web_fixed_text", engine_code: null, interval_basis: null, coverage_at_proposals_estimate: null },
+        ],
+      },
     });
     // Older engine without `recipe`: falls back to proposal_features + vals.
     expect(pkg.proposals[1].recipe).toEqual({ pH: 6.5, temperature_C: 31 });
@@ -184,7 +199,7 @@ describe("buildPackage", () => {
       feature_ranges: undefined,
     });
     const p = buildPackage(meta, summary([run({ pred: Number.NaN, std: undefined as unknown as number, analysis_provenance: null, round: undefined })]), bare, AT);
-    expect(p.model.conformal).toEqual({ half_width: null, coverage: null });
+    expect(p.model.conformal).toEqual({ half_width: null, coverage: null, caveat: null });
     expect(p.model.cv_spearman).toBeNull();
     expect(p.model.cv_ci95).toBeNull();
     expect(p.model.promotion).toBeNull();
@@ -299,8 +314,8 @@ describe("proposalsCsv", () => {
     const [head, first, second] = csv.trimEnd().split("\r\n");
     expect(head).toBe([...PROPOSALS_FIXED_COLUMNS, "pH", "temperature_C"].join(","));
     expect(head).not.toMatch(/measured/);
-    expect(first).toBe("1,exploit,predicted high,1.75,0.069,0.2036,0.9,,7,36");
-    expect(second).toBe("2,explore,uncertain region,0.9,0.3,0.2036,0.9,,6.5,31");
+    expect(first).toBe(`1,exploit,predicted high,1.75,0.069,0.2036,0.9,${CAVEAT},,7,36`);
+    expect(second).toBe(`2,explore,uncertain region,0.9,0.3,0.2036,0.9,${CAVEAT},,6.5,31`);
   });
   it("an empty batch is a header only", () => {
     expect(proposalsCsv({ proposals: [] })).toBe(`${PROPOSALS_FIXED_COLUMNS.join(",")}\r\n`);

@@ -8,7 +8,8 @@ import { ModeBadge } from "@/components/ui/badge";
 import { BasisGlyph, Num, NumState, SourceButton } from "@/components/viz/num";
 import { calibrationNote, intervalAt, type Promotion } from "@/lib/api";
 import { columnDecimals, conformalInterval, coverageText, formatCorr, formatSetting, formatValue, type IntervalSpec } from "@/lib/num";
-import type { DataPackage } from "@/lib/report-package";
+import type { DataPackage, PackageIntervalCaveat } from "@/lib/report-package";
+import { basisText } from "@/lib/proposal-caveat";
 import { typedValue } from "@/components/report/report-copy";
 import type { Source } from "@/lib/source";
 
@@ -245,14 +246,22 @@ export function ModelSection({ pkg }: { pkg: DataPackage }) {
  * refusal reason, or, for analyses that predate per-proposal intervals, the
  * global held-out band.
  */
-export function proposalInterval(p: DataPackage["proposals"][number], levels: number[]): { interval: IntervalSpec | null; refused: string | null } {
+export function proposalInterval(
+  p: DataPackage["proposals"][number],
+  levels: number[],
+): { interval: IntervalSpec | null; refused: string | null; caveat: PackageIntervalCaveat | null } {
   const level = levels[0] ?? p.predicted.intervals[0]?.coverage;
   const entry = level != null ? intervalAt(p.predicted.intervals, level) : null;
+  const caveats = p.predicted.interval_caveats ?? [];
   if (entry) {
-    if (entry.available && entry.lo != null && entry.hi != null) return { interval: { lo: entry.lo, hi: entry.hi, coverage: entry.coverage, method: "conformal" }, refused: null };
-    return { interval: null, refused: entry.reason ?? "the engine refused this interval level" };
+    if (entry.available && entry.lo != null && entry.hi != null) {
+      const caveat = caveats.find((c) => c.applies_to === "per_proposal_interval" && c.coverage === entry.coverage) ?? null;
+      return { interval: { lo: entry.lo, hi: entry.hi, coverage: entry.coverage, method: "conformal" }, refused: null, caveat };
+    }
+    return { interval: null, refused: entry.reason ?? "the engine refused this interval level", caveat: null };
   }
-  return { interval: conformalInterval(p.predicted.value, p.predicted.band_half_width, p.predicted.band_coverage), refused: null };
+  const interval = conformalInterval(p.predicted.value, p.predicted.band_half_width, p.predicted.band_coverage);
+  return { interval, refused: null, caveat: interval ? (caveats.find((c) => c.applies_to === "global_band") ?? null) : null };
 }
 
 export function BatchSection({ pkg }: { pkg: DataPackage }) {
@@ -274,23 +283,35 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
       }
     >
       {props.length ? (
-        <ol className="flex flex-col">
-          {props.map((p) => {
-            const { interval, refused } = proposalInterval(p, levels);
-            return (
-              <li key={p.index} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border py-2.5">
-                <span className="w-6 text-label text-fg-muted tabular-nums">{p.index}</span>
-                {p.mode === "exploit" || p.mode === "explore" ? <ModeBadge mode={p.mode} /> : <span className="text-caption text-fg-muted">n/a</span>}
-                <Num value={p.predicted.value} basis="predicted" unit={unit} interval={interval} />
-                {interval == null ? (
-                  <span className="text-caption text-fg-muted tabular-nums">
-                    interval n/a{refused ? ` (${refused})` : ""}; model SD {formatValue(p.predicted.sd).text} (not a held-out band)
-                  </span>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
+        <>
+          <ol className="flex flex-col">
+            {props.map((p) => {
+              const { interval, refused } = proposalInterval(p, levels);
+              return (
+                <li key={p.index} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border py-2.5">
+                  <span className="w-6 text-label text-fg-muted tabular-nums">{p.index}</span>
+                  {p.mode === "exploit" || p.mode === "explore" ? <ModeBadge mode={p.mode} /> : <span className="text-caption text-fg-muted">n/a</span>}
+                  <Num value={p.predicted.value} basis="predicted" unit={unit} interval={interval} />
+                  {interval == null ? (
+                    <span className="text-caption text-fg-muted tabular-nums">
+                      interval n/a{refused ? ` (${refused})` : ""}; model SD {formatValue(p.predicted.sd).text} (not a held-out band)
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+          {(() => {
+            // Every interval above travels with its trust caveat; each distinct caveat is shown once.
+            const shown = [...new Map(props.map((p) => proposalInterval(p, levels).caveat).filter((c): c is PackageIntervalCaveat => c != null).map((c) => [c.text, c])).values()];
+            return shown.map((c) => (
+              <p key={c.text} role="note" className="text-caption text-fg-muted">
+                {c.text}
+                {c.interval_basis ? ` Interval basis: ${basisText(c.interval_basis)}.` : ""}
+              </p>
+            ));
+          })()}
+        </>
       ) : null}
     </Section>
   );

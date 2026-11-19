@@ -36,6 +36,7 @@ import {
   type BatchStripRow,
 } from "@/lib/viz-data/batch-interval-strip";
 import { MAX_FOCUSABLE_MARKS } from "@/lib/viz-thresholds";
+import { ProposalCaveatNote } from "@/components/predict/proposal-caveat";
 
 /*
  * C2 BatchIntervalStrip (VIZ_SPEC 5): the proposed batch as a forest. Each row
@@ -48,7 +49,9 @@ import { MAX_FOCUSABLE_MARKS } from "@/lib/viz-thresholds";
  * same recipe (filled ink, on top). EI, quantiles, the GP band and the
  * distance to the nearest measured run are in each row's tooltip and the Data
  * table. Mode is a word, never a color. Hovering or focusing a row highlights
- * the same proposal in the setpoint matrix (`onHighlight`).
+ * the same proposal in the setpoint matrix (`onHighlight`). Whenever a band is
+ * drawn, its trust caveat sits directly under the strip (lib/proposal-caveat),
+ * and each row's tooltip repeats it.
  */
 
 const ROW = 40;
@@ -180,8 +183,8 @@ function Strip({
                 <span className="truncate">{inc && incF ? `vs ${inc.label} ${incF.value}` : "no incumbent to compare"}</span>
               </span>
               {showChance ? (
-                <span className="flex flex-col justify-end pb-1 pl-3 leading-4" title={`${MODEL_BASED}. Compared with the ${chanceInc ?? "incumbent"}.`}>
-                  <span>{chance} it</span>
+                <span className="flex flex-col justify-end pb-1 pl-3 leading-4" title={`${chance}: ${MODEL_BASED}. Compared with the ${chanceInc ?? "incumbent"}.`}>
+                  <span className="line-clamp-2">{chance}</span>
                   <span className="truncate">model-based</span>
                 </span>
               ) : null}
@@ -326,6 +329,9 @@ function Strip({
         </div>
         <ChartTooltip tip={tip} onClose={close} width={w} />
       </div>
+      {model.caveats.map((c) => (
+        <ProposalCaveatNote key={c.text} caveat={c} />
+      ))}
       {!compact && !showFeas && rows.length ? (
         <p className="text-caption text-fg-muted">
           P(feasible): n/a for every proposal, {model.gating === "ungated" ? "the batch was not feasibility-gated" : "the engine did not report feasibility gating"}
@@ -369,9 +375,16 @@ function MeasuredCell({ r, model }: { r: BatchStripRow; model: BatchStripModel }
     <span className="flex items-baseline gap-2 whitespace-nowrap">
       <Num value={r.run.result} basis="measured" size="table" />
       {r.band ? (
-        <span className={cn("inline-flex items-center gap-1 text-caption", r.band === "outside" ? "text-warn" : "text-fg-muted")}>
+        <span
+          className={cn("inline-flex items-center gap-1 text-caption", r.band === "outside" ? "text-warn" : "text-fg-muted")}
+          title="Judged against the band the engine recorded when the run started, at the chosen coverage"
+        >
           {r.band === "outside" ? <TriangleAlert className="size-3.5 self-center" aria-hidden /> : null}
-          {r.band} band
+          {r.band} start band
+        </span>
+      ) : r.bandNa ? (
+        <span className="text-caption text-fg-muted" title={r.bandNa}>
+          band n/a<span className="sr-only"> ({r.bandNa})</span>
         </span>
       ) : null}
       <span className="sr-only">{model.unit ?? ""}</span>
@@ -388,13 +401,21 @@ function RowTip({ r, model, source }: { r: BatchStripRow; model: BatchStripModel
       <p className="text-label text-fg">
         {r.key} <span className="font-normal text-fg-muted">{r.mode}</span>
       </p>
-      {m ? <TipRow label="Measured">{m.text}{r.band ? `, ${r.band} band` : ""}</TipRow> : r.run ? <TipRow label="Measured">Awaiting result</TipRow> : null}
+      {m ? (
+        <TipRow label="Measured">
+          {m.text}
+          {r.band ? `, ${r.band} the band recorded at start` : r.bandNa ? `, inside/outside n/a: ${r.bandNa}` : ""}
+        </TipRow>
+      ) : r.run ? (
+        <TipRow label="Measured">Awaiting result</TipRow>
+      ) : null}
       <TipRow label="Predicted">
         {p.value}
         {p.unit ? `\u00A0${p.unit}` : ""}
       </TipRow>
       <TipRow label={p.interval ? bandName(model) : "Interval"}>{p.interval ?? (bandStateText(r) ?? "no interval reported")}</TipRow>
       {r.interval.kind === "refused" && r.interval.fix ? <p className="text-fg-muted">What would fix it: {r.interval.fix}</p> : null}
+      {r.caveat ? <p className="max-w-72 text-fg-muted">{r.caveat.text}</p> : null}
       <TipRow label="Model σ">{formatValue(r.sigma, { unit: model.unit }).text}</TipRow>
       {g && model.incumbent ? (
         <TipRow label={`Gain vs ${model.incumbent.label}${model.goal === "minimize" ? " (best − predicted)" : ""}`}>
@@ -404,7 +425,7 @@ function RowTip({ r, model, source }: { r: BatchStripRow; model: BatchStripModel
       {model.gating === "gated" ? <TipRow label="P(feasible)">{r.feasibility.state === "value" ? feasibilityText(r.feasibility) : `n/a: ${r.feasibility.reason}`}</TipRow> : null}
       {r.pImprove || r.ei || r.quantiles ? (
         <div className="mt-1 flex flex-col gap-1 border-t border-border pt-1">
-          <p className="text-fg-muted">Model-based (GP posterior), not held-out calibrated{r.pImprove ? `, vs the ${improvementIncumbent(r.pImprove, model.unit)}` : ""}:</p>
+          <p className="text-fg-muted">Model-based (GP posterior), not checked on held-out runs{r.pImprove ? `, vs the ${improvementIncumbent(r.pImprove, model.unit)}` : ""}:</p>
           {r.pImprove ? <TipRow label={chanceLabel(r.pImprove, model.goal)}>{chanceText(r)}</TipRow> : null}
           {r.ei ? <TipRow label="Expected improvement">{eiText(r, model.unit)}</TipRow> : null}
           {r.quantiles ? <TipRow label="Quantiles">{quantilesText(r.quantiles, model.unit) ?? "n/a"}</TipRow> : null}

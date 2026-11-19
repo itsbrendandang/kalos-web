@@ -134,7 +134,7 @@ describe("model-based improvement fields and distance", () => {
   it("prints EI, the chance to beat the named incumbent and the quantiles through lib/num", () => {
     expect(eiText(r, "g/L")).toBe("0.328\u00A0g/L");
     expect(chanceText(r)).toBe(">99%");
-    expect(chanceLabel(r.pImprove, m.goal)).toBe("Chance to beat");
+    expect(chanceLabel(r.pImprove, m.goal)).toBe("Chance the model's mean beats the best measured");
     expect(improvementIncumbent(r.pImprove, "g/L")).toBe("best measured run 1.42\u00A0g/L");
     expect(quantilesText(r.quantiles, "g/L")).toBe("p05 1.63 · p25 1.70 · p50 1.75 · p75 1.80 · p95 1.87 g/L");
   });
@@ -149,7 +149,7 @@ describe("model-based improvement fields and distance", () => {
   it("lists the model-based columns in the Data table, labelled so", () => {
     const t = batchStripTable(m);
     expect(t.columns).toContain("Expected improvement (g/L), model-based");
-    expect(t.columns).toContain("Chance to beat the incumbent, model-based");
+    expect(t.columns).toContain("Chance the model's mean beats the best measured, model-based");
     expect(t.columns).toContain("Distance to nearest measured run");
     expect(t.rows[0]).toContain("0.60 (0.81× typical spacing)");
   });
@@ -171,8 +171,8 @@ describe("goal direction", () => {
     expect(g.value).toBe("+0.05");
     // [1.8 − 1.9051, 1.8 − 1.5951]
     expect(g.interval).toBe(`[${MINUS}0.11, 0.20]`);
-    expect(chanceLabel(r.pImprove, m.goal)).toBe("Chance to go below");
-    expect(describeBatchStrip(m)).toMatch(/predicted below it\.$/);
+    expect(chanceLabel(r.pImprove, m.goal)).toBe("Chance the model's mean goes below the best measured");
+    expect(describeBatchStrip(m)).toMatch(/predicted below it\. /);
   });
 
   it("orders 'beats best' and the gain-within-band check in the goal direction", () => {

@@ -48,6 +48,30 @@ const run = (id: string, recipe: Record<string, number | string>, result: number
   result,
   awaiting: result == null,
 });
+/** A run started since the engine records each run's bands: its prediction and bands at start. */
+const startedRun = (
+  id: string,
+  recipe: Record<string, number | string>,
+  result: number | null,
+  at: { lo: number; hi: number; coverage?: number; intervals?: { coverage: number; lo: number; hi: number }[] },
+  inside_band: boolean | null = null,
+): CampaignRun => ({
+  ...run(id, recipe, result),
+  pred_source: "engine",
+  inside_band,
+  prediction_at_start: {
+    available: true,
+    basis: "predicted",
+    pred: (at.lo + at.hi) / 2,
+    std: 0.1,
+    interval: { lo: at.lo, hi: at.hi, half_width: (at.hi - at.lo) / 2, coverage: at.coverage ?? 0.9, method: "conformal" },
+    interval_unavailable_reason: null,
+    intervals: at.intervals?.map((i) => ({ ...i, method: "conformal_normalized", available: true })),
+  },
+});
+const R1 = { pH: 6.969, temp: 36.1, medium: "CD-CHO" };
+const R2 = { pH: 7.59, temp: 36.2, medium: "ProCHO" };
+const CAVEAT = "Calibrated on held-out runs similar to past runs; at proposed recipes coverage measured lower in simulation (about 60-80% for a nominal 90%).";
 
 afterEach(cleanup);
 
@@ -100,14 +124,45 @@ describe("toBatchStripModel", () => {
     expect(m.rows[1].flags).toEqual(["edge"]);
   });
 
-  it("matches a started run by exact recipe and counts inside/outside the band exactly", () => {
-    const runs = [run("r1", { pH: 6.969, temp: 36.1, medium: "CD-CHO" }, 1.64), run("r2", { pH: 7.59, temp: 36.2, medium: "ProCHO" }, 2.1)];
+  it("matches a started run by exact recipe and judges inside/outside only against the band recorded at start", () => {
+    // r1: inside the band recorded at start. r2: inside the CURRENT band (1.75 ± 0.23) but outside the one recorded at start.
+    const runs = [startedRun("r1", R1, 1.64, { lo: 1.5, hi: 1.7 }), startedRun("r2", R2, 1.8, { lo: 1.4, hi: 1.6 })];
     const m = model({}, runs);
     expect(m.hasRuns).toBe(true);
     expect(m.rows[0].run).toEqual({ id: "r1", result: 1.64, awaiting: false });
     expect(m.rows[0].band).toBe("inside");
     expect(m.rows[1].band).toBe("outside");
     expect(m.rows[1].flags).toContain("outside-band");
+  });
+
+  it("prefers the run's own interval at the chosen coverage, then the engine's inside_band at that coverage, else n/a", () => {
+    const per: Partial<Strip> = {
+      interval_levels: [0.9, 0.95],
+      interval_method: { method: "conformal_normalized", levels: [{ coverage: 0.9, available: true }, { coverage: 0.95, available: true }] },
+      proposals: base.proposals.map((p) => ({
+        ...p,
+        intervals: [
+          { coverage: 0.9, method: "conformal_normalized", available: true, lo: p.pred - 0.1, hi: p.pred + 0.1 },
+          { coverage: 0.95, method: "conformal_normalized", available: true, lo: p.pred - 0.5, hi: p.pred + 0.5 },
+        ],
+      })),
+    };
+    const at = { lo: 1.5, hi: 1.6, intervals: [{ coverage: 0.95, lo: 1.0, hi: 2.0 }] };
+    const runs = [startedRun("r1", R1, 1.64, at, false)];
+    const strip = (coverage: number) => toBatchStripModel({ ...base, ...per }, { target: "titer", unit: "g/L", runs, coverage });
+    // 0.95: the run's own 95% interval at start [1.0, 2.0].
+    expect(strip(0.95).rows[0].band).toBe("inside");
+    // 0.9: no 90% entry in intervals; the recorded interval is 90%, so the engine's inside_band decides.
+    expect(strip(0.9).rows[0].band).toBe("outside");
+    // A legacy run (nothing recorded at start) is n/a, even though the current band contains it.
+    const legacy = toBatchStripModel({ ...base, ...per }, { target: "titer", unit: "g/L", runs: [run("r0", R1, 1.613)], coverage: 0.9 });
+    expect(legacy.rows[0].band).toBeNull();
+    expect(legacy.rows[0].bandNa).toBe("no band was recorded when this run started");
+    expect(batchStripTable(legacy).rows[0].at(-1)).toBe("n/a (no band was recorded when this run started)");
+    // Recorded at 90% only, viewed at 95% with no 95% entry: n/a, not the current 95% band.
+    const only90 = toBatchStripModel({ ...base, ...per }, { target: "titer", unit: "g/L", runs: [startedRun("r1", R1, 1.613, { lo: 1.5, hi: 1.7 }, true)], coverage: 0.95 });
+    expect(only90.rows[0].band).toBeNull();
+    expect(only90.rows[0].bandNa).toBe("no 95% band was recorded when this run started");
   });
 
   it("pads the domain 10% around every interval, the incumbent and any measured result", () => {
@@ -138,7 +193,7 @@ describe("describeBatchStrip", () => {
   it("names the coverage, every row in order and the incumbent", () => {
     const text = describeBatchStrip(model());
     expect(text).toBe(
-      "Proposed batch of 2 recipes, predicted titer (g/L) with the 90% held-out band, in the engine's order: P1 explore 1.61 [1.39, 1.84]; P2 exploit 1.75 [1.52, 1.98]. Best measured run 1.61\u00A0g/L; 2 of 2 predicted above it.",
+      `Proposed batch of 2 recipes, predicted titer (g/L) with the 90% held-out band, in the engine's order: P1 explore 1.61 [1.39, 1.84]; P2 exploit 1.75 [1.52, 1.98]. Best measured run 1.61\u00A0g/L; 2 of 2 predicted above it. ${CAVEAT}`,
     );
   });
   it("says when there is no interval, and when the batch is empty", () => {
@@ -146,8 +201,8 @@ describe("describeBatchStrip", () => {
     expect(describeBatchStrip(model({ proposals: [] }))).toBe("The engine proposed no recipes for titer.");
   });
   it("adds measured results with their band verdict", () => {
-    const m = model({}, [run("r1", { pH: 6.969, temp: 36.1, medium: "CD-CHO" }, 1.64)]);
-    expect(describeBatchStrip(m)).toContain("measured 1.64\u00A0g/L (inside band)");
+    const m = model({}, [startedRun("r1", R1, 1.64, { lo: 1.5, hi: 1.7 })]);
+    expect(describeBatchStrip(m)).toContain("measured 1.64\u00A0g/L (inside the band recorded at start)");
   });
 });
 
@@ -178,12 +233,12 @@ describe("<BatchIntervalStrip>", () => {
   it("shows the model sigma, labeled uncalibrated, when the engine sent no band", () => {
     draw(model({ conformal_q: null }));
     expect(screen.getByText("Predicted (no interval reported)")).toBeTruthy();
-    expect(screen.getAllByText(/σ 0\.0400 g\/L \(model, not held-out calibrated\)/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/σ 0\.0400 g\/L \(model, not checked on held-out runs\)/).length).toBeGreaterThan(0);
   });
 
   it("adds a measured column once a started run of the same recipe has a result", () => {
-    draw(model({}, [run("r1", { pH: 6.969, temp: 36.1, medium: "CD-CHO" }, 1.64), run("r2", { pH: 7.59, temp: 36.2, medium: "ProCHO" }, null)]));
-    expect(screen.getByText("inside band")).toBeTruthy();
+    draw(model({}, [startedRun("r1", R1, 1.64, { lo: 1.5, hi: 1.7 }), run("r2", R2, null)]));
+    expect(screen.getByText("inside start band")).toBeTruthy();
     expect(screen.getByText("Awaiting result")).toBeTruthy();
     expect(screen.getByText("Measured result of the started run")).toBeTruthy();
   });
@@ -221,7 +276,7 @@ describe("<BatchIntervalStrip>", () => {
     });
     draw(per);
     expect(screen.getByText("Predicted (90% band: held-out conformal, scaled per recipe; approximate coverage)")).toBeTruthy();
-    expect(screen.getByText("Chance to beat it")).toBeTruthy();
+    expect(screen.getByText("Chance the model's mean beats the best measured")).toBeTruthy();
     expect(screen.getAllByText("62%").length).toBe(2);
   });
 });

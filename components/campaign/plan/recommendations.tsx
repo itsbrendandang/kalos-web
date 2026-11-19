@@ -5,7 +5,6 @@ import { Check, ChevronRight, Columns2, TriangleAlert } from "lucide-react";
 import type { BatchItem } from "@/components/campaign/plan-batch";
 import { RangeBar } from "@/components/campaign/plan/strips";
 import {
-  BAND_CAVEAT,
   bandLabel,
   exactSetpoint,
   constraintPrediction,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Num } from "@/components/viz/num";
+import { ProposalCaveatNote } from "@/components/predict/proposal-caveat";
 import type { ConstraintReport } from "@/lib/api";
 import { coverageText, formatInterval, formatProb, formatValue, type Formatted } from "@/lib/num";
 import type { Source } from "@/lib/source";
@@ -76,7 +76,7 @@ export type PlanContext = {
   /** The source of the incumbent. */
   incumbentSource?: Source;
   /** The batch at the chosen coverage: band mode, goal, distance scale. */
-  model: Pick<BatchStripModel, "intervals" | "coverage" | "goal" | "nnMedian" | "hasImprovement">;
+  model: Pick<BatchStripModel, "intervals" | "coverage" | "goal" | "nnMedian" | "hasImprovement" | "caveat" | "caveats">;
 };
 
 /** A proposal's prediction with its band at the chosen coverage (none when refused), at the precision the band supports. */
@@ -92,6 +92,18 @@ export function gainOf(row: PlanRow, ctx: Pick<PlanContext, "coverage" | "unit" 
 
 /** The band column's header: "90% held-out band, per recipe", the global band, or "Band". */
 export const bandHeader = (ctx: Pick<PlanContext, "model">): string => (ctx.model.intervals.kind === "none" ? "Band" : bandName(ctx.model));
+
+/** The trust caveat for every band in the batch, once each (shown with the table and the cards). */
+export function BatchCaveats({ ctx, className }: { ctx: Pick<PlanContext, "model">; className?: string }) {
+  if (!ctx.model.caveats.length) return null;
+  return (
+    <div className={cn("flex flex-col gap-2", className)}>
+      {ctx.model.caveats.map((c) => (
+        <ProposalCaveatNote key={c.text} caveat={c} />
+      ))}
+    </div>
+  );
+}
 
 /** Why a row shows no band: "Refused" with the engine's reason, or n/a. */
 function NoBand({ row }: { row: PlanRow }) {
@@ -255,9 +267,10 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
             <th
               scope="col"
               className="h-10 min-w-28 px-2 text-right font-medium"
-              title={ctx.model.intervals.kind === "per-proposal" ? PER_PROPOSAL_METHOD : ctx.model.intervals.kind === "global" ? BAND_CAVEAT : undefined}
+              title={[ctx.model.intervals.kind === "per-proposal" ? PER_PROPOSAL_METHOD : null, ctx.model.caveat?.text].filter(Boolean).join(". ") || undefined}
             >
               {bandHeader(ctx)}
+              {ctx.model.caveat ? <span className="block text-caption font-normal whitespace-nowrap">caveat below the table</span> : null}
             </th>
             <th scope="col" className="h-10 px-2 text-right font-medium">
               <span className="whitespace-nowrap">
@@ -271,7 +284,7 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
             </th>
             {showChance ? (
               <th scope="col" className="h-10 px-2 text-right font-medium" title={`${MODEL_BASED}. Compared with the ${improvementIncumbent(firstChance, ctx.unit) ?? "incumbent"}.`}>
-                <span className="whitespace-nowrap">{chanceLabel(firstChance, ctx.model.goal)} it</span>
+                <span className="block max-w-48">{chanceLabel(firstChance, ctx.model.goal)}</span>
                 <span className="block text-caption font-normal whitespace-nowrap">model-based, EI{unit}</span>
               </th>
             ) : null}
@@ -351,6 +364,7 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
           })}
         </tbody>
       </table>
+      <BatchCaveats ctx={ctx} className="mt-3" />
     </div>
   );
 }
@@ -371,87 +385,90 @@ function SetpointText({ row, input, ctx }: { row: PlanRow; input: string; ctx: P
 /** Narrow containers: one card per proposal. */
 export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx: PlanContext; state: (row: PlanRow) => RowState }) {
   return (
-    <ul className="flex flex-col gap-3">
-      {rows.map((row) => {
-        const s = state(row);
-        const p = row.item.proposal;
-        const detailsId = `plan-details-c-${row.id}`;
-        const f = predOf(row, ctx);
-        const g = gainOf(row, ctx);
-        return (
-          <li key={row.id} className={cn("rounded-xl border bg-surface", s.compared ? "border-accent" : "border-border")}>
-            <div className="flex flex-col gap-3 p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <Checkbox checked={s.included} onChange={s.onInclude} aria-label={`Run ${row.id}`} />
-                <span className="font-mono text-code text-fg">{row.id}</span>
-                <ModeText mode={p.mode} className="text-body" />
-                <span className="hidden text-caption text-fg-muted min-[420px]:inline">{(ctx.model.goal === "minimize" ? MODE_HINT_MIN : MODE_HINT)[p.mode]}</span>
-                <span className="ml-auto">
-                  <CompareToggle row={row} state={s} />
-                </span>
-              </div>
-              <dl className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-4 gap-y-2">
-                {ctx.features.map((f) => (
-                  <div key={f} className="min-w-0">
-                    <dt className="truncate text-caption text-fg-muted">{f}</dt>
-                    <dd className="text-body tabular-nums">
-                      <SetpointText row={row} input={f} ctx={ctx} />
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <Num value={p.pred} basis="predicted" unit={ctx.unit} size="body" options={{ decimals: f.decimals }} source={ctx.sourceFor?.(row)} />
-                  <span className="text-caption text-fg-muted tabular-nums">
-                    {f.interval ? `${f.interval} ${bandHeader(ctx)}` : row.strip.interval.kind === "refused" ? `${bandHeader(ctx)} refused` : "no band reported"}
+    <div className="flex flex-col gap-3">
+      <BatchCaveats ctx={ctx} />
+      <ul className="flex flex-col gap-3">
+        {rows.map((row) => {
+          const s = state(row);
+          const p = row.item.proposal;
+          const detailsId = `plan-details-c-${row.id}`;
+          const f = predOf(row, ctx);
+          const g = gainOf(row, ctx);
+          return (
+            <li key={row.id} className={cn("rounded-xl border bg-surface", s.compared ? "border-accent" : "border-border")}>
+              <div className="flex flex-col gap-3 p-3 sm:p-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={s.included} onChange={s.onInclude} aria-label={`Run ${row.id}`} />
+                  <span className="font-mono text-code text-fg">{row.id}</span>
+                  <ModeText mode={p.mode} className="text-body" />
+                  <span className="hidden text-caption text-fg-muted min-[420px]:inline">{(ctx.model.goal === "minimize" ? MODE_HINT_MIN : MODE_HINT)[p.mode]}</span>
+                  <span className="ml-auto">
+                    <CompareToggle row={row} state={s} />
                   </span>
                 </div>
-                {g && ctx.incumbent != null ? (
-                  <p className="flex flex-wrap items-baseline gap-x-1.5 text-caption text-fg-muted tabular-nums">
-                    <span className="text-fg">{g.value}</span>
-                    {g.interval ? <span>{g.interval}</span> : null}
-                    <span>predicted gain{ctx.model.goal === "minimize" ? " (best − predicted)" : ""} vs {ctx.incumbentLabel}</span>
-                    <Num value={ctx.incumbent} basis="measured" unit={ctx.unit} className="text-caption" />
-                  </p>
-                ) : null}
-                {row.strip.pImprove || row.strip.nnDistance != null ? (
-                  <p className="flex flex-wrap items-baseline gap-x-3 text-caption text-fg-muted tabular-nums">
-                    {row.strip.pImprove ? (
-                      <span>
-                        {chanceLabel(row.strip.pImprove, ctx.model.goal)} it <span className="text-fg">{chanceText(row.strip)}</span>, EI <span className="text-fg">{eiText(row.strip, ctx.unit)}</span> (model-based)
-                      </span>
-                    ) : null}
-                    {row.strip.nnDistance != null ? (
-                      <span title={DISTANCE_METHOD}>
-                        nearest measured run <span className="text-fg">{distanceText(row.strip.nnDistance, ctx.model.nnMedian).value}</span>
-                        {distanceText(row.strip.nnDistance, ctx.model.nnMedian).ratio ? ` (${distanceText(row.strip.nnDistance, ctx.model.nnMedian).ratio})` : ""}
-                      </span>
-                    ) : null}
-                  </p>
-                ) : null}
+                <dl className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-4 gap-y-2">
+                  {ctx.features.map((f) => (
+                    <div key={f} className="min-w-0">
+                      <dt className="truncate text-caption text-fg-muted">{f}</dt>
+                      <dd className="text-body tabular-nums">
+                        <SetpointText row={row} input={f} ctx={ctx} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <Num value={p.pred} basis="predicted" unit={ctx.unit} size="body" options={{ decimals: f.decimals }} source={ctx.sourceFor?.(row)} />
+                    <span className="text-caption text-fg-muted tabular-nums">
+                      {f.interval ? `${f.interval} ${bandHeader(ctx)}` : row.strip.interval.kind === "refused" ? `${bandHeader(ctx)} refused` : "no band reported"}
+                    </span>
+                  </div>
+                  {g && ctx.incumbent != null ? (
+                    <p className="flex flex-wrap items-baseline gap-x-1.5 text-caption text-fg-muted tabular-nums">
+                      <span className="text-fg">{g.value}</span>
+                      {g.interval ? <span>{g.interval}</span> : null}
+                      <span>predicted gain{ctx.model.goal === "minimize" ? " (best − predicted)" : ""} vs {ctx.incumbentLabel}</span>
+                      <Num value={ctx.incumbent} basis="measured" unit={ctx.unit} className="text-caption" />
+                    </p>
+                  ) : null}
+                  {row.strip.pImprove || row.strip.nnDistance != null ? (
+                    <p className="flex flex-wrap items-baseline gap-x-3 text-caption text-fg-muted tabular-nums">
+                      {row.strip.pImprove ? (
+                        <span>
+                          {chanceLabel(row.strip.pImprove, ctx.model.goal)} <span className="text-fg">{chanceText(row.strip)}</span>, EI <span className="text-fg">{eiText(row.strip, ctx.unit)}</span> (model-based)
+                        </span>
+                      ) : null}
+                      {row.strip.nnDistance != null ? (
+                        <span title={DISTANCE_METHOD}>
+                          nearest measured run <span className="text-fg">{distanceText(row.strip.nnDistance, ctx.model.nnMedian).value}</span>
+                          {distanceText(row.strip.nnDistance, ctx.model.nnMedian).ratio ? ` (${distanceText(row.strip.nnDistance, ctx.model.nnMedian).ratio})` : ""}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+                {row.flags.length ? <Flags flags={row.flags} compact /> : null}
+                <button
+                  type="button"
+                  aria-expanded={s.expanded}
+                  aria-controls={detailsId}
+                  onClick={s.onExpand}
+                  className="-mx-1 inline-flex h-8 w-fit items-center gap-1.5 rounded-lg px-1 text-label text-fg hover:bg-subtle"
+                >
+                  <ChevronRight className={cn("size-4 text-fg-muted transition-transform", s.expanded && "rotate-90")} aria-hidden />
+                  Details<span className="sr-only"> for {row.id}</span>
+                </button>
               </div>
-              {row.flags.length ? <Flags flags={row.flags} compact /> : null}
-              <button
-                type="button"
-                aria-expanded={s.expanded}
-                aria-controls={detailsId}
-                onClick={s.onExpand}
-                className="-mx-1 inline-flex h-8 w-fit items-center gap-1.5 rounded-lg px-1 text-label text-fg hover:bg-subtle"
-              >
-                <ChevronRight className={cn("size-4 text-fg-muted transition-transform", s.expanded && "rotate-90")} aria-hidden />
-                Details<span className="sr-only"> for {row.id}</span>
-              </button>
-            </div>
-            {s.expanded ? (
-              <div id={detailsId} className="border-t border-border bg-subtle p-3 sm:p-4">
-                <RecipeDetails row={row} ctx={ctx} />
-              </div>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
+              {s.expanded ? (
+                <div id={detailsId} className="border-t border-border bg-subtle p-3 sm:p-4">
+                  <RecipeDetails row={row} ctx={ctx} />
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -533,8 +550,9 @@ export function RecipeDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) 
                   <span className="block text-caption text-fg-muted">
                     {ctx.model.intervals.kind === "per-proposal"
                       ? `This recipe's own band: ${PER_PROPOSAL_METHOD}.`
-                      : `Half-width ${formatValue(ctx.band).text}, one width the engine reports for the whole batch. ${BAND_CAVEAT}`}
+                      : `Half-width ${formatValue(ctx.band).text}, one width the engine reports for the whole batch.`}
                   </span>
+                  {row.strip.caveat ? <ProposalCaveatNote caveat={row.strip.caveat} compact className="mt-1" /> : null}
                 </>
               ) : row.strip.interval.kind === "refused" ? (
                 <>
@@ -633,12 +651,12 @@ function ModelBasedDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
         <div>
           <h3 className="text-label text-fg">Model-based view</h3>
           <p className="mt-1 text-caption text-fg-muted">
-            From the model&apos;s GP posterior, not held-out calibrated{inc ? `; compared with the ${inc}` : ""}. The batch itself was chosen by the engine&apos;s acquisition, not by these numbers.
+            From the model&apos;s GP posterior, not checked on held-out runs{inc ? `; compared with the ${inc}` : ""}. The batch itself was chosen by the engine&apos;s acquisition, not by these numbers.
           </p>
           <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-body">
             {s.pImprove ? (
               <>
-                <dt className="text-fg-muted">{chanceLabel(s.pImprove, ctx.model.goal)} it</dt>
+                <dt className="text-fg-muted">{chanceLabel(s.pImprove, ctx.model.goal)}</dt>
                 <dd className="tabular-nums">{chanceText(s)}</dd>
               </>
             ) : null}
@@ -662,7 +680,7 @@ function ModelBasedDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
                 <dt className="text-fg-muted">{coverageText(s.gp.coverage)} model-based band</dt>
                 <dd className="tabular-nums">
                   {formatInterval({ lo: s.gp.lo, hi: s.gp.hi, coverage: null, method: "conformal" }, {}, row.item.proposal.pred)}
-                  <span className="block text-caption text-fg-muted">GP posterior band, not held-out calibrated: not a substitute for the held-out band.</span>
+                  <span className="block text-caption text-fg-muted">GP posterior band, not checked on held-out runs: not a substitute for the held-out band.</span>
                 </dd>
               </>
             ) : null}

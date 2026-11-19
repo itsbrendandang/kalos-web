@@ -22,10 +22,15 @@
  * `p_feasible` is shown only when the engine gated the batch on it, and a
  * measured result comes from a started run whose recipe is exactly the
  * proposal's. Rows stay in the engine's order.
+ *
+ * Every row with a band carries its trust caveat (lib/proposal-caveat): the
+ * band's coverage was measured on held-out past runs, and at proposals it was
+ * measured lower. The engine's own caveat wins; older engines get the fixed text.
  */
 import type { AnalyzeResult, CampaignRun, GpInterval, ImprovementStat, Proposal, ProposalQuantiles } from "@/lib/api";
 import { incumbentLabel, intervalAt, proposalIncumbent, proposalRecipe } from "@/lib/api";
 import { atRangeEdge, conformalInterval, coverageText, formatProb, formatValue, type Formatted, type IntervalSpec } from "@/lib/num";
+import { methodCaveat, proposalCaveat, sameCaveat, type ProposalCaveat } from "@/lib/proposal-caveat";
 
 export type FeasibilityCell = { state: "value"; p: number } | { state: "na"; reason: string; detail?: string };
 
@@ -87,6 +92,8 @@ export type BatchStripRow = {
   hi: number | null;
   /** The band behind lo/hi, or why there is none. */
   interval: RowBand;
+  /** The trust caveat for this row's band; null when the row shows no band. */
+  caveat: ProposalCaveat | null;
   sigma: number;
   feasibility: FeasibilityCell;
   /** Model-based (GP posterior) context; null when the engine sent none. */
@@ -99,8 +106,14 @@ export type BatchStripRow = {
   nnDistance: number | null;
   /** A started run with exactly this recipe, if any. */
   run: BatchStripRun | null;
-  /** Exact count: is the measured result inside [lo, hi]? Null without a result or a band. */
+  /**
+   * Was the started run's measured result inside the band recorded for it when it started, at the chosen coverage?
+   * The engine's `inside_band` or `prediction_at_start.intervals`; null (n/a) when no band at this coverage was
+   * recorded at start. Never judged against the current analysis' band (not the band the run was started with).
+   */
   band: "inside" | "outside" | null;
+  /** Why `band` is n/a for a measured run, else null. */
+  bandNa: string | null;
   /** Inputs within 1% of an end of the engine's `feature_ranges`. */
   edge: string[];
   flags: ("edge" | "outside-band")[];
@@ -117,6 +130,10 @@ export type BatchStripModel = {
   coverage: number | null;
   /** The global conformal half-width; null in per-proposal mode or without a band. */
   halfWidth: number | null;
+  /** The trust caveat for the bands shown (the first row's); null when no row shows a band. */
+  caveat: ProposalCaveat | null;
+  /** Every distinct caveat among the rows (more than one when the engine's method differs per row). */
+  caveats: ProposalCaveat[];
   /** `training_nn_distance_median`: the scale for `nnDistance`. */
   nnMedian: number | null;
   gating: "gated" | "ungated" | "absent";
@@ -128,7 +145,7 @@ export type BatchStripModel = {
 };
 
 export type StripAnalysis = Pick<AnalyzeResult, "proposals" | "proposal_features" | "conformal_q" | "conformal_coverage" | "best" | "noise" | "feature_ranges" | "proposal_gating"> &
-  Partial<Pick<AnalyzeResult, "interval_levels" | "interval_method" | "training_nn_distance_median" | "goal" | "setup">>;
+  Partial<Pick<AnalyzeResult, "interval_levels" | "interval_method" | "training_nn_distance_median" | "goal" | "setup" | "conformal_caveat">>;
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
@@ -225,9 +242,36 @@ export function sameRecipe(a: Record<string, number | string>, b: Record<string,
 
 /** The started run for a proposal's recipe: one with a result first, else one awaiting. */
 export function matchRun(recipe: Record<string, number | string>, runs: readonly CampaignRun[]): BatchStripRun | null {
-  const same = runs.filter((r) => sameRecipe(recipe, r.recipe as Record<string, number | string>));
-  const pick = same.find((r) => finite(r.result)) ?? same[0];
+  const pick = matchCampaignRun(recipe, runs);
   return pick ? { id: pick.id, result: finite(pick.result) ? pick.result : null, awaiting: pick.awaiting } : null;
+}
+
+function matchCampaignRun(recipe: Record<string, number | string>, runs: readonly CampaignRun[]): CampaignRun | null {
+  const same = runs.filter((r) => sameRecipe(recipe, r.recipe as Record<string, number | string>));
+  return same.find((r) => finite(r.result)) ?? same[0] ?? null;
+}
+
+/**
+ * Inside or outside the band recorded for a started run when it started, at `coverage`: the run's
+ * `prediction_at_start.intervals` entry at that coverage (edge inclusive), else, when the band it recorded
+ * (`prediction_at_start.interval`) is at that coverage, the engine's `inside_band` (or that band's bounds). Anything
+ * else is n/a with the reason: the current analysis' band is never used (it is not the band the run was started with).
+ */
+export function startedRunBand(run: CampaignRun | null, coverage: number | null): { band: "inside" | "outside" | null; na: string | null } {
+  if (!run || run.awaiting || !finite(run.result)) return { band: null, na: null };
+  const at = run.prediction_at_start;
+  const covText = coverageText(coverage);
+  if (!at || at.available !== true) return { band: null, na: "no band was recorded when this run started" };
+  if (coverage != null) {
+    const e = intervalAt(at.intervals, coverage);
+    if (e && e.available !== false && finite(e.lo) && finite(e.hi)) return { band: run.result >= e.lo && run.result <= e.hi ? "inside" : "outside", na: null };
+    const i = at.interval;
+    if (i && finite(i.coverage) && Math.abs(i.coverage - coverage) < 1e-9) {
+      if (typeof run.inside_band === "boolean") return { band: run.inside_band ? "inside" : "outside", na: null };
+      if (finite(i.lo) && finite(i.hi)) return { band: run.result >= i.lo && run.result <= i.hi ? "inside" : "outside", na: null };
+    }
+  }
+  return { band: null, na: `no ${covText ? `${covText} ` : ""}band was recorded when this run started` };
 }
 
 function feasibility(p: Proposal, gating: StripAnalysis["proposal_gating"]): FeasibilityCell {
@@ -264,13 +308,22 @@ export function toBatchStripModel(
   const intervals = intervalMode(d, opts.coverage);
   const runs = opts.runs ?? [];
   const ranges = d.feature_ranges ?? {};
+  const coverage = intervals.kind === "per-proposal" ? intervals.coverage : intervals.kind === "global" ? intervals.coverage : null;
+  const fallbackCaveat = intervals.kind === "per-proposal" ? methodCaveat(d.interval_method, intervals.coverage) : null;
   const rows: BatchStripRow[] = (d.proposals ?? []).map((p, index) => {
     const recipe = proposalRecipe(p, d.proposal_features ?? []) as Record<string, number | string>;
     const interval = proposalBand(p, intervals);
     const lo = interval.kind === "value" ? interval.lo : null;
     const hi = interval.kind === "value" ? interval.hi : null;
-    const run = runs.length ? matchRun(recipe, runs) : null;
-    const band = run && finite(run.result) && lo != null && hi != null ? (run.result >= lo && run.result <= hi ? "inside" : "outside") : null;
+    const started = runs.length ? matchCampaignRun(recipe, runs) : null;
+    const run = started ? { id: started.id, result: finite(started.result) ? started.result : null, awaiting: started.awaiting } : null;
+    const { band, na: bandNa } = startedRunBand(started, coverage);
+    const caveat =
+      interval.kind !== "value"
+        ? null
+        : intervals.kind === "per-proposal"
+          ? proposalCaveat(intervalAt(p.intervals, intervals.coverage), fallbackCaveat, intervals.coverage)
+          : proposalCaveat(d.conformal_caveat ?? null, null, coverage);
     const edge = Object.entries(recipe)
       .filter(([k, v]) => finite(v) && Array.isArray(ranges[k]) && atRangeEdge(v, ranges[k]))
       .map(([k]) => k);
@@ -287,6 +340,7 @@ export function toBatchStripModel(
       lo,
       hi,
       interval,
+      caveat,
       sigma: p.std,
       feasibility: feasibility(p, d.proposal_gating),
       ei: stat(p.expected_improvement),
@@ -296,11 +350,13 @@ export function toBatchStripModel(
       nnDistance: finite(p.nearest_training_distance) ? p.nearest_training_distance : null,
       run,
       band,
+      bandNa,
       edge,
       flags,
     };
   });
-  const coverage = intervals.kind === "per-proposal" ? intervals.coverage : intervals.kind === "global" ? intervals.coverage : null;
+  const caveats: ProposalCaveat[] = [];
+  for (const r of rows) if (r.caveat && !caveats.some((c) => sameCaveat(c, r.caveat!))) caveats.push(r.caveat);
   return {
     target: opts.target,
     unit: opts.unit,
@@ -310,6 +366,8 @@ export function toBatchStripModel(
     intervals,
     coverage,
     halfWidth: intervals.kind === "global" ? intervals.halfWidth : null,
+    caveat: caveats[0] ?? null,
+    caveats,
     nnMedian: finite(d.training_nn_distance_median) && d.training_nn_distance_median > 0 ? d.training_nn_distance_median : null,
     gating: d.proposal_gating ? (d.proposal_gating.gated ? "gated" : "ungated") : "absent",
     gatingReason: d.proposal_gating?.reason ?? null,
@@ -325,7 +383,7 @@ export function toBatchStripModel(
 export const PER_PROPOSAL_METHOD = "held-out conformal, scaled per recipe; approximate coverage";
 
 /** The words every model-based (GP posterior) number carries. */
-export const MODEL_BASED = "model-based (GP posterior), not held-out calibrated";
+export const MODEL_BASED = "model-based (GP posterior), not checked on held-out runs";
 
 /** "90% held-out band" from the engine's coverage, or "held-out band" when it said none. */
 export const coverageLabel = (coverage: number | null): string => {
@@ -361,10 +419,15 @@ export function incumbentBasisText(basis: string | null | undefined): string {
   return basis ? basis.replace(/_/g, " ") : "the incumbent";
 }
 
-/** "Chance to beat" or, when minimizing, "Chance to go below": the engine's p_improve direction. */
-export function chanceLabel(s: Pick<ImprovementStat, "maximize"> | null, goal: Goal): string {
+/**
+ * "Chance the model's mean beats the best measured" or, when minimizing, "... goes below ...": the engine's
+ * p_improve is P(latent mean beyond the incumbent) under the GP posterior, not the chance a run measures better.
+ */
+export function chanceLabel(s: Pick<ImprovementStat, "maximize" | "incumbent_basis"> | null, goal: Goal): string {
   const max = s ? s.maximize !== false : goal !== "minimize";
-  return max ? "Chance to beat" : "Chance to go below";
+  const basis = s?.incumbent_basis;
+  const inc = basis && /reproducible|recipe_mean/.test(basis) ? "the best reproducible recipe" : "the best measured";
+  return `Chance the model's mean ${max ? "beats" : "goes below"} ${inc}`;
 }
 
 // --- Formatting (through lib/num only) ----------------------------------------
@@ -394,7 +457,7 @@ export function gainFormatted(r: BatchStripRow, m: Pick<BatchStripModel, "covera
 export const gainLabel = (goal: Goal): string => (goal === "minimize" ? "Predicted gain (best − predicted, lower is better)" : "Predicted gain");
 
 /** The model sigma as text, for when there is no held-out band: never turned into an interval. */
-export const sigmaText = (r: BatchStripRow, unit: string | null): string => `σ ${formatValue(r.sigma, { unit }).text} (model, not held-out calibrated)`;
+export const sigmaText = (r: BatchStripRow, unit: string | null): string => `σ ${formatValue(r.sigma, { unit }).text} (model, not checked on held-out runs)`;
 
 export function measuredFormatted(r: BatchStripRow, unit: string | null): Formatted | null {
   return r.run && finite(r.run.result) ? formatValue(r.run.result, { basis: "measured", unit }) : null;
@@ -462,14 +525,15 @@ export function describeBatchStrip(m: BatchStripModel): string {
   const rows = m.rows.map((r) => {
     const f = predFormatted(r, m);
     const measured = measuredFormatted(r, m.unit);
-    const tail = measured ? `, measured ${measured.text}${r.band ? ` (${r.band} band)` : ""}` : r.run?.awaiting ? ", awaiting result" : "";
+    const tail = measured ? `, measured ${measured.text}${r.band ? ` (${r.band} the band recorded at start)` : ""}` : r.run?.awaiting ? ", awaiting result" : "";
     return `${r.key} ${r.mode} ${f.value}${f.interval ? ` ${f.interval}` : ""}${tail}`;
   });
   const better = m.goal === "minimize" ? "below" : "above";
   const inc = m.incumbent
     ? ` ${m.incumbent.label[0].toUpperCase()}${m.incumbent.label.slice(1)} ${formatValue(m.incumbent.value, { basis: "measured", unit: m.unit }).text}; ${m.rows.filter((r) => beats(r.pred, m.incumbent!.value, m.goal)).length} of ${n} predicted ${better} it.`
     : " No incumbent to compare with.";
-  return `${head} ${rows.join("; ")}.${inc}`;
+  const caveat = m.caveats.length ? ` ${m.caveats.map((c) => c.text).join(" ")}` : "";
+  return `${head} ${rows.join("; ")}.${inc}${caveat}`;
 }
 
 export function batchStripTable(m: BatchStripModel): { columns: string[]; rows: string[][] } {
@@ -485,10 +549,11 @@ export function batchStripTable(m: BatchStripModel): { columns: string[]; rows: 
     m.incumbent ? `${gainLabel(m.goal)} vs ${m.incumbent.label}${u}` : gainLabel(m.goal),
     "Gain band",
     "P(feasible)",
-    ...(m.hasImprovement ? [`Expected improvement${u}, model-based`, `${chance} the incumbent, model-based`] : []),
+    ...(m.hasImprovement ? [`Expected improvement${u}, model-based`, `${chance}, model-based`] : []),
     ...(per ? [`Quantiles p05 to p95${u}, model-based`] : []),
     ...(m.rows.some((r) => r.nnDistance != null) ? ["Distance to nearest measured run"] : []),
-    ...(m.hasRuns ? [`Measured${u}`, "Inside band"] : []),
+    ...(m.caveat ? ["Band caveat"] : []),
+    ...(m.hasRuns ? [`Measured${u}`, "Inside the band recorded at start"] : []),
   ];
   const rows = m.rows.map((r) => {
     const p = formatValue(r.pred, { interval: rowInterval(r, m.coverage) });
@@ -507,7 +572,8 @@ export function batchStripTable(m: BatchStripModel): { columns: string[]; rows: 
       ...(m.hasImprovement ? [eiText(r, null), chanceText(r)] : []),
       ...(per ? [quantilesText(r.quantiles, null) ?? "n/a"] : []),
       ...(m.rows.some((x) => x.nnDistance != null) ? [dist.ratio ? `${dist.value} (${dist.ratio})` : dist.value] : []),
-      ...(m.hasRuns ? [measured ? measured.value : r.run ? "Awaiting result" : "not started", r.band ?? "n/a"] : []),
+      ...(m.caveat ? [r.caveat?.text ?? "n/a (no band)"] : []),
+      ...(m.hasRuns ? [measured ? measured.value : r.run ? "Awaiting result" : "not started", r.band ?? (r.bandNa ? `n/a (${r.bandNa})` : "n/a")] : []),
     ];
   });
   return { columns, rows };

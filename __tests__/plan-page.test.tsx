@@ -212,7 +212,7 @@ describe("Predict batch numbers and charts (VIZ_SPEC C2/C3)", () => {
     expect(screen.getByText("Where the proposals sit in each input's range")).toBeTruthy();
     const table = screen.getAllByRole("table").find((t) => /Model-generated proposals/.test(t.textContent ?? "")) as HTMLElement;
     const t = within(table);
-    expect(t.getByRole("columnheader", { name: "90% held-out band" })).toBeTruthy();
+    expect(t.getByRole("columnheader", { name: /^90% held-out band/ })).toBeTruthy();
     const rows = t.getAllByRole("row").slice(1);
     // Engine order: P4 is proposals[3] (pred 51.205); its band [47.37, 55.04] prints at the band's precision.
     expect(rows[3].textContent).toContain("P4");

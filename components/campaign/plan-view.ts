@@ -14,6 +14,7 @@ import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
 import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
 import { coverageText, formatProb, formatSetting, formatValue, MINUS } from "@/lib/num";
 import { engineMessage } from "@/lib/engine-error";
+import { PROPOSAL_INTERVAL_CAVEAT } from "@/lib/proposal-caveat";
 
 // --- Engine fields newer than lib/api.ts (kalos-engine PR #87) ---------------
 // Typed here, optional, so the page degrades on engines that do not send them.
@@ -275,15 +276,18 @@ export function predictionInterval(pred: number, band: number | null | undefined
 /**
  * "90% held-out band" from the engine's coverage, or "held-out band" when it
  * did not say (never a guessed percentage). "Held-out" because the coverage
- * was measured on held-out measured runs; see BAND_CAVEAT.
+ * was measured on held-out measured runs; see lib/proposal-caveat.
  */
 export function bandLabel(coverage: number | null | undefined): string {
   const c = coverageText(coverage);
   return c ? `${c} held-out band` : "held-out band";
 }
 
-/** Shown wherever the band is: its coverage is not a promise about new recipes. */
-export const BAND_CAVEAT = "Coverage measured on held-out measured runs; not guaranteed for proposals.";
+/**
+ * The fixed trust caveat (no engine evidence): its coverage is not a promise about new recipes. Pages show the
+ * per-row caveat from lib/proposal-caveat, which prefers the engine's own.
+ */
+export const BAND_CAVEAT = PROPOSAL_INTERVAL_CAVEAT;
 
 /**
  * "[47, 55]": the band at the precision its half-width supports (VIZ_SPEC 2.2),

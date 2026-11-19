@@ -3,7 +3,7 @@
 import type { ReactNode, Ref } from "react";
 import { X } from "lucide-react";
 import { bandHeader, gainOf, ModeText, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
-import { BAND_CAVEAT, compareRecipes, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
+import { compareRecipes, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { BasisGlyph } from "@/components/viz/num";
 import { formatValue } from "@/lib/num";
@@ -41,6 +41,9 @@ export function Comparison({
     ctx.ranges,
   );
   const nDiff = diff.filter((d) => d.differs).length;
+  // The trust caveat of every compared band, once each (lib/proposal-caveat).
+  const caveats = [...new Set(rows.map((r) => r.strip.caveat?.text).filter((t): t is string => t != null))];
+  const caveatMeta = [...new Set(rows.map((r) => r.strip.caveat).filter((c) => c && (c.basisText || c.estimateText)).map((c) => [c!.basisText ? `interval basis: ${c!.basisText}` : null, c!.estimateText && !c!.text.includes(c!.estimateText) ? `coverage at proposals: ${c!.estimateText}` : null].filter(Boolean).join("; ")))].filter(Boolean);
   const outcome: Line[] = [
     { key: "pred", label: <><BasisGlyph basis="predicted" /> Predicted {ctx.target}{ctx.unit ? ` (${ctx.unit})` : ""}</>, values: rows.map((r) => predOf(r, ctx).value), note: "model estimate, not a measurement" },
     {
@@ -48,11 +51,13 @@ export function Comparison({
       label: bandHeader(ctx),
       values: rows.map((r) => predOf(r, ctx).interval ?? (r.strip.interval.kind === "refused" ? "Refused" : "n/a (not reported)")),
       note:
-        ctx.model.intervals.kind === "per-proposal"
-          ? `Each recipe's own band: ${PER_PROPOSAL_METHOD}.`
-          : ctx.model.intervals.kind === "global"
-            ? `Same width for every proposal. ${BAND_CAVEAT}`
-            : undefined,
+        [
+          ctx.model.intervals.kind === "per-proposal" ? `Each recipe's own band: ${PER_PROPOSAL_METHOD}.` : ctx.model.intervals.kind === "global" ? "Same width for every proposal." : null,
+          ...caveats,
+          ...caveatMeta.map((m) => `(${m}.)`),
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined,
     },
     ...(ctx.incumbent != null
       ? [
@@ -78,7 +83,7 @@ export function Comparison({
       ? [
           {
             key: "chance",
-            label: `${chanceLabel(rows.find((r) => r.strip.pImprove)?.strip.pImprove ?? null, ctx.model.goal)} it, EI`,
+            label: `${chanceLabel(rows.find((r) => r.strip.pImprove)?.strip.pImprove ?? null, ctx.model.goal)}, EI`,
             values: rows.map((r) => `${chanceText(r.strip)}, EI ${eiText(r.strip, ctx.unit)}`),
             note: MODEL_BASED,
           },
@@ -206,7 +211,7 @@ export function Comparison({
                     {v}
                   </td>
                 ))}
-                <td colSpan={2} className="px-3 py-2 text-caption text-fg-muted">
+                <td colSpan={2} className="min-w-64 px-3 py-2 text-caption text-fg-muted">
                   {o.note ?? ""}
                 </td>
               </tr>

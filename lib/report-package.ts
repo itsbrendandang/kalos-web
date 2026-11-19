@@ -45,10 +45,14 @@ import {
   type RunRecord,
 } from "@/lib/api";
 import { formatValue } from "@/lib/num";
+import { methodCaveat, proposalCaveat, type CoverageAtProposalsEstimate, type EngineIntervalCaveat } from "@/lib/proposal-caveat";
 import type { UnitConversion, ValidationFinding, ValidationReport } from "@/lib/validation";
 
 export const PACKAGE_KIND = "kalos.data-package";
-/** 2: adds goal, target unit, setup, per-level intervals, prediction at start, result history, gate decisions, operating ranges and raw-rows metadata. */
+/**
+ * 2: adds goal, target unit, setup, per-level intervals, prediction at start, result history, gate decisions, operating
+ * ranges and raw-rows metadata, and the trust caveat on every proposal interval (`predicted.interval_caveats`).
+ */
 export const PACKAGE_SCHEMA_VERSION = 2;
 
 /** A recipe setpoint: numeric, or a categorical level (e.g. a medium name). */
@@ -133,9 +137,30 @@ export type PackageProposal = {
     predictive_std: number | null;
     /** Per-level normalized split-conformal intervals, every level the engine sent (refused levels keep their reason). */
     intervals: ProposalInterval[];
-    /** Model-based GP posterior bands, per level. Not held-out calibrated. */
+    /** Model-based GP posterior bands, per level (the engine's own GP posterior, not checked on held-out runs). */
     gp_intervals: GpInterval[];
+    /**
+     * The trust caveat for each interval this proposal carries: one per available per-proposal level, and one for the
+     * global band (`band_half_width`) when the engine sent one. Empty only when there is no interval.
+     */
+    interval_caveats: PackageIntervalCaveat[];
   };
+};
+
+/** The caveat that goes with a proposal interval: its coverage was measured on past runs, and is lower at proposals. */
+export type PackageIntervalCaveat = {
+  /** The interval it applies to: a per-proposal level, or the global `conformal_q` band. */
+  applies_to: "per_proposal_interval" | "global_band";
+  coverage: number | null;
+  /** The sentence shown next to the interval. */
+  text: string;
+  /** "engine": the engine's own caveat; "web_fixed_text": the app's fixed text, because this engine build sent none. */
+  source: "engine" | "web_fixed_text";
+  engine_code: string | null;
+  /** The engine's `interval_basis` (else `coverage_basis`), null when not sent. */
+  interval_basis: string | null;
+  /** The engine's coverage measured at proposals, verbatim; null when not sent. */
+  coverage_at_proposals_estimate: CoverageAtProposalsEstimate | null;
 };
 
 /** A report route the page read, or why it could not: the package never guesses a missing section. */
@@ -281,7 +306,8 @@ export type DataPackage = {
     cv_spearman: number | null;
     cv_ci95: [number, number] | null;
     calibration: Calibration | null;
-    conformal: { half_width: number | null; coverage: number | null };
+    /** The global band, with the engine's caveat for it at proposals (null when this engine build sent none). */
+    conformal: { half_width: number | null; coverage: number | null; caveat: EngineIntervalCaveat | null };
     /** Per-proposal interval levels and how they were built (absent on older analyses: [] and null). */
     interval_levels: number[];
     interval_method: IntervalMethod | null;
@@ -554,7 +580,7 @@ export function buildPackage(
       cv_spearman: num(a?.cv_spearman),
       cv_ci95: pair(a?.cv_ci95),
       calibration: a?.reliability?.calibration ?? null,
-      conformal: { half_width: band, coverage },
+      conformal: { half_width: band, coverage, caveat: a?.conformal_caveat ?? null },
       interval_levels: (a?.interval_levels ?? []).filter((l) => num(l) != null),
       interval_method: a?.interval_method ?? null,
       promotion: a?.promotion
@@ -571,7 +597,7 @@ export function buildPackage(
       drivers: a?.drivers ?? [],
       driver_selection: a?.driver_selection ?? null,
     },
-    proposals: (a?.proposals ?? []).map((p, i) => ({
+    proposals: (a?.proposals ?? []).map((p, i): PackageProposal => ({
       index: i + 1,
       recipe: setpoints(proposalRecipe(p, features)),
       mode: str(p.mode),
@@ -585,6 +611,7 @@ export function buildPackage(
         predictive_std: num(p.predictive_std),
         intervals: p.intervals ?? [],
         gp_intervals: p.gp_intervals ?? [],
+        interval_caveats: intervalCaveats(p, a),
       },
     })),
     runs: (s?.pending ?? []).map(packageRun),
@@ -607,6 +634,29 @@ export function buildPackage(
     raw_rows: !extras.rows ? notRead("raw-rows export") : extras.rows.status === "loaded" ? rawRowsMeta(extras.rows.data) : extras.rows,
     not_included: NOT_INCLUDED.map((n) => ({ ...n })),
   };
+}
+
+/** The caveat for every interval a proposal carries (lib/proposal-caveat: the engine's own, else the fixed text). */
+function intervalCaveats(p: NonNullable<PackageAnalysis["proposals"]>[number], a: PackageAnalysis | null): PackageIntervalCaveat[] {
+  const out: PackageIntervalCaveat[] = [];
+  const of = (entry: Parameters<typeof proposalCaveat>[0], fallback: Parameters<typeof proposalCaveat>[1], coverage: number | null, applies: PackageIntervalCaveat["applies_to"]) => {
+    const c = proposalCaveat(entry, fallback, coverage);
+    const raw = (entry && "caveat" in entry && entry.caveat?.coverage_at_proposals_estimate) || (entry && "coverage_at_proposals_estimate" in entry && entry.coverage_at_proposals_estimate) || fallback?.coverage_at_proposals_estimate || null;
+    out.push({
+      applies_to: applies,
+      coverage,
+      text: c.text,
+      source: c.from === "engine" ? "engine" : "web_fixed_text",
+      engine_code: c.code,
+      interval_basis: c.basis,
+      coverage_at_proposals_estimate: raw && typeof raw === "object" ? raw : null,
+    });
+  };
+  const levels = (p.intervals ?? []).filter((i) => i.available && num(i.lo) != null && num(i.hi) != null);
+  for (const i of levels) of(i, methodCaveat(a?.interval_method, i.coverage), num(i.coverage), "per_proposal_interval");
+  // band_half_width (the global conformal_q band) is on every proposal whenever the engine sent one: it is caveated too.
+  if (num(a?.conformal_q) != null) of(a?.conformal_caveat ?? null, null, num(a?.conformal_coverage), "global_band");
+  return out;
 }
 
 const notRead = (what: string): Unavailable => ({ status: "unavailable", code: "not_read", reason: `The ${what} had not been read from the engine when this package was built.` });
@@ -719,6 +769,9 @@ export function runsCsv(pkg: Pick<DataPackage, "runs">): string {
   return toCsv([...RUNS_FIXED_COLUMNS, ...recipe], rows);
 }
 
+const PROPOSAL_BAND_CAVEAT_FALLBACK = proposalCaveat(null).text;
+const globalCaveat = (p: PackageProposal): string | null => p.predicted.interval_caveats.find((x) => x.applies_to === "global_band")?.text ?? null;
+
 export const PROPOSALS_FIXED_COLUMNS = [
   "proposal_index",
   "proposal_mode",
@@ -727,20 +780,22 @@ export const PROPOSALS_FIXED_COLUMNS = [
   "predicted_sd",
   "predicted_band_half_width",
   "predicted_band_coverage",
+  "predicted_band_caveat",
   "predicted_p_feasible",
 ] as const;
 
 /**
  * The proposed batch: predictions only (nothing in it has been measured), then
- * one interval_<coverage>_lo/hi pair per engine level (empty when the engine
- * refused that level; the reason is in the JSON package), then the recipe.
+ * one interval_<coverage>_lo/hi/caveat triple per engine level (empty when the
+ * engine refused that level; the reason is in the JSON package), then the
+ * recipe. Every interval travels with its trust caveat.
  */
 export function proposalsCsv(pkg: Pick<DataPackage, "proposals">): string {
   const recipe = recipeColumns(pkg.proposals);
   // One lo/hi pair per coverage level the engine sent, named from the engine's own coverage (0.9 -> 90).
   const levels = [...new Set(pkg.proposals.flatMap((p) => p.predicted.intervals.map((i) => i.coverage)).filter((c) => num(c) != null))].sort((x, y) => x - y);
   const levelName = (c: number) => `interval_${String(Math.round(c * 1000) / 10).replace(".", "_")}`;
-  const levelCols = levels.flatMap((c) => [`${levelName(c)}_lo`, `${levelName(c)}_hi`]);
+  const levelCols = levels.flatMap((c) => [`${levelName(c)}_lo`, `${levelName(c)}_hi`, `${levelName(c)}_caveat`]);
   const rows = pkg.proposals.map((p): Cell[] => [
     p.index,
     p.mode,
@@ -749,10 +804,12 @@ export function proposalsCsv(pkg: Pick<DataPackage, "proposals">): string {
     p.predicted.sd,
     p.predicted.band_half_width,
     p.predicted.band_coverage,
+    p.predicted.band_half_width != null ? (globalCaveat(p) ?? PROPOSAL_BAND_CAVEAT_FALLBACK) : null,
     p.predicted.p_feasible,
     ...levels.flatMap((c) => {
       const i = p.predicted.intervals.find((x) => x.coverage === c);
-      return i && i.available ? [i.lo, i.hi] : [null, null];
+      const cav = p.predicted.interval_caveats.find((x) => x.applies_to === "per_proposal_interval" && x.coverage === c);
+      return i && i.available ? [i.lo, i.hi, cav?.text ?? PROPOSAL_BAND_CAVEAT_FALLBACK] : [null, null, null];
     }),
     ...recipe.map((k) => p.recipe[k]),
   ]);

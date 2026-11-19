@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <AuthFrame state={status}>{children}</AuthFrame>
       </body>
     </html>

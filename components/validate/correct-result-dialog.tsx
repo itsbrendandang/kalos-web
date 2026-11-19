@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { MeasuredValue, PredictedValue } from "@/components/campaign/plan/marks";
 import { correctionProblem, MAX_REASON } from "@/components/campaign/learn";
 import { parseEntry, sanityReason } from "@/components/campaign/stage-logic";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Num } from "@/components/viz/num";
 import type { CampaignRun } from "@/lib/api";
 import { errorMessage } from "@/lib/engine-error";
-import { formatNumber } from "@/lib/format";
+import { formatValue, type IntervalSpec } from "@/lib/num";
 import { shortId } from "@/lib/workbench";
 
 /**
@@ -17,40 +17,36 @@ import { shortId } from "@/lib/workbench";
  * correction becomes a new version, and the engine refuses it without a
  * reason (400 reason_required), so the reason is asked for up front.
  */
-export function CorrectResultDialog({
-  run,
-  unit,
-  best,
-  onClose,
-  onSave,
-}: {
-  /** The run being corrected; null closes the dialog. */
-  run: CampaignRun | null;
-  unit: string;
+type Props = {
+  unit: string | null;
   best: number | null;
+  /** The run's band when the current analysis proposed it, else null (shown as "band n/a"). */
+  interval?: IntervalSpec | null;
+  /** Shared column decimals from the Record table, so the dialog prints the same digits. */
+  decimals?: { pred: number; measured: number };
+  /** Measured precision (replicate noise SD) when the engine reported one. */
+  measuredU?: number | null;
   onClose: () => void;
   onSave: (run: CampaignRun, value: number, reason: string) => Promise<void>;
+};
+
+export function CorrectResultDialog({
+  run,
+  ...props
+}: Props & {
+  /** The run being corrected; null closes the dialog. */
+  run: CampaignRun | null;
 }) {
   return (
-    <Dialog open={run != null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>{run ? <CorrectionForm key={run.id} run={run} unit={unit} best={best} onClose={onClose} onSave={onSave} /> : null}</DialogContent>
+    <Dialog open={run != null} onOpenChange={(o) => !o && props.onClose()}>
+      <DialogContent>{run ? <CorrectionForm key={run.id} run={run} {...props} /> : null}</DialogContent>
     </Dialog>
   );
 }
 
-function CorrectionForm({
-  run,
-  unit,
-  best,
-  onClose,
-  onSave,
-}: {
-  run: CampaignRun;
-  unit: string;
-  best: number | null;
-  onClose: () => void;
-  onSave: (run: CampaignRun, value: number, reason: string) => Promise<void>;
-}) {
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
+
+function CorrectionForm({ run, unit, best, interval = null, decimals, measuredU = null, onClose, onSave }: Props & { run: CampaignRun }) {
   const [valueText, setValueText] = useState("");
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
@@ -91,13 +87,14 @@ function CorrectionForm({
         </DialogDescription>
       </DialogHeader>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
-        <dt className="text-fg-muted">Recorded{version != null ? ` (version ${formatNumber(version, "count")})` : ""}</dt>
+        <dt className="text-fg-muted">Recorded{version != null ? ` (version ${count(version)})` : ""}</dt>
         <dd>
-          <MeasuredValue value={formatNumber(run.result)} unit={unit || undefined} />
+          <Num value={run.result} basis="measured" unit={unit} options={decimals ? { decimals: decimals.measured } : { uncertainty: measuredU }} />
         </dd>
-        <dt className="text-fg-muted">Prediction</dt>
-        <dd>
-          <PredictedValue value={formatNumber(run.pred)} unit={unit || undefined} />
+        <dt className="text-fg-muted">Predicted</dt>
+        <dd className="flex flex-wrap items-baseline gap-x-2">
+          <Num value={run.pred} basis="predicted" unit={unit} interval={interval} options={decimals ? { decimals: decimals.pred } : undefined} />
+          {interval ? null : <span className="text-caption text-fg-muted">band n/a</span>}
         </dd>
       </dl>
       <label className="flex flex-col gap-1.5">
@@ -124,7 +121,7 @@ function CorrectionForm({
           onChange={(e) => setReason(e.target.value)}
         />
         <span className="text-caption text-fg-muted tabular-nums">
-          Required. Stored with this version. {formatNumber(reason.trim().length, "count")}/{MAX_REASON}
+          Required. Stored with this version. {count(reason.trim().length)}/{count(MAX_REASON)}
         </span>
       </label>
       {tried && problem ? (

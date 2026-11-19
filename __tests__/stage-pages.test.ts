@@ -69,7 +69,13 @@ describe("Run table helpers", () => {
     expect(clampPage(-1, 25)).toBe(0);
   });
   it("shows numeric recipe values formatted and categorical ones as sent, never a made-up number", () => {
-    expect(formatRecipeValue(36.194)).toBe("36.19");
+    // Precision from the search range (VIZ_SPEC 2.4): 10 units wide -> 2 dp, 400 wide -> 0 dp, pH (1.6 wide) -> 2 dp.
+    expect(formatRecipeValue(36.194, [30.039, 38.968])).toBe("36.19");
+    expect(formatRecipeValue(250.4, [101.777, 399.907])).toBe("250");
+    expect(formatRecipeValue(6.974, [6.005, 7.594])).toBe("6.97");
+    // Without a range: 3 significant figures, at most 3 decimals.
+    expect(formatRecipeValue(36.194)).toBe("36.2");
+    expect(formatRecipeValue(-0.5)).toBe("\u22120.500");
     expect(formatRecipeValue("ProCHO")).toBe("ProCHO");
     expect(formatRecipeValue(null)).toBe("n/a");
     expect(formatRecipeValue("")).toBe("n/a");

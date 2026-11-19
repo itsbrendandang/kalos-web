@@ -112,9 +112,14 @@ describe("Validate page", () => {
     await renderValidate();
     for (const id of ["run", "record", "learn"]) expect(document.getElementById(id)).not.toBeNull();
     const lab = section("run");
-    expect(lab.getAllByText("± 0.20 (90% band)")).toHaveLength(2);
+    // The band is its own "[lo, hi]" column under the engine's coverage, never "±" (VIZ_SPEC 2.3);
+    // precision follows the band half-width 0.2036 (PDG: 2 significant figures -> 2 dp), bounds from the unrounded value.
+    expect(lab.getByRole("columnheader", { name: "90% band" })).toBeTruthy();
+    expect(lab.getByText("[1.55, 1.95]")).toBeTruthy();
+    expect(lab.getByText("[1.51, 1.92]")).toBeTruthy();
     expect(lab.getByText("1.75")).toBeTruthy();
-    expect(lab.getAllByText("predicted").length).toBeGreaterThan(0); // sr-only label per value
+    expect(lab.getByText("predicted 1.75")).toBeTruthy(); // sr-only basis word per value
+    expect(document.body.textContent).not.toMatch(/±/);
     expect(document.body.textContent).not.toMatch(/95%/);
     // The stepper marks Validate as the page you are on, and links never use the old /campaign/* paths.
     expect(screen.getByRole("link", { current: "step" }).getAttribute("href")).toBe(`/campaigns/${ID}/validate`);
@@ -172,6 +177,29 @@ describe("Validate page", () => {
     expect(dialog.queryByText(/reason_required/)).toBeNull();
   });
 
+  it("shows measured first with its residual and band check, and the dumbbell audit trail with an exact hit rate", async () => {
+    runs = [
+      mkRun("aaaaaaa1", 1.75, { result: 1.64, awaiting: false, result_version: 2 }),
+      mkRun("bbbbbbb2", 1.736),
+      mkRun("ccccccc3", 1.715, { result: 1.5, awaiting: false, result_version: 1 }),
+    ];
+    await renderValidate();
+    const record = section("record");
+    const headers = record.getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers).toEqual(["Run", "Measured", "Predicted", "90% band", "Measured − predicted", "Against the band"]);
+    expect(record.getByText("\u22120.11")).toBeTruthy();
+    expect(record.getByText("\u22120.22")).toBeTruthy();
+    expect(record.getByText("Inside the band")).toBeTruthy();
+    expect(record.getByText("Outside the band")).toBeTruthy();
+    expect(record.getByText("Awaiting result")).toBeTruthy();
+    // Learn: the round's best against a named baseline, then the C10 chart and its hit-rate footer.
+    const learn = section("learn");
+    expect(learn.getByText(/vs the best measured before this round/)).toBeTruthy();
+    expect(learn.getByText(/Hit rate: 1 of 2 inside the 90% band \(50%\)/)).toBeTruthy();
+    expect(learn.getByText(/the engine does not record the band a run was started with/)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/95%|±/);
+  });
+
   it("disables re-analysis with a reason until a result is recorded", async () => {
     await renderValidate();
     expect(isDisabled(reanalyzeButton())).toBe(true);
@@ -212,7 +240,10 @@ describe("Validate page", () => {
     expect(link.getAttribute("href")).toBe(`/campaigns/${ID}/predict`);
     expect(reanalyzeCalls).toBe(1);
     // What the folded round showed, from the engine's history.
-    expect(await screen.findByText(/Best measured after round 1: 1.62/)).toBeTruthy();
+    await waitFor(() => expect(within(document.getElementById("learn") as HTMLElement).getAllByRole("listitem").some((li) => /Best measured after round 1:\s*1\.62/.test(li.textContent ?? ""))).toBe(true));
+    // The change is named against its baseline and signed, never a bare percentage; precision is the coarser operand's (1.62 -> 2 dp).
+    const li = within(document.getElementById("learn") as HTMLElement).getAllByRole("listitem").find((el) => /Best measured after round 1/.test(el.textContent ?? ""))!;
+    expect(li.textContent).toMatch(/\+0\.20\s*vs the uploaded data \(1\.42\)/);
   });
 
   it("engine busy: says to wait a minute, without an instant retry", async () => {

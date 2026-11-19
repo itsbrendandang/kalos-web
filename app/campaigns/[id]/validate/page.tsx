@@ -4,22 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { RecordForm } from "@/components/campaign/record-form";
 import { RunsTable } from "@/components/campaign/runs-table";
-import { analysisHash, type BandAnalysis } from "@/components/campaign/learn";
+import { analysisHash } from "@/components/campaign/learn";
 import { CycleStepper } from "@/components/kit/cycle-stepper";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
 import { formatTimestamp, shortHash, SourceLine } from "@/components/kit/source-line";
-import { MarkLegend } from "@/components/campaign/plan/marks";
 import { LearnSection } from "@/components/validate/learn-section";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { LegendItem } from "@/components/viz/frame";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useCampaignDetail, useCampaignId, useLatest, useUploadJob } from "@/hooks/use-engine";
 import { isJobActive, type PopulatedResult } from "@/lib/api";
 import { campaignStage, cycleSteps, displayRound } from "@/lib/campaign-stage";
-import { formatNumber } from "@/lib/format";
+import { coverageText, formatValue, parseUnit } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
-import { parseUnit } from "@/lib/utils";
 import { inFlight, measured } from "@/lib/workbench";
+
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
 /**
  * Validate, cycle step 3: the engine's run, record and learn stages on one
@@ -38,7 +39,7 @@ export default function ValidatePage() {
   const scrolled = useRef(false);
 
   const c = campaign.data?.has_campaign ? campaign.data : null;
-  const analysis: (PopulatedResult & BandAnalysis) | null = latest.data?.has_data ? latest.data : null;
+  const analysis: PopulatedResult | null = latest.data?.has_data ? latest.data : null;
   const stage = campaign.data ? campaignStage(latest.data ?? { has_data: false }, campaign.data, id) : null;
   const round = stage?.round ?? (c ? displayRound(c.round) : null);
   const loading = campaign.status === "loading" || (latest.status === "loading" && !latest.data);
@@ -56,7 +57,7 @@ export default function ValidatePage() {
   const top = (
     <>
       <PageHeader
-        eyebrow={round != null ? `Step 3 of 3 · Round ${formatNumber(round, "count")}` : "Step 3 of 3"}
+        eyebrow={round != null ? `Step 3 of 3 · Round ${count(round)}` : "Step 3 of 3"}
         title="Validate"
         description="Run the batch in the lab, record what you measure, then fold the results into the model and propose the next round."
       />
@@ -105,7 +106,7 @@ export default function ValidatePage() {
     );
   }
 
-  const unit = parseUnit(c.target);
+  const { unit } = parseUnit(c.target);
   const awaiting = inFlight(c);
   const done = measured(c);
   const archived = detail.data?.campaign.archived ?? false;
@@ -147,16 +148,23 @@ export default function ValidatePage() {
         className="scroll-mt-6"
         description={
           awaiting.length > 0
-            ? `${formatNumber(awaiting.length, "count")} of ${formatNumber(started, "count")} started ${started === 1 ? "run is" : "runs are"} awaiting a measured result. The values here are the model's predictions, not measurements.`
+            ? `${count(awaiting.length)} of ${count(started)} started ${started === 1 ? "run is" : "runs are"} awaiting a measured result. The values here are the model's predictions, not measurements.`
             : started > 0
-              ? `All ${formatNumber(started, "count")} started ${started === 1 ? "run is" : "runs are"} back from the lab.`
+              ? `All ${count(started)} started ${started === 1 ? "run is" : "runs are"} back from the lab.`
               : "No runs are in the lab. Start the next batch on Predict."
         }
       >
         {awaiting.length > 0 ? (
           <>
-            <RunsTable runs={awaiting} drivers={drivers} analysis={analysis} unit={unit} />
-            <MarkLegend />
+            <RunsTable runs={awaiting} drivers={drivers} analysis={analysis} featureRanges={analysis?.feature_ranges ?? null} target={c.target} unit={unit} />
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
+              <LegendItem mark="predicted">Predicted by the model</LegendItem>
+              <span>
+                {analysis?.conformal_q != null
+                  ? `Band: the ${[coverageText(analysis.conformal_coverage), "held-out band"].filter(Boolean).join(" ")} of the analysis that proposed the run`
+                  : "No prediction band reported by the analysis"}
+              </span>
+            </p>
           </>
         ) : started === 0 ? (
           <Link href={campaignHref(id, "predict")} className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}>
@@ -171,11 +179,11 @@ export default function ValidatePage() {
         className="scroll-mt-6"
         description={
           started > 0
-            ? `${formatNumber(done.length, "count")} of ${formatNumber(started, "count")} recorded. A recorded value can be corrected with a reason; the engine keeps every version.`
+            ? `${count(done.length)} of ${count(started)} recorded. A recorded value can be corrected with a reason; the engine keeps every version.`
             : "Results are recorded here once a batch is running."
         }
       >
-        {started > 0 ? <RecordForm runs={c.pending} analysis={analysis} best={c.best} unit={unit} readOnly={archived} onSavingChange={setSaving} /> : null}
+        {started > 0 ? <RecordForm runs={c.pending} analysis={analysis} best={c.best} target={c.target} unit={unit} readOnly={archived} onSavingChange={setSaving} /> : null}
       </Section>
 
       <LearnSection

@@ -9,8 +9,10 @@
 import type { CampaignRun, PopulatedResult, Promotion } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { EngineError, errorMessage } from "@/lib/engine-error";
-import { formatNumber } from "@/lib/format";
+import { coverageText, formatValue } from "@/lib/num";
 import { measured, type ActiveCampaign } from "@/lib/workbench";
+
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
 // --- Prediction bands ----------------------------------------------------------
 
@@ -28,10 +30,10 @@ export function bandCalibration(runs: readonly CampaignRun[], band: number | nul
   return { inside: scored.filter((r) => Math.abs((r.result as number) - r.pred) <= band).length, total: scored.length };
 }
 
-/** "3 of 5 measured runs landed inside their predicted band (90%)." The coverage is left out when the engine did not send one. */
+/** "3 of 5 measured runs landed inside their predicted 90% band." The coverage is left out when the engine did not send one. */
 export function calibrationSentence(cal: BandCalibration, coverage?: number | null): string {
-  const cov = coverage != null && Number.isFinite(coverage) ? ` (${formatNumber(coverage, "pct")})` : "";
-  return `${formatNumber(cal.inside, "count")} of ${formatNumber(cal.total, "count")} measured runs landed inside their predicted band${cov}.`;
+  const pct = coverageText(coverage);
+  return `${count(cal.inside)} of ${count(cal.total)} measured runs landed inside their predicted ${pct ? `${pct} ` : ""}band.`;
 }
 
 /** The fields of an analysis that decide which band applies to a run. `proposal_provenance` is sent by the engine but not typed in lib/api yet. */
@@ -91,30 +93,6 @@ export function roundCalibration(runs: readonly CampaignRun[], analysis: BandAna
   return cal ? { ...cal, unscored: done.length - banded.length } : null;
 }
 
-/**
- * The value axis a per-run comparison needs: it covers every prediction with
- * its band and every measured result, on round-number ticks (about 4). Null
- * when there is nothing finite to place.
- */
-export function comparisonScale(rows: readonly { pred: number; halfWidth: number | null; result: number | null }[]): { lo: number; hi: number; ticks: number[] } | null {
-  const vals = rows.flatMap((r) => [r.pred, ...(r.halfWidth != null ? [r.pred - r.halfWidth, r.pred + r.halfWidth] : []), ...(r.result != null ? [r.result] : [])]).filter(Number.isFinite);
-  if (vals.length === 0) return null;
-  let lo = Math.min(...vals);
-  let hi = Math.max(...vals);
-  if (hi === lo) {
-    const pad = Math.abs(lo) * 0.1 || 1;
-    lo -= pad;
-    hi += pad;
-  }
-  const raw = (hi - lo) / 4;
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? 10 * mag;
-  const first = Math.floor(lo / step) * step;
-  const ticks: number[] = [];
-  for (let v = first; v < hi + step - step * 1e-9; v += step) ticks.push(Number(v.toFixed(10)));
-  return { lo: ticks[0], hi: ticks[ticks.length - 1], ticks };
-}
-
 // --- What the round taught -----------------------------------------------------
 
 export type RoundLesson = {
@@ -157,7 +135,7 @@ export function syncNote(c: ActiveCampaign): string | null {
   if (c.analysis_in_sync !== false) return null;
   const n = measured(c).length;
   if (n === 0) return null; // starting runs also re-stamps the campaign; that is expected, not stale
-  return `The current analysis predates ${formatNumber(n, "count")} recorded ${n === 1 ? "result" : "results"}. Re-analyze to fold ${n === 1 ? "it" : "them"} into the model.`;
+  return `The current analysis predates ${count(n)} recorded ${n === 1 ? "result" : "results"}. Re-analyze to fold ${n === 1 ? "it" : "them"} into the model.`;
 }
 
 // --- Re-analysis ---------------------------------------------------------------

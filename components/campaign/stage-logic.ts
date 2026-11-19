@@ -4,7 +4,7 @@
  */
 
 import type { CampaignRun } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatSetting } from "@/lib/num";
 import { sortFindings, type ValidationFinding } from "@/lib/validation";
 
 // --- Setup -------------------------------------------------------------------
@@ -49,12 +49,14 @@ export function clampPage(page: number, total: number, pageSize = RUN_PAGE_SIZE)
 }
 
 /**
- * One recipe value as text. The engine sends categorical inputs (e.g. a
+ * One recipe setpoint as text. The engine sends categorical inputs (e.g. a
  * medium name) as strings even though the type says number: show those as
- * sent, numbers through the one formatter, anything else as n/a.
+ * sent; numbers at the precision their search range supports (the analysis'
+ * `feature_ranges`, VIZ_SPEC 2.4; 3 significant figures without one);
+ * anything else as n/a.
  */
-export function formatRecipeValue(v: unknown): string {
-  if (typeof v === "number") return formatNumber(v);
+export function formatRecipeValue(v: unknown, range?: [number, number] | null): string {
+  if (typeof v === "number") return formatSetting(v, range ?? null).text;
   if (typeof v === "string" && v.trim() !== "") return v;
   return "n/a";
 }

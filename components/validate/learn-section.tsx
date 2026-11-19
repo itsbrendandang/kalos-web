@@ -4,32 +4,31 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
-import { MeasuredValue } from "@/components/campaign/plan/marks";
-import { PredVsMeasured, type ComparisonRow } from "@/components/campaign/pred-vs-measured";
 import {
   calibrationSentence,
-  compareWord,
   reanalysisFailure,
   reanalyzeBlock,
   roundCalibration,
   roundLesson,
-  runBand,
   syncNote,
-  type BandAnalysis,
 } from "@/components/campaign/learn";
 import { Callout } from "@/components/kit/callout";
-import { ChartFrame } from "@/components/kit/chart-frame";
 import { Disclosure } from "@/components/kit/disclosure";
 import { ElapsedProgress } from "@/components/kit/job-progress";
 import { Section, Panel } from "@/components/kit/section";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ValidationDumbbells } from "@/components/viz/charts/validation-dumbbells";
+import { Delta, Num } from "@/components/viz/num";
 import { useEngineWrites, useReanalysis } from "@/hooks/use-engine";
-import { campaignComparisons, coveragePct } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { campaignComparisons, type AnalyzeResult } from "@/lib/api";
+import { coverageText, formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
+import { sourceFromAnalysis } from "@/lib/source";
+import { measuredUncertainty, toDumbbellData, type DumbbellAnalysis } from "@/lib/viz-data/validation-dumbbells";
 import { measured, shortId, type ActiveCampaign } from "@/lib/workbench";
 
-const plural = (n: number, one: string, many = `${one}s`) => `${formatNumber(n, "count")} ${n === 1 ? one : many}`;
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
+const plural = (n: number, one: string, many = `${one}s`) => `${count(n)} ${n === 1 ? one : many}`;
 const roundName = (r: number) => (r === 0 ? "the uploaded data" : `round ${r}`);
 
 /**
@@ -50,8 +49,9 @@ export function LearnSection({
 }: {
   campaignId: string;
   campaign: ActiveCampaign;
-  analysis: BandAnalysis | null;
-  unit: string;
+  /** The current analysis: band fields, replicate noise and its provenance (for the chart's source line). */
+  analysis: (DumbbellAnalysis & Partial<Pick<AnalyzeResult, "run" | "engine_version" | "seed">> & { dataset?: string; updated?: number }) | null;
+  unit: string | null;
   archived: boolean;
   uploadActive: boolean;
   saving: boolean;
@@ -62,18 +62,17 @@ export function LearnSection({
   const [proposed, setProposed] = useState<number | null>(null);
 
   const lesson = roundLesson(c);
-  const runs = measured(c);
   const next = lesson.round + 1;
   const cal = roundCalibration(c.pending, analysis);
-  const coverage = coveragePct(analysis?.conformal_coverage);
+  const coverage = coverageText(analysis?.conformal_coverage);
   const comparisons = campaignComparisons(c);
   const sync = syncNote(c);
   const block = reanalyzeBlock({ campaign: c, running: reanalysis.running, uploadActive, archived, saving });
-  const u = unit ? ` ${unit}` : "";
-
-  const rows: ComparisonRow[] = runs
-    .filter((r) => r.result != null && Number.isFinite(r.result))
-    .map((r) => ({ id: r.id, pred: r.pred, halfWidth: runBand(r, analysis).halfWidth, result: r.result as number }));
+  const dumbbells = toDumbbellData(c.pending, analysis);
+  const measuredU = measuredUncertainty(analysis);
+  const nMeasured = measured(c).length;
+  // Relative change only for a ratio-scale target with a unit (VIZ_SPEC 2.5).
+  const relative = unit != null;
 
   async function run() {
     setFailure(null);
@@ -90,23 +89,30 @@ export function LearnSection({
     <Section id="learn" title="Learn and re-propose" description="What this round's measured results show, then fold them into the model and propose the next batch." className="scroll-mt-6">
       <div className="flex flex-col gap-3">
         {lesson.measured === 0 ? (
-          <p className="text-body text-fg-muted">No result has been recorded for round {formatNumber(lesson.round, "count")} yet, so there is nothing new to compare.</p>
+          <p className="text-body text-fg-muted">No result has been recorded for round {count(lesson.round)} yet, so there is nothing new to compare.</p>
         ) : (
-          <p className="text-body text-fg">
-            Best measured result this round:{" "}
-            <MeasuredValue value={formatNumber(lesson.roundBest)} unit={unit || undefined} label="measured" />
-            {lesson.roundBestRun ? <span className="text-fg-muted"> (run <span className="font-mono text-code">{shortId(lesson.roundBestRun)}</span>)</span> : null}
+          <div className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-baseline gap-x-2 text-body text-fg">
+              <span>Best measured result this round:</span>
+              <Num value={lesson.roundBest} basis="measured" unit={unit} size="title" options={{ uncertainty: measuredU }} />
+              {lesson.roundBestRun ? (
+                <span className="text-fg-muted">
+                  (run <span className="font-mono text-code">{shortId(lesson.roundBestRun)}</span>)
+                </span>
+              ) : null}
+            </p>
             {lesson.delta != null ? (
-              <>
-                , {lesson.delta === 0 ? "" : `${formatNumber(Math.abs(lesson.delta))}${u} `}
-                {compareWord(lesson.delta)} the best measured before this round, {formatNumber(lesson.priorBest)}
-                {u}.
-              </>
+              <p className="flex flex-wrap items-baseline gap-x-2 text-body text-fg-muted">
+                <Delta current={lesson.roundBest} baseline={lesson.priorBest} unit={unit} relative={relative} baselineLabel="the best measured before this round" options={{ uncertainty: measuredU }} />
+                <span>
+                  (that best was <Num value={lesson.priorBest} basis="measured" unit={unit} glyph={false} options={{ uncertainty: measuredU }} />)
+                </span>
+              </p>
             ) : (
-              <>. There is no measured best from before this round to compare it with.</>
-            )}{" "}
-            <span className="text-fg-muted">It counts toward the best so far once the results are folded in by a re-analysis.</span>
-          </p>
+              <p className="text-body text-fg-muted">There is no measured best from before this round to compare it with.</p>
+            )}
+            <p className="text-caption text-fg-muted">It counts toward the best so far once the results are folded in by a re-analysis.</p>
+          </div>
         )}
         {lesson.measured > 0 ? (
           <p className="text-body text-fg">
@@ -127,38 +133,36 @@ export function LearnSection({
         ) : null}
       </div>
 
-      {rows.length > 0 ? (
-        <ChartFrame
-          title="Predicted against measured, this round"
-          unit={unit || undefined}
-          n={rows.length}
-          method="One row per measured run. The ring is the model's prediction and the light bar its conformal band from the analysis that proposed the run; the filled dot is the measured result."
-          height={0}
-        >
-          <PredVsMeasured rows={rows} targetName={c.target} unit={unit} coverage={coverage} />
-        </ChartFrame>
+      {dumbbells.runs.length > 0 ? (
+        <ValidationDumbbells
+          data={dumbbells}
+          target={c.target}
+          unit={unit}
+          source={analysis ? sourceFromAnalysis(analysis, "conformal_q", "predicted", "held-out conformal band") : null}
+          stale={
+            c.analysis_in_sync === false && nMeasured > 0
+              ? { nNew: nMeasured, text: "The analysis predates the results recorded here. The bands shown are the ones it proposed these runs with; re-analyze to fold the results in." }
+              : null
+          }
+        />
       ) : null}
 
       {comparisons.length > 0 ? (
         <div className="flex flex-col gap-1">
           <h3 className="text-label text-fg">Earlier rounds, folded in</h3>
-          <ul className="flex flex-col gap-0.5 text-body text-fg">
-            {comparisons.map((cmp) => {
-              const delta = cmp.baseline_best != null && cmp.current_best != null ? cmp.current_best - cmp.baseline_best : null;
-              return (
-                <li key={cmp.comparison_type} className="tabular-nums">
-                  Best measured after round {formatNumber(cmp.current_round, "count")}: {formatNumber(cmp.current_best)}
-                  {u}, against {formatNumber(cmp.baseline_best)}
-                  {u} in {roundName(cmp.baseline_round)}
-                  {delta != null ? ` (${formatNumber(delta, "value", { sign: true })}${cmp.baseline_best! > 0 ? `, ${formatNumber(delta / cmp.baseline_best!, "pct", { sign: true })}` : ""})` : ""}
-                  <span className="text-fg-muted">, {plural(cmp.n_runs_added, "run")} added.</span>
-                </li>
-              );
-            })}
+          <ul className="flex flex-col gap-1 text-body text-fg">
+            {comparisons.map((cmp) => (
+              <li key={cmp.comparison_type} className="flex flex-wrap items-baseline gap-x-2 tabular-nums">
+                <span>Best measured after round {count(cmp.current_round)}:</span>
+                <Num value={cmp.current_best} basis="measured" unit={unit} options={{ uncertainty: measuredU }} />
+                <Delta current={cmp.current_best} baseline={cmp.baseline_best} unit={unit} relative={relative} baselineLabel={`${roundName(cmp.baseline_round)} (${formatValue(cmp.baseline_best, { unit, uncertainty: measuredU }).text})`} options={{ uncertainty: measuredU }} />
+                <span className="text-fg-muted">{plural(cmp.n_runs_added, "run")} added.</span>
+              </li>
+            ))}
           </ul>
           {c.history.length >= 2 ? (
             <Disclosure summary="Best so far, by round" meta="measured only">
-              <BestSoFarChart campaign={c} unit={unit} />
+              <BestSoFarChart campaign={c} bare />
             </Disclosure>
           ) : null}
         </div>
@@ -167,7 +171,7 @@ export function LearnSection({
       <Panel className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-[60ch]">
-            <h3 className="text-heading text-fg">Re-analyze and propose round {formatNumber(next, "count")}</h3>
+            <h3 className="text-heading text-fg">Re-analyze and propose round {count(next)}</h3>
             <p className="mt-1 text-body text-fg-muted">
               {lesson.measured > 0
                 ? `Folds the ${plural(lesson.measured, "measured result")} into the dataset, re-fits the model and proposes the next batch on Predict.`
@@ -180,7 +184,7 @@ export function LearnSection({
           </div>
           <div className="flex flex-col items-end gap-1">
             <Button onClick={() => void run()} disabled={block != null}>
-              {reanalysis.running ? "Re-analyzing..." : `Re-analyze and propose round ${formatNumber(next, "count")}`}
+              {reanalysis.running ? "Re-analyzing..." : `Re-analyze and propose round ${count(next)}`}
             </Button>
             {block && !reanalysis.running ? <p className="max-w-72 text-right text-caption text-fg-muted">{block}</p> : null}
           </div>
@@ -211,10 +215,10 @@ export function LearnSection({
         {proposed != null && !reanalysis.running ? (
           <Callout
             tone="good"
-            title={`Round ${formatNumber(proposed, "count")} is proposed`}
+            title={`Round ${count(proposed)} is proposed`}
             action={
               <Link href={campaignHref(campaignId, "predict")} className={buttonVariants({ size: "sm" })}>
-                Review round {formatNumber(proposed, "count")} on Predict
+                Review round {count(proposed)} on Predict
                 <ArrowRight aria-hidden />
               </Link>
             }

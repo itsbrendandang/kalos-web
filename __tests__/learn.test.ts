@@ -6,7 +6,6 @@ import {
   calibrationSentence,
   canPlanNext,
   compareWord,
-  comparisonScale,
   correctionProblem,
   MAX_REASON,
   promotionLine,
@@ -59,7 +58,8 @@ describe("bandCalibration", () => {
 
 describe("calibrationSentence", () => {
   it("states k of n with the engine's coverage", () => {
-    expect(calibrationSentence({ inside: 3, total: 5 }, 0.9)).toBe("3 of 5 measured runs landed inside their predicted band (90%).");
+    expect(calibrationSentence({ inside: 3, total: 5 }, 0.9)).toBe("3 of 5 measured runs landed inside their predicted 90% band.");
+    expect(calibrationSentence({ inside: 1, total: 1 }, 0.8)).toBe("1 of 1 measured runs landed inside their predicted 80% band.");
   });
   it("omits the coverage rather than guessing it", () => {
     expect(calibrationSentence({ inside: 3, total: 5 })).toBe("3 of 5 measured runs landed inside their predicted band.");
@@ -107,23 +107,6 @@ describe("roundCalibration", () => {
   });
   it("is null without a band", () => {
     expect(roundCalibration([run(1, 1, fromCurrent)], analysis({ conformal_q: null }))).toBeNull();
-  });
-});
-
-describe("comparisonScale", () => {
-  it("covers every prediction band and measured value on round ticks", () => {
-    const s = comparisonScale([{ pred: 1.75, halfWidth: 0.2, result: 1.64 }, { pred: 1.715, halfWidth: 0.2, result: 1.5 }])!;
-    expect(s.lo).toBeLessThanOrEqual(1.5);
-    expect(s.hi).toBeGreaterThanOrEqual(1.95);
-    expect(s.ticks[0]).toBe(s.lo);
-    expect(s.ticks[s.ticks.length - 1]).toBe(s.hi);
-    expect(s.ticks.length).toBeGreaterThanOrEqual(3);
-  });
-  it("gives a flat set a readable span, and nothing finite no scale", () => {
-    const s = comparisonScale([{ pred: 2, halfWidth: null, result: 2 }])!;
-    expect(s.lo).toBeLessThan(2);
-    expect(s.hi).toBeGreaterThan(2);
-    expect(comparisonScale([])).toBeNull();
   });
 });
 

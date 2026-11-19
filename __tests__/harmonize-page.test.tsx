@@ -210,7 +210,8 @@ describe("Harmonize: first run", () => {
     await setUpAndAnalyze(new File([RUNS], "runs.csv", { type: "text/csv" }), { target: "titer_g_L", bound: ["6.6", "6.9"] });
     await screen.findByText("The setup was not saved");
     expect(screen.getByText("No recipe satisfies the bounds and the constraints together.")).toBeTruthy();
-    expect(screen.getByText(/What would fix it: Loosen a constraint/)).toBeTruthy();
+    // The engine's own what_would_fix_it wins over the app's fallback copy.
+    expect(screen.getByText(/What would fix it: loosen a constraint's right-hand side or widen the bounds/)).toBeTruthy();
     expect(screen.queryByText(/^infeasible_constraints$/)).toBeNull();
     expect(screen.getByText("Engine response")).toBeTruthy();
     expect(uploads).toBe(0);

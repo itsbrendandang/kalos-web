@@ -10,7 +10,7 @@ import { CV_GROUPING_NOTE, NOT_JUDGED_LABEL, calibrationNote, floorNotJudged, in
 import { columnDecimals, conformalInterval, coverageText, formatCorr, formatSetting, formatValue, type IntervalSpec } from "@/lib/num";
 import type { DataPackage, PackageIntervalCaveat } from "@/lib/report-package";
 import { basisText } from "@/lib/proposal-caveat";
-import { EXPLORATION_LABEL } from "@/lib/proposal-trust";
+import { EXPLORATION_LABEL, modelRefusalOf } from "@/lib/proposal-trust";
 import { cn } from "@/lib/utils";
 import { typedValue } from "@/components/report/report-copy";
 import type { Source } from "@/lib/source";
@@ -277,6 +277,8 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
   const explore = props.filter((p) => p.mode === "explore").length;
   const unit = pkg.objective.unit;
   const levels = pkg.model.interval_levels;
+  // Why there is no batch, in the engine's words (refusal, proposal_trust.withheld or verdict refused), as on Predict.
+  const withheld = props.length ? null : modelRefusalOf({ refusal: pkg.model.refusal, proposal_trust: pkg.model.proposal_trust, verdict: pkg.model.verdict });
   return (
     <Section
       id="batch"
@@ -286,8 +288,8 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
           ? `${plural(props.length, "recipe")}: ${count(exploit)} exploit, ${count(explore)} explore. Predictions only; none of these has been measured.${
               levels.length > 1 ? ` The package also holds each recipe's interval at the other levels the engine computed (${levels.map((l) => coverageText(l)).join(", ")}).` : ""
             }`
-          : pkg.model.refusal || pkg.model.proposal_trust?.withheld
-            ? "The engine withheld the batch: the model cannot be trusted yet."
+          : withheld
+            ? "The engine withheld the batch because the model cannot be checked or trusted yet."
             : "The current analysis has no proposed batch."
       }
     >
@@ -324,13 +326,19 @@ export function BatchSection({ pkg }: { pkg: DataPackage }) {
             ));
           })()}
         </>
-      ) : pkg.model.refusal ? (
+      ) : withheld ? (
         <div className="flex flex-col gap-1 text-body">
-          <p className="text-fg">{pkg.model.refusal.plain ?? pkg.model.verdict?.headline ?? "The engine withheld the batch."}</p>
-          {pkg.model.refusal.what_would_help ? <p className="text-fg-muted">What would help: {pkg.model.refusal.what_would_help}</p> : null}
-          <p className="text-caption text-fg-muted">
-            Engine code <span className="font-mono text-code">{pkg.model.refusal.code}</span>
-          </p>
+          {withheld.reasons.map((r) => (
+            <p key={r} className="text-fg">
+              {r}
+            </p>
+          ))}
+          {withheld.fix ? <p className="text-fg-muted">What would help: {withheld.fix}</p> : null}
+          {withheld.code ? (
+            <p className="text-caption text-fg-muted">
+              Engine code <span className="font-mono text-code">{withheld.code}</span>
+            </p>
+          ) : null}
         </div>
       ) : null}
     </Section>

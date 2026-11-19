@@ -86,6 +86,10 @@ describe("(2) each proposal's trust label", () => {
     // A bare status string, and the "model_guided" spelling.
     expect(proposalTrustOf({ trust: "model_guided" })?.kind).toBe("model-guided");
     expect(proposalTrustOf({ trust: "exploration_untrusted" })?.label).toBe(EXPLORATION_LABEL);
+    // Mixed per-proposal labels: no batch-level label (callers say "every proposal is ..."), each row keeps its own.
+    const mixed = A({ ...A(exploration), proposals: A(exploration).proposals.map((p, i) => (i === 0 ? { ...p, trust: "trusted" } : p)) });
+    expect(batchTrustOf(mixed)).toBeNull();
+    expect(toBatchStripModel(mixed, { target: "t", unit: null }).rows.map((r) => r.trust?.kind)).toEqual(["model-guided", "exploration", "exploration", "exploration", "exploration"]);
     // Older analyses: no label at all.
     expect(toBatchStripModel(A(v2), { target: "t", unit: null }).rows.every((r) => r.trust == null)).toBe(true);
   });
@@ -124,6 +128,16 @@ describe("(3) a refused verdict: no proposals, and the reason", () => {
     render(<BatchSection pkg={buildPackage(meta, null, refused as unknown as PackageAnalysis, 0)} />);
     expect(screen.getByText(/The engine withheld the batch/)).toBeTruthy();
     expect(screen.getByText(/What would help: Add measured runs of at least 8 different recipes/)).toBeTruthy();
+    expect(screen.getByText("The sheet has 2 groups of runs; Kalos needs at least 3 to check the model.")).toBeTruthy();
+  });
+
+  it("the Report explains a withheld batch from the verdict alone (no refusal object)", () => {
+    cleanup();
+    const withheldOnly = { ...(refused as object), refusal: null } as unknown as PackageAnalysis;
+    render(<BatchSection pkg={buildPackage(meta, null, withheldOnly, 0)} />);
+    expect(screen.getByText(/The engine withheld the batch/)).toBeTruthy();
+    expect(screen.getByText(A(refused).verdict!.headline!)).toBeTruthy();
+    expect(screen.queryByText("The current analysis has no proposed batch.")).toBeNull();
   });
 });
 
@@ -225,6 +239,11 @@ describe("the Predict page", () => {
     expect(batch.textContent).toContain("The sheet has 2 groups of runs; Kalos needs at least 3 to check the model.");
     expect(batch.textContent).toContain("Add measured runs of at least 8 different recipes, then upload the sheet again.");
     expect(within(batch).queryByText("The engine proposed no experiments")).toBeNull();
+    // A refusal is neutral, never a warning (VIZ_SPEC 2.6), and the raw code sits one click down.
+    const headline = screen.getByText(/^No proposals this round/).closest("div")!;
+    expect(headline.querySelector("svg.text-warn, svg.text-bad")).toBeNull();
+    expect(within(batch).getByText("Engine details")).toBeTruthy();
+    expect(batch.textContent).not.toContain("(insufficient)");
   });
 
   it("older analyses render without any of it", async () => {

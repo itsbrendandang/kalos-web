@@ -417,7 +417,7 @@ function Batch({
         }
       />
 
-      <Verdict tone={modelRefusal ? "warn" : trustTone(verdict.state)}>
+      <Verdict tone={modelRefusal ? "neutral" : trustTone(verdict.state)}>
         {predictHeadline({ state: verdict.state, proposals: rows.length, round, refused: modelRefusal?.reasons[0] ?? null })}
       </Verdict>
 
@@ -486,8 +486,14 @@ function Batch({
             fix={modelRefusal.fix ? [modelRefusal.fix] : undefined}
             footer={
               <>
-                Kalos does not propose recipes from a model it cannot check: a batch from it would be no better than a space-filling design, and could look like a recommendation.
-                {modelRefusal.code ? <span className="font-mono text-code"> ({modelRefusal.code})</span> : null}
+                Kalos does not propose recipes from a model it cannot check, so nothing here could be mistaken for a recommendation.
+                {modelRefusal.code ? (
+                  <Disclosure summary="Engine details" className="mt-2">
+                    <span>
+                      Code <code className="font-mono text-code">{modelRefusal.code}</code>
+                    </span>
+                  </Disclosure>
+                ) : null}
               </>
             }
           />

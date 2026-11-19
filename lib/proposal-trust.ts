@@ -41,10 +41,14 @@ export function proposalTrustOf(p: Pick<Proposal, "trust">, batch?: ProposalTrus
   return batch ? fromStatus(str(batch.status), str(batch.message)) : null;
 }
 
-/** The batch-level label when every proposal shares one (the engine labels the whole batch from one verdict). */
+/**
+ * The batch-level label when every proposal shares one (the engine labels the whole batch from one verdict). Null
+ * when the proposals' own labels disagree or some have none: callers say "every proposal is ...", which would then be
+ * false, so the per-proposal labels speak alone. With no proposals, the batch's own `proposal_trust.status`.
+ */
 export function batchTrustOf(d: Pick<AnalyzeResult, "proposals" | "proposal_trust">): ProposalTrust | null {
   const each = (d.proposals ?? []).map((p) => proposalTrustOf(p, d.proposal_trust));
-  if (each.length && each.every((t) => t && t.kind === each[0]!.kind)) return each[0];
+  if (each.length) return each.every((t) => t && t.kind === each[0]!.kind) ? each[0] : null;
   return d.proposal_trust ? fromStatus(str(d.proposal_trust.status), str(d.proposal_trust.message)) : null;
 }
 

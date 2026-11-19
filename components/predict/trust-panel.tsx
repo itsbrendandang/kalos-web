@@ -86,7 +86,9 @@ export function TrustPanel({ d, calloutTaken = false, stale = null }: { d: Predi
                 ) : null}
                 <span>
                   {verdict.state === "not-judged"
-                    ? `trust floor ${verdict.floor != null ? formatCorr(verdict.floor).value : ""} not judged`.replace("  ", " ")
+                    ? verdict.floor != null
+                      ? `trust floor ${formatCorr(verdict.floor).value} not judged`
+                      : "trust floor not judged"
                     : verdict.floor != null
                       ? `trust floor ${formatCorr(verdict.floor).value}`
                       : "no trust floor reported"}

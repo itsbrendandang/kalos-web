@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/kit/section";
 import type { ColumnRolesInput } from "@/lib/api";
+import { formatValue } from "@/lib/num";
 import type { SheetColumn } from "@/lib/sheet-roles";
 
 /**
@@ -68,7 +69,7 @@ export function ColumnConfirm({
           </select>
         </label>
         <fieldset className="flex flex-col gap-1.5" disabled={busy}>
-          <legend className="text-label text-fg">Inputs Kalos may vary ({picked.size} of {candidates.length} columns)</legend>
+          <legend className="text-label text-fg">Inputs Kalos may vary ({formatValue(picked.size, { quantity: "count" }).text} of {formatValue(candidates.length, { quantity: "count" }).text} columns)</legend>
           <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
             {candidates.map((c) => (
               <li key={c.name}>

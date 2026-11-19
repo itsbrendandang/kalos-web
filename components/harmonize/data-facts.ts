@@ -4,6 +4,7 @@
 // inferred from the sheet in the browser.
 
 import type { AnalyzeResult, DataDrops, DesignBoxExclusion, Job, ProvenanceEntry, RunRecord } from "@/lib/api";
+import { formatSetting, formatValue } from "@/lib/num";
 import { columnsFromProvenance, type RolesContext } from "@/lib/sheet-roles";
 
 // --- Fields the engine sends that lib/api.ts does not type yet (read defensively) ---------------------
@@ -77,11 +78,6 @@ export function visualizationAbsentText(kind: "embedding" | "correlation", reaso
   if (r.includes("no features")) return `${what} needs inputs, and the model kept none.`;
   if (r.includes("failed")) return `The engine could not compute ${lower} for this sheet.`;
   return `The engine did not compute ${lower} for this sheet.`;
-}
-
-/** The correlation grid's labels with the engine's `target_mean` row named after the target (it is the per-recipe mean). */
-export function correlationLabels(labels: readonly string[], target: string): string[] {
-  return labels.map((l) => (l === "target_mean" ? `${target} (recipe mean)` : l));
 }
 
 // --- Column provenance table ----------------------------------------------------------------------------
@@ -210,6 +206,23 @@ export function designRows(a: HarmonizeAnalysis): DesignRow[] {
     const kind = lo != null && hi != null ? "continuous" : cats.has(name) ? "categorical" : "unreported";
     return { name, kind, low: lo, high: hi, narrowed: narrowed.get(name) ?? null };
   });
+}
+
+/** A narrowed box as "lo to hi", both ends at the precision the narrowed range supports (VIZ_SPEC 2.4). */
+export function boxRangeText(lower: number | null | undefined, upper: number | null | undefined): string {
+  const range: [number, number] | null = lower != null && upper != null && Number.isFinite(lower) && Number.isFinite(upper) ? [lower, upper] : null;
+  return `${formatSetting(lower, range).text} to ${formatSetting(upper, range).text}`;
+}
+
+/**
+ * One sentence for the boxes the engine narrowed (`design_box_exclusions`), or null when none was.
+ * The engine reports `n_excluded` as values (cells) left out of the box.
+ */
+export function narrowedBoxNote(exclusions: readonly DesignBoxExclusion[] | null | undefined): string | null {
+  if (!exclusions || exclusions.length === 0) return null;
+  const count = (n: number) => formatValue(n, { quantity: "count" }).text;
+  const parts = exclusions.map((e) => `${e.column} (${boxRangeText(e.lower, e.upper)}, ${count(e.n_excluded)} ${e.n_excluded === 1 ? "value" : "values"} left out)`);
+  return `Search box narrowed for ${count(exclusions.length)} ${exclusions.length === 1 ? "input" : "inputs"}: ${parts.join("; ")}.`;
 }
 
 // --- Upload job outcome ---------------------------------------------------------------------------------

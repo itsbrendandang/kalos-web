@@ -26,7 +26,7 @@ import { isNotFound, useCampaign, useCampaignId, useEngineWrites, useLatest, use
 import { CampaignHasRunsError, isJobActive, type ColumnRolesInput, type PopulatedResult, type ProvenanceEntry } from "@/lib/api";
 import { campaignStage, cycleSteps } from "@/lib/campaign-stage";
 import { EngineError, engineMessage, errorMessage } from "@/lib/engine-error";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
 import { canActOnAnalysis, canChangeTarget, initialSetupState, isStale, nextAction, setupReducer, singleFlight, staleNotice } from "@/lib/setup-attempt";
 import { sheetSelector, sheetsFrom } from "@/lib/sheet-choice";
@@ -332,7 +332,7 @@ function AnalysisView({
       <Section
         id="target"
         title="Target and inputs"
-        description={`${analysis.dataset}: ${formatNumber(analysis.n, "count")} runs used, ${formatNumber(analysis.d, "count")} inputs.${busy ? " Shown until the new analysis is ready." : ""}`}
+        description={`${analysis.dataset}: ${count(analysis.n)} runs used, ${count(analysis.d)} inputs.${busy ? " Shown until the new analysis is ready." : ""}`}
       >
         <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
           Maximize
@@ -421,9 +421,12 @@ function AnalysisView({
   );
 }
 
+/** A count through lib/num ("1,204"); "n/a" when the engine sent nothing, never 0. */
+const count = (n: number | null | undefined) => formatValue(n, { quantity: "count" }).text;
+
 /** Surfaces a data_type column so measured and synthetic rows are never silently pooled. */
 function DataTypeNote({ counts }: { counts: DataTypeCounts }) {
-  const list = counts.counts.map((c) => `${c.value} ${formatNumber(c.n, "count")}`).join(", ");
+  const list = counts.counts.map((c) => `${c.value} ${count(c.n)}`).join(", ");
   const mixed = counts.counts.some((c) => !/^(real|measured)$/i.test(c.value));
   return mixed ? (
     <Verdict tone="warn" detail="The model is fitted on every row. Rows that are not real measurements can make results look better than the lab would see.">

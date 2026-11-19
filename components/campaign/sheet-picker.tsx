@@ -1,5 +1,6 @@
 "use client";
 
+import { formatValue } from "@/lib/num";
 import type { SheetSelector } from "@/lib/sheet-choice";
 
 /** "Which sheet?" for a multi-sheet workbook; choosing re-submits the held file with that sheet. */
@@ -20,7 +21,7 @@ export function SheetPicker({ selector, busy, onPick }: { selector: SheetSelecto
           </option>
         ))}
       </select>
-      <span className="text-caption font-normal text-fg-muted">This workbook has {selector.sheets.length} sheets. Choosing one re-fits the model from that sheet.</span>
+      <span className="text-caption font-normal text-fg-muted">This workbook has {formatValue(selector.sheets.length, { quantity: "count" }).text} sheets. Choosing one re-fits the model from that sheet.</span>
     </label>
   );
 }

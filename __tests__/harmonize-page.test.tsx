@@ -207,6 +207,11 @@ describe("Harmonize: with an analysis", () => {
     const pH = within(design).getByText("pH").closest("tr")!;
     expect(pH.textContent).toMatch(/6\.01/);
     expect(pH.textContent).toMatch(/7\.59/);
+    // Low and high share the precision the input's range supports (lib/num formatSetting): rpm whole, temperature 2 dp.
+    const rpm = within(design).getByText("agitation_rpm").closest("tr")!.querySelectorAll("td");
+    expect([rpm[1].textContent, rpm[2].textContent]).toEqual(["102", "400"]);
+    const temp = within(design).getByText("temperature_C").closest("tr")!.querySelectorAll("td");
+    expect([temp[1].textContent, temp[2].textContent]).toEqual(["30.04", "38.97"]);
     expect(within(design).getByText("medium_base").closest("tr")!.textContent).toMatch(/Categorical/);
     expect(screen.getByText(/No range was narrowed/)).toBeTruthy();
 
@@ -219,6 +224,20 @@ describe("Harmonize: with an analysis", () => {
     expect(screen.getByText("0.1.0")).toBeTruthy();
     // The re-analysis roles limitation is stated next to the column roles.
     expect(screen.getByText(/a later re-analysis infers them again/)).toBeTruthy();
+  });
+
+  it("opens the correlation and run maps as charts with a source footer (engine fields only)", async () => {
+    await renderPage();
+    await screen.findByRole("heading", { name: "Explored design space" });
+    for (const summary of ["How the inputs and the target move together", "Your runs by recipe similarity"]) {
+      const details = screen.getByText(summary).closest("details")!;
+      details.open = true;
+      await act(async () => fireEvent(details, new Event("toggle")));
+    }
+    expect(screen.getByText("Rank correlation")).toBeTruthy();
+    expect(screen.getByText(/^From: Analysis of .* · n = 160 runs · Spearman rank correlation/)).toBeTruthy();
+    expect(screen.getByText("Runs by recipe similarity")).toBeTruthy();
+    expect(screen.getByText(/^From: Analysis of .* · n = 12 runs · PCA of the standardized/)).toBeTruthy();
   });
 
   it("hides Continue while an upload job runs and keeps the current analysis on screen", async () => {

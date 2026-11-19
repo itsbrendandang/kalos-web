@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Job, ProvenanceEntry } from "@/lib/api";
 import {
+  boxRangeText,
   cellsByColumn,
   columnRows,
-  correlationLabels,
   designRows,
   exclusionFacts,
   headerRow,
   jobProblem,
+  narrowedBoxNote,
   orientationOf,
   orientationText,
   visualizationAbsentText,
@@ -118,8 +119,25 @@ describe("sheet reading fields", () => {
     expect(visualizationAbsentText("correlation", null)).toMatch(/made before the engine returned it/);
     expect(visualizationAbsentText("correlation", "Spearman correlation computation failed")).toBe("The engine could not compute the correlation map for this sheet.");
   });
-  it("names the engine's target_mean label after the target", () => {
-    expect(correlationLabels(["pH", "target_mean"], "titer_g_L")).toEqual(["pH", "titer_g_L (recipe mean)"]);
+});
+
+describe("narrowed design box (lib/num settings precision)", () => {
+  it("prints both ends at the precision the narrowed range supports, with a U+2212 minus", () => {
+    expect(boxRangeText(30, 40)).toBe("30.0 to 40.0");
+    expect(boxRangeText(31, 37)).toBe("31.00 to 37.00");
+    expect(boxRangeText(6.005, 7.594)).toBe("6.01 to 7.59");
+    expect(boxRangeText(-2.5, 380)).toBe("\u22123 to 380");
+    expect(boxRangeText(null, 37)).toBe("n/a to 37.0");
+  });
+  it("summarizes the engine's exclusions with grouped counts, or null when none", () => {
+    expect(narrowedBoxNote(undefined)).toBeNull();
+    expect(narrowedBoxNote([])).toBeNull();
+    expect(narrowedBoxNote([{ column: "temp", n_excluded: 1204, lower: 31, upper: 37 }])).toBe(
+      "Search box narrowed for 1 input: temp (31.00 to 37.00, 1,204 values left out).",
+    );
+    expect(narrowedBoxNote([{ column: "a", n_excluded: 1, lower: 0, upper: 1 }, { column: "b", n_excluded: 2, lower: 0, upper: 400 }])).toBe(
+      "Search box narrowed for 2 inputs: a (0.00 to 1.00, 1 value left out); b (0 to 400, 2 values left out).",
+    );
   });
 });
 

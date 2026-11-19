@@ -1,21 +1,25 @@
 "use client";
 
 import { Disclosure } from "@/components/kit/disclosure";
-import { lazyChart } from "@/components/kit/lazy-chart";
 import { Section } from "@/components/kit/section";
-import { CorrelationHeatmap } from "@/components/campaign/correlation-heatmap";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { designBoxExclusionsNote } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { CorrelationHeatmap } from "@/components/viz/charts/correlation-heatmap";
+import { RunLandscape } from "@/components/viz/charts/run-landscape";
+import { NumState } from "@/components/viz/num";
+import type { AnalyzeResult } from "@/lib/api";
+import { formatSetting, formatValue, parseUnit, settingDecimals } from "@/lib/num";
 import type { RolesContext } from "@/lib/sheet-roles";
-import { parseUnit } from "@/lib/utils";
+import { sourceFromAnalysis } from "@/lib/source";
+import { toCorrelationProps } from "@/lib/viz-data/correlation-heatmap";
+import { toLandscapeProps } from "@/lib/viz-data/run-landscape";
 import {
+  boxRangeText,
   cellsByColumn,
-  correlationLabels,
   columnRows,
   designRows,
   exclusionFacts,
   headerRow,
+  narrowedBoxNote,
   orientationOf,
   orientationText,
   visualizationAbsentText,
@@ -24,7 +28,13 @@ import {
   type HarmonizeAnalysis,
 } from "@/components/harmonize/data-facts";
 
-const RunLandscape = lazyChart(() => import("@/components/campaign/run-landscape").then((m) => m.RunLandscape));
+/** A count as the engine reported it ("1,204"), or the n/a state when it reported nothing (never 0). */
+function Count({ value }: { value: number | null | undefined }) {
+  return value == null || !Number.isFinite(value) ? <NumState state={{ kind: "na" }} /> : <>{formatValue(value, { quantity: "count" }).text}</>;
+}
+
+/** Plain-text count for prose and attribute strings; "n/a" when the engine sent nothing. */
+const countText = (v: number | null | undefined) => formatValue(v, { quantity: "count" }).text;
 
 const STATUS_TEXT: Record<ColumnRow["status"], string> = {
   target: "text-fg",
@@ -86,8 +96,12 @@ function ColumnTable({ rows }: { rows: ColumnRow[] }) {
               {r.label}
               {r.warning ? <span className="ml-2 text-caption text-warn">({r.warning})</span> : null}
             </TableCell>
-            <TableCell numeric>{formatNumber(r.nonNull, "count")}</TableCell>
-            <TableCell numeric>{formatNumber(r.coerced, "count")}</TableCell>
+            <TableCell numeric>
+              <Count value={r.nonNull} />
+            </TableCell>
+            <TableCell numeric>
+              <Count value={r.coerced} />
+            </TableCell>
             <TableCell className="text-fg-muted">{r.source === "declared" ? "You (declared)" : r.source === "inferred" ? "Kalos (inferred)" : "n/a"}</TableCell>
           </TableRow>
         ))}
@@ -111,7 +125,9 @@ function Excluded({ analysis }: { analysis: HarmonizeAnalysis }) {
               {f.label}
               {f.note ? <span className="text-caption"> ({f.note})</span> : null}
             </dt>
-            <dd className="text-body tabular-nums text-fg">{formatNumber(f.value, "count")}</dd>
+            <dd className="text-body tabular-nums text-fg">
+              <Count value={f.value} />
+            </dd>
           </div>
         ))}
       </dl>
@@ -127,7 +143,7 @@ function Excluded({ analysis }: { analysis: HarmonizeAnalysis }) {
           <ul className="flex flex-col gap-1 text-body text-fg-muted">
             {perColumn.map((c) => (
               <li key={`${c.column}-${c.reason}`}>
-                <span className="font-mono text-code text-fg">{c.column}</span>: {formatNumber(c.n, "count")} {c.reason}
+                <span className="font-mono text-code text-fg">{c.column}</span>: {countText(c.n)} {c.reason}
               </li>
             ))}
           </ul>
@@ -144,10 +160,10 @@ function SheetReading({ analysis }: { analysis: HarmonizeAnalysis }) {
   const items: { label: string; value: string }[] = [
     { label: "File", value: run?.filename ?? (run?.anonymize ? "Not recorded (anonymized)" : "n/a") },
     { label: "Worksheet", value: run?.sheet ?? (run ? "Only sheet, or a CSV" : "n/a") },
-    { label: "Column names", value: header != null ? `Row ${formatNumber(header + 1, "count")} of the sheet` : "n/a" },
+    { label: "Column names", value: header != null ? `Row ${countText(header + 1)} of the sheet` : "n/a" },
     { label: "Layout", value: orientation ? orientationText(orientation) : "n/a" },
-    { label: "Rows read", value: formatNumber(run?.n_rows, "count") },
-    { label: "Inputs used", value: formatNumber(run?.n_features ?? analysis.features?.length, "count") },
+    { label: "Rows read", value: countText(run?.n_rows) },
+    { label: "Inputs used", value: countText(run?.n_features ?? analysis.features?.length) },
     { label: "Column profile", value: run?.profile === "bioprocess" ? "Bioprocess (name-based checks and units)" : run?.profile === "generic" ? "Generic" : (run?.profile ?? "n/a") },
   ];
   return (
@@ -167,12 +183,13 @@ function SheetReading({ analysis }: { analysis: HarmonizeAnalysis }) {
 
 /**
  * The search box: each input's observed low and high, as the engine reports them. Labelled as the box
- * the optimizer searches, never as an operating range (the engine computes none).
+ * the optimizer searches, never as an operating range (the engine computes none). Low and high share
+ * the precision the input's range supports (VIZ_SPEC 2.4), the same precision Predict shows setpoints at.
  */
 export function DesignSpace({ analysis }: { analysis: HarmonizeAnalysis }) {
   const rows = designRows(analysis);
   const exclusions = analysis.design_box_exclusions;
-  const narrowedNote = designBoxExclusionsNote(exclusions);
+  const narrowedNote = narrowedBoxNote(exclusions);
   return (
     <Section
       id="design-space"
@@ -196,26 +213,36 @@ export function DesignSpace({ analysis }: { analysis: HarmonizeAnalysis }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.name}>
-                <TableCell className="font-mono text-code text-fg">{r.name}</TableCell>
-                <TableCell numeric title={r.low != null ? String(r.low) : undefined}>
-                  {r.kind === "continuous" ? formatNumber(r.low) : "n/a"}
-                </TableCell>
-                <TableCell numeric title={r.high != null ? String(r.high) : undefined}>
-                  {r.kind === "continuous" ? formatNumber(r.high) : "n/a"}
-                </TableCell>
-                <TableCell className="whitespace-normal text-caption text-fg-muted">
-                  {r.narrowed
-                    ? `Narrowed to ${formatNumber(r.narrowed.lower)} to ${formatNumber(r.narrowed.upper)}: ${formatNumber(r.narrowed.n_excluded, "count")} physically impossible ${r.narrowed.n_excluded === 1 ? "value" : "values"} left out of the box`
-                    : r.kind === "categorical"
-                      ? "Categorical: searched over the levels in your data (levels not listed by the engine)"
-                      : r.kind === "unreported"
-                        ? "Range not reported by the engine"
-                        : ""}
-                </TableCell>
-              </TableRow>
-            ))}
+            {rows.map((r) => {
+              const range: [number, number] | null = r.low != null && r.high != null ? [r.low, r.high] : null;
+              const decimals = settingDecimals(range) ?? undefined;
+              const bound = (v: number | null) =>
+                r.kind === "continuous" && v != null ? (
+                  formatSetting(v, range, null, decimals).text
+                ) : (
+                  <NumState state={{ kind: "na" }} />
+                );
+              return (
+                <TableRow key={r.name}>
+                  <TableCell className="font-mono text-code text-fg">{r.name}</TableCell>
+                  <TableCell numeric title={r.low != null ? `Engine value: ${r.low}` : undefined}>
+                    {bound(r.low)}
+                  </TableCell>
+                  <TableCell numeric title={r.high != null ? `Engine value: ${r.high}` : undefined}>
+                    {bound(r.high)}
+                  </TableCell>
+                  <TableCell className="whitespace-normal text-caption text-fg-muted">
+                    {r.narrowed
+                      ? `Narrowed to ${boxRangeText(r.narrowed.lower, r.narrowed.upper)}: ${countText(r.narrowed.n_excluded)} physically impossible ${r.narrowed.n_excluded === 1 ? "value" : "values"} left out of the box`
+                      : r.kind === "categorical"
+                        ? "Categorical: searched over the levels in your data (levels not listed by the engine)"
+                        : r.kind === "unreported"
+                          ? "Range not reported by the engine"
+                          : ""}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}
@@ -231,22 +258,27 @@ export function DesignSpace({ analysis }: { analysis: HarmonizeAnalysis }) {
   );
 }
 
+type PicturesAnalysis = HarmonizeAnalysis &
+  Pick<AnalyzeResult, "n" | "engine_version" | "seed" | "timestamp"> & { target: string; dataset?: string; updated?: number };
+
 /** Correlation map and run map, each one click down; when absent, the engine's reason in plain words. */
-export function DataPictures({ analysis }: { analysis: PopulatedPictures }) {
+export function DataPictures({ analysis }: { analysis: PicturesAnalysis }) {
   const reasons = visualizationReasons(analysis);
-  const unit = parseUnit(analysis.target);
+  const unit = parseUnit(analysis.target).unit;
+  const correlation = toCorrelationProps(analysis.correlation, analysis.target, analysis.n);
+  const landscape = toLandscapeProps(analysis.embedding, analysis.target, unit);
   return (
     <div className="flex flex-col">
-      <Disclosure summary="How the inputs and the target move together" meta="Rank correlation">
-        {analysis.correlation && analysis.correlation.labels.length > 0 ? (
-          <CorrelationHeatmap labels={correlationLabels(analysis.correlation.labels, analysis.target)} matrix={analysis.correlation.matrix} />
+      <Disclosure summary="How the inputs and the target move together" meta="Spearman ρ">
+        {correlation ? (
+          <CorrelationHeatmap data={correlation} source={sourceFromAnalysis(analysis, "correlation", "derived", "Spearman rank correlation, pairwise")} />
         ) : (
           <Absent text={visualizationAbsentText("correlation", reasons?.correlation ?? null)} raw={reasons?.correlation ?? null} />
         )}
       </Disclosure>
       <Disclosure summary="Your runs by recipe similarity" meta="Run map" className="border-b">
-        {analysis.embedding && analysis.embedding.points.length > 0 ? (
-          <RunLandscape embedding={analysis.embedding} targetName={analysis.target} unit={unit} />
+        {landscape && landscape.points.length > 0 ? (
+          <RunLandscape data={landscape} source={sourceFromAnalysis(analysis, "embedding", "measured", "PCA of the standardized inputs")} />
         ) : (
           <Absent text={visualizationAbsentText("embedding", reasons?.embedding ?? null)} raw={reasons?.embedding ?? null} />
         )}
@@ -254,8 +286,6 @@ export function DataPictures({ analysis }: { analysis: PopulatedPictures }) {
     </div>
   );
 }
-
-type PopulatedPictures = HarmonizeAnalysis & { target: string };
 
 function Absent({ text, raw }: { text: string; raw: string | null }) {
   return (

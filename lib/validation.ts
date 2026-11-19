@@ -4,6 +4,8 @@
 // every helper below is unit-testable without a DOM (see
 // __tests__/validation.test.ts).
 
+import { formatValue } from "@/lib/num";
+
 export type ValidationSeverity = "error" | "warning" | "info";
 export type ValidationStatus = "pass" | "pass_with_warnings" | "fail";
 export type ValidationMode = "warn" | "strict";
@@ -76,6 +78,9 @@ export type ValidationReport = {
   findings: ValidationFinding[];
   conversions: UnitConversion[];
 };
+
+/** A count as printed everywhere ("1,204", via lib/num); "n/a" for a value the payload did not carry. */
+const count = (n: number | null | undefined): string => formatValue(n, { quantity: "count" }).text;
 
 // --- friendly labels ---------------------------------------------------------
 
@@ -226,9 +231,9 @@ export function rowListCaption(finding: ValidationFinding): string {
   if (rows.length === 0) return "";
   const total = affectedRowCount(finding);
   if (isRowListTruncated(finding)) {
-    return `showing ${rows.length} of ${total} affected rows`;
+    return `showing ${count(rows.length)} of ${count(total)} affected rows`;
   }
-  return rows.length === 1 ? "1 affected row" : `${rows.length} affected rows`;
+  return rows.length === 1 ? "1 affected row" : `${count(rows.length)} affected rows`;
 }
 
 // --- headline --------------------------------------------------------------------
@@ -237,12 +242,12 @@ export function rowListCaption(finding: ValidationFinding): string {
 export function validationHeadline(report: ValidationReport): string {
   const { status, counts, n_rows, n_columns, checks_run } = report;
   if (status === "fail") {
-    return `${counts.error} error${counts.error === 1 ? "" : "s"} found in ${n_rows} rows / ${n_columns} columns - fix these before running an optimization on this data.`;
+    return `${count(counts.error)} error${counts.error === 1 ? "" : "s"} found in ${count(n_rows)} rows / ${count(n_columns)} columns - fix these before running an optimization on this data.`;
   }
   if (status === "pass_with_warnings") {
-    return `No errors, but ${counts.warning} warning${counts.warning === 1 ? "" : "s"} to review before you trust this run sheet.`;
+    return `No errors, but ${count(counts.warning)} warning${counts.warning === 1 ? "" : "s"} to review before you trust this run sheet.`;
   }
-  return `All ${checks_run.length} checks passed on ${n_rows} rows / ${n_columns} columns.`;
+  return `All ${count(checks_run.length)} checks passed on ${count(n_rows)} rows / ${count(n_columns)} columns.`;
 }
 
 // --- unit conversions ---------------------------------------------------------
@@ -273,5 +278,5 @@ function toUnitLabel(c: UnitConversion): string {
 /** "Temp: F, C -> Celsius (12 cells converted)" - the one-line summary of a
  *  single silent unit conversion, for the trust-earning conversions section. */
 export function conversionSummary(c: UnitConversion): string {
-  return `${c.column}: ${c.from_units.join(", ")} -> ${toUnitLabel(c)} (${c.cells_converted} cell${c.cells_converted === 1 ? "" : "s"} converted)`;
+  return `${c.column}: ${c.from_units.join(", ")} -> ${toUnitLabel(c)} (${count(c.cells_converted)} cell${c.cells_converted === 1 ? "" : "s"} converted)`;
 }

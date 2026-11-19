@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { PredictedMark, MeasuredMark } from "@/components/campaign/plan/marks";
+import { PredictedMark, MeasuredMark, PlotMeasuredMark, PlotPredictedMark } from "@/components/campaign/plan/marks";
 import { fractionalIndex, parseSurface, peakCell, placeable, rampColor, surfaceSummary, valueT, type PlotPoint, type SurfaceModel } from "@/components/campaign/plan/surface-model";
 import { formatNumber } from "@/lib/format";
 import { parseUnit } from "@/lib/utils";
@@ -168,7 +168,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
             const fy = fractionalIndex(model.y.vals, yv) ?? 0;
             const cx = M.left + (fx + 0.5) * cellW;
             const cy = M.top + (ny - 1 - fy + 0.5) * cellH;
-            return <MeasuredMark key={`run-${k}`} x={cx - 5} y={cy - 5} halo />;
+            return <PlotMeasuredMark key={`run-${k}`} cx={cx} cy={cy} r={2.6} halo />;
           })}
 
           {inside.map((p) => {
@@ -178,7 +178,7 @@ function Surface({ model, target, proposals, id: idProp }: { model: SurfaceModel
             const cy = M.top + (ny - 1 - fy + 0.5) * cellH;
             return (
               <g key={p.id}>
-                <PredictedMark x={cx - 6} y={cy - 6} halo className="size-3" />
+                <PlotPredictedMark cx={cx} cy={cy} r={4.5} halo />
                 <text x={cx + 7} y={cy - 6} fontSize="10" style={{ fill: "var(--fg)", stroke: "var(--bg)", strokeWidth: 3, paintOrder: "stroke" }}>
                   {p.id}
                 </text>

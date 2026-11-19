@@ -521,7 +521,7 @@ export function dataNotes(d: {
   if (auto.length) {
     notes.push({
       tone: "neutral",
-      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as categorical because ${auto.length === 1 ? "it holds" : "they hold"} text levels, so proposals vary ${auto.length === 1 ? "it" : "them"}. Declare the columns on Setup to change that.`,
+      text: `${auto.join(", ")} ${auto.length === 1 ? "was" : "were"} read as categorical because ${auto.length === 1 ? "it holds" : "they hold"} text levels, so proposals vary ${auto.length === 1 ? "it" : "them"}. Declare the columns on Harmonize to change that.`,
     });
   }
   const missing = d.n_dropped_incomplete ?? d.data_drops?.rows_dropped ?? 0;

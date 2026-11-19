@@ -114,7 +114,7 @@ export function ApproveDialog({
 
         {failed ? (
           <p role="alert" className="text-body text-bad">
-            The engine did not confirm the start. Check Run to see whether any runs started before you try again.
+            The engine did not confirm the start. Check Validate to see whether any runs started before you try again.
           </p>
         ) : null}
 

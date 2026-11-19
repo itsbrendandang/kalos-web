@@ -334,11 +334,11 @@ describe("dataNotes", () => {
     expect(dataNotes({})).toEqual([]);
   });
 
-  it("names auto-detected categoricals and asks for the declaration on Setup", () => {
+  it("names auto-detected categoricals and asks for the declaration on Harmonize", () => {
     const [n] = dataNotes({ auto_categorical: ["Strain"] });
     expect(n.tone).toBe("neutral");
     expect(n.text).toContain("Strain was read as categorical");
-    expect(n.text).toContain("Declare the columns on Setup");
+    expect(n.text).toContain("Declare the columns on Harmonize");
   });
 
   it("counts missing and censored exclusions separately and says nothing was imputed", () => {

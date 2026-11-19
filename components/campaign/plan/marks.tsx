@@ -32,6 +32,29 @@ export function MeasuredMark({ className, x, y, halo = false }: { className?: st
   );
 }
 
+/*
+ * The same two marks drawn directly inside a parent SVG, centred on (cx, cy) in
+ * the parent's user units. A nested <svg> sized only by a CSS class is not
+ * sized by Chrome (it falls back to 100% of the plot), so plots use these.
+ */
+export function PlotPredictedMark({ cx, cy, r = 4.3, halo = false }: { cx: number; cy: number; r?: number; halo?: boolean }) {
+  return (
+    <g aria-hidden>
+      {halo ? <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg)" strokeWidth={r} /> : null}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--chart-predicted)" strokeWidth={r / 2} />
+    </g>
+  );
+}
+
+export function PlotMeasuredMark({ cx, cy, r = 4, halo = false }: { cx: number; cy: number; r?: number; halo?: boolean }) {
+  return (
+    <g aria-hidden>
+      {halo ? <circle cx={cx} cy={cy} r={r + 0.6} fill="var(--bg)" /> : null}
+      <circle cx={cx} cy={cy} r={r} fill="var(--chart-measured)" />
+    </g>
+  );
+}
+
 /** A predicted number with its ring and the word "predicted" (visible, or sr-only when a column header already says it). */
 export function PredictedValue({ value, unit, label = "predicted", hideLabel = false, className }: { value: ReactNode; unit?: string; label?: string; hideLabel?: boolean; className?: string }) {
   return (

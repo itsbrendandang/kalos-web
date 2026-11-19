@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BasisGlyph } from "@/components/viz/num";
-import { formatValue } from "@/lib/num";
+import { coverageText, formatValue } from "@/lib/num";
+import { bandLegend } from "@/lib/viz-data/batch-interval-strip";
 
 const plural = (n: number, one: string) => `${formatValue(n, { quantity: "count" }).text} ${n === 1 ? one : `${one}s`}`;
 
@@ -96,7 +97,10 @@ export function ApproveDialog({
             </li>
           ))}
         </ul>
-        <p className="text-caption text-fg-muted">Values are exactly what will be sent, unrounded. The table on the page rounds them to each input&apos;s range precision.</p>
+        <p className="text-caption text-fg-muted">
+          Values are exactly what will be sent, unrounded. The table on the page rounds them to each input&apos;s range precision.{" "}
+          {ctx.model.intervals.kind === "none" ? "The engine reported no prediction band." : `Predicted with the ${bandLegend(ctx.model)}.`}
+        </p>
 
         {flagged.length ? (
           <p className="flex items-start gap-2 text-body text-fg">
@@ -141,6 +145,7 @@ function PredictedLine({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
         {f.unit ? `\u00A0${f.unit}` : ""}
         {f.interval ? ` ${f.interval}` : ""}
         {f.coverage ? ` ${f.coverage}` : ""}
+        {!f.interval && row.strip.interval.kind === "refused" ? `, ${coverageText(row.strip.interval.coverage)} band refused` : ""}
       </span>
     </span>
   );

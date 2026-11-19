@@ -123,7 +123,7 @@ describe("toScorecard", () => {
     const s = toScorecard({ ...reliable, cv_topk: { overlap: null, k: 5, n: 3, evaluable: false, reason: "fewer than 5 evaluable rows" } });
     expect(s.topk).toEqual({ kind: "not-scored", reason: "fewer than 5 evaluable rows" });
     expect(topkText(s.topk)).toBe("Not scored: fewer than 5 evaluable rows");
-    expect(topkText(toScorecard(reliable).topk)).toBe("4 of the true top 5 caught by the model's top 5 (n = 165)");
+    expect(topkText(toScorecard(reliable).topk)).toBe("Top-5 caught: 4 of 5 (n = 165)");
   });
 });
 
@@ -162,7 +162,7 @@ describe("promotionChecklist", () => {
 describe("scorecard text", () => {
   it("describes rows, floor, unscored rows, top-k and promotion", () => {
     expect(describeScorecard(toScorecard(weak))).toBe(
-      "Model reliability: Not yet reliable. Model, grouped CV: ρ 0.05 [\u22120.03, 0.12] 95% CI, per repeat 0.05, 0.04 (2 repeats). Producers only: ρ 0.05 (715 runs above 0.00, below the floor). Trust floor 0.20. Group-mean baseline: Not scored, only 0 recipes have 2+ rows. Next unseen group (LOGO): Not scored, no declared/detected group column. Top-k: 0 of the true top 5 caught by the model's top 5 (n = 715). Promotion gates not passed: 0 of 4 passed.",
+      "Model reliability: Not yet reliable. Model, grouped CV: ρ 0.05 [\u22120.03, 0.12] 95% CI, per repeat 0.05, 0.04 (2 repeats). Producers only: ρ 0.05 (715 runs above 0.00, below the floor). Trust floor 0.20. Group-mean baseline: Not scored, only 0 recipes have 2+ rows. Next unseen group (LOGO): Not scored, no declared/detected group column. Top-5 caught: 0 of 5 (n = 715). Promotion gates not passed: 0 of 4 passed.",
     );
   });
 
@@ -192,7 +192,8 @@ describe("ReliabilityScorecard", () => {
     fireEvent.focus(marks[0]);
     expect(screen.getByRole("tooltip").textContent).toMatch(/ρ 0\.71 \[0\.59, 0\.79\] 95% CI/);
     expect(container.textContent).toMatch(/Next unseen group \(LOGO\)Not scored: no declared\/detected group column/);
-    expect(container.textContent).toMatch(/4 of the true top 5 caught/);
+    expect(container.textContent).toMatch(/Top-5 caught/);
+    expect(container.textContent).toMatch(/4 of 5 \(n = 165\)/);
   });
 
   it("replaces the chart with the verdict reason when rho was not measured", () => {

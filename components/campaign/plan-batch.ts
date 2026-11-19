@@ -24,9 +24,18 @@ export type BatchItem = {
   beatsBest: boolean;
 };
 
-/** The batch in the engine's order: rank = engine index + 1, so "P3" is always `proposals[2]`. */
-export function engineBatch(proposals: readonly Proposal[], incumbent: number | null): BatchItem[] {
-  return proposals.map((proposal, index) => ({ index, rank: index + 1, proposal, beatsBest: incumbent != null && proposal.pred > incumbent }));
+/**
+ * The batch in the engine's order: rank = engine index + 1, so "P3" is always
+ * `proposals[2]`. `beatsBest` follows the goal: above the incumbent when
+ * maximizing, below it when minimizing.
+ */
+export function engineBatch(proposals: readonly Proposal[], incumbent: number | null, goal: "maximize" | "minimize" = "maximize"): BatchItem[] {
+  return proposals.map((proposal, index) => ({
+    index,
+    rank: index + 1,
+    proposal,
+    beatsBest: incumbent != null && (goal === "minimize" ? proposal.pred < incumbent : proposal.pred > incumbent),
+  }));
 }
 
 /**

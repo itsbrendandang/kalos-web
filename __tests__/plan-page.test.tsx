@@ -315,7 +315,8 @@ describe("Predict trust evidence", () => {
   it("shows top-k in the scorecard and keeps the method checks in a disclosure", async () => {
     analysis = { ...latestFixture, cv_topk: { overlap: 0.4, k: 5, n: 40, evaluable: true, reason: null } };
     await renderPredict();
-    expect(screen.getByText("2 of the true top 5 caught by the model's top 5 (n = 40)")).toBeTruthy();
+    expect(screen.getByText("Top-5 caught")).toBeTruthy();
+    expect(screen.getByText("2 of 5 (n = 40)")).toBeTruthy();
     expect(screen.queryByText("Replicate noise")).toBeNull();
     openDisclosure("More checks on the model");
     expect(await screen.findByText("Replicate noise")).toBeTruthy();

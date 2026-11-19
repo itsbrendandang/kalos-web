@@ -170,7 +170,9 @@ describe("<BatchIntervalStrip>", () => {
     cleanup();
     draw(model({ proposal_gating: { gated: false, reason: "auc too low", n_infeasible: 1, feasibility_auc: 0.5, threshold: 0 } }));
     expect(screen.queryByText("81%")).toBeNull();
-    expect(screen.getAllByText("(batch was not feasibility-gated)").length).toBe(2);
+    // Ungated: no P(feasible) column; one line says why, with the engine's reason.
+    expect(screen.queryByText("P(feasible)")).toBeNull();
+    expect(screen.getByText(/P\(feasible\): n\/a for every proposal, the batch was not feasibility-gated \(engine: auc too low\)/)).toBeTruthy();
   });
 
   it("shows the model sigma, labeled uncalibrated, when the engine sent no band", () => {
@@ -204,5 +206,22 @@ describe("<BatchIntervalStrip>", () => {
     draw(model(), { warning: "Not yet reliable: treat these as exploration, not forecasts." });
     expect(screen.getByText(/Not yet reliable/)).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /^P1/ }).length).toBe(1);
+  });
+
+  it("labels per-proposal bands with their coverage and method, and adds the model-based chance column", () => {
+    const per = model({
+      interval_levels: [0.9],
+      interval_method: { method: "conformal_normalized", levels: [{ coverage: 0.9, available: true }] },
+      proposals: base.proposals.map((p) => ({
+        ...p,
+        intervals: [{ coverage: 0.9, method: "conformal_normalized", available: true, lo: p.pred - 0.1, hi: p.pred + 0.2 }],
+        p_improve: { value: 0.62, method: "gp_posterior_cdf", incumbent: 1.61, incumbent_basis: "best_measured_single", maximize: true, basis: "model" },
+        expected_improvement: { value: 0.031, method: "analytic_ei_gp_posterior", incumbent: 1.61, incumbent_basis: "best_measured_single", maximize: true, basis: "model" },
+      })),
+    });
+    draw(per);
+    expect(screen.getByText("Predicted (90% band: held-out conformal, scaled per recipe; approximate coverage)")).toBeTruthy();
+    expect(screen.getByText("Chance to beat it")).toBeTruthy();
+    expect(screen.getAllByText("62%").length).toBe(2);
   });
 });

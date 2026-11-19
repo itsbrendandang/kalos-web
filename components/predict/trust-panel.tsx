@@ -11,7 +11,9 @@ import { CalibrationPlot } from "@/components/viz/charts/calibration-plot";
 import { ParityPlot } from "@/components/viz/charts/parity-plot";
 import { ReliabilityScorecard } from "@/components/viz/charts/reliability-scorecard";
 import { BasisGlyph, SourceButton } from "@/components/viz/num";
-import { formatCorr, formatValue, parseUnit } from "@/lib/num";
+import { targetName as targetNameOf } from "@/components/campaign/target";
+import { targetUnitOf } from "@/lib/api";
+import { formatCorr, formatValue } from "@/lib/num";
 import { sourceFromAnalysis } from "@/lib/source";
 import { cn } from "@/lib/utils";
 import { toCalibration } from "@/lib/viz-data/calibration-plot";
@@ -39,7 +41,8 @@ export function TrustPanel({ d, calloutTaken = false, stale = null }: { d: Predi
   const promotion = promotionView(d.promotion);
   const unmodeled = (rel?.unmodeled ?? []).filter(Boolean);
   const advice = rel?.space_filling_advice ?? null;
-  const { name: targetName, unit } = parseUnit(d.target);
+  const targetName = targetNameOf(d.target);
+  const unit = targetUnitOf(d);
   const relSource = sourceFromAnalysis(d, "reliability.spearman, cv_ci95, reliability.spearman_floor", "derived", "grouped cross-validation, Spearman ρ");
   const rho = formatCorr(verdict.rho, verdict.ci);
   const count = (n: number) => formatValue(n, { quantity: "count" }).text;
@@ -95,6 +98,7 @@ export function TrustPanel({ d, calloutTaken = false, stale = null }: { d: Predi
         <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-border pt-5 @3xl:grid-cols-2">
           <ParityPlot
             data={parity}
+            perProposal={Array.isArray(d.interval_levels) && d.interval_levels.length > 0}
             target={targetName}
             unit={unit}
             stale={stale}

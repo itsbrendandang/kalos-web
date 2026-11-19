@@ -81,7 +81,7 @@ describe("text", () => {
   it("describes sigma when the engine sent it", () => {
     const sd = model.z.map((r) => r.map((_, j) => 0.1 + j * 0.05));
     const s = describeSurfacePair(toSurfacePair({ ...model, std: sd }), "titer");
-    expect(s).toContain("Model uncertainty (σ) runs from 0.10 to 0.30.");
+    expect(s).toContain("not an interval) runs from 0.10 to 0.30.");
   });
   it("tabulates the grid in long form, sigma column only when sent", () => {
     const t = surfaceTable(toSurfacePair(model));

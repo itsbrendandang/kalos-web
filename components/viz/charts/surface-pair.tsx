@@ -26,6 +26,8 @@ import {
   FLAT_NOTE,
   NO_SD_NOTE,
   RUNS_CAVEAT,
+  SD_NOTE,
+  sdKindText,
   bandLabels,
   bandStep,
   bandThresholds,
@@ -172,7 +174,7 @@ function Panels(props: SurfacePairProps & { width: number; unit: string | null }
       content: (
         <div className="flex flex-col gap-1">
           <TipRow label="Predicted mean">{fmtMean(mean[c.row][c.col], s, unit)}</TipRow>
-          {s != null ? <TipRow label="Model σ">{fmtSd(s, unit)}</TipRow> : <TipRow label="Model σ">Not scored</TipRow>}
+          {s != null ? <TipRow label={`Model σ (${SD_NOTE})`}>{fmtSd(s, unit)}</TipRow> : <TipRow label="Model σ">Not scored</TipRow>}
           <TipRow label={x.name}>{fmtAxis(x, x.values[c.col])}</TipRow>
           <TipRow label={y.name}>{fmtAxis(y, y.values[c.row])}</TipRow>
           <TipSource>
@@ -251,7 +253,7 @@ function Panel(p: PanelProps) {
   const yTicks = (ys as unknown as { ticks: (n: number) => number[] }).ticks(5);
   const interactive = !p.static;
   const focusable = interactive && p.proposals.length <= MAX_FOCUSABLE_MARKS;
-  const title = kind === "mean" ? `Predicted mean${unit ? ` (${unit})` : ""}` : `Model uncertainty (σ${unit ? `, ${unit}` : ""})`;
+  const title = kind === "mean" ? `Predicted mean${unit ? ` (${unit})` : ""}` : `Model uncertainty (σ${unit ? `, ${unit}` : ""}), not an interval`;
 
   const cellFromEvent = (e: MouseEvent<SVGRectElement>): Cell => {
     const rect = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
@@ -297,6 +299,7 @@ function Panel(p: PanelProps) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <p className="text-label text-fg">{title}</p>
+      {kind === "sd" ? <p className="-mt-1.5 text-caption text-fg-muted">Grey: {sdKindText(p.sdKind)}. A model σ, not held-out calibrated and not a coverage band.</p> : null}
       <div className="relative">
         <svg width={pw} height={ph} role="group" aria-label={`${title}: filled contour map over ${x.name} and ${y.name}`} className="block">
           <defs>

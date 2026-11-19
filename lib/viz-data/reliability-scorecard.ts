@@ -223,11 +223,24 @@ function baselineText(gm: NonNullable<ScorecardInput["cv_group_mean_baseline"]>)
 /** A rho as "ρ 0.71 [0.59, 0.79] 95% CI" (CI only when the engine sent one). */
 export const rhoText = (r: Pick<ScoreRow, "rho" | "ci">): string => formatCorr(r.rho, r.ci).text;
 
-export function topkText(t: ScorecardData["topk"]): string | null {
+/** "Top-5 caught" for a scored top-k, "Top-k caught" when the engine declined it. */
+export function topkLabel(t: ScorecardData["topk"]): string {
+  return t && !("kind" in t) ? `Top-${formatValue(t.k, { quantity: "count" }).text} caught` : "Top-k caught";
+}
+
+/** "4 of 5 (n = 165)": of the true top-k held-out recipes, how many the model's top-k caught; or "Not scored: <reason>". */
+export function topkValue(t: ScorecardData["topk"]): string | null {
   if (!t) return null;
   if ("kind" in t) return `${formatState(t).text}: ${t.reason}`;
   const c = (v: number) => formatValue(v, { quantity: "count" }).text;
-  return `${c(t.hits)} of the true top ${c(t.k)} caught by the model's top ${c(t.k)} (n = ${c(t.n)})`;
+  return `${c(t.hits)} of ${c(t.k)} (n = ${c(t.n)})`;
+}
+
+/** "Top-5 caught: 4 of 5 (n = 165)" or "Not scored: <engine reason>". */
+export function topkText(t: ScorecardData["topk"]): string | null {
+  if (!t) return null;
+  if ("kind" in t) return topkValue(t);
+  return `${topkLabel(t)}: ${topkValue(t)}`;
 }
 
 /** The plain-language description (also the chart's aria-label). */
@@ -244,7 +257,7 @@ export function describeScorecard(s: ScorecardData): string {
   parts.push(s.floor != null ? `Trust floor ${formatCorr(s.floor).value}.` : "No trust floor reported.");
   for (const r of s.unscored) parts.push(`${r.label}: ${formatState(r.state).text}${r.state.kind === "not-scored" ? `, ${r.state.reason}` : ""}.`);
   const tk = topkText(s.topk);
-  if (tk) parts.push(`Top-k: ${tk}.`);
+  if (tk) parts.push(s.topk && "kind" in s.topk ? `Top-k caught: ${tk}.` : `${tk}.`);
   if (s.promotion) parts.push(`Promotion gates ${s.promotion.passed ? "passed" : "not passed"}: ${s.promotion.nPassed} of ${s.promotion.judged} passed.`);
   return parts.join(" ");
 }

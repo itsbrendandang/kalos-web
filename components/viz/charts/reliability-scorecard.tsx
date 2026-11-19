@@ -8,7 +8,7 @@ import { SourceButton } from "@/components/viz/num";
 import { ChartTooltip, TipRow, TipSource, useChartTip } from "@/components/viz/tooltip";
 import { formatCorr, formatState, formatValue, type NumState } from "@/lib/num";
 import type { Source } from "@/lib/source";
-import { describeScorecard, rhoText, scorecardTable, sourceFooter, topkText, type ScoreRow, type ScorecardData } from "@/lib/viz-data/reliability-scorecard";
+import { describeScorecard, rhoText, scorecardTable, sourceFooter, topkLabel, topkText, topkValue, type ScoreRow, type ScorecardData } from "@/lib/viz-data/reliability-scorecard";
 
 const FIELD: Record<ScoreRow["key"], string> = {
   cv: "cv_spearman, cv_ci95, cv_spearman_per_repeat",
@@ -75,11 +75,14 @@ export function ReliabilityScorecard({
                 <StateLine key={r.key} label={r.label} state={r.state} />
               ))}
               {data.topk && "kind" in data.topk ? (
-                <StateLine label="Top-k recipes" state={data.topk} />
+                <StateLine label={topkLabel(data.topk)} state={data.topk} />
               ) : tk ? (
                 <li className="grid gap-x-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
-                  <span className="text-fg">Top-k recipes</span>
-                  <span className="tabular-nums text-fg-muted">{tk}</span>
+                  <span className="text-fg">{topkLabel(data.topk)}</span>
+                  <span className="tabular-nums text-fg-muted">
+                    {topkValue(data.topk)}
+                    <span className="block text-caption">of the true top held-out recipes, how many the model&apos;s own top picks caught</span>
+                  </span>
                 </li>
               ) : null}
               {data.repeatCaption ? <li className="text-caption text-fg-muted">{data.repeatCaption}</li> : null}

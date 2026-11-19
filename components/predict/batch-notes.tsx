@@ -5,7 +5,7 @@ import { dataNotes, diversitySummary, groupFlags, type ObservedRange, type Recip
 import { constraintNote, type DesignBoxExclusion } from "@/lib/api";
 import { formatSetting, formatValue } from "@/lib/num";
 import { cn } from "@/lib/utils";
-import type { PredictAnalysis } from "@/components/predict/predict-view";
+import type { PredictAnalysis, SetupNotes } from "@/components/predict/predict-view";
 
 /**
  * "Before you start": what the engine said about how this batch was made
@@ -21,6 +21,8 @@ export function BatchNotes({
   checkedInputs,
   uncheckedInputs,
   hasRows,
+  setup,
+  bandMode = "global",
 }: {
   d: PredictAnalysis;
   flags: { rank: number; flags: RecipeFlag[] }[];
@@ -28,6 +30,10 @@ export function BatchNotes({
   checkedInputs: string[];
   uncheckedInputs: string[];
   hasRows: boolean;
+  /** How the campaign setup was applied (goal, warnings), from setupNotes(d). */
+  setup?: SetupNotes;
+  /** Which band the batch shows: per-proposal intervals, the global conformal band, or none. */
+  bandMode?: "per-proposal" | "global" | "none";
 }) {
   const grouped = groupFlags(flags);
   const diversity = diversitySummary(d.batch_diversity, d.proposal_notice);
@@ -36,7 +42,7 @@ export function BatchNotes({
   const gating = d.proposal_gating;
   const pending = d.n_pending_considered;
   const data = dataNotes(d);
-  const band = d.conformal_q ?? null;
+  const noBand = bandMode === "none" || (bandMode === "global" && (d.conformal_q ?? null) == null);
 
   return (
     <div className="flex flex-col gap-5">
@@ -66,7 +72,7 @@ export function BatchNotes({
             </Note>
           ))}
           {grouped.length === 0 && hasRows ? <Note tone="good">No proposal was flagged by the checks that could run.</Note> : null}
-          {diversity ? (
+          {setup?.refused ? null : diversity ? (
             <Note tone={diversity.short ? "warn" : "neutral"} detail={diversity.notes.join(" ")}>
               {diversity.headline}
             </Note>
@@ -97,7 +103,17 @@ export function BatchNotes({
           ) : uncheckedInputs.length ? (
             <Note tone="neutral">The engine returned no ranges for {uncheckedInputs.join(", ")}, so no edge-of-range checks were run.</Note>
           ) : null}
-          {band == null && hasRows ? <Note tone="neutral">The engine reported no prediction band, so predicted gains are shown without an interval and not checked against one.</Note> : null}
+          {setup?.goal === "minimize" ? (
+            <Note tone="neutral">
+              The campaign goal is to minimize {d.target}: the incumbent is the lowest measured value, and every predicted gain is the best minus the prediction.
+            </Note>
+          ) : null}
+          {setup?.notes.map((n) => (
+            <Note key={n.key} tone="neutral" detail={n.detail ?? undefined}>
+              {n.text}
+            </Note>
+          ))}
+          {noBand && hasRows ? <Note tone="neutral">The engine reported no prediction band, so predicted gains are shown without an interval and not checked against one.</Note> : null}
           {constraint ? <Note tone="neutral">{constraint}</Note> : null}
           {boxNote ? <Note tone="neutral">{boxNote}</Note> : null}
         </ul>

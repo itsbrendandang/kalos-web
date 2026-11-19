@@ -18,6 +18,9 @@ export type SurfaceModel = {
   z: number[][];
   /** The engine's posterior SD on the same grid, or null when it did not send a complete one. */
   std: number[][] | null;
+  /** What `std` is (`std_kind`, e.g. "gp_posterior_sd") and of what (`std_basis`, e.g. "latent_mean"), when reported. */
+  stdKind: string | null;
+  stdBasis: string | null;
   zMin: number;
   zMax: number;
   /** Measured runs as [x, y, target], only those with finite numbers. */
@@ -35,6 +38,7 @@ export type SurfaceModel = {
 type Surface = NonNullable<PopulatedResult["response_surface"]>;
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 
 function strictlyMonotonic(vals: number[]): boolean {
   if (vals.length < 2) return false;
@@ -103,6 +107,8 @@ export function parseSurface(raw: unknown): SurfaceModel | null {
     y: { name: rs.y_feature, vals: yVals },
     z,
     std,
+    stdKind: std ? str((raw as Record<string, unknown>).std_kind) : null,
+    stdBasis: std ? str((raw as Record<string, unknown>).std_basis) : null,
     zMin,
     zMax,
     runs,

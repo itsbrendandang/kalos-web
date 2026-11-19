@@ -171,6 +171,14 @@ export type FlagContext = {
    * low-feasibility flag is raised from it. Undefined (field absent) keeps the flag.
    */
   feasibilityGated?: boolean | null;
+  /**
+   * This recipe's own band at the chosen coverage (per-proposal intervals),
+   * when the engine issued one. Wins over `band`; null means the row has no
+   * band (refused or not sent), so no band check runs.
+   */
+  interval?: { lo: number; hi: number; coverage: number | null } | null;
+  /** Optimization direction (absent = maximize). Gains are taken in this direction. */
+  goal?: "maximize" | "minimize";
 };
 
 const num = (v: number, uncertainty?: number | null) => formatValue(v, { uncertainty: uncertainty ?? null }).text;
@@ -215,9 +223,24 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   if (edge.length) {
     flags.push({ kind: "at-edge", label: `At edge: ${listNames(edge)}`, detail: `${listNames(edge)} ${edge.length === 1 ? "sits" : "sit"} at the edge of the range tried so far, where the model has data on one side only.` });
   }
-  const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
-  if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${num(gain, ctx.band)}, which is less than the prediction band's half-width of ±${num(ctx.band)}, so the band also reaches below the best.` });
+  const min = ctx.goal === "minimize";
+  const gain = ctx.incumbent == null ? null : min ? ctx.incumbent - p.pred : p.pred - ctx.incumbent;
+  if (gain != null && gain > 0 && ctx.incumbent != null) {
+    if (ctx.interval !== undefined) {
+      const iv = ctx.interval;
+      // Exact comparison with the engine's own bounds: the band reaches past the incumbent on the losing side.
+      if (iv && (min ? iv.hi > ctx.incumbent : iv.lo < ctx.incumbent)) {
+        const cov = coverageText(iv.coverage);
+        const u = Math.min(p.pred - iv.lo, iv.hi - p.pred);
+        flags.push({
+          kind: "gain-within-band",
+          label: "Gain within band",
+          detail: `Predicted to beat the best by ${num(gain, u > 0 ? u : null)}, but its ${cov ? `${cov} ` : ""}band also reaches ${min ? "above" : "below"} the best.`,
+        });
+      }
+    } else if (ctx.band != null && ctx.band > gain) {
+      flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${num(gain, ctx.band)}, which is less than the prediction band's half-width of ±${num(ctx.band)}, so the band also reaches ${min ? "above" : "below"} the best.` });
+    }
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
@@ -232,7 +255,7 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
     constraint: "predicted below the requested constraint floor",
     "outside-range": "an input outside the range tried so far",
     "at-edge": "an input at the edge of the range tried so far",
-    "gain-within-band": "predicted gain smaller than the band's half-width",
+    "gain-within-band": "a band that reaches past the best on the losing side, so the predicted gain is not certain",
   };
   return FLAG_ORDER.filter((k) => by.has(k)).map((kind) => ({ kind, ranks: by.get(kind)!, label: label[kind] }));
 }

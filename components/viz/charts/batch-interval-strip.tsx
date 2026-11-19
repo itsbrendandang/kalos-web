@@ -11,14 +11,26 @@ import { ChartTooltip, TipRow, TipSource, useChartTip } from "@/components/viz/t
 import { formatValue } from "@/lib/num";
 import type { Source } from "@/lib/source";
 import { cn } from "@/lib/utils";
+import { coverageText } from "@/lib/num";
 import {
+  MODEL_BASED,
+  bandLegend,
+  bandName,
+  bandStateText,
   batchStripTable,
-  coverageLabel,
+  chanceLabel,
+  chanceText,
   describeBatchStrip,
+  distanceText,
+  eiText,
   feasibilityText,
   gainFormatted,
+  hasBandMode,
+  improvementIncumbent,
+  levelRefusal,
   measuredFormatted,
   predFormatted,
+  quantilesText,
   sigmaText,
   type BatchStripModel,
   type BatchStripRow,
@@ -28,12 +40,15 @@ import { MAX_FOCUSABLE_MARKS } from "@/lib/viz-thresholds";
 /*
  * C2 BatchIntervalStrip (VIZ_SPEC 5): the proposed batch as a forest. Each row
  * is one proposal in the engine's order: a hollow predicted ring with the
- * engine's held-out band as an interval bar, against the dotted incumbent
- * rule. Aligned columns give the predicted gain (band shifted by the same
- * amount), p_feasible only when the engine gated on it, and the measured
- * result of a started run of the same recipe (filled ink, on top). Mode is a
- * word, never a color. Hovering or focusing a row highlights the same
- * proposal in the setpoint matrix (`onHighlight`).
+ * engine's held-out band at the chosen coverage as an interval bar (none where
+ * the engine refused that level), against the dotted incumbent rule. Aligned
+ * columns give the predicted gain in the goal direction (band shifted by the
+ * same amount), the model-based chance to beat the incumbent, p_feasible only
+ * when the engine gated on it, and the measured result of a started run of the
+ * same recipe (filled ink, on top). EI, quantiles, the GP band and the
+ * distance to the nearest measured run are in each row's tooltip and the Data
+ * table. Mode is a word, never a color. Hovering or focusing a row highlights
+ * the same proposal in the setpoint matrix (`onHighlight`).
  */
 
 const ROW = 40;
@@ -43,6 +58,7 @@ const HEAD = 36;
 const LABEL_W = 96;
 const GAIN_W = 184;
 const FEAS_W = 84;
+const CHANCE_W = 112;
 const MEAS_W = 168;
 
 export function BatchIntervalStrip({
@@ -68,13 +84,16 @@ export function BatchIntervalStrip({
   width?: number;
 }) {
   const n = model.rows.length;
-  const band = model.halfWidth != null;
+  const refused = levelRefusal(model);
+  const band = hasBandMode(model) && !refused;
   const inc = model.incumbent;
   const anyAwaiting = model.rows.some((r) => r.run?.awaiting && r.run.result == null);
   const table = batchStripTable(model);
   const legend = (
     <>
-      <LegendItem mark="predicted">Predicted{band ? ` (${coverageLabel(model.coverage)})` : " (no interval reported)"}</LegendItem>
+      <LegendItem mark="predicted">
+        Predicted{band ? ` (${bandLegend(model)})` : refused ? ` (no band: the engine refused the ${coverageText(refused.coverage)} level)` : " (no interval reported)"}
+      </LegendItem>
       {model.hasRuns ? <LegendItem mark="measured">Measured result of the started run</LegendItem> : null}
       {anyAwaiting ? <LegendItem mark="pending">Started, awaiting result</LegendItem> : null}
       {inc ? <LegendItem mark="reference">{inc.label}</LegendItem> : null}
@@ -83,7 +102,7 @@ export function BatchIntervalStrip({
   return (
     <ChartFrame
       title="What each proposal is predicted to give"
-      subtitle={`Predicted ${model.target}${model.unit ? ` (${model.unit})` : ""} in the engine's order${band ? `, with the ${coverageLabel(model.coverage)} as a bar` : ""}${inc ? `, against the ${inc.label} (dotted)` : ""}. Mode is the engine's word for why it proposed each.`}
+      subtitle={`Predicted ${model.target}${model.unit ? ` (${model.unit})` : ""} in the engine's order${band ? `, with the ${bandName(model)} as a bar` : ""}${inc ? `, against the ${inc.label} (dotted)` : ""}${model.goal === "minimize" ? "; the goal is to minimize, so lower is better" : ""}. Mode is the engine's word for why it proposed each.`}
       state={n === 0 ? { kind: "empty", text: emptyText ?? "The engine proposed no recipes for this analysis." } : { kind: "ready" }}
       stale={stale}
       legend={legend}
@@ -115,7 +134,9 @@ function Strip({
 }) {
   const { tip, markProps, close } = useChartTip();
   const compact = w < 600;
-  const sideW = compact ? 0 : GAIN_W + FEAS_W + (model.hasRuns ? MEAS_W : 0);
+  const showFeas = model.gating === "gated";
+  const showChance = model.hasImprovement && w >= 760;
+  const sideW = compact ? 0 : GAIN_W + (showChance ? CHANCE_W : 0) + (showFeas ? FEAS_W : 0) + (model.hasRuns ? MEAS_W : 0);
   const labelW = w < 440 ? 84 : LABEL_W;
   const plotW = Math.max(80, w - labelW - sideW);
   const rows = model.rows;
@@ -128,7 +149,11 @@ function Strip({
   const incF = inc ? formatValue(inc.value, { basis: "measured", unit: model.unit }) : null;
   const rowY = (i: number) => TOP + i * ROW + ROW / 2;
   const focusable = rows.length <= MAX_FOCUSABLE_MARKS;
-  const cols = compact ? `${labelW}px ${plotW}px` : `${labelW}px ${plotW}px ${GAIN_W}px ${FEAS_W}px${model.hasRuns ? ` ${MEAS_W}px` : ""}`;
+  const cols = compact
+    ? `${labelW}px ${plotW}px`
+    : `${labelW}px ${plotW}px ${GAIN_W}px${showChance ? ` ${CHANCE_W}px` : ""}${showFeas ? ` ${FEAS_W}px` : ""}${model.hasRuns ? ` ${MEAS_W}px` : ""}`;
+  const chance = chanceLabel(rows.find((r) => r.pImprove)?.pImprove ?? null, model.goal);
+  const chanceInc = improvementIncumbent(rows.find((r) => r.pImprove)?.pImprove ?? null, null);
   const enter = (key: string | null) => onHighlight?.(key);
 
   return (
@@ -148,10 +173,19 @@ function Strip({
           {!compact ? (
             <>
               <span className="flex flex-col justify-end pb-1 pl-3 leading-4">
-                <span>Predicted gain{model.unit ? ` (${model.unit})` : ""}</span>
+                <span>
+                  Predicted gain{model.unit ? ` (${model.unit})` : ""}
+                  {model.goal === "minimize" ? ", best − predicted" : ""}
+                </span>
                 <span className="truncate">{inc && incF ? `vs ${inc.label} ${incF.value}` : "no incumbent to compare"}</span>
               </span>
-              <span className="self-end pb-1 pl-3">P(feasible)</span>
+              {showChance ? (
+                <span className="flex flex-col justify-end pb-1 pl-3 leading-4" title={`${MODEL_BASED}. Compared with the ${chanceInc ?? "incumbent"}.`}>
+                  <span>{chance} it</span>
+                  <span className="truncate">model-based</span>
+                </span>
+              ) : null}
+              {showFeas ? <span className="self-end pb-1 pl-3">P(feasible)</span> : null}
               {model.hasRuns ? <span className="self-end pb-1 pl-3">Measured{model.unit ? ` (${model.unit})` : ""}</span> : null}
             </>
           ) : null}
@@ -254,6 +288,16 @@ function Strip({
                   </Cell>
                 ))}
               </div>
+              {showChance ? (
+                <div className="flex flex-col" style={{ paddingTop: TOP }}>
+                  {rows.map((r) => (
+                    <Cell key={r.key} on={highlight === r.key} onEnter={() => enter(r.key)}>
+                      <span className="tabular-nums text-fg">{chanceText(r)}</span>
+                    </Cell>
+                  ))}
+                </div>
+              ) : null}
+              {showFeas ? (
               <div className="flex flex-col" style={{ paddingTop: TOP }}>
                 {rows.map((r) => (
                   <Cell key={r.key} on={highlight === r.key} onEnter={() => enter(r.key)}>
@@ -267,6 +311,7 @@ function Strip({
                   </Cell>
                 ))}
               </div>
+              ) : null}
               {model.hasRuns ? (
                 <div className="flex flex-col" style={{ paddingTop: TOP }}>
                   {rows.map((r) => (
@@ -281,6 +326,12 @@ function Strip({
         </div>
         <ChartTooltip tip={tip} onClose={close} width={w} />
       </div>
+      {!compact && !showFeas && rows.length ? (
+        <p className="text-caption text-fg-muted">
+          P(feasible): n/a for every proposal, {model.gating === "ungated" ? "the batch was not feasibility-gated" : "the engine did not report feasibility gating"}
+          {model.gatingReason ? ` (engine: ${model.gatingReason})` : ""}.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -342,14 +393,31 @@ function RowTip({ r, model, source }: { r: BatchStripRow; model: BatchStripModel
         {p.value}
         {p.unit ? `\u00A0${p.unit}` : ""}
       </TipRow>
-      <TipRow label={p.interval ? coverageLabel(model.coverage) : "Interval"}>{p.interval ?? "no interval reported"}</TipRow>
+      <TipRow label={p.interval ? bandName(model) : "Interval"}>{p.interval ?? (bandStateText(r) ?? "no interval reported")}</TipRow>
+      {r.interval.kind === "refused" && r.interval.fix ? <p className="text-fg-muted">What would fix it: {r.interval.fix}</p> : null}
       <TipRow label="Model σ">{formatValue(r.sigma, { unit: model.unit }).text}</TipRow>
       {g && model.incumbent ? (
-        <TipRow label={`Gain vs ${model.incumbent.label}`}>
+        <TipRow label={`Gain vs ${model.incumbent.label}${model.goal === "minimize" ? " (best − predicted)" : ""}`}>
           {g.value} {g.interval ?? "(interval n/a)"}
         </TipRow>
       ) : null}
-      <TipRow label="P(feasible)">{r.feasibility.state === "value" ? feasibilityText(r.feasibility) : `n/a: ${r.feasibility.reason}`}</TipRow>
+      {model.gating === "gated" ? <TipRow label="P(feasible)">{r.feasibility.state === "value" ? feasibilityText(r.feasibility) : `n/a: ${r.feasibility.reason}`}</TipRow> : null}
+      {r.pImprove || r.ei || r.quantiles ? (
+        <div className="mt-1 flex flex-col gap-1 border-t border-border pt-1">
+          <p className="text-fg-muted">Model-based (GP posterior), not held-out calibrated{r.pImprove ? `, vs the ${improvementIncumbent(r.pImprove, model.unit)}` : ""}:</p>
+          {r.pImprove ? <TipRow label={chanceLabel(r.pImprove, model.goal)}>{chanceText(r)}</TipRow> : null}
+          {r.ei ? <TipRow label="Expected improvement">{eiText(r, model.unit)}</TipRow> : null}
+          {r.quantiles ? <TipRow label="Quantiles">{quantilesText(r.quantiles, model.unit) ?? "n/a"}</TipRow> : null}
+        </div>
+      ) : null}
+      {r.nnDistance != null ? (
+        <TipRow label="Nearest measured run">
+          {(() => {
+            const dt = distanceText(r.nnDistance, model.nnMedian);
+            return dt.ratio ? `${dt.value} (${dt.ratio})` : dt.value;
+          })()}
+        </TipRow>
+      ) : null}
       {r.edge.length ? <TipRow label="At range edge">{r.edge.join(", ")}</TipRow> : null}
       {source ? (
         <TipSource>

@@ -210,3 +210,74 @@ export function alternativeScaleNote(alt: Diagnostics["alternative_scale"] | nul
   if (alt.cv_spearman == null) return alt.reason ?? alt.interpretation ?? "Not scored.";
   return `On a ${alt.scale ?? "transformed"} scale: ${formatCorr(alt.cv_spearman, alt.cv_ci95).text}.${alt.interpretation ? ` ${alt.interpretation}` : ""}`;
 }
+
+// --- Setup (goal, bounds, constraints) and target unit ----------------------------
+
+export type SetupRefusalView = { code: string | null; reason: string; fix: string | null };
+
+export type SetupNotes = {
+  goal: "maximize" | "minimize";
+  /** The setup could not be honoured: no proposals, with the engine's reason and fix. */
+  refused: SetupRefusalView | null;
+  /** Quiet notes about how the setup was applied (bound clipped to the data, proposals dropped). */
+  notes: { key: string; text: string; detail: string | null }[];
+};
+
+const fmtRange = (r: [number, number] | null | undefined): string | null =>
+  r && Number.isFinite(r[0]) && Number.isFinite(r[1]) ? `${formatValue(r[0], { quantity: "setting" }).text} to ${formatValue(r[1], { quantity: "setting" }).text}` : null;
+
+/**
+ * What the engine said about the campaign setup on this analysis (`goal`,
+ * `setup`, `proposal_notice`), in plain words. The refusal (setup.status
+ * "refused", proposal_notice "setup_not_applied") carries the engine's reason
+ * and fix; warnings are quiet notes. Nothing is inferred when the fields are absent.
+ */
+export function setupNotes(d: Pick<PredictAnalysis, "goal" | "setup" | "proposal_notice">): SetupNotes {
+  const s = d.setup ?? null;
+  const goal = (d.goal ?? s?.goal) === "minimize" ? "minimize" : "maximize";
+  const notice = d.proposal_notice as ({ code?: string; message?: string; reason?: string } & Record<string, unknown>) | null | undefined;
+  let refused: SetupRefusalView | null = null;
+  if (s?.status === "refused" || notice?.code === "setup_not_applied") {
+    const r = s?.refusal ?? null;
+    refused = {
+      code: r?.code ?? notice?.code ?? null,
+      reason: r?.reason ?? r?.message ?? notice?.reason ?? notice?.message ?? "The engine could not apply the campaign setup, so it proposed no experiments.",
+      fix: r?.what_would_fix_it ?? (typeof notice?.what_would_fix_it === "string" ? notice.what_would_fix_it : null),
+    };
+  }
+  const notes: SetupNotes["notes"] = [];
+  for (const w of s?.warnings ?? []) {
+    if (w.code === "bound_extrapolates" && w.feature) {
+      const b = s?.bounds_applied?.[w.feature];
+      const applied = fmtRange(b?.applied ?? null);
+      notes.push({
+        key: `${w.code}-${w.feature}`,
+        text: `The bound set for ${w.feature} reaches past the measured data, so the search uses ${applied ? `${applied}, ` : ""}its overlap with the measured range. Kalos does not extrapolate.`,
+        detail: w.message || null,
+      });
+    } else if (w.code === "gp_shapes_swept_at_highest_run") {
+      notes.push({
+        key: w.code,
+        text: "The model-shape summary sweeps each input through the highest measured run; with the goal to minimize, read its dips (interior minima) as the candidate optima.",
+        detail: w.message || null,
+      });
+    } else {
+      notes.push({ key: `${w.code}-${w.feature ?? ""}`, text: `Setup note${w.feature ? ` for ${w.feature}` : ""}: ${w.code.replace(/_/g, " ")}.`, detail: w.message || null });
+    }
+  }
+  const dropped = s?.n_proposals_dropped ?? 0;
+  if (dropped > 0) {
+    notes.push({ key: "dropped", text: `${plural(dropped, "proposal")} ${dropped === 1 ? "was" : "were"} dropped for breaking the setup's bounds or constraints.`, detail: null });
+  }
+  return { goal, refused, notes };
+}
+
+/**
+ * A quiet hint when the engine found no unit for the target
+ * (`target_unit.source === "none"`); null otherwise (a unit is shown, or the
+ * analysis predates the field).
+ */
+export function unitHint(d: Pick<PredictAnalysis, "target" | "target_unit">): string | null {
+  if (d.target_unit?.source !== "none") return null;
+  return `No unit is shown for ${d.target}: its column header names none. You can set one in the campaign setup.`;
+}

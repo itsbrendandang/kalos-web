@@ -2,12 +2,13 @@
 
 import type { ReactNode, Ref } from "react";
 import { X } from "lucide-react";
-import { gainOf, ModeText, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
-import { BAND_CAVEAT, bandLabel, compareRecipes, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
+import { bandHeader, gainOf, ModeText, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
+import { BAND_CAVEAT, compareRecipes, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { BasisGlyph } from "@/components/viz/num";
 import { formatValue } from "@/lib/num";
 import { cn } from "@/lib/utils";
+import { MODEL_BASED, PER_PROPOSAL_METHOD, chanceLabel, chanceText, distanceText, eiText } from "@/lib/viz-data/batch-interval-strip";
 
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
@@ -42,7 +43,17 @@ export function Comparison({
   const nDiff = diff.filter((d) => d.differs).length;
   const outcome: Line[] = [
     { key: "pred", label: <><BasisGlyph basis="predicted" /> Predicted {ctx.target}{ctx.unit ? ` (${ctx.unit})` : ""}</>, values: rows.map((r) => predOf(r, ctx).value), note: "model estimate, not a measurement" },
-    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => predOf(r, ctx).interval ?? "n/a (not reported)"), note: ctx.band != null ? `Same width for every proposal. ${BAND_CAVEAT}` : undefined },
+    {
+      key: "band",
+      label: bandHeader(ctx),
+      values: rows.map((r) => predOf(r, ctx).interval ?? (r.strip.interval.kind === "refused" ? "Refused" : "n/a (not reported)")),
+      note:
+        ctx.model.intervals.kind === "per-proposal"
+          ? `Each recipe's own band: ${PER_PROPOSAL_METHOD}.`
+          : ctx.model.intervals.kind === "global"
+            ? `Same width for every proposal. ${BAND_CAVEAT}`
+            : undefined,
+    },
     ...(ctx.incumbent != null
       ? [
           {
@@ -56,7 +67,33 @@ export function Comparison({
               const g = gainOf(r, ctx);
               return g ? `${g.value}${g.interval ? ` ${g.interval}` : ""}` : "n/a";
             }),
-            note: `predicted minus the ${ctx.incumbentLabel}, with the band shifted by the same amount`,
+            note:
+              ctx.model.goal === "minimize"
+                ? `the ${ctx.incumbentLabel} minus predicted (the goal is to minimize), with the band shifted by the same amount`
+                : `predicted minus the ${ctx.incumbentLabel}, with the band shifted by the same amount`,
+          },
+        ]
+      : []),
+    ...(ctx.model.hasImprovement
+      ? [
+          {
+            key: "chance",
+            label: `${chanceLabel(rows.find((r) => r.strip.pImprove)?.strip.pImprove ?? null, ctx.model.goal)} it, EI`,
+            values: rows.map((r) => `${chanceText(r.strip)}, EI ${eiText(r.strip, ctx.unit)}`),
+            note: MODEL_BASED,
+          },
+        ]
+      : []),
+    ...(rows.some((r) => r.strip.nnDistance != null)
+      ? [
+          {
+            key: "distance",
+            label: "Distance to nearest measured run",
+            values: rows.map((r) => {
+              const d = distanceText(r.strip.nnDistance, ctx.model.nnMedian);
+              return d.ratio ? `${d.value} (${d.ratio})` : d.value;
+            }),
+            note: "0 is a measured recipe; larger is further from the data",
           },
         ]
       : []),

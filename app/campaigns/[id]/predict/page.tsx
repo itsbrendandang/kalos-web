@@ -29,7 +29,8 @@ import {
 import { targetName } from "@/components/campaign/target";
 import { BatchNotes } from "@/components/predict/batch-notes";
 import { DriversSection } from "@/components/predict/drivers-section";
-import { predictHeadline, trustTone, type PredictAnalysis } from "@/components/predict/predict-view";
+import { BandChoice, SetupRefusal } from "@/components/predict/band-choice";
+import { predictHeadline, setupNotes, trustTone, unitHint, type PredictAnalysis } from "@/components/predict/predict-view";
 import { TrustPanel } from "@/components/predict/trust-panel";
 import { Callout } from "@/components/kit/callout";
 import { CycleStepper } from "@/components/kit/cycle-stepper";
@@ -43,15 +44,28 @@ import { EmptyState, ErrorState } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BatchIntervalStrip } from "@/components/viz/charts/batch-interval-strip";
 import { RecipeSetpointMatrix } from "@/components/viz/charts/recipe-setpoint-matrix";
+import { SliceProfiler } from "@/components/viz/charts/slice-profiler";
 import { SourceButton } from "@/components/viz/num";
 import { useCampaign, useCampaignId, useEngineWrites, useLastRejection, useLatest } from "@/hooks/use-engine";
-import { incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict, type Campaign, type CampaignRun } from "@/lib/api";
+import { incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict, targetUnitOf, type Campaign } from "@/lib/api";
 import { campaignStage, cycleSteps, type CampaignStage } from "@/lib/campaign-stage";
-import { formatValue, parseUnit } from "@/lib/num";
+import { formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
 import { sourceFromAnalysis } from "@/lib/source";
 import { cn } from "@/lib/utils";
-import { coverageLabel, toBatchStripModel } from "@/lib/viz-data/batch-interval-strip";
+import {
+  DISTANCE_METHOD,
+  MODEL_BASED,
+  PER_PROPOSAL_METHOD,
+  bandName,
+  coverageLabel,
+  distanceText,
+  goalGain,
+  improvementIncumbent,
+  toBatchStripModel,
+  type BatchStripModel,
+} from "@/lib/viz-data/batch-interval-strip";
+import { toSliceProfiler } from "@/lib/viz-data/slice-profiler";
 import { toSetpointMatrixModel, type RangeInput } from "@/lib/viz-data/recipe-setpoint-matrix";
 
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
@@ -238,8 +252,9 @@ function Started({ d, id, stage, round, active }: { d: PredictAnalysis; id: stri
         title="The batch these runs came from"
         description="The proposals as the engine made them, with the measured result of each started run once it is recorded. Rows without a started run were not started."
       >
-        <BatchCharts d={d} runs={active.pending} active={active} />
+        <StartedBatch d={d} active={active} />
       </Section>
+      <SliceDisclosure d={d} />
       <SurfaceDisclosure d={d} />
       <ProvenancePanel d={d} />
       <PredictSource d={d} />
@@ -276,29 +291,39 @@ function Batch({
   const [startedHere, setStartedHere] = useState(false);
 
   const name = targetName(d.target);
-  const unit = parseUnit(d.target).unit;
+  const unit = targetUnitOf(d);
   const incumbent = proposalIncumbent(d);
-  const band = d.conformal_q ?? null;
   const gated = d.proposal_gating ? d.proposal_gating.gated : null;
   const [highlight, setHighlight] = useState<string | null>(null);
+  // The chosen per-proposal band coverage (engine interval_levels); null = the engine's first level.
+  const [coverage, setCoverage] = useState<number | null>(null);
   const verdict = reliabilityVerdict(d);
   const ranges = useMemo(() => observedRanges(d), [d]);
   const diversity = diversitySummary(d.batch_diversity, d.proposal_notice);
+  const setup = useMemo(() => setupNotes(d), [d]);
+  const runs = active?.pending;
+  const strip = useMemo(() => toBatchStripModel(d, { target: name, unit, runs: runs ?? [], coverage }), [d, name, unit, runs, coverage]);
+  const band = strip.halfWidth;
+  const goal = strip.goal;
 
   const rows: PlanRow[] = useMemo(() => {
     const nonNegative = targetIsNonNegative(d.best, d.oof ?? []);
-    return engineBatch(d.proposals ?? [], incumbent).map((item) => {
+    return engineBatch(d.proposals ?? [], incumbent, goal).map((item) => {
       const recipe = proposalRecipe(item.proposal, d.proposal_features) as Record<string, SetpointValue>;
+      const sr = strip.rows[item.index];
+      const iv = sr.interval;
+      const interval = strip.intervals.kind === "per-proposal" ? (iv.kind === "value" ? { lo: iv.lo, hi: iv.hi, coverage: iv.coverage } : null) : undefined;
       return {
         item,
         id: `P${item.rank}`,
         recipe,
-        flags: recipeFlags(item.proposal, recipe, { incumbent, band, nonNegative, ranges, constraint: d.constraint, feasibilityGated: gated }),
+        flags: recipeFlags(item.proposal, recipe, { incumbent, band, nonNegative, ranges, constraint: d.constraint, feasibilityGated: gated, interval, goal }),
         checks: boundaryChecks(recipe, ranges),
-        gain: incumbent == null ? null : item.proposal.pred - incumbent,
+        gain: incumbent == null ? null : goalGain(item.proposal.pred, incumbent, goal),
+        strip: sr,
       };
     });
-  }, [d, incumbent, band, ranges, gated]);
+  }, [d, incumbent, band, ranges, gated, goal, strip]);
 
   const others = useMemo(() => [...new Set(rows.flatMap((r) => recipeKeys(d.proposal_features, r.recipe).other))].sort((a, b) => a.localeCompare(b)), [rows, d.proposal_features]);
   const ctx: PlanContext = {
@@ -308,13 +333,14 @@ function Batch({
     others,
     ranges,
     band,
-    coverage: d.conformal_coverage ?? null,
+    coverage: strip.coverage,
     incumbent,
     incumbentLabel: incumbentLabel(d),
     constraint: d.constraint,
     gated,
-    sourceFor: (r) => sourceFromAnalysis(d, `proposals[${r.item.index}].pred`, "predicted", band != null ? "held-out conformal band" : undefined),
+    sourceFor: (r) => sourceFromAnalysis(d, `proposals[${r.item.index}].pred`, "predicted", bandMethodOf(strip)),
     incumbentSource: sourceFromAnalysis(d, d.noise?.replicate_aware ? "noise.best_reproducible" : "best", "measured"),
+    model: strip,
   };
 
   const chosen = rows.filter((r) => !skipped.has(r.item.index));
@@ -429,6 +455,8 @@ function Batch({
         title="Proposed experiments"
         description={`Model-generated proposals for ${name}, in the order the engine proposed them. Untick any you will not run. Use Compare on ${COMPARE_MIN} to ${COMPARE_MAX} to see them side by side.`}
       >
+        {setup.refused ? <SetupRefusal refusal={setup.refused} id={id} /> : null}
+
         <BatchNotes
           d={d}
           flags={rows.map((r) => ({ rank: r.item.rank, flags: r.flags }))}
@@ -436,11 +464,18 @@ function Batch({
           checkedInputs={checkedInputs}
           uncheckedInputs={uncheckedInputs}
           hasRows={rows.length > 0}
+          setup={setup}
+          bandMode={strip.intervals.kind}
         />
 
-        {rows.length > 0 ? <BatchCharts d={d} runs={active?.pending ?? []} active={active} highlight={highlight} onHighlight={setHighlight} /> : null}
+        {rows.length > 0 ? (
+          <>
+            <BandChoice mode={strip.intervals} onChange={setCoverage} />
+            <BatchCharts d={d} strip={strip} active={active} highlight={highlight} onHighlight={setHighlight} />
+          </>
+        ) : null}
 
-        {rows.length === 0 ? (
+        {rows.length === 0 && setup.refused ? null : rows.length === 0 ? (
           <EmptyState
             title="The engine proposed no experiments"
             description={diversity?.short ? `${diversity.headline} ${diversity.notes.join(" ")}` : "This analysis returned an empty batch."}
@@ -490,12 +525,14 @@ function Batch({
         <p className="flex items-start gap-2 text-caption text-fg-muted">
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
-            Model-generated proposals. Predicted values{band != null ? " and bands" : ""} are the model&apos;s estimates from {count(d.n)} measured {d.n === 1 ? "run" : "runs"}, not
+            Model-generated proposals. Predicted values{strip.intervals.kind !== "none" ? " and bands" : ""} are the model&apos;s estimates from {count(d.n)} measured {d.n === 1 ? "run" : "runs"}, not
             results; how far the model ranks held-out runs correctly is under &ldquo;Can the model be trusted?&rdquo; above.
+            {unitHint(d) ? <span className="block">{unitHint(d)}</span> : null}
           </span>
         </p>
       </Section>
 
+      <SliceDisclosure d={d} rows={rows} />
       <SurfaceDisclosure d={d} rows={rows} />
       <ProvenancePanel d={d} />
       <PredictSource d={d} />
@@ -523,13 +560,14 @@ function Batch({
  */
 function BatchCharts({
   d,
-  runs,
+  strip,
   active,
   highlight: controlled,
   onHighlight,
 }: {
   d: PredictAnalysis;
-  runs: CampaignRun[];
+  /** The batch at the chosen coverage (toBatchStripModel), shared with the table so both show the same band. */
+  strip: BatchStripModel;
   active: ActiveCampaign | null;
   highlight?: string | null;
   onHighlight?: (key: string | null) => void;
@@ -537,10 +575,7 @@ function BatchCharts({
   const [own, setOwn] = useState<string | null>(null);
   const highlight = controlled !== undefined ? controlled : own;
   const setHighlight = onHighlight ?? setOwn;
-  const name = targetName(d.target);
-  const unit = parseUnit(d.target).unit;
   const ranges = useMemo(() => observedRanges(d), [d]);
-  const strip = useMemo(() => toBatchStripModel(d, { target: name, unit, runs }), [d, name, unit, runs]);
   const matrix = useMemo(() => {
     const proposals = (d.proposals ?? []).map((p, i) => ({ key: `P${i + 1}`, n: i + 1, values: proposalRecipe(p, d.proposal_features) as Record<string, number | string> }));
     const rangeInputs: Record<string, RangeInput> = Object.fromEntries(Object.entries(ranges).map(([k, r]: [string, ObservedRange]) => [k, { min: r.min, max: r.max, source: r.source, n: r.n }]));
@@ -549,10 +584,15 @@ function BatchCharts({
   const verdict = reliabilityVerdict(d);
   const nRecorded = active?.pending.filter((r) => r.result != null).length ?? 0;
   const stale = active?.analysis_in_sync === false ? { nNew: nRecorded, text: nRecorded > 0 ? undefined : "The campaign changed since this analysis. Re-analyze on Validate to update." } : null;
-  const src = sourceFromAnalysis(d, "proposals", "predicted", d.conformal_q != null ? "held-out conformal band" : undefined);
+  const src = sourceFromAnalysis(d, "proposals", "predicted", bandMethodOf(strip));
   const footer = (
     <span className="inline-flex flex-wrap items-center gap-x-1">
-      From: {src.label} · n = {count(d.n)} runs · {strip.halfWidth != null ? `${coverageLabel(strip.coverage)}, half-width ${formatValue(strip.halfWidth).text}` : "no held-out band reported"}
+      From: {src.label} · n = {count(d.n)} runs ·{" "}
+      {strip.intervals.kind === "per-proposal"
+        ? `${bandName(strip)} (proposals[].intervals)`
+        : strip.halfWidth != null
+          ? `${coverageLabel(strip.coverage)}, half-width ${formatValue(strip.halfWidth).text}`
+          : "no held-out band reported"}
       {d.engine_version ? ` · engine ${d.engine_version}` : ""}
       <SourceButton source={src} />
     </span>
@@ -565,18 +605,33 @@ function BatchCharts({
         model={strip}
         highlight={highlight}
         onHighlight={setHighlight}
-        sourceFor={(r) => sourceFromAnalysis(d, `proposals[${r.index}].pred`, "predicted", strip.halfWidth != null ? "held-out conformal band" : undefined)}
+        sourceFor={(r) => sourceFromAnalysis(d, `proposals[${r.index}].pred`, "predicted", bandMethodOf(strip))}
         stale={stale}
         warning={verdict.state !== "reliable" ? "Not yet reliable: treat these as exploration, not forecasts." : undefined}
         footer={footer}
       />
-      {strip.halfWidth != null ? (
+      {strip.intervals.kind === "per-proposal" ? (
         <p className="text-caption text-fg-muted">
-          {BAND_CAVEAT} The engine reports one band width for the whole batch. Explore proposals are chosen to learn; exploit proposals for a high predicted value. The engine&apos;s reason for each is under its details.
+          Each proposal has its own band ({PER_PROPOSAL_METHOD}). Explore proposals are chosen to learn; exploit proposals for a {strip.goal === "minimize" ? "low" : "high"} predicted value. The engine&apos;s reason for each is under its details.
+        </p>
+      ) : strip.halfWidth != null ? (
+        <p className="text-caption text-fg-muted">
+          {BAND_CAVEAT} The engine reports one band width for the whole batch. Explore proposals are chosen to learn; exploit proposals for a {strip.goal === "minimize" ? "low" : "high"} predicted value. The engine&apos;s reason for each is under its details.
         </p>
       ) : (
         <p className="text-caption text-fg-muted">The engine reported no prediction band, so predictions are shown without an interval and the model σ is not turned into one.</p>
       )}
+      {strip.hasImprovement ? (
+        <p className="text-caption text-fg-muted">
+          The chance to {strip.goal === "minimize" ? "go below" : "beat"} the incumbent, the expected improvement and the quantiles are {MODEL_BASED}
+          {(() => {
+            const inc = improvementIncumbent(strip.rows.find((r) => r.pImprove ?? r.ei)?.pImprove ?? strip.rows.find((r) => r.ei)?.ei ?? null, strip.unit);
+            return inc ? `, compared with the ${inc}` : "";
+          })()}
+          {strip.goal === "minimize" ? "; with the goal to minimize they measure going below it" : ""}. They are context: the engine chose the batch by its own acquisition, not by these numbers.
+        </p>
+      ) : null}
+      <DistanceDisclosure strip={strip} />
       <RecipeSetpointMatrix
         model={matrix}
         highlight={highlight}
@@ -595,7 +650,79 @@ function BatchCharts({
   );
 }
 
-/** The response surface: a model prediction (mean only), mounted only when opened. */
+/** The method word a proposal's source popover names for its band. */
+function bandMethodOf(strip: BatchStripModel): string | undefined {
+  if (strip.intervals.kind === "per-proposal") return `per-recipe band (${PER_PROPOSAL_METHOD})`;
+  return strip.halfWidth != null ? "held-out conformal band" : undefined;
+}
+
+/** The batch of a campaign whose runs are in flight, with its own band coverage choice. */
+function StartedBatch({ d, active }: { d: PredictAnalysis; active: ActiveCampaign }) {
+  const [coverage, setCoverage] = useState<number | null>(null);
+  const name = targetName(d.target);
+  const unit = targetUnitOf(d);
+  const runs = active.pending;
+  const strip = useMemo(() => toBatchStripModel(d, { target: name, unit, runs, coverage }), [d, name, unit, runs, coverage]);
+  return (
+    <>
+      <BandChoice mode={strip.intervals} onChange={setCoverage} />
+      <BatchCharts d={d} strip={strip} active={active} />
+    </>
+  );
+}
+
+/**
+ * How far each proposal sits from any measured run (`nearest_training_distance`),
+ * with the engine's typical spacing between measured runs as the scale. An
+ * extrapolation signal only: exact ratios of engine numbers, no threshold, no verdict.
+ */
+function DistanceDisclosure({ strip }: { strip: BatchStripModel }) {
+  const rows = strip.rows.filter((r) => r.nnDistance != null);
+  if (!rows.length) return null;
+  const median = strip.nnMedian != null ? formatValue(strip.nnMedian, { fallbackSigFigs: 2 }).value : null;
+  return (
+    <Disclosure summary="How far each proposal is from the measured runs" meta="extrapolation signal">
+      <div className="flex flex-col gap-3">
+        <p className="text-body text-fg">
+          {median != null ? `Typical spacing between measured runs: ${median} (the engine's median distance from each measured run to its nearest other one).` : "The engine did not report the typical spacing between measured runs."}
+        </p>
+        <ul className="grid grid-cols-[max-content_max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-body tabular-nums">
+          {rows.map((r) => {
+            const t = distanceText(r.nnDistance, strip.nnMedian);
+            return (
+              <li key={r.key} className="contents">
+                <span className="font-mono text-code text-fg">{r.key}</span>
+                <span className="text-right text-fg">{t.value}</span>
+                <span className="text-fg-muted">{t.ratio ?? ""}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-caption text-fg-muted">{DISTANCE_METHOD} Further from the data means the model is reaching further from what it has seen. Kalos sets no cut-off.</p>
+      </div>
+    </Disclosure>
+  );
+}
+
+/** The engine's 1D model slices (R2), mounted only when opened. Absent on older analyses. */
+function SliceDisclosure({ d, rows = [] }: { d: PredictAnalysis; rows?: PlanRow[] }) {
+  const data = useMemo(
+    () =>
+      toSliceProfiler(
+        d,
+        (rows.length ? rows.map((r) => ({ key: r.id, recipe: r.recipe })) : (d.proposals ?? []).map((p, i) => ({ key: `P${i + 1}`, recipe: proposalRecipe(p, d.proposal_features) as Record<string, number | string> }))),
+      ),
+    [d, rows],
+  );
+  if (data.state === "absent") return null;
+  return (
+    <Disclosure summary="How the model responds to one input at a time" meta={data.state === "ready" ? "model prediction" : "not computed"}>
+      <SliceProfiler data={data} target={targetName(d.target)} unit={targetUnitOf(d)} source={sourceFromAnalysis(d, "slices", "predicted", "GP posterior mean and band, other inputs held at the incumbent")} bare />
+    </Disclosure>
+  );
+}
+
+/** The response surface: a model prediction (mean and the engine's σ grid when sent), mounted only when opened. */
 function SurfaceDisclosure({ d, rows = [] }: { d: PredictAnalysis; rows?: PlanRow[] }) {
   const surface = useMemo(() => parseSurface(d.response_surface), [d.response_surface]);
   const points = useMemo(
@@ -618,7 +745,7 @@ function SurfaceDisclosure({ d, rows = [] }: { d: PredictAnalysis; rows?: PlanRo
       <ResponseSurface2D
         surface={d.response_surface}
         target={targetName(d.target)}
-        unit={parseUnit(d.target).unit}
+        unit={targetUnitOf(d)}
         proposals={points}
         source={sourceFromAnalysis(d, "response_surface", "predicted")}
         reason={reason}

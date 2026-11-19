@@ -25,6 +25,8 @@ export type SurfacePairData = {
   /** mean[row][col]: row indexes y.values, col indexes x.values. */
   mean: number[][];
   sd: number[][] | null;
+  /** What the sd grid is (`std_kind`, `std_basis`), when the engine said. */
+  sdKind: { kind: string | null; basis: string | null };
   /** Measured runs [x, y, target] inside both axes (projected onto the two axes). */
   runs: [number, number, number][];
   proposals: { key: string; x: number; y: number }[];
@@ -36,6 +38,18 @@ export type SurfacePairData = {
 };
 
 export const NO_SD_NOTE = "Uncertainty map not returned by this engine build.";
+/** The sigma panel is a model sigma: never an interval, never a coverage. */
+export const SD_NOTE = "model uncertainty (σ), not an interval";
+
+const SD_KIND_TEXT: Record<string, string> = { gp_posterior_sd: "the model's GP posterior standard deviation" };
+const SD_BASIS_TEXT: Record<string, string> = { latent_mean: "of the predicted mean (no measurement noise)" };
+
+/** "the model's GP posterior standard deviation of the predicted mean (no measurement noise)", from std_kind / std_basis. */
+export function sdKindText(k: SurfacePairData["sdKind"]): string {
+  const kind = k.kind ? (SD_KIND_TEXT[k.kind] ?? k.kind.replace(/_/g, " ")) : "the model's standard deviation";
+  const basis = k.basis ? ` ${SD_BASIS_TEXT[k.basis] ?? `(${k.basis.replace(/_/g, " ")})`}` : "";
+  return `${kind}${basis}`;
+}
 export const FLAT_NOTE = "Model predicts no meaningful variation across these two inputs.";
 export const RUNS_CAVEAT = "projected: other inputs differ";
 
@@ -53,6 +67,7 @@ export function toSurfacePair(model: SurfaceModel, proposals: PlotPoint[] = []):
     y: { name: model.y.name, unit: parseUnit(model.y.name).unit, values: model.y.vals },
     mean: model.z,
     sd: model.std,
+    sdKind: { kind: model.stdKind, basis: model.stdBasis },
     runs,
     proposals: inP.map((p) => ({ key: p.id, x: p.x, y: p.y })),
     outside: outP.map((p) => p.id),
@@ -186,7 +201,7 @@ export function describeSurfacePair(data: SurfacePairData, target: string, unit:
   ];
   if (data.sd) {
     const [slo, shi] = gridExtent(data.sd);
-    parts.push(`Model uncertainty (σ) runs from ${fmtSd(slo, unit)} to ${fmtSd(shi, unit)}.`);
+    parts.push(`Model uncertainty (σ, ${sdKindText(data.sdKind)}; not an interval) runs from ${fmtSd(slo, unit)} to ${fmtSd(shi, unit)}.`);
   } else parts.push(NO_SD_NOTE);
   const n = data.runs.length;
   const p = data.proposals.length;

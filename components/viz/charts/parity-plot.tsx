@@ -27,7 +27,10 @@ export function ParityPlot({
   stale,
   width,
   bare = true,
+  perProposal = false,
 }: {
+  /** The analysis also sent per-proposal intervals: proposals carry their own band, not this global one. */
+  perProposal?: boolean;
   data: ParityData;
   target: string;
   unit?: string | null;
@@ -69,7 +72,13 @@ export function ParityPlot({
                   </span>
                 </span>
               ) : null}
-              {data.band ? <span>The same half-width applies to every proposal; its coverage on new proposals is not guaranteed.</span> : null}
+              {data.band ? (
+                <span>
+                  {perProposal
+                    ? "This is the global held-out band. Each proposal now gets its own band, scaled per recipe (see the batch); coverage on new proposals is approximate."
+                    : "The same half-width applies to every proposal; its coverage on new proposals is not guaranteed."}
+                </span>
+              ) : null}
               {data.flat ? <span>{flatNote(data)}</span> : null}
               {data.dense ? <span>Dense plot: marks are translucent and outside-band runs are listed in the Data table.</span> : null}
             </span>

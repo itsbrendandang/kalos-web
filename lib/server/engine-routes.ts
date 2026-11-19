@@ -72,6 +72,13 @@ export const ENGINE_ROUTES: readonly EngineRoute[] = Object.freeze([
   route("POST", "api/campaigns/:id/runs", "json"),
   route("POST", "api/campaigns/:id/runs/:id/result", "json"),
   route("POST", "api/campaigns/:id/reanalyze", "json"),
+  // Background analysis jobs (kalos-engine docs/JOBS.md): an upload is
+  // submitted as a job (202), then polled for its engine-reported stage and
+  // progress, and can be cancelled. Same scopes as the synchronous upload.
+  route("POST", "api/campaigns/:id/jobs", "multipart"),
+  route("GET", "api/campaigns/:id/jobs", "none"),
+  route("GET", "api/jobs/:id", "none"),
+  route("POST", "api/jobs/:id/cancel", "json"),
 ]);
 
 /** Opaque id segments (campaign ids `cmp_<hex>`, run ids `<hex>`). The engine validates the exact format. */

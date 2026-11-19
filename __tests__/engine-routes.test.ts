@@ -24,6 +24,10 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
     ["POST", `api/campaigns/${CMP}/runs`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/runs/${RUN}/result`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/reanalyze`, ["campaigns:write"]],
+    ["POST", `api/campaigns/${CMP}/jobs`, ["campaigns:write"]],
+    ["GET", `api/campaigns/${CMP}/jobs`, ["campaigns:read"]],
+    ["GET", "api/jobs/job_0123456789abcdef0123456789abcdef", ["campaigns:read"]],
+    ["POST", "api/jobs/job_0123456789abcdef0123456789abcdef/cancel", ["campaigns:write"]],
   ])("%s /%s -> %j", (method, path, scopes) => {
     const m = matchEngineRoute(method, path.split("/"));
     expect(m.kind).toBe("ok");

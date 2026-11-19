@@ -11,7 +11,7 @@ import { exportRowsCsv, exportRowsJson, type RowsExport } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
 import { formatValue } from "@/lib/num";
 import { packageFilename, rawRowsMeta } from "@/lib/report-package";
-import { engineDetail, unavailableFrom, type Read } from "@/components/report/report-data";
+import { engineDetail, unavailableFrom, type LazyRead } from "@/components/report/report-data";
 import { saveBlob } from "@/components/report/save-file";
 
 const count = (n: number | null | undefined) => formatValue(n, { quantity: "count" }).text;
@@ -43,14 +43,25 @@ function foldedByRound(r: RowsExport): { round: number; n: number }[] {
  * folded in by later rounds, whether the engine could tell them apart, and
  * whether names are anonymized. The two downloads are the engine's own files.
  */
-export function RawDataSection({ campaignId, campaignName, read }: { campaignId: string; campaignName: string; read: Read<RowsExport> & { reload: () => void } }) {
+export function RawDataSection({ campaignId, campaignName, read }: { campaignId: string; campaignName: string; read: LazyRead<RowsExport> & { reload: () => void } }) {
   return (
     <Section
       id="raw-data"
       title="Raw data (as uploaded + folded results)"
       description="The rows the model was fitted to, as the engine exports them: the original upload and the measured results folded in by later rounds."
     >
-      {read.status === "loading" ? (
+      {read.status === "idle" ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-body text-fg-muted">
+            Not read yet: the export can be large, and the engine records every export in the audit log, so this page reads it only when you ask. Reading it
+            shows how many rows came from the original upload and how many were folded in later, and adds those counts to the data package.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 print:hidden">
+            <Button onClick={read.reload}>Read the rows export</Button>
+            <RawDownloads campaignId={campaignId} campaignName={campaignName} />
+          </div>
+        </div>
+      ) : read.status === "loading" ? (
         <LoadingSkeleton rows={3} label="Reading the rows export" />
       ) : read.status === "unavailable" ? (
         REFUSED[read.code] ? (
@@ -70,9 +81,8 @@ export function RawDataSection({ campaignId, campaignName, read }: { campaignId:
   );
 }
 
-function RawData({ data, campaignId, campaignName }: { data: RowsExport; campaignId: string; campaignName: string }) {
-  const meta = rawRowsMeta(data);
-  const folded = foldedByRound(data);
+/** The engine's CSV and JSON rows files, each fetched when clicked. */
+function RawDownloads({ campaignId, campaignName }: { campaignId: string; campaignName: string }) {
   const [busy, setBusy] = useState<"csv" | "json" | null>(null);
   const [failure, setFailure] = useState<{ reason: string; detail: string | null } | null>(null);
 
@@ -94,6 +104,29 @@ function RawData({ data, campaignId, campaignName }: { data: RowsExport; campaig
     }
   };
 
+  return (
+    <>
+      <Button variant="outline" onClick={() => void download("csv")} disabled={busy != null}>
+        {busy === "csv" ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Download aria-hidden />}
+        Raw rows (engine CSV)
+      </Button>
+      <Button variant="outline" onClick={() => void download("json")} disabled={busy != null}>
+        {busy === "json" ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Download aria-hidden />}
+        Raw rows (engine JSON)
+      </Button>
+      {failure ? (
+        <p role="alert" className="basis-full text-body text-fg">
+          {failure.reason} Nothing was downloaded.
+          {failure.detail ? <span className="block text-caption text-fg-muted">Engine: {failure.detail}</span> : null}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function RawData({ data, campaignId, campaignName }: { data: RowsExport; campaignId: string; campaignName: string }) {
+  const meta = rawRowsMeta(data);
+  const folded = foldedByRound(data);
   if (!data.has_data) return <p className="text-body text-fg-muted">The engine has no data rows for this campaign yet.</p>;
 
   const anonymized = data.anonymization?.applied === true;
@@ -140,24 +173,11 @@ function RawData({ data, campaignId, campaignName }: { data: RowsExport; campaig
       <p className="text-body text-fg-muted">
         {count(meta.columns.length)} columns{meta.target ? <>, target <span className="font-mono text-code text-fg">{meta.target}</span></> : null}. The CSV is
         built by the engine: text cells that a spreadsheet would run as a formula (starting with = + − @, a tab or a line break) get a leading apostrophe, and
-        numbers are left untouched. Each export, including the read this page makes to count the rows, is recorded in the audit log.
+        numbers are left untouched. Each export, including the read you asked for to count the rows, is recorded in the audit log.
       </p>
       <div className="flex flex-wrap items-center gap-3 print:hidden">
-        <Button variant="outline" onClick={() => void download("csv")} disabled={busy != null}>
-          {busy === "csv" ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Download aria-hidden />}
-          Raw rows (engine CSV)
-        </Button>
-        <Button variant="outline" onClick={() => void download("json")} disabled={busy != null}>
-          {busy === "json" ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Download aria-hidden />}
-          Raw rows (engine JSON)
-        </Button>
+        <RawDownloads campaignId={campaignId} campaignName={campaignName} />
       </div>
-      {failure ? (
-        <p role="alert" className="text-body text-fg">
-          {failure.reason} Nothing was downloaded.
-          {failure.detail ? <span className="block text-caption text-fg-muted">Engine: {failure.detail}</span> : null}
-        </p>
-      ) : null}
       <Disclosure summary="Export provenance, as the engine sent it">
         <pre className="max-h-80 overflow-auto rounded-lg bg-subtle p-3 font-mono text-caption break-all whitespace-pre-wrap text-fg">
           {JSON.stringify({ provenance: meta.provenance, anonymization: meta.anonymization, csv_formula_neutralization: meta.csv_formula_neutralization }, null, 2)}

@@ -157,6 +157,7 @@ describe("Report page", () => {
     expect(calls.some((c) => c.url.endsWith("/results/history?section=all&limit=500"))).toBe(true);
     expect(pkg.result_history).toMatchObject({ status: "included", complete: true });
     expect(pkg.result_history.results.some((r: { is_correction: boolean }) => r.is_correction)).toBe(true);
+    // The download reads the rows export on demand (the page did not read it on open).
     expect(pkg.raw_rows).toMatchObject({ status: "included", n_original_rows: 160, original_rows_identifiable: true });
     expect(pkg.gates).toMatchObject({ status: "included" });
     expect(pkg.operating_ranges).toMatchObject({ status: "not_requested" });
@@ -210,6 +211,10 @@ describe("Report page, engine v2 sections", () => {
     });
     renderReport();
     const raw = await screen.findByRole("region", { name: "Raw data (as uploaded + folded results)" });
+    // Opening the Report does not read the export (it is large and every export is audited): only on demand.
+    expect(raw.textContent).toMatch(/Not read yet/);
+    expect(calls.some((c) => c.url.includes("/export/rows"))).toBe(false);
+    fireEvent.click(within(raw).getByRole("button", { name: "Read the rows export" }));
     await within(raw).findByText("Original upload");
     expect(raw.textContent).toContain("160");
     expect(raw.textContent).toContain("Not anonymized");
@@ -223,6 +228,7 @@ describe("Report page, engine v2 sections", () => {
       json({ error: "the anonymized aliases could not be reproduced", code: "anonymized_export_unavailable" }, 409);
     renderReport();
     const raw = await screen.findByRole("region", { name: "Raw data (as uploaded + folded results)" });
+    fireEvent.click(within(raw).getByRole("button", { name: "Read the rows export" }));
     expect(await within(raw).findByText("Export refused to protect anonymized names")).toBeTruthy();
     expect(raw.textContent).toMatch(/refused rather than risk a leak/);
     expect(raw.textContent).toContain("Engine: the anonymized aliases could not be reproduced");

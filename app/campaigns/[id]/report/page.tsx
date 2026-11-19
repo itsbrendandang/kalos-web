@@ -10,7 +10,7 @@ import { Downloads } from "@/components/report/downloads";
 import { HistorySectionView } from "@/components/report/history";
 import { OperatingRangesSection } from "@/components/report/operating-ranges";
 import { RawDataSection } from "@/components/report/raw-data";
-import { asExtra, readFullHistory, useGates, useResultHistory, useRowsExport, useSetup } from "@/components/report/report-data";
+import { asExtra, readFullHistory, readRowsExtra, useGates, useResultHistory, useRowsExport, useSetup } from "@/components/report/report-data";
 import { NotInPackage, PackageContents } from "@/components/report/package-lists";
 import { ProvenanceBlock } from "@/components/report/provenance-block";
 import { BatchSection, EvidenceSection, ModelSection, ObjectiveSection } from "@/components/report/report-summary";
@@ -118,9 +118,11 @@ function Report({ detail, analysis }: { detail: CampaignDetail; analysis: Popula
   const [shownAt] = useState(() => Date.now());
   const pkg = useMemo(() => buildPackage(meta, summary, a, shownAt, extras), [meta, summary, a, shownAt, extras]);
   const build = useCallback(() => buildPackage(meta, summary, a, new Date(), extras), [meta, summary, a, extras]);
+  // A package download is a user action, so it reads what the page reads only on demand: the full history and,
+  // unless already read, the raw-rows export (counts and attribution).
   const buildFull = useCallback(async () => {
-    const full = await readFullHistory(meta.id);
-    return buildPackage(meta, summary, a, new Date(), { ...extras, history: full });
+    const [full, rowsExtra] = await Promise.all([readFullHistory(meta.id), extras.rows ?? readRowsExtra(meta.id)]);
+    return buildPackage(meta, summary, a, new Date(), { ...extras, history: full, rows: rowsExtra });
   }, [meta, summary, a, extras]);
   const measured = pkg.runs.filter((r) => r.status === "measured").length;
   const unit = pkg.objective.unit;

@@ -46,10 +46,21 @@ export function unavailableFrom(err: unknown): Unavailable {
 export const engineDetail = (err: unknown): string | null => (err instanceof EngineError && err.detail ? err.detail : null);
 
 export type Read<T> = { status: "loading" } | { status: "loaded"; data: T } | (Unavailable & { detail: string | null });
+/** A read that starts only when asked (`reload()`); "idle" until then. */
+export type LazyRead<T> = { status: "idle" } | Read<T>;
 
 /** One engine read on mount, with a reload. Only the newest request may write state. */
 export function useRead<T>(fetcher: () => Promise<T>): Read<T> & { reload: () => void } {
-  const [state, setState] = useState<Read<T>>({ status: "loading" });
+  return useReadState(fetcher, false) as Read<T> & { reload: () => void };
+}
+
+/** The same read, started only by `reload()` (nothing is fetched on mount). */
+export function useLazyRead<T>(fetcher: () => Promise<T>): LazyRead<T> & { reload: () => void } {
+  return useReadState(fetcher, true);
+}
+
+function useReadState<T>(fetcher: () => Promise<T>, onDemand: boolean): LazyRead<T> & { reload: () => void } {
+  const [state, setState] = useState<LazyRead<T>>(onDemand ? { status: "idle" } : { status: "loading" });
   const ticket = useRef(0);
   const run = useCallback(() => {
     const mine = ++ticket.current;
@@ -67,9 +78,9 @@ export function useRead<T>(fetcher: () => Promise<T>): Read<T> & { reload: () =>
     ticket.current++;
   }, []);
   useEffect(() => {
-    run();
+    if (!onDemand) run();
     return invalidate;
-  }, [run, invalidate]);
+  }, [run, invalidate, onDemand]);
   const reload = useCallback(() => {
     setState({ status: "loading" });
     run();
@@ -77,8 +88,12 @@ export function useRead<T>(fetcher: () => Promise<T>): Read<T> & { reload: () =>
   return useMemo(() => ({ ...state, reload }), [state, reload]);
 }
 
+/**
+ * The raw-rows export, read only when the user asks (`reload()` starts it): it can be large, and the engine records
+ * every export in the audit log, so opening the Report must not fetch it.
+ */
 export function useRowsExport(id: string) {
-  return useRead(useCallback(() => exportRowsJson(id), [id]));
+  return useLazyRead(useCallback(() => exportRowsJson(id), [id]));
 }
 export function useGates(id: string) {
   return useRead(useCallback(() => getGates(id), [id]));
@@ -87,9 +102,18 @@ export function useSetup(id: string) {
   return useRead(useCallback(() => getSetup(id), [id]));
 }
 
-/** A loaded read as a package extra; a read still in flight is left out (the package says it was not read). */
-export function asExtra<T>(r: Read<T>): { status: "loaded"; data: T } | Unavailable | undefined {
-  if (r.status === "loading") return undefined;
+/** The raw-rows export as a package extra, read now (for a package download). */
+export async function readRowsExtra(id: string): Promise<NonNullable<PackageExtras["rows"]>> {
+  try {
+    return { status: "loaded", data: await exportRowsJson(id) };
+  } catch (err) {
+    return unavailableFrom(err);
+  }
+}
+
+/** A loaded read as a package extra; a read not started or still in flight is left out (the package says it was not read). */
+export function asExtra<T>(r: LazyRead<T>): { status: "loaded"; data: T } | Unavailable | undefined {
+  if (r.status === "loading" || r.status === "idle") return undefined;
   if (r.status === "loaded") return { status: "loaded", data: r.data };
   return { status: "unavailable", code: r.code, reason: r.reason };
 }

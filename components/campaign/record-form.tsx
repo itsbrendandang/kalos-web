@@ -31,7 +31,8 @@ export const historyHref = (campaignId: string) => `${campaignHref(campaignId, "
 /**
  * The engine's result history rows for corrected runs (GET /results/history, newest first). The campaign summary
  * carries `result_version` but not the earlier value or the reason, so a corrected run's previous value and reason
- * come from here. Fetched only while some run is corrected, again whenever a version changes.
+ * come from here, paged until each corrected run is reached. Fetched only while some run is corrected, again whenever a
+ * version changes.
  */
 function useCorrectionRows(campaignId: string | undefined, runs: readonly CampaignRun[]): { rows: Map<string, HistoryRow> | null; failed: boolean } {
   const key = runs
@@ -42,9 +43,9 @@ function useCorrectionRows(campaignId: string | undefined, runs: readonly Campai
   useEffect(() => {
     if (!campaignId || !key) return;
     let cancelled = false;
-    getResultHistory(campaignId, { section: "results", limit: 500 }).then(
-      (h) => {
-        if (!cancelled) setState({ key, rows: latestHistoryRows(h.results?.items ?? []), failed: false });
+    readCorrectionRows(campaignId, key).then(
+      (rows) => {
+        if (!cancelled) setState({ key, rows, failed: false });
       },
       () => {
         if (!cancelled) setState((s) => ({ ...s, key, failed: true }));
@@ -55,6 +56,32 @@ function useCorrectionRows(campaignId: string | undefined, runs: readonly Campai
     };
   }, [campaignId, key]);
   return { rows: state.rows, failed: state.key === key && state.failed };
+}
+
+/** History pages read at most for the corrections (500 rows each, newest first). */
+const HISTORY_MAX_PAGES = 20;
+
+/**
+ * Pages GET /results/history (newest first, `next_before_id`) until every corrected run in `key` ("id:version,...")
+ * has its row at that version, the engine has no older page, or HISTORY_MAX_PAGES. A run not reached keeps no
+ * history row (its previous value then reads as not reported), never a guessed one.
+ */
+export async function readCorrectionRows(campaignId: string, key: string): Promise<Map<string, HistoryRow>> {
+  const wanted = key
+    .split(",")
+    .filter(Boolean)
+    .map((k) => ({ id: k.slice(0, k.lastIndexOf(":")), version: Number(k.slice(k.lastIndexOf(":") + 1)) }));
+  const items: HistoryRow[] = [];
+  let before: number | undefined;
+  for (let page = 0; page < HISTORY_MAX_PAGES; page++) {
+    const h = await getResultHistory(campaignId, { section: "results", limit: 500, ...(before != null ? { resultsBeforeId: before } : {}) });
+    items.push(...(h.results?.items ?? []));
+    const rows = latestHistoryRows(items);
+    if (wanted.every((w) => (rows.get(w.id)?.version ?? -1) >= w.version)) return rows;
+    if (!h.results?.has_more || h.results.next_before_id == null) return rows;
+    before = h.results.next_before_id;
+  }
+  return latestHistoryRows(items);
 }
 
 /**

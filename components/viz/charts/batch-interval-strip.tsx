@@ -61,7 +61,7 @@ const HEAD = 36;
 const LABEL_W = 96;
 const GAIN_W = 184;
 const FEAS_W = 84;
-const CHANCE_W = 112;
+const CHANCE_W = 184;
 const MEAS_W = 168;
 
 export function BatchIntervalStrip({
@@ -138,7 +138,7 @@ function Strip({
   const { tip, markProps, close } = useChartTip();
   const compact = w < 600;
   const showFeas = model.gating === "gated";
-  const showChance = model.hasImprovement && w >= 760;
+  const showChance = model.hasImprovement && w >= 840;
   const sideW = compact ? 0 : GAIN_W + (showChance ? CHANCE_W : 0) + (showFeas ? FEAS_W : 0) + (model.hasRuns ? MEAS_W : 0);
   const labelW = w < 440 ? 84 : LABEL_W;
   const plotW = Math.max(80, w - labelW - sideW);
@@ -184,8 +184,9 @@ function Strip({
               </span>
               {showChance ? (
                 <span className="flex flex-col justify-end pb-1 pl-3 leading-4" title={`${chance}: ${MODEL_BASED}. Compared with the ${chanceInc ?? "incumbent"}.`}>
-                  <span className="line-clamp-2">{chance}</span>
-                  <span className="truncate">model-based</span>
+                  {/* The full wording, never truncated: it says what the number is (the model's mean, not a run). */}
+                  <span>{chance}</span>
+                  <span className="sr-only">, {MODEL_BASED}</span>
                 </span>
               ) : null}
               {showFeas ? <span className="self-end pb-1 pl-3">P(feasible)</span> : null}

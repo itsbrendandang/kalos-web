@@ -1646,8 +1646,11 @@ export type RowsExport = {
 
 export const exportRowsJson = (campaignId: string): Promise<RowsExport> => call<RowsExport>(`/api/campaigns/${enc(campaignId)}/export/rows?format=json`);
 
-/** The rows as the engine's CSV (formula-neutralized), with its content hash header when sent. */
-export async function exportRowsCsv(campaignId: string): Promise<{ blob: Blob; filename: string | null }> {
+/**
+ * The rows as the engine's CSV (formula-neutralized), with the engine's X-Kalos-Content-Sha256 and
+ * X-Kalos-Anonymized headers when sent (the proxy passes both, shape-checked).
+ */
+export async function exportRowsCsv(campaignId: string): Promise<{ blob: Blob; filename: string | null; contentSha256: string | null; anonymized: boolean | null }> {
   let r: Response;
   try {
     r = await fetch(`${API}/api/campaigns/${enc(campaignId)}/export/rows?format=csv`);
@@ -1657,7 +1660,9 @@ export async function exportRowsCsv(campaignId: string): Promise<{ blob: Blob; f
   if (!r.ok) throw await failure(r);
   const cd = r.headers.get("content-disposition") ?? "";
   const m = /filename="?([^";]+)"?/i.exec(cd);
-  return { blob: await r.blob(), filename: m ? m[1] : null };
+  const sha = r.headers.get("x-kalos-content-sha256");
+  const anon = r.headers.get("x-kalos-anonymized");
+  return { blob: await r.blob(), filename: m ? m[1] : null, contentSha256: sha && /^[0-9a-f]{64}$/.test(sha) ? sha : null, anonymized: anon === "true" ? true : anon === "false" ? false : null };
 }
 
 export type ResultHistoryItem = {

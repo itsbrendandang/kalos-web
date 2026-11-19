@@ -811,6 +811,22 @@ describe("engine responses", () => {
     expect((await call("POST", `api/campaigns/${CMP}/jobs`, { body: fd })).status).toBe(403);
   });
 
+  it("passes the raw-rows CSV's X-Kalos-Content-Sha256 and X-Kalos-Anonymized headers, shape-checked", async () => {
+    const sha = "a".repeat(64);
+    fetchMock.mockResolvedValueOnce(
+      new Response("a,b\r\n1,2\r\n", { status: 200, headers: { "content-type": "text/csv", "x-kalos-content-sha256": sha, "x-kalos-anonymized": "false" } }),
+    );
+    let res = await call("GET", `api/campaigns/${CMP}/export/rows`);
+    expect(res.headers.get("x-kalos-content-sha256")).toBe(sha);
+    expect(res.headers.get("x-kalos-anonymized")).toBe("false");
+    fetchMock.mockResolvedValueOnce(
+      new Response("a\r\n", { status: 200, headers: { "content-type": "text/csv", "x-kalos-content-sha256": "<script>", "x-kalos-anonymized": "maybe" } }),
+    );
+    res = await call("GET", `api/campaigns/${CMP}/export/rows`);
+    expect(res.headers.get("x-kalos-content-sha256")).toBeNull();
+    expect(res.headers.get("x-kalos-anonymized")).toBeNull();
+  });
+
   it("503 busy keeps Retry-After", async () => {
     fetchMock.mockResolvedValueOnce(engineOk({ error: "An analysis is already running." }, 503, { "retry-after": "60" }));
     const res = await call("POST", `api/campaigns/${CMP}/reanalyze/jobs`);

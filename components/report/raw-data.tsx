@@ -84,6 +84,7 @@ export function RawDataSection({ campaignId, campaignName, read }: { campaignId:
 /** The engine's CSV and JSON rows files, each fetched when clicked. */
 function RawDownloads({ campaignId, campaignName }: { campaignId: string; campaignName: string }) {
   const [busy, setBusy] = useState<"csv" | "json" | null>(null);
+  const [saved, setSaved] = useState<{ sha: string | null; anonymized: boolean | null } | null>(null);
   const [failure, setFailure] = useState<{ reason: string; detail: string | null } | null>(null);
 
   const download = async (kind: "csv" | "json") => {
@@ -91,8 +92,9 @@ function RawDownloads({ campaignId, campaignName }: { campaignId: string; campai
     setFailure(null);
     try {
       if (kind === "csv") {
-        const { blob, filename } = await exportRowsCsv(campaignId);
+        const { blob, filename, contentSha256, anonymized } = await exportRowsCsv(campaignId);
         saveBlob(filename ?? packageFilename(campaignName, "rows", new Date()), blob);
+        setSaved({ sha: contentSha256, anonymized });
       } else {
         const fresh = await exportRowsJson(campaignId);
         saveBlob(packageFilename(campaignName, "rows-json", new Date()), new Blob([`${JSON.stringify(fresh, null, 2)}\n`], { type: "application/json" }));
@@ -114,6 +116,12 @@ function RawDownloads({ campaignId, campaignName }: { campaignId: string; campai
         {busy === "json" ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Download aria-hidden />}
         Raw rows (engine JSON)
       </Button>
+      {saved && saved.sha ? (
+        <p className="basis-full text-caption text-fg-muted">
+          CSV saved. SHA-256 from the engine: <span className="font-mono text-code break-all text-fg">{saved.sha}</span>
+          {saved.anonymized != null ? ` · names ${saved.anonymized ? "anonymized" : "not anonymized"}` : ""}
+        </p>
+      ) : null}
       {failure ? (
         <p role="alert" className="basis-full text-body text-fg">
           {failure.reason} Nothing was downloaded.

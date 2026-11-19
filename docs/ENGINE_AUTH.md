@@ -29,8 +29,9 @@ Each step fails closed; nothing reaches the engine until all of them pass.
 | 8 | Body cap: JSON 1 MiB (`KALOS_PROXY_MAX_JSON_BYTES`), uploads per `KALOS_MAX_UPLOAD_MB`; checked on `Content-Length` and while streaming. | 413 |
 | 9 | Mint a 60 s EdDSA token for this one request; forward with an allow-listed header set and a timeout (`KALOS_ENGINE_TIMEOUT_MS`, default 120 s). | 503 key unavailable; 504 timeout; 502 unreachable |
 
-Response path: only `content-type`, `retry-after`, `content-disposition` pass
-back. `Set-Cookie`, `Server`, engine error bodies (5xx) and redirects never
+Response path: only `content-type`, `retry-after`, `content-disposition`, and
+the raw-rows CSV's `X-Kalos-Content-Sha256` (64 hex) and `X-Kalos-Anonymized`
+(`true`/`false`), shape-checked, pass back. `Set-Cookie`, `Server`, engine error bodies (5xx) and redirects never
 reach the browser. An engine 401 becomes 502 `engine_auth_failed` so it never
 looks like a sign-out. Every response carries `Cache-Control: no-store`,
 `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,

@@ -22,7 +22,11 @@ function sources(exts: RegExp): { file: string; text: string }[] {
 // pre-existing uses can't be fixed in one pass, so rather than fail on them we
 // cap each at today's count: the number may only go DOWN. A new violation pushes
 // the count over the ceiling and fails here. Lower the ceiling as uses are
-// removed - never raise it. Counts measured 2026-11-06.
+// removed - never raise it. Counts measured 2026-11-06; lowered 2026-11-18 by
+// the engine-aligned redesign (docs/REDESIGN.md), which rebuilt or deleted
+// every page that carried them: px 172 -> 0, uppercase 19 -> 0, aliases
+// 125 -> 0 (the alias block in globals.css is gone). The 9 remaining shadow
+// matches are globals.css's own `--shadow-sm: none` style zeroing lines.
 function countMatches(re: RegExp): number {
   return sources(/\.(tsx?|css)$/)
     .flatMap(({ text }) => text.split("\n"))
@@ -31,8 +35,8 @@ function countMatches(re: RegExp): number {
 
 describe("design-language burn-down (count may only decrease)", () => {
   const CEILINGS: Array<{ what: string; re: RegExp; ceiling: number }> = [
-    { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 172 },
-    { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 19 },
+    { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 0 },
+    { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 0 },
     { what: "rounded-2xl", re: /\brounded-2xl\b/g, ceiling: 0 },
     { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
     // Compatibility aliases (globals.css "COMPATIBILITY ALIASES"): old token
@@ -40,7 +44,8 @@ describe("design-language burn-down (count may only decrease)", () => {
     // canonical tokens (bg-surface not bg-card, text-fg-muted not text-muted,
     // --accent not --blue*, text-heading not font-head). Burn these down; when
     // the count hits 0 the alias block in globals.css can be deleted.
-    { what: "compatibility alias reads (bg-card/text-muted/--blue*/font-head/...)", re: /\b(?:bg-card|text-muted|border-input|bg-background|text-foreground|font-head|--blue[a-z-]*|--primary-foreground|--card\b|--muted\b)\b/g, ceiling: 125 },
+    // (?<![\w-]) so the real `--border-input` token (`border-border-input`) is not counted as the old `border-input` alias.
+    { what: "compatibility alias reads (bg-card/text-muted/--blue*/font-head/...)", re: /(?<![\w-])(?:bg-card|text-muted|border-input|bg-background|text-foreground|font-head|--blue[a-z-]*|--primary-foreground|--card\b|--muted\b)\b/g, ceiling: 0 },
   ];
   for (const { what, re, ceiling } of CEILINGS) {
     it(`${what}: at most ${ceiling} (lower the ceiling when you remove some; never raise it)`, () => {

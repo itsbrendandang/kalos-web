@@ -1,43 +1,95 @@
 import { describe, expect, it } from "vitest";
 import { ENGINE_ROUTES, isSafeRawPath, isSafeSegment, matchEngineRoute } from "@/lib/server/engine-routes";
+import manifestJson from "./fixtures/engine-route-scopes.json";
 
 const CMP = "cmp_0123456789abcdef0123456789abcdef";
 const RUN = "0123456789abcdef0123456789abcdef";
 
+type ManifestEntry = { method: string; path: string; scopes: string[]; auth: string; conditional_scopes?: { scope: string; when: string }[] };
+// kalos-engine docs/route-scopes.json (feat/web-redesign-apis 0fc05c3), vendored: the scope each engine route enforces.
+const MANIFEST = manifestJson as ManifestEntry[];
+const ENGINE_SCOPE: Record<string, string> = { read: "campaigns:read", write: "campaigns:write", admin: "org:admin" };
+const GATE = "S3";
+const JOB = "job_0123456789abcdef0123456789abcdef";
+
 describe("engine route table (lib/server/engine-routes.ts)", () => {
   it.each([
-    ["GET", "api/latest", ["campaigns:read"]],
-    ["HEAD", "api/latest", ["campaigns:read"]],
-    ["GET", "api/campaign", ["campaigns:read"]],
-    ["POST", "api/run", ["campaigns:write"]],
-    ["POST", "api/campaign/start", ["campaigns:write"]],
-    ["POST", "api/campaign/result", ["campaigns:write"]],
-    ["POST", "api/campaign/reanalyze", ["campaigns:write"]],
-    ["POST", "api/scale/readout", ["campaigns:write"]],
     ["GET", "api/providers", ["campaigns:read"]],
+    ["HEAD", "api/providers", ["campaigns:read"]],
+    ["POST", "api/scale/readout.json", ["campaigns:write"]],
     ["GET", "api/campaigns", ["campaigns:read"]],
     ["POST", "api/campaigns", ["campaigns:write"]],
     ["GET", `api/campaigns/${CMP}`, ["campaigns:read"]],
     ["PATCH", `api/campaigns/${CMP}`, ["campaigns:write"]],
-    ["POST", `api/campaigns/${CMP}/upload`, ["campaigns:write"]],
     ["GET", `api/campaigns/${CMP}/analysis`, ["campaigns:read"]],
     ["POST", `api/campaigns/${CMP}/runs`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/runs/${RUN}/result`, ["campaigns:write"]],
-    ["POST", `api/campaigns/${CMP}/reanalyze`, ["campaigns:write"]],
+    ["GET", `api/campaigns/${CMP}/setup`, ["campaigns:read"]],
+    ["PUT", `api/campaigns/${CMP}/setup`, ["campaigns:write"]],
+    ["GET", `api/campaigns/${CMP}/stages`, ["campaigns:read"]],
+    ["PUT", `api/campaigns/${CMP}/stages`, ["campaigns:write"]],
+    ["GET", `api/campaigns/${CMP}/gates`, ["campaigns:read"]],
+    ["PUT", `api/campaigns/${CMP}/gates/${GATE}`, ["campaigns:write"]],
+    ["GET", `api/campaigns/${CMP}/gates/${GATE}/history`, ["campaigns:read"]],
+    ["GET", `api/campaigns/${CMP}/export/rows`, ["campaigns:read"]],
+    ["GET", `api/campaigns/${CMP}/results/history`, ["campaigns:read"]],
+    ["GET", `api/campaigns/${CMP}/operating-ranges`, ["campaigns:read"]],
+    ["POST", `api/campaigns/${CMP}/operating-ranges`, ["campaigns:write"]],
     ["POST", `api/campaigns/${CMP}/jobs`, ["campaigns:write"]],
     ["GET", `api/campaigns/${CMP}/jobs`, ["campaigns:read"]],
-    ["GET", "api/jobs/job_0123456789abcdef0123456789abcdef", ["campaigns:read"]],
-    ["POST", "api/jobs/job_0123456789abcdef0123456789abcdef/cancel", ["campaigns:write"]],
+    ["POST", `api/campaigns/${CMP}/reanalyze/jobs`, ["campaigns:write"]],
+    ["GET", `api/jobs/${JOB}`, ["campaigns:read"]],
+    ["POST", `api/jobs/${JOB}/cancel`, ["campaigns:write"]],
   ])("%s /%s -> %j", (method, path, scopes) => {
     const m = matchEngineRoute(method, path.split("/"));
     expect(m.kind).toBe("ok");
     if (m.kind === "ok") expect(m.route.scopes).toEqual(scopes);
   });
 
-  it("reads are GET-only and every write route is POST/PATCH (no write scope on GET)", () => {
+  it("every proxied route exists in the engine's scope manifest and mints exactly the scopes it enforces", () => {
     for (const r of ENGINE_ROUTES) {
-      expect(r.scopes).toEqual(r.method === "GET" ? ["campaigns:read"] : ["campaigns:write"]);
-      if (r.method === "GET") expect(r.body).toBe("none");
+      const path = `/${r.pattern.map((seg, i) => (seg === ":id" ? `{${r.pattern[i - 1]}}` : seg)).join("/")}`;
+      const pattern = new RegExp(`^${path.replace(/\{[^}]+\}/g, "\\{[a-z_]+\\}").replace(/\./g, "\\.")}$`);
+      const hits = MANIFEST.filter((m) => m.method === r.method && pattern.test(m.path));
+      expect(hits, `${r.method} ${path}`).toHaveLength(1);
+      const [entry] = hits;
+      expect(entry.auth).toBe("required");
+      expect([...r.scopes].sort()).toEqual(entry.scopes.map((s) => ENGINE_SCOPE[s]).sort());
+      // The only conditional scope (admin on archive) is enforced by the proxy's archived-field rule.
+      if (entry.conditional_scopes?.length) {
+        expect(entry.conditional_scopes.map((c) => c.scope)).toEqual(["admin"]);
+        expect(r.admin).toBe("archived-field");
+      }
+    }
+  });
+
+  it("removed legacy, demo and unused routes stay unreachable", () => {
+    for (const [method, path] of [
+      ["GET", "api/latest"],
+      ["POST", "api/run"],
+      ["GET", "api/campaign"],
+      ["POST", "api/campaign/start"],
+      ["POST", "api/campaign/result"],
+      ["POST", "api/campaign/reanalyze"],
+      ["GET", "api/single"],
+      ["GET", "api/multi"],
+      ["POST", "api/scale/readout"],
+      ["POST", `api/campaigns/${CMP}/upload`],
+      ["POST", `api/campaigns/${CMP}/reanalyze`],
+      ["POST", "api/assist/ask"],
+    ] as const) {
+      expect(matchEngineRoute(method, path.split("/")).kind, `${method} ${path}`).toBe("not_found");
+    }
+  });
+
+  it("GET routes never carry write scope or a body, and no write route mints read", () => {
+    for (const r of ENGINE_ROUTES) {
+      if (r.method === "GET") {
+        expect(r.scopes).toEqual(["campaigns:read"]);
+        expect(r.body).toBe("none");
+      } else {
+        expect(r.scopes).toEqual(["campaigns:write"]);
+      }
     }
   });
 
@@ -53,7 +105,7 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
     ["api/experiments"],
     ["api/campaignish"],
     ["api/scaley"],
-    ["api/latest/extra"],
+    ["api/latest"],
     ["api/campaign/start/x"],
     ["api/campaigns/a/b/c/d/e/f"],
     ["api"],
@@ -63,14 +115,17 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
   });
 
   it("known path, wrong method -> 405 with Allow", () => {
-    expect(matchEngineRoute("POST", ["api", "latest"])).toEqual({ kind: "method_not_allowed", allow: ["GET", "HEAD"] });
-    expect(matchEngineRoute("GET", ["api", "run"])).toEqual({ kind: "method_not_allowed", allow: ["POST"] });
+    expect(matchEngineRoute("POST", ["api", "providers"])).toEqual({ kind: "method_not_allowed", allow: ["GET", "HEAD"] });
+    expect(matchEngineRoute("GET", ["api", "scale", "readout.json"])).toEqual({ kind: "method_not_allowed", allow: ["POST"] });
     expect(matchEngineRoute("DELETE", ["api", "campaigns", CMP])).toEqual({ kind: "method_not_allowed", allow: ["GET", "HEAD", "PATCH"] });
+    expect(matchEngineRoute("POST", ["api", "campaigns", CMP, "setup"])).toEqual({ kind: "method_not_allowed", allow: ["GET", "HEAD", "PUT"] });
+    expect(matchEngineRoute("PUT", ["api", "campaigns", CMP, "analysis"])).toEqual({ kind: "method_not_allowed", allow: ["GET", "HEAD"] });
   });
 
   it("id segments are opaque but restricted", () => {
     expect(matchEngineRoute("GET", ["api", "campaigns", "cmp_x.y"]).kind).toBe("not_found");
     expect(matchEngineRoute("GET", ["api", "campaigns", "x".repeat(129)]).kind).toBe("not_found");
+    expect(matchEngineRoute("PUT", ["api", "campaigns", CMP, "gates", "S1.x"]).kind).toBe("not_found");
   });
 });
 
@@ -110,6 +165,6 @@ describe("traversal protection (PR #64 isSafeSegment, adopted)", () => {
 
   it("ordinary raw paths are safe", () => {
     expect(isSafeRawPath(`/api/engine/api/campaigns/${CMP}/runs/${RUN}/result`)).toBe(true);
-    expect(isSafeRawPath("/api/engine/api/latest")).toBe(true);
+    expect(isSafeRawPath("/api/engine/api/scale/readout.json")).toBe(true);
   });
 });

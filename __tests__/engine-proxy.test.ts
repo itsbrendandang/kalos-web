@@ -55,6 +55,7 @@ const APP = "http://localhost:3000";
 const ENGINE = "http://engine.internal:8050";
 const NOW = Date.UTC(2026, 9, 17, 12, 0, 0);
 const CMP = "cmp_0123456789abcdef0123456789abcdef";
+const RUN = "0123456789abcdef0123456789abcdef";
 
 let dir: string;
 let publicKey: KeyObject;
@@ -193,38 +194,38 @@ afterEach(() => {
 // --- authentication ------------------------------------------------------------
 describe("authentication (session resolved server-side on every request)", () => {
   it("anonymous -> 401, engine never called", async () => {
-    const res = await call("GET", "api/latest", { token: null });
+    const res = await call("GET", "api/campaigns", { token: null });
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toEqual({ error: "unauthenticated" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("unknown / forged session cookie -> 401", async () => {
-    expect((await call("GET", "api/latest", { token: "tok_forged" })).status).toBe(401);
-    expect((await call("GET", "api/latest", { token: null, headers: { cookie: "better-auth.session_token=" } })).status).toBe(401);
+    expect((await call("GET", "api/campaigns", { token: "tok_forged" })).status).toBe(401);
+    expect((await call("GET", "api/campaigns", { token: null, headers: { cookie: "better-auth.session_token=" } })).status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("expired session -> 401", async () => {
-    expect((await call("GET", "api/latest", { token: "tok_expired" })).status).toBe(401);
+    expect((await call("GET", "api/campaigns", { token: "tok_expired" })).status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("revoked session: the very next request after revocation is 401", async () => {
-    expect((await call("GET", "api/latest", { token: "tok_member" })).status).toBe(200);
+    expect((await call("GET", "api/campaigns", { token: "tok_member" })).status).toBe(200);
     db.sessions.delete("tok_member"); // revoke (settings/security or operator kill switch)
-    expect((await call("GET", "api/latest", { token: "tok_member" })).status).toBe(401);
+    expect((await call("GET", "api/campaigns", { token: "tok_member" })).status).toBe(401);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("auth backend failure fails closed (401)", async () => {
     db.throwOnLookup = true;
-    expect((await call("GET", "api/latest")).status).toBe(401);
+    expect((await call("GET", "api/campaigns")).status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("session without a second factor -> 403 MFA_REQUIRED", async () => {
-    const res = await call("GET", "api/latest", { token: "tok_nomfa" });
+    const res = await call("GET", "api/campaigns", { token: "tok_nomfa" });
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: "mfa_required", code: "MFA_REQUIRED" });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -233,20 +234,20 @@ describe("authentication (session resolved server-side on every request)", () =>
   it("a stamped session whose user has no confirmed TOTP enrolment -> 403 MFA_REQUIRED", async () => {
     addSession("tok_unenrolled", "u_member");
     (db.sessions.get("tok_unenrolled") as FakeSession).user.twoFactorEnabled = false;
-    const res = await call("GET", "api/latest", { token: "tok_unenrolled" });
+    const res = await call("GET", "api/campaigns", { token: "tok_unenrolled" });
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toMatchObject({ code: "MFA_REQUIRED" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("user without membership in any organization -> 403", async () => {
-    const res = await call("GET", "api/latest", { token: "tok_nomember" });
+    const res = await call("GET", "api/campaigns", { token: "tok_nomember" });
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: "no_organization" });
   });
 
   it("a member row with an unknown role grants nothing -> 403", async () => {
-    expect((await call("GET", "api/latest", { token: "tok_weird" })).status).toBe(403);
+    expect((await call("GET", "api/campaigns", { token: "tok_weird" })).status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -254,7 +255,7 @@ describe("authentication (session resolved server-side on every request)", () =>
     const { resolveSession } = await import("@/lib/server/session");
     const spy = vi.mocked(resolveSession);
     spy.mockClear();
-    await call("GET", "api/latest", { headers: { authorization: "Bearer x.y.z", "x-forwarded-for": "1.2.3.4" } });
+    await call("GET", "api/campaigns", { headers: { authorization: "Bearer x.y.z", "x-forwarded-for": "1.2.3.4" } });
     const h = spy.mock.calls[0]?.[0];
     expect([...(h?.keys() ?? [])]).toEqual(["cookie"]);
   });
@@ -263,19 +264,19 @@ describe("authentication (session resolved server-side on every request)", () =>
 // --- tenancy -----------------------------------------------------------------
 describe("tenant (operator map, active membership at request time)", () => {
   it("token tenant follows the ACTIVE org membership; switching orgs switches tenant and scopes", async () => {
-    await call("GET", "api/latest", { token: "tok_multi" });
+    await call("GET", "api/campaigns", { token: "tok_multi" });
     expect((await sentClaims(0)).payload).toMatchObject({ tenant: "tenant-a", scopes: ["campaigns:read"] });
     (db.sessions.get("tok_multi") as FakeSession).session.activeOrganizationId = "org_b";
-    await call("POST", "api/campaign/start", { token: "tok_multi", headers: { "content-type": "application/json" }, body: json({ recipes: [] }) });
+    await call("POST", `api/campaigns/${CMP}/runs`, { token: "tok_multi", headers: { "content-type": "application/json" }, body: json({ recipes: [] }) });
     expect((await sentClaims(1)).payload).toMatchObject({ tenant: "tenant-b", scopes: ["campaigns:write"] });
   });
 
   it("a removed member is refused at once, although the session still names the org", async () => {
     addSession("tok_b_only", "u_b_only", { activeOrg: "org_b" });
     db.members.push({ userId: "u_b_only", organizationId: "org_b", role: "member" });
-    expect((await call("GET", "api/latest", { token: "tok_b_only" })).status).toBe(200);
+    expect((await call("GET", "api/campaigns", { token: "tok_b_only" })).status).toBe(200);
     db.members = db.members.filter((m) => m.userId !== "u_b_only");
-    const res = await call("GET", "api/latest", { token: "tok_b_only" });
+    const res = await call("GET", "api/campaigns", { token: "tok_b_only" });
     expect(res.status).toBe(403);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -283,25 +284,25 @@ describe("tenant (operator map, active membership at request time)", () => {
   it("removal from the active org never keeps that tenant (falls back only to a sole remaining membership)", async () => {
     (db.sessions.get("tok_multi") as FakeSession).session.activeOrganizationId = "org_b";
     db.members = db.members.filter((m) => !(m.userId === "u_multi" && m.organizationId === "org_b"));
-    await call("GET", "api/latest", { token: "tok_multi" });
+    await call("GET", "api/campaigns", { token: "tok_multi" });
     expect((await sentClaims(0)).payload.tenant).toBe("tenant-a");
   });
 
   it("an org with no tenant mapping -> 403 (never a default tenant)", async () => {
-    const res = await call("GET", "api/latest", { token: "tok_unmapped" });
+    const res = await call("GET", "api/campaigns", { token: "tok_unmapped" });
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: "organization_not_provisioned" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("an org mapped to the engine-reserved 'default' tenant -> 403", async () => {
-    expect((await call("GET", "api/latest", { token: "tok_reserved" })).status).toBe(403);
+    expect((await call("GET", "api/campaigns", { token: "tok_reserved" })).status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("no tenant map configured -> 403 for everyone", async () => {
     vi.stubEnv("KALOS_TENANT_MAP_FILE", join(dir, "missing.json"));
-    expect((await call("GET", "api/latest", { token: "tok_admin" })).status).toBe(403);
+    expect((await call("GET", "api/campaigns", { token: "tok_admin" })).status).toBe(403);
   });
 
   it("cross-tenant: client-supplied tenant headers, query, body and path ids never change the minted tenant", async () => {
@@ -329,14 +330,14 @@ describe("tenant (operator map, active membership at request time)", () => {
 // --- authorization -----------------------------------------------------------
 describe("scopes (role from the member table x route)", () => {
   it("viewer GET -> forwarded with campaigns:read only", async () => {
-    expect((await call("GET", "api/campaign", { token: "tok_viewer" })).status).toBe(200);
+    expect((await call("GET", `api/campaigns/${CMP}`, { token: "tok_viewer" })).status).toBe(200);
     expect((await sentClaims()).payload.scopes).toEqual(["campaigns:read"]);
   });
 
   it.each([
-    ["api/campaign/start", "application/json", json({ recipes: [] })],
-    ["api/campaigns", "application/json", json({ name: "x" })],
     [`api/campaigns/${CMP}/runs`, "application/json", json({ recipes: [] })],
+    ["api/campaigns", "application/json", json({ name: "x" })],
+    [`api/campaigns/${CMP}/operating-ranges`, "application/json", json({ threshold: 1, probability: 0.9 })],
   ])("viewer POST %s -> 403", async (path, ct, body) => {
     const res = await call("POST", path, { token: "tok_viewer", headers: { "content-type": ct }, body });
     expect(res.status).toBe(403);
@@ -347,11 +348,57 @@ describe("scopes (role from the member table x route)", () => {
   it("viewer upload -> 403", async () => {
     const fd = new FormData();
     fd.append("file", new File(["a,b\n1,2"], "s.csv", { type: "text/csv" }));
-    expect((await call("POST", "api/run", { token: "tok_viewer", body: fd })).status).toBe(403);
+    expect((await call("POST", `api/campaigns/${CMP}/jobs`, { token: "tok_viewer", body: fd })).status).toBe(403);
+  });
+
+  it.each([
+    [`api/campaigns/${CMP}/setup`, json({ goal: "maximize", bounds: {}, linear_constraints: [] })],
+    [`api/campaigns/${CMP}/stages`, json({ stages: [{ key: "S1", label: "Screen" }], current_stage: null })],
+    [`api/campaigns/${CMP}/gates/S2`, json({ decision: "go", note: "ok" })],
+  ])("viewer PUT %s -> 403, engine never called", async (path, body) => {
+    const res = await call("PUT", path, { token: "tok_viewer", headers: { "content-type": "application/json" }, body });
+    expect(res.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("member PUT -> forwarded as PUT with campaigns:write only and its JSON body", async () => {
+    const body = json({ decision: "no_go", note: "titer collapsed at 10 L" });
+    expect((await call("PUT", `api/campaigns/${CMP}/gates/S5`, { headers: { "content-type": "application/json" }, body })).status).toBe(200);
+    const [url, init] = sent();
+    expect(url).toBe(`${ENGINE}/api/campaigns/${CMP}/gates/S5`);
+    expect(init.method).toBe("PUT");
+    expect((await sentClaims()).payload.scopes).toEqual(["campaigns:write"]);
+  });
+
+  it("PUT needs the same CSRF proof as POST (Origin + marker)", async () => {
+    const res = await call("PUT", `api/campaigns/${CMP}/setup`, { csrf: false, headers: { "content-type": "application/json" }, body: "{}" });
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({ error: "csrf_rejected" });
+    const noMarker = await call("PUT", `api/campaigns/${CMP}/setup`, {
+      csrf: false,
+      headers: { "content-type": "application/json", origin: APP, "sec-fetch-site": "same-origin" },
+      body: "{}",
+    });
+    expect(noMarker.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("PUT with a form content type -> 415", async () => {
+    const res = await call("PUT", `api/campaigns/${CMP}/setup`, { headers: { "content-type": "application/x-www-form-urlencoded" }, body: "goal=minimize" });
+    expect(res.status).toBe(415);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("GET of the new read routes mints campaigns:read only", async () => {
+    for (const path of [`api/campaigns/${CMP}/setup`, `api/campaigns/${CMP}/gates`, `api/campaigns/${CMP}/export/rows`, `api/campaigns/${CMP}/results/history`]) {
+      fetchMock.mockClear();
+      expect((await call("GET", path, { token: "tok_viewer" })).status).toBe(200);
+      expect((await sentClaims()).payload.scopes).toEqual(["campaigns:read"]);
+    }
   });
 
   it("member write -> forwarded with campaigns:write only (least privilege per request)", async () => {
-    await call("POST", "api/campaign/result", { headers: { "content-type": "application/json" }, body: json({ id: "x", value: 1 }) });
+    await call("POST", `api/campaigns/${CMP}/runs/${RUN}/result`, { headers: { "content-type": "application/json" }, body: json({ id: "x", value: 1 }) });
     expect((await sentClaims()).payload.scopes).toEqual(["campaigns:write"]);
   });
 
@@ -417,14 +464,14 @@ describe("client-supplied credentials", () => {
   }
 
   it("a forged engine JWT in Authorization without a session -> 401", async () => {
-    const res = await call("GET", "api/latest", { token: null, headers: { authorization: `Bearer ${await forgedJwt()}` } });
+    const res = await call("GET", "api/campaigns", { token: null, headers: { authorization: `Bearer ${await forgedJwt()}` } });
     expect(res.status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("with a session, the client's Authorization is replaced by the server-minted token", async () => {
     const forged = await forgedJwt();
-    await call("GET", "api/latest", { headers: { authorization: `Bearer ${forged}`, "proxy-authorization": "Basic eDp5" } });
+    await call("GET", "api/campaigns", { headers: { authorization: `Bearer ${forged}`, "proxy-authorization": "Basic eDp5" } });
     const { payload, token } = await sentClaims();
     expect(token).not.toBe(forged);
     expect(payload).toMatchObject({ tenant: "tenant-a", sub: "u_member", scopes: ["campaigns:read"] });
@@ -432,7 +479,7 @@ describe("client-supplied credentials", () => {
   });
 
   it("the legacy static KALOS_ENGINE_TOKEN is never sent", async () => {
-    await call("GET", "api/latest");
+    await call("GET", "api/campaigns");
     expect(sentHeaders().get("authorization")).not.toContain("legacy-static-token");
   });
 });
@@ -440,7 +487,7 @@ describe("client-supplied credentials", () => {
 // --- CSRF ----------------------------------------------------------------------
 describe("CSRF / origin", () => {
   const post = (headers: Record<string, string>, body: BodyInit = json({ recipes: [] })) =>
-    call("POST", "api/campaign/start", { csrf: false, headers: { "content-type": "application/json", ...headers }, body });
+    call("POST", `api/campaigns/${CMP}/runs`, { csrf: false, headers: { "content-type": "application/json", ...headers }, body });
 
   it("cross-origin POST -> 403", async () => {
     const res = await post({ origin: "https://evil.example", "x-kalos-csrf": "1" });
@@ -466,7 +513,7 @@ describe("CSRF / origin", () => {
   it.each(["application/x-www-form-urlencoded", "text/plain", "text/plain;charset=UTF-8"])(
     "form-post content type %s -> 415 even with valid CSRF headers",
     async (ct) => {
-      const res = await call("POST", "api/campaign/start", { headers: { "content-type": ct }, body: "recipes=x" });
+      const res = await call("POST", `api/campaigns/${CMP}/runs`, { headers: { "content-type": ct }, body: "recipes=x" });
       expect(res.status).toBe(415);
       expect(fetchMock).not.toHaveBeenCalled();
     },
@@ -475,18 +522,18 @@ describe("CSRF / origin", () => {
   it("multipart on a JSON route and JSON on an upload route -> 415", async () => {
     const fd = new FormData();
     fd.append("x", "y");
-    expect((await call("POST", "api/campaign/start", { body: fd })).status).toBe(415);
-    expect((await call("POST", "api/run", { headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(415);
+    expect((await call("POST", `api/campaigns/${CMP}/runs`, { body: fd })).status).toBe(415);
+    expect((await call("POST", `api/campaigns/${CMP}/jobs`, { headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(415);
   });
 
   it("a cross-site GET is refused too (no engine work on a third-party page's behalf)", async () => {
-    expect((await call("GET", "api/single", { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
-    expect((await call("GET", "api/latest", { headers: { origin: "https://evil.example" } })).status).toBe(403);
+    expect((await call("GET", "api/campaigns", { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
+    expect((await call("GET", "api/campaigns", { headers: { origin: "https://evil.example" } })).status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("CSRF is checked before the session (no session work for a forged cross-site POST)", async () => {
-    const res = await call("POST", "api/campaign/start", { token: null, csrf: false, headers: { origin: "https://evil.example" } });
+    const res = await call("POST", `api/campaigns/${CMP}/runs`, { token: null, csrf: false, headers: { origin: "https://evil.example" } });
     expect(res.status).toBe(403);
   });
 });
@@ -509,7 +556,7 @@ describe("paths and methods", () => {
     ["removed experiments route", "api/experiments"],
     ["prefix collision", "api/campaignish"],
   ])("%s -> 404, engine never called", async (_n, path) => {
-    const res = await call("GET", path, { url: `${APP}/api/engine/api/latest` });
+    const res = await call("GET", path, { url: `${APP}/api/engine/api/campaigns` });
     expect(res.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -533,37 +580,39 @@ describe("paths and methods", () => {
 
   it("keeps an engine base path (root_path deployments)", async () => {
     vi.stubEnv("KALOS_ENGINE_URL", "http://engine.internal:8050/kalos/");
-    await call("GET", "api/latest");
-    expect(sent()[0]).toBe("http://engine.internal:8050/kalos/api/latest");
+    await call("GET", "api/campaigns");
+    expect(sent()[0]).toBe("http://engine.internal:8050/kalos/api/campaigns");
   });
 
   it.each(["ftp://engine", "http://user:pw@engine.internal", "http://engine.internal/?x=1", "not a url", ""])(
     "KALOS_ENGINE_URL %j is refused (502, no fetch)",
     async (v) => {
       vi.stubEnv("KALOS_ENGINE_URL", v);
-      const res = await call("GET", "api/latest");
+      const res = await call("GET", "api/campaigns");
       expect(res.status).toBe(502);
       await expect(res.json()).resolves.toEqual({ error: "engine_not_configured" });
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
 
-  it("PUT and OPTIONS -> 405", async () => {
-    expect((await call("PUT", "api/campaign/start")).status).toBe(405);
-    const res = await call("OPTIONS", "api/latest", { csrf: false, headers: { origin: "https://evil.example", "access-control-request-method": "POST" } });
+  it("PUT on a non-PUT route and OPTIONS -> 405", async () => {
+    const put = await call("PUT", `api/campaigns/${CMP}/runs`, { headers: { "content-type": "application/json" }, body: "{}" });
+    expect(put.status).toBe(405);
+    expect(put.headers.get("allow")).toBe("POST");
+    const res = await call("OPTIONS", "api/campaigns", { csrf: false, headers: { origin: "https://evil.example", "access-control-request-method": "POST" } });
     expect(res.status).toBe(405);
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 
   it("known path with the wrong method -> 405 with Allow", async () => {
-    const res = await call("POST", "api/latest", { headers: { "content-type": "application/json" }, body: "{}" });
+    const res = await call("POST", `api/campaigns/${CMP}/analysis`, { headers: { "content-type": "application/json" }, body: "{}" });
     expect(res.status).toBe(405);
     expect(res.headers.get("allow")).toBe("GET, HEAD");
     expect((await call("DELETE", `api/campaigns/${CMP}`)).status).toBe(405);
   });
 
   it("HEAD is forwarded as HEAD with read scope and no body", async () => {
-    const res = await call("HEAD", "api/latest");
+    const res = await call("HEAD", "api/campaigns");
     expect(res.status).toBe(200);
     expect(sent()[1].method).toBe("HEAD");
     expect(res.body).toBeNull();
@@ -578,7 +627,7 @@ describe("paths and methods", () => {
 // --- forwarding ------------------------------------------------------------------
 describe("request forwarding", () => {
   it("strips client Authorization, Cookie, Host, X-Forwarded-*, x-kalos-*, hop-by-hop and other headers", async () => {
-    await call("POST", "api/campaign/start", {
+    await call("POST", `api/campaigns/${CMP}/runs`, {
       headers: {
         "content-type": "application/json",
         accept: "application/json",
@@ -612,9 +661,9 @@ describe("request forwarding", () => {
     fd.append("file", new File(["a,b\n1,2"], "sheet.csv", { type: "text/csv" }));
     fd.append("name", "Feed test");
     fetchMock.mockImplementationOnce(async (_u: string, init: RequestInit) => engineOk({ got: await new Response(init.body as ReadableStream).text() }));
-    const res = await call("POST", "api/run", { body: fd });
+    const res = await call("POST", `api/campaigns/${CMP}/jobs`, { body: fd });
     const [url, init] = sent();
-    expect(url).toBe(`${ENGINE}/api/run`);
+    expect(url).toBe(`${ENGINE}/api/campaigns/${CMP}/jobs`);
     expect((init.headers as Headers).get("content-type")).toMatch(/^multipart\/form-data; boundary=/);
     expect(init.body).toBeInstanceOf(ReadableStream);
     expect(init.duplex).toBe("half");
@@ -632,7 +681,7 @@ describe("request forwarding", () => {
       // Engine refuses without replace; with replace it would accept. Relay whichever it returns.
       return engineOk({ code: "campaign_has_runs", awaiting: 1, measured: 2, got }, 409);
     });
-    const res = await call("POST", "api/run", { body: fd });
+    const res = await call("POST", `api/campaigns/${CMP}/jobs`, { body: fd });
     expect(res.status).toBe(409);
     const body = (await res.json()) as { code: string; awaiting: number; measured: number; got: string };
     expect(body).toMatchObject({ code: "campaign_has_runs", awaiting: 1, measured: 2 });
@@ -642,7 +691,7 @@ describe("request forwarding", () => {
   });
 
   it("a JSON route called without a content type forwards no body (reanalyze)", async () => {
-    const res = await call("POST", "api/campaign/reanalyze");
+    const res = await call("POST", `api/campaigns/${CMP}/reanalyze/jobs`);
     expect(res.status).toBe(200);
     expect(sent()[1].body).toBeUndefined();
     expect(sentHeaders().has("content-type")).toBe(false);
@@ -655,7 +704,7 @@ describe("request forwarding", () => {
       engineSignal = init.signal ?? undefined;
       return new Promise((_r, reject) => init.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))));
     });
-    const pending = call("GET", "api/latest", { signal: ac.signal });
+    const pending = call("GET", "api/campaigns", { signal: ac.signal });
     await vi.waitFor(() => expect(engineSignal).toBeDefined());
     ac.abort();
     const res = await pending;
@@ -667,7 +716,7 @@ describe("request forwarding", () => {
 // --- body limits -----------------------------------------------------------------
 describe("body size limits", () => {
   it("declared Content-Length over the upload cap -> 413, engine never called", async () => {
-    const res = await call("POST", "api/run", {
+    const res = await call("POST", `api/campaigns/${CMP}/jobs`, {
       headers: { "content-type": "multipart/form-data; boundary=x", "content-length": String(3 * 1024 * 1024) },
       body: "x",
     });
@@ -688,7 +737,7 @@ describe("body size limits", () => {
         c.close();
       },
     });
-    const res = await call("POST", "api/run", { headers: { "content-type": "multipart/form-data; boundary=x" }, body: stream });
+    const res = await call("POST", `api/campaigns/${CMP}/jobs`, { headers: { "content-type": "multipart/form-data; boundary=x" }, body: stream });
     expect(res.status).toBe(413);
   });
 
@@ -697,7 +746,7 @@ describe("body size limits", () => {
       await new Response(init.body as ReadableStream).arrayBuffer();
       return engineOk();
     });
-    const res = await call("POST", "api/run", { headers: { "content-type": "multipart/form-data; boundary=x" }, body: "a".repeat(1024 * 1024 + 100_000) });
+    const res = await call("POST", `api/campaigns/${CMP}/jobs`, { headers: { "content-type": "multipart/form-data; boundary=x" }, body: "a".repeat(1024 * 1024 + 100_000) });
     expect(res.status).toBe(200);
   });
 
@@ -707,7 +756,7 @@ describe("body size limits", () => {
       await new Response(init.body as ReadableStream).arrayBuffer();
       return engineOk();
     });
-    expect((await call("POST", "api/campaign/start", { headers: { "content-type": "application/json" }, body: big })).status).toBe(413);
+    expect((await call("POST", `api/campaigns/${CMP}/runs`, { headers: { "content-type": "application/json" }, body: big })).status).toBe(413);
     expect((await call("PATCH", `api/campaigns/${CMP}`, { headers: { "content-type": "application/json" }, body: big })).status).toBe(413);
   });
 });
@@ -729,7 +778,7 @@ describe("engine responses", () => {
         },
       }),
     );
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ has_data: true });
     for (const h of ["set-cookie", "server", "x-powered-by", "access-control-allow-origin", "x-kalos-internal", "www-authenticate"]) {
@@ -738,7 +787,7 @@ describe("engine responses", () => {
   });
 
   it("adds security headers to success and error responses", async () => {
-    for (const res of [await call("GET", "api/latest"), await call("GET", "api/latest", { token: null })]) {
+    for (const res of [await call("GET", "api/campaigns"), await call("GET", "api/campaigns", { token: null })]) {
       expect(res.headers.get("cache-control")).toBe("no-store");
       expect(res.headers.get("x-content-type-options")).toBe("nosniff");
       expect(res.headers.get("x-frame-options")).toBe("DENY");
@@ -752,19 +801,19 @@ describe("engine responses", () => {
     fetchMock.mockResolvedValueOnce(engineOk({ error: "The target column is constant.", code: "constant_target" }, 400));
     const fd = new FormData();
     fd.append("file", new File(["a\n1"], "s.csv"));
-    const res = await call("POST", "api/run", { body: fd });
+    const res = await call("POST", `api/campaigns/${CMP}/jobs`, { body: fd });
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: "The target column is constant.", code: "constant_target" });
 
     fetchMock.mockResolvedValueOnce(engineOk({ error: "upload too large", code: "too_large" }, 413));
-    expect((await call("POST", "api/run", { body: fd })).status).toBe(413);
+    expect((await call("POST", `api/campaigns/${CMP}/jobs`, { body: fd })).status).toBe(413);
     fetchMock.mockResolvedValueOnce(engineOk({ detail: "requires 'write' scope" }, 403));
-    expect((await call("POST", "api/run", { body: fd })).status).toBe(403);
+    expect((await call("POST", `api/campaigns/${CMP}/jobs`, { body: fd })).status).toBe(403);
   });
 
   it("503 busy keeps Retry-After", async () => {
     fetchMock.mockResolvedValueOnce(engineOk({ error: "An analysis is already running." }, 503, { "retry-after": "60" }));
-    const res = await call("POST", "api/campaign/reanalyze");
+    const res = await call("POST", `api/campaigns/${CMP}/reanalyze/jobs`);
     expect(res.status).toBe(503);
     expect(res.headers.get("retry-after")).toBe("60");
   });
@@ -773,7 +822,7 @@ describe("engine responses", () => {
     fetchMock.mockResolvedValueOnce(
       new Response('Traceback (most recent call last):\n  File "/srv/kalos/portal/app.py"\nKeyError: secret', { status: 500, headers: { "content-type": "text/plain" } }),
     );
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(502);
     const text = await res.text();
     expect(text).toBe(json({ error: "engine_error" }));
@@ -781,7 +830,7 @@ describe("engine responses", () => {
 
   it("engine 401 (token refused) -> 502 engine_auth_failed, never a 401 that looks like a sign-out", async () => {
     fetchMock.mockResolvedValueOnce(engineOk({ detail: "invalid or expired token" }, 401, { "www-authenticate": "Bearer" }));
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(502);
     await expect(res.json()).resolves.toEqual({ error: "engine_auth_failed" });
     expect(res.headers.get("www-authenticate")).toBeNull();
@@ -789,14 +838,14 @@ describe("engine responses", () => {
 
   it("engine redirects are not followed or relayed", async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "http://evil.example/" } }));
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(502);
     expect(res.headers.get("location")).toBeNull();
   });
 
   it("engine unreachable -> 502", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(502);
     await expect(res.json()).resolves.toEqual({ error: "engine_unreachable" });
   });
@@ -815,14 +864,14 @@ describe("engine responses", () => {
       f.session.mfaVerifiedAt = new Date(db.now - 30_000);
       f.session.expiresAt = new Date(db.now + 86_400_000);
     }
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(504);
     await expect(res.json()).resolves.toEqual({ error: "engine_timeout" });
     expect(engineSignal?.aborted).toBe(true);
   });
 
   it("the engine token never appears in the response", async () => {
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     const { token } = await sentClaims();
     const text = await res.text();
     expect(text).not.toContain(token);
@@ -833,7 +882,7 @@ describe("engine responses", () => {
 // --- token claims ------------------------------------------------------------------
 describe("engine token", () => {
   it("is a 60 s EdDSA JWT with iss/aud/sub/sid/tenant/scopes/jti from the server-side session", async () => {
-    await call("GET", "api/latest", { token: "tok_viewer" });
+    await call("GET", "api/campaigns", { token: "tok_viewer" });
     const { payload, protectedHeader, token } = await sentClaims();
     expect(protectedHeader).toEqual({ alg: "EdDSA", typ: "JWT", kid: "kalos-web-test" });
     expect(decodeProtectedHeader(token).alg).toBe("EdDSA");
@@ -853,14 +902,14 @@ describe("engine token", () => {
   });
 
   it("a fresh jti per request", async () => {
-    await call("GET", "api/latest");
-    await call("GET", "api/latest");
+    await call("GET", "api/campaigns");
+    await call("GET", "api/campaigns");
     expect((await sentClaims(0)).payload.jti).not.toBe((await sentClaims(1)).payload.jti);
   });
 
   it("signing key unavailable -> 503, engine never called, no detail leaked", async () => {
     vi.stubEnv("KALOS_ENGINE_JWT_PRIVATE_KEY_FILE", join(dir, "nope.pem"));
-    const res = await call("GET", "api/latest");
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(503);
     expect(await res.text()).toBe(json({ error: "engine_credentials_unavailable" }));
     expect(fetchMock).not.toHaveBeenCalled();
@@ -871,40 +920,40 @@ describe("engine token", () => {
 describe("rate limits (in memory, single replica) and audit log", () => {
   it("per-session limit -> 429 with Retry-After", async () => {
     vi.stubEnv("KALOS_PROXY_RATE_LIMIT_SESSION", "2");
-    expect((await call("GET", "api/latest")).status).toBe(200);
-    expect((await call("GET", "api/latest")).status).toBe(200);
-    const res = await call("GET", "api/latest");
+    expect((await call("GET", "api/campaigns")).status).toBe(200);
+    expect((await call("GET", "api/campaigns")).status).toBe(200);
+    const res = await call("GET", "api/campaigns");
     expect(res.status).toBe(429);
     expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
     // another session is unaffected
-    expect((await call("GET", "api/latest", { token: "tok_viewer" })).status).toBe(200);
+    expect((await call("GET", "api/campaigns", { token: "tok_viewer" })).status).toBe(200);
   });
 
   it("per-session write limit is separate and tighter", async () => {
     vi.stubEnv("KALOS_PROXY_RATE_LIMIT_WRITES", "1");
-    expect((await call("POST", "api/campaign/reanalyze")).status).toBe(200);
-    expect((await call("POST", "api/campaign/reanalyze")).status).toBe(429);
-    expect((await call("GET", "api/latest")).status).toBe(200);
+    expect((await call("POST", `api/campaigns/${CMP}/reanalyze/jobs`)).status).toBe(200);
+    expect((await call("POST", `api/campaigns/${CMP}/reanalyze/jobs`)).status).toBe(429);
+    expect((await call("GET", "api/campaigns")).status).toBe(200);
   });
 
   it("per-tenant limit spans sessions", async () => {
     vi.stubEnv("KALOS_PROXY_RATE_LIMIT_TENANT", "2");
-    expect((await call("GET", "api/latest", { token: "tok_member" })).status).toBe(200);
-    expect((await call("GET", "api/latest", { token: "tok_viewer" })).status).toBe(200);
-    expect((await call("GET", "api/latest", { token: "tok_admin" })).status).toBe(429);
+    expect((await call("GET", "api/campaigns", { token: "tok_member" })).status).toBe(200);
+    expect((await call("GET", "api/campaigns", { token: "tok_viewer" })).status).toBe(200);
+    expect((await call("GET", "api/campaigns", { token: "tok_admin" })).status).toBe(429);
   });
 
   it("writes one audit line per request with identifiers only (no body, query, cookie, email, token)", async () => {
-    await call("POST", "api/campaign/start", {
+    await call("POST", `api/campaigns/${CMP}/runs`, {
       query: "secretq=1",
       headers: { "content-type": "application/json" },
       body: json({ recipes: [{ recipe: { "secret-recipe": 1 } }] }),
     });
-    await call("GET", "api/latest", { token: null });
+    await call("GET", "api/campaigns", { token: null });
     const lines = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).filter((l: string) => l.startsWith("[kalos-audit] "));
     expect(lines).toHaveLength(2);
     const rec = JSON.parse(lines[0].slice("[kalos-audit] ".length));
-    expect(rec).toMatchObject({ evt: "engine_proxy", method: "POST", route: "api/campaign/start", status: 200, outcome: "ok", tenant: "tenant-a", uid: "u_member", sid: "S-member" });
+    expect(rec).toMatchObject({ evt: "engine_proxy", method: "POST", route: "api/campaigns/:id/runs", status: 200, outcome: "ok", tenant: "tenant-a", uid: "u_member", sid: "S-member" });
     expect(rec.jti).toBe((await sentClaims()).payload.jti);
     const all = lines.join("\n");
     for (const s of ["secret-recipe", "secretq", "tok_member", "@example.com", "Bearer", "theme=dark"]) expect(all).not.toContain(s);

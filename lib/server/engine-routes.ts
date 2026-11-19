@@ -9,8 +9,11 @@
 //
 // Each entry declares:
 // - `scopes`: the engine-token scopes the request needs (and the ONLY scopes
-//   the minted token will carry - least privilege per request). GET/HEAD are
-//   read, POST/PATCH/DELETE are write.
+//   the minted token will carry - least privilege per request). Declared per
+//   route from the engine's published manifest (kalos-engine
+//   docs/route-scopes.json, vendored as __tests__/fixtures/engine-route-scopes.json
+//   and checked by __tests__/engine-routes.test.ts), not derived from the HTTP
+//   method: an engine route may need `read` on a POST.
 // - `body`: what the request body may be. "none" = never forwarded;
 //   "json" = application/json (or no body at all); "multipart" =
 //   multipart/form-data upload. Everything else is 415, which also shuts out
@@ -22,7 +25,7 @@
 //   (kalos/portal/campaigns_api.py: `body.archived is not None`).
 import type { EngineScope } from "@/lib/server/scopes";
 
-export const PROXY_METHODS = ["GET", "HEAD", "POST", "PATCH", "DELETE"] as const;
+export const PROXY_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] as const;
 export type ProxyMethod = (typeof PROXY_METHODS)[number];
 
 export type BodyKind = "none" | "json" | "multipart";
@@ -36,49 +39,59 @@ export interface EngineRoute {
   admin?: "archived-field";
 }
 
-const R: readonly EngineScope[] = ["campaigns:read"];
-const W: readonly EngineScope[] = ["campaigns:write"];
+const R: readonly EngineScope[] = Object.freeze(["campaigns:read"]);
+const W: readonly EngineScope[] = Object.freeze(["campaigns:write"]);
 
-const route = (method: EngineRoute["method"], path: string, body: BodyKind, extra: Partial<EngineRoute> = {}): EngineRoute =>
+const route = (method: EngineRoute["method"], path: string, scopes: readonly EngineScope[], body: BodyKind, extra: Partial<EngineRoute> = {}): EngineRoute =>
   Object.freeze({
     method,
     pattern: Object.freeze(path.split("/")),
-    scopes: method === "GET" ? R : W,
+    scopes,
     body,
     ...extra,
   });
 
-/** Every engine route the web client (lib/api.ts, lib/scale-readout.ts) uses or may use. */
+/**
+ * Every engine route the web client (lib/api.ts, lib/scale-readout.ts) calls.
+ * The legacy single-campaign routes (/api/latest, /api/run, /api/campaign/*),
+ * the demo simulators (/api/single, /api/multi), the HTML scale readout and
+ * the synchronous upload/re-analysis routes were removed once nothing called
+ * them: the pages use the multi-campaign API and background jobs only.
+ */
 export const ENGINE_ROUTES: readonly EngineRoute[] = Object.freeze([
-  // Legacy single-campaign routes (act on the tenant's default campaign).
-  route("GET", "api/latest", "none"),
-  route("GET", "api/providers", "none"),
-  route("POST", "api/run", "multipart"),
-  route("GET", "api/campaign", "none"),
-  route("POST", "api/campaign/start", "json"),
-  route("POST", "api/campaign/result", "json"),
-  route("POST", "api/campaign/reanalyze", "json"),
-  route("POST", "api/scale/readout", "multipart"),
-  // Demo simulators (the engine registers these only outside production).
-  route("GET", "api/single", "none"),
-  route("GET", "api/multi", "none"),
-  // Multi-campaign API (kalos-engine docs/CAMPAIGNS_API.md).
-  route("GET", "api/campaigns", "none"),
-  route("POST", "api/campaigns", "json"),
-  route("GET", "api/campaigns/:id", "none"),
-  route("PATCH", "api/campaigns/:id", "json", { admin: "archived-field" }),
-  route("POST", "api/campaigns/:id/upload", "multipart"),
-  route("GET", "api/campaigns/:id/analysis", "none"),
-  route("POST", "api/campaigns/:id/runs", "json"),
-  route("POST", "api/campaigns/:id/runs/:id/result", "json"),
-  route("POST", "api/campaigns/:id/reanalyze", "json"),
-  // Background analysis jobs (kalos-engine docs/JOBS.md): an upload is
-  // submitted as a job (202), then polled for its engine-reported stage and
-  // progress, and can be cancelled. Same scopes as the synchronous upload.
-  route("POST", "api/campaigns/:id/jobs", "multipart"),
-  route("GET", "api/campaigns/:id/jobs", "none"),
-  route("GET", "api/jobs/:id", "none"),
-  route("POST", "api/jobs/:id/cancel", "json"),
+  // Optional AI providers (Settings).
+  route("GET", "api/providers", R, "none"),
+  // Scale-up readout, JSON variant (stateless; write per the engine manifest).
+  route("POST", "api/scale/readout.json", W, "multipart"),
+  // Multi-campaign API (kalos-engine docs/CAMPAIGNS_API.md). The list takes ?summary=true.
+  route("GET", "api/campaigns", R, "none"),
+  route("POST", "api/campaigns", W, "json"),
+  route("GET", "api/campaigns/:id", R, "none"),
+  route("PATCH", "api/campaigns/:id", W, "json", { admin: "archived-field" }),
+  route("GET", "api/campaigns/:id/analysis", R, "none"),
+  route("POST", "api/campaigns/:id/runs", W, "json"),
+  route("POST", "api/campaigns/:id/runs/:id/result", W, "json"),
+  // Setup (goal, bounds, linear constraints, target unit), stage track and go/no-go gates.
+  route("GET", "api/campaigns/:id/setup", R, "none"),
+  route("PUT", "api/campaigns/:id/setup", W, "json"),
+  route("GET", "api/campaigns/:id/stages", R, "none"),
+  route("PUT", "api/campaigns/:id/stages", W, "json"),
+  route("GET", "api/campaigns/:id/gates", R, "none"),
+  route("PUT", "api/campaigns/:id/gates/:id", W, "json"),
+  route("GET", "api/campaigns/:id/gates/:id/history", R, "none"),
+  // Report: raw rows, result history + audit log, operating ranges (POST computes: write).
+  route("GET", "api/campaigns/:id/export/rows", R, "none"),
+  route("GET", "api/campaigns/:id/results/history", R, "none"),
+  route("GET", "api/campaigns/:id/operating-ranges", R, "none"),
+  route("POST", "api/campaigns/:id/operating-ranges", W, "json"),
+  // Background jobs (kalos-engine docs/JOBS.md): an upload or a re-analysis
+  // is submitted (202), then polled for its engine-reported stage and
+  // progress, and can be cancelled.
+  route("POST", "api/campaigns/:id/jobs", W, "multipart"),
+  route("GET", "api/campaigns/:id/jobs", R, "none"),
+  route("POST", "api/campaigns/:id/reanalyze/jobs", W, "json"),
+  route("GET", "api/jobs/:id", R, "none"),
+  route("POST", "api/jobs/:id/cancel", W, "json"),
 ]);
 
 /** Opaque id segments (campaign ids `cmp_<hex>`, run ids `<hex>`). The engine validates the exact format. */

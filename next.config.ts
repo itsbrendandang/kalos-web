@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // trace then copies only prebuilds/<platform>-<arch>.node of the BUILD host,
   // so the image must be built on the production platform (see Dockerfile).
   serverExternalPackages: ["better-sqlite3"],
+  experimental: {
+    agentUpgrade: "security",
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders(process.env.NODE_ENV !== "production") }];
   },

@@ -70,6 +70,7 @@ const TONES = [
 ];
 const CHART = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5", "--chart-6"];
 const SEQ = ["--chart-seq-1", "--chart-seq-2", "--chart-seq-3", "--chart-seq-4", "--chart-seq-5"];
+const UNC = ["--chart-unc-1", "--chart-unc-2", "--chart-unc-3", "--chart-unc-4", "--chart-unc-5"];
 
 type Pair = [fg: string, bg: string, min: number];
 
@@ -111,8 +112,17 @@ describe.each([
     for (let i = 1; i < ratios.length; i++) expect(ratios[i]).toBeGreaterThan(ratios[i - 1]);
   });
 
+  it("uncertainty (sigma) ramp gets more visible against the page as values rise (VIZ_SPEC 3.7)", () => {
+    const ratios = UNC.map((c) => contrast(tokens, c, "--bg"));
+    for (let i = 1; i < ratios.length; i++) expect(ratios[i]).toBeGreaterThan(ratios[i - 1]);
+  });
+
+  it("the refusal hatch stroke is visible on its zone fill", () => {
+    expect(contrast(tokens, "--chart-refused", "--chart-zone-licensed")).toBeGreaterThanOrEqual(1.3);
+  });
+
   it("every tested color is inside the sRGB gamut, so no browser clipping changes it", () => {
-    const names = new Set(pairs.flatMap(([fg, bg]) => [fg, bg]).concat(SEQ));
+    const names = new Set(pairs.flatMap(([fg, bg]) => [fg, bg]).concat(SEQ, UNC));
     for (const name of names) {
       for (const v of oklchToLinearSrgb(resolve(tokens, name))) {
         expect(v, name).toBeGreaterThanOrEqual(-0.002);

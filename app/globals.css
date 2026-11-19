@@ -60,6 +60,21 @@
   --chart-seq-4: oklch(0.53 0.15 285);
   --chart-seq-5: oklch(0.38 0.14 285);
   --chart-band: oklch(0.48 0.16 285 / 0.14);
+  /* Model uncertainty (sigma maps): a neutral grey ramp, so it never reads as the violet model mean. */
+  --chart-unc-1: oklch(0.96 0 0);
+  --chart-unc-2: oklch(0.88 0 0);
+  --chart-unc-3: oklch(0.76 0 0);
+  --chart-unc-4: oklch(0.62 0 0);
+  --chart-unc-5: oklch(0.48 0 0);
+  /* Refusals and zones: a neutral hatch (a refusal is an honest result, not an error). */
+  --chart-refused: var(--border-strong);
+  --chart-zone-warn: var(--warn-soft);
+  --chart-zone-licensed: var(--subtle);
+  --chart-stage-a: var(--bg);
+  --chart-stage-b: var(--subtle);
+  /* Diverging pair for signed correlations (Okabe-Ito blue / vermillion), always with printed values. */
+  --chart-div-neg: var(--chart-1);
+  --chart-div-pos: var(--chart-4);
   --chart-reference: var(--fg-muted);
   --chart-predicted: var(--accent);
   --chart-measured: var(--fg);
@@ -103,6 +118,11 @@
   --chart-seq-4: oklch(0.7 0.12 285);
   --chart-seq-5: oklch(0.86 0.07 285);
   --chart-band: oklch(0.72 0.13 285 / 0.2);
+  --chart-unc-1: oklch(0.3 0 0);
+  --chart-unc-2: oklch(0.42 0 0);
+  --chart-unc-3: oklch(0.55 0 0);
+  --chart-unc-4: oklch(0.68 0 0);
+  --chart-unc-5: oklch(0.8 0 0);
 }
 
 @theme inline {
@@ -137,6 +157,12 @@
   --color-chart-seq-4: var(--chart-seq-4);
   --color-chart-seq-5: var(--chart-seq-5);
   --color-chart-band: var(--chart-band);
+  --color-chart-unc-1: var(--chart-unc-1);
+  --color-chart-unc-2: var(--chart-unc-2);
+  --color-chart-unc-3: var(--chart-unc-3);
+  --color-chart-unc-4: var(--chart-unc-4);
+  --color-chart-unc-5: var(--chart-unc-5);
+  --color-chart-refused: var(--chart-refused);
   --color-chart-reference: var(--chart-reference);
   --color-chart-predicted: var(--chart-predicted);
   --color-chart-measured: var(--chart-measured);

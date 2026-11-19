@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { BAND_SOURCE_LABEL, latestHistoryRows, resultHistory, type HistoryRow, type SessionCorrection } from "@/components/campaign/learn";
@@ -10,11 +10,12 @@ import { CorrectResultDialog } from "@/components/validate/correct-result-dialog
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ErrorState } from "@/components/ui/honest-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Num, NumState, SourceButton } from "@/components/viz/num";
-import { useEngineWrites } from "@/hooks/use-engine";
+import { useCampaign, useEngineWrites } from "@/hooks/use-engine";
 import { getResultHistory, type CampaignRun } from "@/lib/api";
-import { errorMessage } from "@/lib/engine-error";
+import { EngineError, errorMessage } from "@/lib/engine-error";
 import { coverageText, formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
 import { sourceFromRun } from "@/lib/source";
@@ -91,9 +92,12 @@ export async function readCorrectionRows(campaignId: string, key: string): Promi
  * inside the band the engine recorded when the run started (the engine's own
  * residual and inside/outside), and its version history (a correction's earlier
  * value and reason from the engine's result history). Saving writes
- * the entered rows one at a time, so a failure leaves the earlier rows saved.
- * A recorded value is corrected through a dialog that asks for the reason the
- * engine requires (results are append-only and versioned).
+ * the entered rows one at a time, so a failure leaves the earlier rows saved
+ * and every unsaved entry in place. An acknowledged result stays shown even
+ * when the read after it fails; saving then waits for a successful refresh, so
+ * nothing is written against a stale list (or twice). A recorded value is
+ * corrected through a dialog that asks for the reason the engine requires
+ * (results are append-only and versioned).
  */
 export function RecordForm({
   campaignId,
@@ -117,6 +121,8 @@ export function RecordForm({
   onSavingChange?: (saving: boolean) => void;
 }) {
   const { logResult } = useEngineWrites();
+  const campaign = useCampaign();
+  const savingRef = useRef(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSavingState] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +135,8 @@ export function RecordForm({
     setSavingState(v);
     onSavingChange?.(v);
   };
+  // The campaign list is stale (a read after a write failed) or being re-read: no writes until it is current.
+  const blocked = saving || campaign.error || campaign.refreshing;
   const awaiting = runs.filter((r) => r.awaiting);
   const ordered = [...awaiting, ...runs.filter((r) => !r.awaiting)];
   const changed = changedRows(awaiting, drafts);
@@ -142,6 +150,9 @@ export function RecordForm({
   const anyCorrected = runs.some((r) => (r.result_version ?? 0) > 1);
 
   async function save(rows: Row[]) {
+    // A second submit before React re-renders (double click, Enter twice) must not write the rows again.
+    if (savingRef.current || campaign.error || campaign.refreshing) return;
+    savingRef.current = true;
     setConfirm(null);
     setSaving(true);
     setError(null);
@@ -153,13 +164,19 @@ export function RecordForm({
         done += 1;
         setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== id)));
       } catch (e) {
-        setError(
-          `Run ${shortId(id)} was not saved: ${errorMessage(e).message}${done > 0 ? ` The ${done === 1 ? "result" : `${done} results`} before it ${done === 1 ? "was" : "were"} saved.` : ""}`,
-        );
+        // reason_required here means the run was recorded elsewhere (another tab or user) since this list was read;
+        // the hook has re-read the campaign, so the run now shows its recorded value and Correct opens with this entry.
+        const why =
+          e instanceof EngineError && e.code === "reason_required"
+            ? "it already has a recorded result (saved elsewhere since this page loaded). That value is shown now; to replace it, use Correct and give a reason."
+            : errorMessage(e).message;
+        const before = done > 0 ? ` The ${done === 1 ? "result" : `${count(done)} results`} before it ${done === 1 ? "was" : "were"} saved.` : "";
+        setError(`Run ${shortId(id)} was not saved: ${why}${before} Your unsaved entries are kept.`);
         break;
       }
     }
     if (done === rows.length) setSaved(`Saved ${count(done)} ${done === 1 ? "result" : "results"}.`);
+    savingRef.current = false;
     setSaving(false);
   }
 
@@ -167,6 +184,8 @@ export function RecordForm({
     setSaved(null);
     await logResult(run.id, value, reason);
     setCorrections((m) => ({ ...m, [run.id]: { previous: run.result, value, reason } }));
+    setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== run.id)));
+    setError(null);
     setSaved(`Saved the correction for run ${shortId(run.id)}.`);
   }
 
@@ -174,11 +193,20 @@ export function RecordForm({
 
   return (
     <div className="flex flex-col gap-3">
+      {campaign.error && campaign.data ? (
+        <ErrorState
+          title="Results need a refresh"
+          description="The latest results could not be read after the last change. Saved results are shown below and your unsaved entries are kept. Refresh before saving more."
+          onRetry={() => void campaign.refresh()}
+          retryLabel="Refresh results"
+          busy={campaign.refreshing || saving}
+        />
+      ) : null}
       <form
         id="record-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (changed.length > 0 && !saving && !readOnly) submit();
+          if (changed.length > 0 && !blocked && !readOnly) submit();
         }}
       >
         <Table>
@@ -226,7 +254,7 @@ export function RecordForm({
                         session={corrections[r.id]}
                         historyRow={history.rows?.get(r.id) ?? null}
                         onCorrect={readOnly ? undefined : () => setCorrecting(r)}
-                        disabled={saving}
+                        disabled={blocked}
                       />
                     )}
                   </TableCell>
@@ -286,7 +314,7 @@ export function RecordForm({
           )}
         </p>
         {awaiting.length > 0 && !readOnly ? (
-          <Button type="submit" form="record-form" disabled={changed.length === 0 || saving}>
+          <Button type="submit" form="record-form" disabled={changed.length === 0 || blocked}>
             {saving ? "Saving..." : changed.length > 0 ? `Save ${count(changed.length)} ${changed.length === 1 ? "result" : "results"}` : "Save results"}
           </Button>
         ) : null}
@@ -300,6 +328,7 @@ export function RecordForm({
         pred={correcting ? (byId.get(correcting.id)?.pred ?? null) : null}
         decimals={d.decimals}
         measuredU={d.measuredU}
+        initialValue={correcting ? drafts[correcting.id] : undefined}
         onClose={() => setCorrecting(null)}
         onSave={correct}
       />
@@ -321,7 +350,9 @@ export function RecordForm({
             <Button variant="outline" onClick={() => setConfirm(null)}>
               Review values
             </Button>
-            <Button onClick={() => confirm && void save(confirm)}>Save as entered</Button>
+            <Button disabled={blocked} onClick={() => confirm && void save(confirm)}>
+              Save as entered
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

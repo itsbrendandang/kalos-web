@@ -14,6 +14,7 @@ vi.mock("next/link", () => ({
 
 import ValidatePage from "@/app/campaigns/[id]/validate/page";
 import { EngineDataProvider } from "@/hooks/use-engine";
+import { trimCorrectionReason } from "@/components/campaign/stage-logic";
 import type { CampaignRun, Job } from "@/lib/api";
 import fixture from "./fixtures/validate-v2-runs.json";
 
@@ -60,7 +61,11 @@ let submitCalls: number;
 let cancelCalls: number;
 let onSubmit: () => Response;
 let jobNow: Job;
-let onResult: (body: { value: number; reason?: string }) => Response;
+let onResult: (body: { value: number; reason?: string }, runId: string) => Response;
+/** GET the campaign answers 503 (the read after a write fails). */
+let detailFails: boolean;
+/** When set, a result POST waits for it before answering. */
+let holdWrite: Promise<void> | null;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -100,13 +105,15 @@ beforeEach(() => {
   cancelCalls = 0;
   jobNow = job();
   onSubmit = () => json({ job: job({ state: "queued", stage: "queued", progress: 0, started_at: null }) }, 202);
-  onResult = (body) => json({ ...runs[0], result: body.value, awaiting: false });
+  onResult = (body, runId) => json({ ...runs.find((r) => r.id === runId), result: body.value, awaiting: false });
+  detailFails = false;
+  holdWrite = null;
   sessionStorage.clear();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith(`/api/campaigns/${ID}`)) return json(detail());
+      if (url.endsWith(`/api/campaigns/${ID}`)) return detailFails ? json({ error: "unavailable", code: "engine_unavailable" }, 503) : json(detail());
       if (url.endsWith(`/api/campaigns/${ID}/analysis`)) return json(analysis());
       if (url.includes(`/api/campaigns/${ID}/jobs`)) return json({ jobs: jobsList });
       if (url.includes(`/api/campaigns/${ID}/results/history`)) {
@@ -116,9 +123,13 @@ beforeEach(() => {
       if (url.endsWith("/result") && init?.method === "POST") {
         const body = JSON.parse(String(init.body));
         results.push({ url, body });
-        const res = onResult(body);
+        if (holdWrite) await holdWrite;
+        const id = url.split("/runs/")[1].split("/")[0];
+        // The engine: a run that already has a result is only corrected with a (non-blank) reason.
+        if (runs.some((r) => r.id === id && r.result != null) && !trimCorrectionReason(body.reason ?? ""))
+          return json({ error: "a correction to a recorded result needs a reason", code: "reason_required" }, 400);
+        const res = onResult(body, id);
         if (res.ok) {
-          const id = url.split("/runs/")[1].split("/")[0];
           runs = runs.map((r) =>
             r.id === id
               ? { ...r, result: body.value, awaiting: false, result_version: (r.result_version ?? 0) + 1, residual: body.value - r.pred, inside_band: Math.abs(body.value - r.pred) <= HW }
@@ -446,5 +457,144 @@ describe("Validate page", () => {
     );
     expect(await screen.findByText("No runs started yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Go to Predict" }).getAttribute("href")).toBe(`/campaigns/${ID}/predict`);
+  });
+});
+
+/*
+ * Carried over from main's record-page tests (#87, b289185) onto the redesign's Record section: an acknowledged
+ * result survives a failed read, saving waits for a refresh, unsaved entries are kept, a double submit writes once,
+ * a run recorded elsewhere comes back as a correction, and the reason follows the engine's rules.
+ */
+describe("Validate page: recording through failures", () => {
+  const entry = (id: string) => screen.getByLabelText(`Measured result for run ${id}`) as HTMLInputElement;
+  const saveButton = () => screen.getByRole("button", { name: /^Save (\d+ )?results?$/ }) as HTMLButtonElement;
+
+  it("keeps an acknowledged result shown when the read after the save fails, and saves more only after a refresh", async () => {
+    await renderValidate();
+    detailFails = true;
+    fireEvent.change(entry("aaaaaaa"), { target: { value: "1.62" } });
+    await act(async () => {
+      fireEvent.click(saveButton());
+    });
+    await screen.findByRole("button", { name: "Refresh results" });
+    expect(results.map((r) => r.body)).toEqual([{ value: 1.62 }]);
+    const record = section("record");
+    expect(screen.queryByLabelText("Measured result for run aaaaaaa")).toBeNull(); // shown as recorded, not as awaiting
+    expect(record.getByText("1.62")).toBeTruthy();
+
+    fireEvent.change(entry("bbbbbbb"), { target: { value: "1.70" } });
+    expect(saveButton().disabled).toBe(true);
+    fireEvent.submit(entry("bbbbbbb").closest("form")!);
+    expect(results).toHaveLength(1);
+
+    detailFails = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Refresh results" }));
+    });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Refresh results" })).toBeNull());
+    expect(entry("bbbbbbb").value).toBe("1.70");
+    expect(saveButton().disabled).toBe(false);
+    await act(async () => {
+      fireEvent.click(saveButton());
+    });
+    await waitFor(() => expect(results).toHaveLength(2));
+    expect(results[1].body).toEqual({ value: 1.7 });
+  });
+
+  it("does not claim earlier rows were saved when the first write fails, and keeps the entry", async () => {
+    onResult = () => json({ error: "try again", code: "engine_unavailable" }, 503);
+    await renderValidate();
+    fireEvent.change(entry("aaaaaaa"), { target: { value: "1.62" } });
+    await act(async () => {
+      fireEvent.click(saveButton());
+    });
+    const alert = await screen.findByText(/Run aaaaaaa was not saved/);
+    expect(alert.textContent).not.toMatch(/before it/);
+    expect(alert.textContent).toMatch(/Your unsaved entries are kept/);
+    expect(entry("aaaaaaa").value).toBe("1.62");
+    expect(saveButton().disabled).toBe(false);
+  });
+
+  it("keeps a failed row's entry while the rows before it stay saved", async () => {
+    let failB = true;
+    onResult = (body, id) => (id === "bbbbbbb2" && failB ? json({ error: "try again", code: "engine_unavailable" }, 503) : json({ ...runs.find((r) => r.id === id), result: body.value, awaiting: false }));
+    await renderValidate();
+    fireEvent.change(entry("aaaaaaa"), { target: { value: "1.62" } });
+    fireEvent.change(entry("bbbbbbb"), { target: { value: "1.70" } });
+    await act(async () => {
+      fireEvent.click(saveButton());
+    });
+    expect((await screen.findByText(/Run bbbbbbb was not saved/)).textContent).toMatch(/The result before it was saved/);
+    expect(entry("bbbbbbb").value).toBe("1.70");
+    failB = false;
+    await act(async () => {
+      fireEvent.click(saveButton());
+    });
+    await waitFor(() => expect(results).toHaveLength(3));
+    expect(results.map((r) => r.url.split("/runs/")[1].split("/")[0])).toEqual(["aaaaaaa1", "bbbbbbb2", "bbbbbbb2"]);
+  });
+
+  it("sends one write when the form is submitted twice before React renders", async () => {
+    await renderValidate();
+    let release!: () => void;
+    holdWrite = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fireEvent.change(entry("aaaaaaa"), { target: { value: "1.62" } });
+    act(() => {
+      fireEvent.submit(entry("aaaaaaa").closest("form")!);
+      fireEvent.submit(entry("aaaaaaa").closest("form")!);
+    });
+    expect(results).toHaveLength(1);
+    await act(async () => release());
+    await waitFor(() => expect(section("record").getByText("Inside the band")).toBeTruthy());
+    expect(results).toHaveLength(1);
+  });
+
+  it("a run recorded elsewhere comes back as a correction: re-read, shown, and Correct opens with the entry", async () => {
+    await renderValidate();
+    fireEvent.change(entry("aaaaaaa"), { target: { value: "1.62" } });
+    // Another tab records this run before this page saves.
+    runs = [mkRun("aaaaaaa1", 1.75, { result: 1.6, awaiting: false, result_version: 1 }), runs[1]];
+    await act(async () => {
+      fireEvent.click(saveButton());
+    });
+    const alert = await screen.findByText(/Run aaaaaaa was not saved/);
+    expect(alert.textContent).toMatch(/already has a recorded result/);
+    expect(alert.textContent).not.toMatch(/reason_required/);
+    await waitFor(() => expect(screen.queryByLabelText("Measured result for run aaaaaaa")).toBeNull());
+    expect(section("record").getByText("1.60")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Correct the result for run aaaaaaa" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect((dialog.getByLabelText(/Corrected value/) as HTMLInputElement).value).toBe("1.62");
+    fireEvent.change(dialog.getByLabelText(/Reason for the correction/), { target: { value: "  re-read the plate  " } });
+    await act(async () => {
+      fireEvent.click(dialog.getByRole("button", { name: "Save correction" }));
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(results.map((r) => r.body)).toEqual([{ value: 1.62 }, { value: 1.62, reason: "re-read the plate" }]);
+  });
+
+  it("a correction reason follows the engine's rules: its whitespace, and 256 characters counted as code points", async () => {
+    measuredRuns();
+    await renderValidate();
+    fireEvent.click(screen.getByRole("button", { name: "Correct the result for run aaaaaaa" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    fireEvent.change(dialog.getByLabelText(/Corrected value/), { target: { value: "1.64" } });
+    const reason = dialog.getByLabelText(/Reason for the correction/) as HTMLInputElement;
+    expect(reason.hasAttribute("maxlength")).toBe(false); // a UTF-16 maxlength would cut 256 emoji at 128
+    fireEvent.change(reason, { target: { value: "\u0085\u001c " } });
+    fireEvent.click(dialog.getByRole("button", { name: "Save correction" }));
+    expect(await dialog.findByText(/Say why the value changed/)).toBeTruthy();
+    expect(results).toHaveLength(0);
+
+    const explanation = "\u{1F9EA}".repeat(256);
+    fireEvent.change(reason, { target: { value: `\u0085${explanation}\u001c` } });
+    await act(async () => {
+      fireEvent.click(dialog.getByRole("button", { name: "Save correction" }));
+    });
+    await waitFor(() => expect(results).toHaveLength(1));
+    expect(results[0].body).toEqual({ value: 1.64, reason: explanation });
   });
 });

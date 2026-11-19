@@ -40,6 +40,8 @@ export type EngineResource<T> = {
   refresh: () => Promise<void>;
   /** Replace `data` with a response a write already returned (e.g. `reanalyze()`), without refetching. */
   set: (next: T) => void;
+  /** Apply an acknowledged write to the last good snapshot (keeping `error`), superseding any read in flight. */
+  update: (change: (current: T | null) => T | null) => void;
 };
 
 function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
@@ -82,8 +84,14 @@ function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
     setRefreshing(false); // a refresh this supersedes no longer clears it itself
   }, []);
 
+  const update = useCallback((change: (current: T | null) => T | null) => {
+    ticket.current++;
+    setState((s) => ({ ...s, data: change(s.data) }));
+    setRefreshing(false);
+  }, []);
+
   const status = state.data != null ? "data" : state.error ? "error" : "loading";
-  return { ...state, status, refreshing, refresh, set };
+  return { ...state, status, refreshing, refresh, set, update };
 }
 
 /** True when a resource failed because the engine said the thing does not exist (or is not visible to this tenant). */
@@ -253,9 +261,19 @@ export function EngineDataProvider({ campaignId, children }: { campaignId: strin
     },
     [detailData, setDetail],
   );
+  const { update: updateDetail } = detail;
+  const updateSummary = useCallback(
+    (change: (current: Campaign | null) => Campaign | null) =>
+      updateDetail((d) => {
+        if (!d) return d;
+        const next = change(d.summary);
+        return next ? { ...d, summary: next } : d;
+      }),
+    [updateDetail],
+  );
   const campaign: EngineResource<Campaign> = useMemo(
-    () => ({ ...detail, data: detail.data?.summary ?? null, set: setSummary }),
-    [detail, setSummary],
+    () => ({ ...detail, data: detail.data?.summary ?? null, set: setSummary, update: updateSummary }),
+    [detail, setSummary, updateSummary],
   );
 
   // --- Upload job ---
@@ -493,6 +511,23 @@ export function useLastRejection(): LastRejection {
 /** Engine refusal codes that describe the sheet itself (rendered inline like a 400, not as a service failure). */
 const SHEET_CODES = new Set(["too_few_rows", "too_few_complete_rows", "target_constant", "no_process_inputs", "too_many_fit_rows", "parse_error", "fit_failed", "empty_file", "unsupported_file_type", "corrupt_excel", "ambiguous_header", "sheet_not_found"]);
 
+/**
+ * The summary with one acknowledged result applied: the engine's returned run when it is that run, else the value
+ * marked measured. Counts follow, and the analysis no longer describes the campaign (every result write re-mints it).
+ */
+export function withRecordedResult(summary: Campaign, id: string, value: number, run?: api.CampaignRun | null): Campaign {
+  if (!summary.has_campaign || !summary.pending.some((r) => r.id === id)) return summary;
+  const echoed = run && typeof run === "object" && run.id === id ? run : null;
+  const pending = summary.pending.map((r) => (r.id === id ? { ...r, ...echoed, result: value, awaiting: false } : r));
+  return {
+    ...summary,
+    pending,
+    n_awaiting: pending.filter((r) => r.awaiting).length,
+    n_measured: pending.filter((r) => !r.awaiting).length,
+    analysis_in_sync: false,
+  };
+}
+
 /*
  * The one write path. Pages must call these instead of the lib/api writes so
  * the sidebar, overview and every page update without a reload:
@@ -504,7 +539,10 @@ const SHEET_CODES = new Set(["too_few_rows", "too_few_complete_rows", "target_co
  *       job) resolves to `{ error, code, sheets? }` like /api/run's 400; a 409 throws CampaignHasRunsError;
  *       service failures and a cancel throw EngineError. Progress is on useUploadJob().
  *   startRuns(recipes)               -> void      (refreshes the campaign)
- *   logResult(id, value, reason?)    -> void      (refreshes the campaign; a correction needs a reason)
+ *   logResult(id, value, reason?)    -> run       (applies the acknowledged result to the summary, then refreshes
+ *                                       it, so a failed refresh never hides a saved value; a correction needs a
+ *                                       reason, and a reason_required refusal refreshes the campaign so a value
+ *                                       recorded elsewhere, e.g. another tab, shows and can be corrected)
  *   reanalyze()                      -> { kind: succeeded | failed | cancelled, job } (a background job; progress,
  *                                       cancel and a persisted error are on useReanalysis(); a refusal before
  *                                       queueing throws EngineError)
@@ -512,7 +550,7 @@ const SHEET_CODES = new Set(["too_few_rows", "too_few_complete_rows", "target_co
 export function useEngineWrites() {
   const { campaignId, latest, detail, upload, runReanalysis, setRejection } = useEngineData();
   const { refresh: refreshLatest } = latest;
-  const { refresh: refreshDetail } = detail;
+  const { refresh: refreshDetail, update: updateDetail } = detail;
   const { submit } = upload;
   const shown = latest.data?.has_data ? latest.data.dataset : null;
 
@@ -550,11 +588,18 @@ export function useEngineWrites() {
   );
   const logResult = useCallback(
     async (id: string, value: number, reason?: string): Promise<api.CampaignRun> => {
-      const run = await api.recordCampaignResult(campaignId, id, value, reason);
+      let run: api.CampaignRun;
+      try {
+        run = await api.recordCampaignResult(campaignId, id, value, reason);
+      } catch (e) {
+        if (e instanceof EngineError && e.code === "reason_required") await refreshDetail();
+        throw e;
+      }
+      updateDetail((current) => (current ? { ...current, summary: withRecordedResult(current.summary, id, value, run) } : current));
       await refreshDetail();
       return run;
     },
-    [campaignId, refreshDetail],
+    [campaignId, refreshDetail, updateDetail],
   );
   const reanalyze = useCallback(() => runReanalysis(), [runReanalysis]);
   const refreshAll = useCallback(() => Promise.all([refreshLatest(), refreshDetail()]).then(() => undefined), [refreshLatest, refreshDetail]);

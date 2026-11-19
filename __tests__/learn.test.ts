@@ -254,8 +254,16 @@ describe("correctionProblem", () => {
   });
   it("needs a reason (the engine refuses a correction without one) of bounded length", () => {
     expect(correctionProblem(1.62, 1.64, "   ")).toMatch(/Say why/);
-    expect(correctionProblem(1.62, 1.64, "x".repeat(MAX_REASON + 1))).toMatch(/under 256/);
+    expect(correctionProblem(1.62, 1.64, "x".repeat(MAX_REASON + 1))).toMatch(/256 characters or fewer/);
     expect(correctionProblem(1.62, 1.64, "dilution error")).toBeNull();
+  });
+  it("counts and trims the reason the way the engine does (code points, Python str.strip())", () => {
+    // 256 supplementary characters are 512 UTF-16 units but 256 characters to the engine.
+    expect(correctionProblem(1.62, 1.64, "\u{1F9EA}".repeat(MAX_REASON))).toBeNull();
+    expect(correctionProblem(1.62, 1.64, "\u{1F9EA}".repeat(MAX_REASON + 1))).toMatch(/256 characters or fewer/);
+    // NEL and the \x1c-\x1f separators are blank to the engine; a BOM is not.
+    for (const blank of ["\u0085", "\u001c", "\u0085\u001c "]) expect(correctionProblem(1.62, 1.64, blank)).toMatch(/Say why/);
+    expect(correctionProblem(1.62, 1.64, "\ufeff")).toBeNull();
   });
 });
 

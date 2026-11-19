@@ -72,6 +72,9 @@ export function inlineRecipeKeys(recipe: Record<string, number>, drivers: readon
 
 export const SANITY_FACTOR = 5;
 
+/** The engine's whitespace rule for a correction reason (Python str.strip()); defined beside correctionProblem. */
+export { trimCorrectionReason } from "@/components/campaign/learn";
+
 /** Why a value needs the scientist's confirmation, or null when it looks ordinary. */
 export function sanityReason(value: number, best: number | null): string | null {
   if (value < 0) return "is negative";

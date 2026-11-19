@@ -106,6 +106,23 @@ describe("campaign client (lib/api.ts)", () => {
     expect(JSON.parse(init.body as string)).toEqual({ value: 3.2 });
   });
 
+  it("recordCampaignResult includes the supplied correction reason", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, {}));
+
+    await recordCampaignResult(CMP, "b1e2", 3.4, "Corrected a transcription error");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ value: 3.4, reason: "Corrected a transcription error" });
+  });
+
+  it("preserves the engine's reason_required code for correction recovery", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "a correction needs a reason", code: "reason_required" }));
+
+    const error = await logResult("b1e2", 3.4).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EngineError);
+    expect(error).toMatchObject({ status: 400, code: "reason_required", detail: "a correction needs a reason" });
+  });
+
   it("recordCampaignResult carries the documented {error, code} on a 400", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "result must be finite", code: "invalid_result" }));
 

@@ -297,8 +297,20 @@ export const reanalysisFailure = (err: unknown): ReanalysisCopy => reanalysisErr
 
 // --- Corrections ---------------------------------------------------------------
 
-/** The engine keeps at most this many characters of a correction reason. */
+/** The engine keeps at most this many characters (Unicode code points, Python len()) of a correction reason. */
 export const MAX_REASON = 256;
+
+/**
+ * A correction reason trimmed the way the engine trims it (Python str.strip()): Unicode White_Space plus the
+ * \x1c-\x1f separators, but not U+FEFF or U+200B (which JavaScript's trim() strips or keeps differently), so a
+ * reason the engine would refuse as blank is never sent and one it accepts is never blocked here.
+ */
+export function trimCorrectionReason(text: string): string {
+  return text.replace(/^[\p{White_Space}\u001c-\u001f]+|[\p{White_Space}\u001c-\u001f]+$/gu, "");
+}
+
+/** Length as the engine counts it (code points, so one emoji is one character, not two UTF-16 units). */
+export const reasonLength = (text: string): number => [...trimCorrectionReason(text)].length;
 
 /** A correction saved from this page in this session: what was replaced and why. */
 export type SessionCorrection = { previous: number | null; value: number; reason: string };
@@ -349,8 +361,8 @@ export function latestHistoryRows(items: readonly HistoryRow[]): Map<string, His
 export function correctionProblem(current: number | null, value: number | null, reason: string): string | null {
   if (value == null) return "Enter the corrected value as a number.";
   if (current != null && value === current) return "This is the value already recorded. Enter the corrected value.";
-  if (reason.trim() === "") return "Say why the value changed. The engine keeps every version with its reason.";
-  if (reason.trim().length > MAX_REASON) return `Keep the reason under ${MAX_REASON} characters.`;
+  if (trimCorrectionReason(reason) === "") return "Say why the value changed. The engine keeps every version with its reason.";
+  if (reasonLength(reason) > MAX_REASON) return `Keep the reason to ${MAX_REASON} characters or fewer.`;
   return null;
 }
 

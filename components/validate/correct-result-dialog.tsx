@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { correctionProblem, MAX_REASON } from "@/components/campaign/learn";
+import { correctionProblem, MAX_REASON, reasonLength, trimCorrectionReason } from "@/components/campaign/learn";
 import { parseEntry, sanityReason } from "@/components/campaign/stage-logic";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -28,6 +28,8 @@ type Props = {
   decimals?: { pred: number; measured: number };
   /** Measured precision (replicate noise SD) when the engine reported one. */
   measuredU?: number | null;
+  /** A value already typed for this run (e.g. an entry the engine refused because the run was recorded elsewhere). */
+  initialValue?: string;
   onClose: () => void;
   onSave: (run: CampaignRun, value: number, reason: string) => Promise<void>;
 };
@@ -48,9 +50,9 @@ export function CorrectResultDialog({
 
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
-function CorrectionForm({ run, unit, best, interval = null, pred: enginePred, decimals, measuredU = null, onClose, onSave }: Props & { run: CampaignRun }) {
+function CorrectionForm({ run, unit, best, interval = null, pred: enginePred, decimals, measuredU = null, initialValue = "", onClose, onSave }: Props & { run: CampaignRun }) {
   const pred = enginePred === undefined ? run.pred : enginePred;
-  const [valueText, setValueText] = useState("");
+  const [valueText, setValueText] = useState(initialValue);
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,7 +69,7 @@ function CorrectionForm({ run, unit, best, interval = null, pred: enginePred, de
     setSaving(true);
     setFailure(null);
     try {
-      await onSave(run, value, reason.trim());
+      await onSave(run, value, trimCorrectionReason(reason));
       onClose();
     } catch (e) {
       setFailure(errorMessage(e).message);
@@ -123,14 +125,14 @@ function CorrectionForm({ run, unit, best, interval = null, pred: enginePred, de
         <span className="text-label text-fg">Reason for the correction</span>
         <Input
           value={reason}
-          maxLength={MAX_REASON}
+          aria-required
           disabled={saving}
           placeholder="e.g. re-read the plate after a dilution error"
-          aria-invalid={tried && reason.trim() === ""}
+          aria-invalid={tried && (trimCorrectionReason(reason) === "" || reasonLength(reason) > MAX_REASON)}
           onChange={(e) => setReason(e.target.value)}
         />
         <span className="text-caption text-fg-muted tabular-nums">
-          Required. Stored with this version. {count(reason.trim().length)}/{count(MAX_REASON)}
+          Required. Stored with this version. {count(reasonLength(reason))}/{count(MAX_REASON)}
         </span>
       </label>
       {tried && problem ? (

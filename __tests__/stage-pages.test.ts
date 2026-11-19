@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CampaignRun } from "@/lib/api";
 import type { ValidationFinding } from "@/lib/validation";
-import { capFindings, changedRows, clampPage, inlineRecipeKeys, nextSort, sanityReason, sortRuns } from "@/components/campaign/stage-logic";
+import { capFindings, changedRows, clampPage, formatRecipeValue, inlineRecipeKeys, nextSort, sanityReason, sortRuns } from "@/components/campaign/stage-logic";
 
 const finding = (severity: ValidationFinding["severity"], message: string): ValidationFinding => ({ check: "outliers", severity, message, column: null, rows: [] });
 const run = (id: string, over: Partial<CampaignRun> = {}): CampaignRun => ({
@@ -67,6 +67,13 @@ describe("Run table helpers", () => {
     expect(clampPage(5, 25)).toBe(2);
     expect(clampPage(1, 0)).toBe(0);
     expect(clampPage(-1, 25)).toBe(0);
+  });
+  it("shows numeric recipe values formatted and categorical ones as sent, never a made-up number", () => {
+    expect(formatRecipeValue(36.194)).toBe("36.19");
+    expect(formatRecipeValue("ProCHO")).toBe("ProCHO");
+    expect(formatRecipeValue(null)).toBe("n/a");
+    expect(formatRecipeValue("")).toBe("n/a");
+    expect(formatRecipeValue(Number.NaN)).toBe("n/a");
   });
   it("shows top drivers present in the recipe, else the first inputs", () => {
     expect(inlineRecipeKeys({ a: 1, b: 2, c: 3, d: 4 }, ["z", "c", "a"])).toEqual(["c", "a"]);

@@ -1,9 +1,10 @@
 /*
- * Pure rules for the Setup, Run and Record pages, kept out of the components
+ * Pure rules for Harmonize (setup) and Validate (run and record), kept out of the components
  * so they are unit tested directly (__tests__/stage-pages.test.ts).
  */
 
 import type { CampaignRun } from "@/lib/api";
+import { formatNumber } from "@/lib/format";
 import { sortFindings, type ValidationFinding } from "@/lib/validation";
 
 // --- Setup -------------------------------------------------------------------
@@ -45,6 +46,17 @@ export function sortRuns(runs: CampaignRun[], sort: RunSort): CampaignRun[] {
 /** Clamp a 0-based page into range (the run list can shrink under the reader). */
 export function clampPage(page: number, total: number, pageSize = RUN_PAGE_SIZE): number {
   return Math.min(Math.max(0, page), Math.max(0, Math.ceil(total / pageSize) - 1));
+}
+
+/**
+ * One recipe value as text. The engine sends categorical inputs (e.g. a
+ * medium name) as strings even though the type says number: show those as
+ * sent, numbers through the one formatter, anything else as n/a.
+ */
+export function formatRecipeValue(v: unknown): string {
+  if (typeof v === "number") return formatNumber(v);
+  if (typeof v === "string" && v.trim() !== "") return v;
+  return "n/a";
 }
 
 /** The recipe columns to show inline: the analysis' top drivers present in the recipe, else the first few inputs. */

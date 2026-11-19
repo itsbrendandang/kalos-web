@@ -116,11 +116,23 @@ Geist Mono, through `font-mono text-code`, is for code-like values only: ids and
 Use these roles, not arbitrary `text-[Npx]` values.
 Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 
+## App frame
+
+- One left sidebar (`components/shell/app-shell.tsx`, 256px, `bg-subtle`): wordmark, campaign switcher, the campaign's
+  Overview, the numbered **1 Harmonize, 2 Predict, 3 Validate** steps with the engine's stage state, Report, then
+  Scale-up and Settings. On phones it becomes a sheet behind a top bar.
+- The cycle motif is the numbered step badge (`components/kit/cycle-stepper.tsx`): filled ink with a check when done,
+  an accent ring when current, a hairline circle when upcoming. Never mark a step done without the engine's detail.
+- Every engine number on a campaign surface carries a quiet `SourceLine` (`components/kit/source-line.tsx`):
+  dataset, time, engine version, provenance hash; missing parts read n/a.
+- Long engine work uses `JobProgress` (engine-reported stages, for upload jobs) or `ElapsedProgress` (a timer and an
+  honest note, for synchronous calls with no stage reporting). Never a fake percentage.
+
 ## Layout
 
 - 8px grid.
-- Content max width is 1120px (`max-w-[1120px]` in `components/workbench/app-shell.tsx`), with full width allowed for tables and charts.
-  Page padding is 24px on desktop and 16px on mobile.
+- Content max width is 1120px (`max-w-[1120px]` in `components/shell/app-shell.tsx`), with full width allowed for tables and charts.
+  Page padding is 32px on desktop and 16px on mobile.
 - **Semantic spacing tokens** (`@theme`, used for surfaces whose padding is part
   of the design language, not an accident): `--spacing-inset` 24px (an open
   `Card`), `--spacing-panel` 20px (a bordered surface), `--spacing-stack` 16px
@@ -176,15 +188,12 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 - Status colors are lightened, and soft fills darkened, so each text and fill pair still passes contrast.
 - Sequential ramps reverse lightness, as described above.
 
-## Temporary compatibility aliases
+## Compatibility aliases (removed)
 
-`app/globals.css` keeps a block of older token names (`--card`, `--muted`, `--blue*`, `--green*`, `--amber*`, `--red`, `--series-*` and similar), each mapped onto a current token.
-They exist only because some pages (Data, the Library tools, the campaign stage pages, Projects) have not been rebuilt on the new kit yet.
-Do not use them in new code, and delete an alias once nothing reads it.
-`design-guards.test.ts` holds a burn-down ceiling on alias reads (`bg-card`,
-`text-muted`, `--blue*`, `font-head`, ...): the count may only go down, and when
-it reaches 0 the whole alias block in `globals.css` can be deleted. Canonical
-replacements: `bg-card` → `bg-surface`, `text-muted` → `text-fg-muted`, `--blue*`
-→ `--accent*`, `font-head`/`text-[15px]` → `text-heading`.
+The older token names (`--card`, `--muted`, `--blue*`, `--green*`, `--amber*`, `--red`, `--series-*`, `font-head`)
+were deleted from `app/globals.css` in the engine-aligned redesign (`docs/REDESIGN.md`) once nothing read them.
+`design-guards.test.ts` keeps a ceiling of 0 on new reads. Canonical names: `bg-surface`, `text-fg-muted`,
+`--accent*`, `text-heading`. The shadcn slot names (`--color-primary`, `--color-popover`, ...) stay, mapped onto
+Kalos tokens, so registry components resolve.
 
 Replaced the earlier blue and Satoshi system in October 2026.

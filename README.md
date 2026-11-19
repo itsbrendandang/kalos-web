@@ -10,8 +10,8 @@
 
 ## Overview
 
-Kalos web is the scientist-facing workbench for the [Kalos engine](https://github.com/itsbrendandang/kalos-engine), built with Next.js 16 and Tailwind v4.
-You upload a run sheet of past bioprocess experiments, choose what to maximize, review a proposed batch of recipes with uncertainty bands and a reliability verdict, record measured results, and plan the next round.
+Kalos web is the scientist-facing app for the [Kalos engine](https://github.com/itsbrendandang/kalos-engine), built with Next.js 16 and Tailwind v4.
+You create a campaign and work it in repeating cycles: **Harmonize** (upload past runs, check the sheet, see the explored range), **Predict** (check how far the model can be trusted, review the proposed batch with its intervals), **Validate** (record measured results, compare them with the predictions, re-analyze), then export a data package with provenance.
 The engine does the modelling; this app presents it and keeps predicted and measured values apart.
 
 Intended users (the product is not available to external users yet): process-development scientists running iterative media or process optimisation campaigns, and small teams that want a propose-measure-re-propose loop with an honest read on model reliability.
@@ -20,7 +20,7 @@ Intended users (the product is not available to external users yet): process-dev
 
 Kalos is three repositories with a clear split:
 
-- **kalos-web** (here) — the scientist-facing workbench (Next.js + Tailwind v4).
+- **kalos-web** (here) — the scientist-facing app (Next.js + Tailwind v4).
 - **[kalos-engine](https://github.com/itsbrendandang/kalos-engine)** — the optimization engine and FastAPI service this app reads over an authenticated same-origin proxy. Run it first; it serves the API on `http://127.0.0.1:8050`.
 - **kalos-workspace** (private) — the project hub: working notes, reviews, research, plans, and the cross-machine handoff. No product code.
 
@@ -42,13 +42,14 @@ Open PRs are in progress, not implemented.
 
 | Capability | Status | Evidence |
 | --- | --- | --- |
-| Five-stage campaign workspace (Setup, Plan, Run, Record, Learn) against the live engine | IMPLEMENTED | `app/campaign/*/page.tsx`, `__tests__/stage-pages.test.ts`, `__tests__/campaign-api.test.ts` |
-| Upload a run sheet and view the engine's data-quality findings | IMPLEMENTED | `app/campaign/setup/page.tsx`, `__tests__/validation.test.ts` |
+| Multiple campaigns, each worked as Harmonize -> Predict -> Validate cycles against the live engine (multi-campaign API) | IMPLEMENTED | `app/page.tsx`, `app/campaigns/[id]/*`, `hooks/use-engine.tsx`, `__tests__/campaigns-client.test.ts`, `__tests__/app-shell.test.tsx` |
+| Upload a run sheet as an engine background job with engine-reported progress and cancel; view the data-quality findings and explored design space | IMPLEMENTED | `app/campaigns/[id]/harmonize/page.tsx`, `__tests__/harmonize-page.test.tsx`, `__tests__/validation.test.ts` |
+| Record results with versioned corrections (reason required), re-analyze, compare measured with predicted | IMPLEMENTED | `app/campaigns/[id]/validate/page.tsx`, `__tests__/validate-page.test.tsx` |
+| Report and export: JSON data package and CSVs built only from engine outputs, with provenance hashes | IMPLEMENTED | `app/campaigns/[id]/report/page.tsx`, `lib/report-package.ts`, `__tests__/report-package.test.ts` |
 | Reliability verdict and uncertainty bands, measured never mixed with predicted | IMPLEMENTED | `lib/api.ts`, `lib/format.ts`, `__tests__/reliability-verdict.test.ts`, `__tests__/workbench.test.ts` |
 | Same-origin server-side proxy that attaches the engine bearer token; path allowlist; 120 s timeout | IMPLEMENTED | `app/api/engine/[...path]/route.ts`, `__tests__/engine-proxy.test.ts` |
-| Workbench shell: activity rail, explorer, route tabs, status bar, command palette | IMPLEMENTED | `components/`, `__tests__/route-tabs.test.ts` |
-| Scale-up readout page, simulator page | IMPLEMENTED (engine-backed; evidence is synthetic) | `app/library/scale-up`, `app/library/simulator`, `__tests__/scale-readout.test.ts` |
-| Data registry, Vessels, Plate analysis, Projects | EXPERIMENTAL (fixtures / seed data, badged) | `lib/mock/registry.ts`, `lib/vessel-data.ts`, `lib/plate-data.ts`, `app/projects/data.ts` |
+| App shell: sidebar with campaign switcher and the cycle steps' engine state | IMPLEMENTED | `components/shell/app-shell.tsx`, `__tests__/app-shell.test.tsx` |
+| Scale-up readout (predict or refuse) and a staged path to scale (stage decisions are not recorded) | IMPLEMENTED (engine-backed; evidence is synthetic) | `app/scale-up`, `components/scale/*`, `__tests__/scale-readout.test.ts` |
 | Fit progress, editable column confirmation, `data_type` counts, edge-of-range flag | in progress, open PR [#65](https://github.com/itsbrendandang/kalos-web/pull/65) | not on `main` |
 | Setup correctness fixes: stale analysis, xlsx row types, sheet selector | in progress, open PR [#69](https://github.com/itsbrendandang/kalos-web/pull/69) (stacked on #65) | not on `main` |
 | Security headers, Next 16.4.2, no project data in `localStorage` | in progress, open PR [#68](https://github.com/itsbrendandang/kalos-web/pull/68) | not on `main` |
@@ -84,46 +85,22 @@ Engine-side detail: [`kalos-engine/docs/ARCHITECTURE.md`](https://github.com/its
 
 ## What you can do
 
-The app is a workbench.
-It has an activity rail, an explorer, a route-per-tab editor, a status bar and a command palette (Cmd+K).
+The app has one left sidebar: a campaign switcher, the current campaign's Overview, its three numbered cycle steps with the engine's own stage state, Report, then Scale-up and Settings.
+See `docs/REDESIGN.md` for which engine capability backs each page.
 
-- **Activity rail.** Campaign, Data, Library and Projects, with Settings pinned at the foot.
-- **Explorer.** A tree specific to each section, with keyboard navigation.
-- **Editor tabs.** Every tab is a route, so deep links, reload and Back all work.
-  The open-tab list is a per-viewer convenience kept in `sessionStorage`.
-- **Status bar.** Engine connection, round, runs in flight, best so far, and one text action for the next step.
-- **Command palette.** Jump to any page or stage, or run an action such as "Upload a run sheet".
-
-The engine runs one live campaign, and the home page is that campaign's workspace.
-It moves through five stages, each with one primary action:
-
-| Stage | Route | Primary action |
+| Page | Route | What it does |
 | --- | --- | --- |
-| Setup | `/campaign/setup` | Upload a run sheet, check data quality, choose the target |
-| Plan | `/campaign/plan` | Start the proposed batch (for example "Start 5 runs") |
-| Run | `/campaign/run` | Record results |
-| Record | `/campaign/record` | Save the measured results |
-| Learn | `/campaign/learn` | Plan the next round |
+| Campaigns | `/` | List campaigns, start a new one (first-run guide when there are none) |
+| Overview | `/campaigns/[id]` | Where the campaign is, the engine's next action, measured best so far, model reliability |
+| 1 Harmonize | `/campaigns/[id]/harmonize` | Upload prior runs (background job with progress), choose the target, read the data check and the explored range |
+| 2 Predict | `/campaigns/[id]/predict` | Can the model be trusted (CV, calibration, promotion as reported), drivers, the proposed batch with intervals; start runs |
+| 3 Validate | `/campaigns/[id]/validate` | Runs in the lab, record and correct results, predicted vs measured, re-analyze and re-propose |
+| Report | `/campaigns/[id]/report` | Download the data package (JSON) and CSVs; what is and is not included |
+| Scale-up | `/scale-up` | Staged path to scale, and the predict-or-refuse scale-up readout |
+| Settings | `/settings` | Theme, engine connection, optional integrations, members, security |
 
-The rest of the app:
-
-- **Data** (`/data`): a registry of datasets and runs.
-- **Library** (`/library`): Vessels, Plate analysis, Scale-up readout and Simulator, plus a link to Projects.
-- **Projects** (`/projects`): client-facing project workspaces on illustrative seed data.
-- **Settings** (`/settings`): theme, engine connection, and optional integrations.
-
-Earlier routes redirect permanently (`next.config.ts`), so old links and bookmarks still resolve.
-
-| Old route | Now |
-| --- | --- |
-| `/decide`, `/optimize` | `/campaign/plan` |
-| `/results` | `/campaign/learn` |
-| `/analyze`, `/validate` | `/campaign/setup` |
-| `/experiments`, `/planning` | `/` |
-| `/scale-readout` | `/library/scale-up` |
-| `/vessels` | `/library/vessels` |
-| `/plate` | `/library/plate` |
-| `/simulate` | `/library/simulator` |
+Pages without an engine behind them (Data registry, Vessels, Plate, Projects, Simulator) were removed.
+Older routes redirect (`next.config.ts`): `/campaign/*`, `/data`, `/projects*`, `/library*` and the pre-2026-10 routes go to `/`; `/library/scale-up` and `/scale-readout` go to `/scale-up`.
 
 ## Local development
 
@@ -201,15 +178,15 @@ The UI's reliability verdict is a transparent rule on the engine's held-out metr
 
 ## Current limitations
 
-- One live campaign; no multi-user or multi-organisation support.
-- Data, Vessels, Plate and Projects are fixtures or seed data.
+- Re-analysis is synchronous on the engine (no job route), so it shows an elapsed timer, not stages.
+- Scale-up stage decisions, robust operating ranges, base-row export, result history and the audit log are not available from the engine, and the UI says so where they would appear.
 - Everything the UI can do depends on a running engine; there is no offline mode.
 - A few older pages still show internal engine vocabulary.
 
 ## Roadmap
 
 - **MVP (toward a public beta):** IMPLEMENTED: campaign workspace, proxy. IN PROGRESS: PRs #64, #65, #67, #68, #69, #70, #71. PLANNED: Better Auth login, short-lived JWT to the engine, organisations as tenants, server-side project storage, multiple campaigns, local job workers.
-- **Later (PLANNED):** richer plate and vessel tools on real data, external security review, validation of the optimizer on independent real data.
+- **Later (PLANNED):** external security review, validation of the optimizer on independent real data.
 
 ## $0 stack
 
@@ -234,15 +211,9 @@ Each rule names the file that carries it.
 
 | Route | Source |
 | --- | --- |
-| `/`, `/campaign/*` | Engine (`/api/latest`, `/api/campaign*`). With demo mode on and no campaign yet, `/` and `/campaign/run` show a badged example campaign from `lib/mock/campaign.ts`. |
-| `/library/scale-up` | Engine (`POST /api/scale/readout`). Disabled in demo mode. |
-| `/library/simulator` | Engine (`/api/single`, `/api/multi`), which runs a synthetic benchmark surface. |
+| `/`, `/campaigns/*` | Engine multi-campaign API (`/api/campaigns*`, `/api/jobs/*`). With demo mode on and no campaigns at all, `/` also shows a badged example preview from `lib/mock/campaign.ts`. |
+| `/scale-up` | Engine (`POST /api/scale/readout`). The stage track is descriptive; nothing in it is tracked or completed by the software. |
 | `/settings` | Engine (`/api/providers`, and the connection check). |
-| `/data` | Fixtures in `lib/mock/registry.ts`, synthetic, shown only in demo mode. |
-| `/library/vessels` | Fixtures in `lib/vessel-data.ts`, a seeded simulation, shown only in demo mode. |
-| `/library/plate` | Fixtures in `lib/plate-data.ts`, a seeded simulation, always shown with a demo badge. |
-| `/projects/*` | Illustrative seed data in `app/projects/data.ts`, saved per viewer in the browser. One project scores the live engine analysis. |
-
 
 ## Design system
 

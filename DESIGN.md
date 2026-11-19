@@ -116,6 +116,26 @@ Geist Mono, through `font-mono text-code`, is for code-like values only: ids and
 Use these roles, not arbitrary `text-[Npx]` values.
 Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 
+## Numbers and charts
+
+Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-dev/VIZ_SPEC.md`). In short:
+
+- Every number goes through `lib/num.ts` (`formatValue`, `formatCorr`, `formatDelta`, `formatSetting`, `formatVolume`, ...)
+  or the `<Num>` / `<NumState>` / `<Delta>` primitives in `components/viz/num.tsx`. Precision comes from the
+  engine-reported uncertainty (PDG rounding rule); without one a target value gets 3 significant figures. Minus is
+  U+2212. `toFixed`/`toLocaleString` are banned in `components/` and `app/` by `design-guards.test.ts`.
+- Missing and declined values have one rendering each: `n/a`, `Not scored` + engine reason, `Refused` + reasons and
+  what would fix it, `Awaiting result`, or nothing (field absent). Never 0, a dash or a blank.
+- Coverage is printed only from an engine field (`conformal_coverage` is 90% today; `ci95` fields are 95%). Typing
+  `90%`/`95%` in a component fails the design guards.
+- Measured outranks predicted in every channel: filled ink vs hollow accent, solid vs dashed, 600 vs 400 weight,
+  only a measured value may use `text-metric`, measured listed first. Reference lines are dotted; dashes mean
+  prediction. Deltas name their baseline and are never colored by sign. Explore/Exploit is a word, not a color.
+- Every number on a hero tile, table row or chart mark can open its source (`lib/source.ts`, `SourceButton`).
+- Charts are visx SVG in `components/viz/charts/*` with pure adapters and `describe*()` functions in `lib/viz-data/*`,
+  wrapped in `ChartFrame` (designed non-ready states, stale banner, Data table, source footer). Colors are CSS
+  variables only. recharts was removed.
+
 ## App frame
 
 - One left sidebar (`components/shell/app-shell.tsx`, 256px, `bg-subtle`): wordmark, campaign switcher, the campaign's

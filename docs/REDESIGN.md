@@ -78,3 +78,12 @@ Old URLs redirect (`/campaign/*`, `/data`, `/projects*`, `/library*` -> `/`, `/l
   "not computed by the engine" / "not exported by the engine" for each.
 - **Merging several prior datasets:** one sheet per campaign; a new upload replaces it (confirmed in a dialog).
 - **Re-analysis progress and cancel:** no job route; a timer only.
+
+## Numbers and charts (second pass)
+
+All numbers and charts follow VIZ_SPEC (summarized in `DESIGN.md`, "Numbers and charts"): one formatter
+(`lib/num.ts`) with precision from the engine's uncertainty, a source behind every number, and visx charts
+(`components/viz/charts/*`): reliability scorecard, parity and calibration plots (Predict evidence), batch interval
+strip and setpoint matrix (the batch), driver forest and surface pair (mean and sigma), correlation heatmap and run
+map (Harmonize), validation dumbbells (Validate), progress by round (Overview). The scale ladder chart (C9) is not
+drawn: the engine's scale readout is HTML only (engine request R1), so the readout is shown as the engine sent it.

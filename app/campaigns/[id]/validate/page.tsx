@@ -55,12 +55,12 @@ export default function ValidatePage() {
 
   const top = (
     <>
-      {stage ? <CycleStepper steps={cycleSteps(stage, id)} round={round} active="validate" /> : null}
       <PageHeader
-        eyebrow={round != null ? `Step 3 · Round ${formatNumber(round, "count")}` : "Step 3"}
+        eyebrow={round != null ? `Step 3 of 3 · Round ${formatNumber(round, "count")}` : "Step 3 of 3"}
         title="Validate"
         description="Run the batch in the lab, record what you measure, then fold the results into the model and propose the next round."
       />
+      {stage ? <CycleStepper steps={cycleSteps(stage, id)} round={round} active="validate" /> : null}
     </>
   );
 

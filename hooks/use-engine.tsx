@@ -150,7 +150,9 @@ type EngineData = {
 
 const EngineContext = createContext<EngineData | null>(null);
 
-const POLL_MS = 1500;
+// The engine reports progress only at stage boundaries, so a 2.5 s poll loses nothing and keeps a long
+// job well inside the proxy's per-session rate limit (120 requests a minute).
+const POLL_MS = 2500;
 const TERMINAL: readonly Job["state"][] = ["succeeded", "failed", "cancelled", "timed_out"];
 
 /**

@@ -92,7 +92,7 @@ export function JobProgress({
       >
         <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
       </div>
-      <ol className="mt-4 grid gap-1.5 sm:grid-cols-2">
+      <ol className="mt-4 grid gap-1.5 sm:grid-flow-col sm:grid-rows-3">
         {JOB_STAGES.map((s, i) => {
           const state = i < at ? "done" : i === at ? "current" : "upcoming";
           return (

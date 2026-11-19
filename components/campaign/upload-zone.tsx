@@ -4,8 +4,22 @@ import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Click-or-drop picker for a run sheet (CSV, TSV or Excel). `compact` once a sheet is already loaded. */
-export function UploadZone({ onFile, disabled = false, compact = false }: { onFile: (file: File) => void; disabled?: boolean; compact?: boolean }) {
+/**
+ * Click-or-drop picker for a run sheet (CSV, TSV or .xlsx). `compact` once a sheet is already loaded;
+ * `label` overrides the compact prompt. Legacy .xls is not offered in the file chooser; a dropped one
+ * is still sent, and the engine refuses it with its own reason.
+ */
+export function UploadZone({
+  onFile,
+  disabled = false,
+  compact = false,
+  label,
+}: {
+  onFile: (file: File) => void;
+  disabled?: boolean;
+  compact?: boolean;
+  label?: string;
+}) {
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const open = () => {
@@ -17,7 +31,7 @@ export function UploadZone({ onFile, disabled = false, compact = false }: { onFi
       <input
         ref={input}
         type="file"
-        accept=".csv,.tsv,.xlsx,.xls"
+        accept=".csv,.tsv,.txt,.xlsx"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -30,7 +44,7 @@ export function UploadZone({ onFile, disabled = false, compact = false }: { onFi
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
-        aria-label="Upload a run sheet (CSV, TSV, or Excel)"
+        aria-label={label ?? "Upload a run sheet (CSV, TSV or Excel .xlsx)"}
         onClick={open}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -57,8 +71,8 @@ export function UploadZone({ onFile, disabled = false, compact = false }: { onFi
         )}
       >
         <Upload className="size-5 text-fg-muted" aria-hidden />
-        <p className="text-label text-fg">{compact ? "Upload a different run sheet" : "Drop a run sheet here, or click to choose"}</p>
-        {compact ? null : <p className="text-caption text-fg-muted">CSV, TSV or Excel, one run per row</p>}
+        <p className="text-label text-fg">{label ?? (compact ? "Upload a different run sheet" : "Drop a run sheet here, or click to choose")}</p>
+        {compact ? null : <p className="text-caption text-fg-muted">CSV, TSV or Excel (.xlsx), one run per row</p>}
       </div>
     </>
   );

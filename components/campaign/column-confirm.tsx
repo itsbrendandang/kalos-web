@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Callout } from "@/components/kit/callout";
+import { Panel } from "@/components/kit/section";
 import type { ColumnRolesInput } from "@/lib/api";
 import type { SheetColumn } from "@/lib/sheet-roles";
 
@@ -44,26 +44,18 @@ export function ColumnConfirm({
   }
 
   return (
-    <Callout
-      tone="accent"
-      title="Confirm the columns before you trust this fit"
-      action={
-        changed ? (
-          <Button size="sm" disabled={busy || picked.size === 0} onClick={() => onRefit({ target: tgt, features: candidates.map((c) => c.name).filter((c) => picked.has(c)) })}>
-            Re-fit with these columns
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" disabled={busy} onClick={onConfirm}>
-            Looks right
-          </Button>
-        )
-      }
-    >
-      <div className="mt-2 flex flex-col gap-3">
+    <Panel aria-labelledby="column-confirm-title" className="flex flex-col gap-4">
+      <div>
+        <h3 id="column-confirm-title" className="text-heading text-fg">
+          Did Kalos read your columns right?
+        </h3>
+        <p className="mt-0.5 text-body text-fg-muted">Check the target and the inputs before you trust this fit. Changing them re-fits the model from the same file.</p>
+      </div>
+      <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-label text-fg sm:max-w-sm">
           Maximize (target)
           <select
-            className="rounded-md border border-border-strong bg-surface px-2 py-1.5 text-body"
+            className="rounded-lg border border-border-strong bg-surface px-2 py-1.5 text-body"
             value={tgt}
             onChange={(e) => setTgt(e.target.value)}
             disabled={busy}
@@ -81,8 +73,8 @@ export function ColumnConfirm({
             {candidates.map((c) => (
               <li key={c.name}>
                 <label className="flex items-center gap-2 text-body text-fg">
-                  <input type="checkbox" checked={picked.has(c.name)} onChange={() => toggle(c.name)} />
-                  <span className="truncate">{c.name}</span>
+                  <input type="checkbox" className="accent-accent" checked={picked.has(c.name)} onChange={() => toggle(c.name)} />
+                  <span className="truncate font-mono text-code">{c.name}</span>
                   {c.note ? <span className="shrink-0 text-caption text-fg-muted">({c.note})</span> : null}
                   {c.warning ? <span className="shrink-0 text-caption text-warn">Note: {c.warning}</span> : null}
                 </label>
@@ -91,13 +83,25 @@ export function ColumnConfirm({
           </ul>
           <p className="text-caption text-fg-muted">Untick IDs, dates, and anything measured after the run (outputs), since those are not settings you can choose.</p>
           <p className="text-caption text-fg-muted">
-            Column names are the ones the engine read from your sheet. Re-fitting with your own choices uses the engine&apos;s generic column profile, which may skip bioprocess-specific name-based checks and unit conversions.
+            Re-fitting with your own choices uses the engine&apos;s generic column profile, which may skip bioprocess-specific name-based checks and unit conversions.
+            Roles you declare apply to this upload only: when you later record results and re-analyze, the engine infers roles from the column names again.
           </p>
           <p className="text-caption text-fg-muted">
-            Advisory only: Kalos has already saved this fit. Confirming here just records that you checked the columns; the next step stays available without it (the sidebar links straight on), and reloading the page skips it.
+            Confirming is advisory: the fit is already saved. It records that you checked the columns; Predict stays open without it, and reloading the page skips it.
           </p>
         </fieldset>
       </div>
-    </Callout>
+      <div>
+        {changed ? (
+          <Button size="sm" disabled={busy || picked.size === 0} onClick={() => onRefit({ target: tgt, features: candidates.map((c) => c.name).filter((c) => picked.has(c)) })}>
+            Re-fit with these columns
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={onConfirm}>
+            Looks right
+          </Button>
+        )}
+      </div>
+    </Panel>
   );
 }

@@ -60,7 +60,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <h2 className="text-heading text-fg">Unit conversions</h2>
+        <h3 className="text-label text-fg">Unit conversions</h3>
         {report.conversions.length === 0 ? (
           <p className="text-body text-fg-muted">No conversions were needed. Every value was already in its expected unit.</p>
         ) : (

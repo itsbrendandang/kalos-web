@@ -8,7 +8,7 @@ export function SheetPicker({ selector, busy, onPick }: { selector: SheetSelecto
     <label className="flex flex-col gap-1.5 text-label text-fg sm:max-w-sm">
       Worksheet in {selector.target.name}
       <select
-        className="rounded-md border border-border-strong bg-surface px-2 py-1.5 text-body"
+        className="rounded-lg border border-border-strong bg-surface px-2 py-1.5 text-body"
         value={selector.current ?? ""}
         disabled={busy}
         onChange={(e) => e.target.value && onPick(selector.target, e.target.value)}

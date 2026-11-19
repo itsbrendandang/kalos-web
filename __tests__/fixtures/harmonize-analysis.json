@@ -1,0 +1,748 @@
+{
+ "has_data": true,
+ "n": 160,
+ "d": 11,
+ "target": "titer_g_L",
+ "group_col": null,
+ "targets": [
+  "titer_g_L"
+ ],
+ "features": [
+  "pH",
+  "temperature_C",
+  "glucose_gL",
+  "glutamine_mM",
+  "feed_rate_mLh",
+  "DO_pct",
+  "agitation_rpm",
+  "inoculum_1e6",
+  "antifoam_mgL",
+  "osmolality_mOsm",
+  "medium_base"
+ ],
+ "categorical_features": [
+  "medium_base"
+ ],
+ "n_dropped_incomplete": 0,
+ "n_censored_excluded": 0,
+ "data_drops": {
+  "rows_dropped": 0,
+  "censored_rows_excluded": 0,
+  "cells_by_reason": {
+   "missing": 0,
+   "non_numeric": 0,
+   "censored": 0
+  },
+  "cells_by_column": {},
+  "blank_cells_as_absent": {}
+ },
+ "auto_categorical": [
+  "medium_base"
+ ],
+ "header_row": 0,
+ "cv_spearman": 0.655,
+ "best": 1.422,
+ "drivers": [
+  {
+   "name": "temperature_C",
+   "rho": 0.318,
+   "ci95": [
+    0.177,
+    0.457
+   ],
+   "p": 4.1e-05,
+   "ci_excludes_zero": true,
+   "survives_fdr": true,
+   "significant": true
+  },
+  {
+   "name": "osmolality_mOsm",
+   "rho": -0.202,
+   "ci95": [
+    -0.336,
+    -0.055
+   ],
+   "p": 0.010386,
+   "ci_excludes_zero": true,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "pH",
+   "rho": 0.164,
+   "ci95": [
+    0.021,
+    0.318
+   ],
+   "p": 0.038097,
+   "ci_excludes_zero": true,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "agitation_rpm",
+   "rho": -0.143,
+   "ci95": [
+    -0.263,
+    0.008
+   ],
+   "p": 0.072025,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "inoculum_1e6",
+   "rho": 0.101,
+   "ci95": [
+    -0.057,
+    0.243
+   ],
+   "p": 0.203386,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "feed_rate_mLh",
+   "rho": 0.078,
+   "ci95": [
+    -0.077,
+    0.238
+   ],
+   "p": 0.326903,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "DO_pct",
+   "rho": 0.076,
+   "ci95": [
+    -0.058,
+    0.227
+   ],
+   "p": 0.338261,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "glucose_gL",
+   "rho": -0.027,
+   "ci95": [
+    -0.176,
+    0.142
+   ],
+   "p": 0.736088,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  }
+ ],
+ "proposal_features": [
+  "temperature_C",
+  "osmolality_mOsm",
+  "pH",
+  "agitation_rpm"
+ ],
+ "feature_ranges": {
+  "pH": [
+   6.005,
+   7.594
+  ],
+  "temperature_C": [
+   30.039,
+   38.968
+  ],
+  "glucose_gL": [
+   2.004,
+   11.956
+  ],
+  "glutamine_mM": [
+   1.032,
+   8.0
+  ],
+  "feed_rate_mLh": [
+   0.108,
+   1.995
+  ],
+  "DO_pct": [
+   20.306,
+   79.688
+  ],
+  "agitation_rpm": [
+   101.777,
+   399.907
+  ],
+  "inoculum_1e6": [
+   0.201,
+   1.995
+  ],
+  "antifoam_mgL": [
+   0.17,
+   49.971
+  ],
+  "osmolality_mOsm": [
+   280.044,
+   359.948
+  ]
+ },
+ "proposals": [
+  {
+   "pred": 1.75,
+   "std": 0.069,
+   "mode": "exploit",
+   "reason": "predicted high (+0.328 vs best)",
+   "vals": [
+    36.194,
+    310.452,
+    6.974,
+    216.403
+   ],
+   "recipe": {
+    "pH": 6.974,
+    "temperature_C": 36.194,
+    "glucose_gL": 8.275,
+    "glutamine_mM": 5.089,
+    "feed_rate_mLh": 1.653,
+    "DO_pct": 54.593,
+    "agitation_rpm": 216.403,
+    "inoculum_1e6": 1.143,
+    "antifoam_mgL": 30.003,
+    "osmolality_mOsm": 310.452,
+    "medium_base": "ProCHO"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.5996
+  },
+  {
+   "pred": 1.715,
+   "std": 0.064,
+   "mode": "exploit",
+   "reason": "predicted high (+0.293 vs best)",
+   "vals": [
+    36.166,
+    309.519,
+    6.967,
+    234.296
+   ],
+   "recipe": {
+    "pH": 6.967,
+    "temperature_C": 36.166,
+    "glucose_gL": 8.317,
+    "glutamine_mM": 5.16,
+    "feed_rate_mLh": 0.789,
+    "DO_pct": 54.877,
+    "agitation_rpm": 234.296,
+    "inoculum_1e6": 1.098,
+    "antifoam_mgL": 49.971,
+    "osmolality_mOsm": 309.519,
+    "medium_base": "CD-CHO"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.6255
+  }
+ ],
+ "oof": [
+  [
+   0.0,
+   0.0356
+  ],
+  [
+   0.12,
+   0.1746
+  ],
+  [
+   0.0,
+   0.2287
+  ],
+  [
+   0.942,
+   0.3716
+  ],
+  [
+   0.0,
+   0.029
+  ]
+ ],
+ "provenance": [
+  {
+   "name": "run_id",
+   "status": "dropped_id",
+   "coerced_cells": 160,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "pH",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "temperature_C",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "glucose_gL",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "glutamine_mM",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "feed_rate_mLh",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "DO_pct",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "agitation_rpm",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "inoculum_1e6",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "antifoam_mgL",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "osmolality_mOsm",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "medium_base",
+   "status": "kept_feature",
+   "coerced_cells": 160,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "titer_g_L",
+   "status": "target",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  }
+ ],
+ "orientation": {
+  "orientation": "standard",
+  "confidence": 1.0,
+  "signals": {
+   "first_column_id_rate": 1.0
+  }
+ },
+ "validation": {
+  "status": "pass_with_warnings",
+  "mode": "warn",
+  "n_rows": 160,
+  "n_columns": 13,
+  "checks_run": [
+   "units_consistency",
+   "physical_bounds",
+   "duplicate_rows",
+   "missingness",
+   "outliers",
+   "provenance_metadata",
+   "replicate_adequacy",
+   "controls_present",
+   "constant_columns",
+   "informative_missingness",
+   "constant_within_group",
+   "data_accounting"
+  ],
+  "counts": {
+   "error": 0,
+   "warning": 5,
+   "info": 1
+  },
+  "findings": [
+   {
+    "check": "outliers",
+    "severity": "warning",
+    "message": "column 'antifoam_mgL' has values with MAD-based |z| > 5 (assessed on a log10 scale)",
+    "column": "antifoam_mgL",
+    "rows": [
+     63,
+     156
+    ],
+    "detail": {
+     "median": 1.3980772103656438,
+     "mad": 0.2107182033916385,
+     "scale": "log10",
+     "n_rows_affected": 2
+    }
+   },
+   {
+    "check": "outliers",
+    "severity": "warning",
+    "message": "column 'titer_g_L' has values with MAD-based |z| > 5 (assessed on a linear scale)",
+    "column": "titer_g_L",
+    "rows": [
+     1,
+     3,
+     9,
+     10,
+     11,
+     16,
+     17,
+     18,
+     20,
+     24,
+     26,
+     27,
+     31,
+     36,
+     38,
+     39,
+     40,
+     41,
+     43,
+     46
+    ],
+    "detail": {
+     "median": 0.0075,
+     "mad": 0.0075,
+     "scale": "linear",
+     "n_rows_affected": 60
+    }
+   },
+   {
+    "check": "provenance_metadata",
+    "severity": "warning",
+    "message": "no date column found - results cannot be traced to when the run happened",
+    "column": null,
+    "rows": [],
+    "detail": {
+     "missing": "date"
+    }
+   }
+  ],
+  "conversions": [],
+  "schema_version": 1
+ },
+ "design_box_exclusions": [],
+ "embedding": {
+  "method": "pca",
+  "encoding": "standardized_continuous_one_hot_categorical",
+  "unit": "run",
+  "n_rows": 160,
+  "n_features": 13,
+  "points": [
+   [
+    1.4036,
+    0.4985,
+    0.0
+   ],
+   [
+    -2.0491,
+    -0.7314,
+    0.404
+   ],
+   [
+    -1.5755,
+    0.0551,
+    0.0
+   ],
+   [
+    0.1394,
+    -0.2168,
+    0.497
+   ],
+   [
+    0.341,
+    0.9447,
+    0.0
+   ],
+   [
+    0.2393,
+    -1.9632,
+    0.0
+   ],
+   [
+    -1.3847,
+    -0.1509,
+    0.0
+   ],
+   [
+    0.283,
+    -1.3671,
+    0.0
+   ],
+   [
+    1.2339,
+    0.4004,
+    0.0
+   ],
+   [
+    0.5904,
+    0.729,
+    0.12
+   ],
+   [
+    -0.9238,
+    -0.9578,
+    0.484
+   ],
+   [
+    -0.4757,
+    0.6687,
+    0.388
+   ]
+  ]
+ },
+ "correlation": {
+  "unit": "recipe",
+  "n_units": 160,
+  "n_rows": 160,
+  "labels": [
+   "pH",
+   "temperature_C",
+   "glucose_gL",
+   "glutamine_mM",
+   "feed_rate_mLh",
+   "DO_pct",
+   "agitation_rpm",
+   "inoculum_1e6",
+   "antifoam_mgL",
+   "osmolality_mOsm",
+   "target_mean"
+  ],
+  "matrix": [
+   [
+    1.0,
+    -0.04,
+    -0.065,
+    -0.024,
+    -0.096,
+    -0.075,
+    -0.018,
+    0.065,
+    0.043,
+    -0.092,
+    0.164
+   ],
+   [
+    -0.04,
+    1.0,
+    -0.096,
+    0.033,
+    -0.028,
+    0.072,
+    0.048,
+    -0.008,
+    0.034,
+    -0.054,
+    0.318
+   ],
+   [
+    -0.065,
+    -0.096,
+    1.0,
+    -0.082,
+    -0.088,
+    0.094,
+    -0.028,
+    -0.094,
+    -0.091,
+    -0.014,
+    -0.027
+   ],
+   [
+    -0.024,
+    0.033,
+    -0.082,
+    1.0,
+    0.054,
+    -0.115,
+    0.019,
+    -0.09,
+    -0.02,
+    0.004,
+    -0.013
+   ],
+   [
+    -0.096,
+    -0.028,
+    -0.088,
+    0.054,
+    1.0,
+    -0.089,
+    0.024,
+    0.089,
+    0.08,
+    0.083,
+    0.078
+   ],
+   [
+    -0.075,
+    0.072,
+    0.094,
+    -0.115,
+    -0.089,
+    1.0,
+    -0.014,
+    -0.043,
+    0.069,
+    0.096,
+    0.076
+   ],
+   [
+    -0.018,
+    0.048,
+    -0.028,
+    0.019,
+    0.024,
+    -0.014,
+    1.0,
+    0.135,
+    -0.058,
+    0.006,
+    -0.143
+   ],
+   [
+    0.065,
+    -0.008,
+    -0.094,
+    -0.09,
+    0.089,
+    -0.043,
+    0.135,
+    1.0,
+    0.104,
+    -0.023,
+    0.101
+   ],
+   [
+    0.043,
+    0.034,
+    -0.091,
+    -0.02,
+    0.08,
+    0.069,
+    -0.058,
+    0.104,
+    1.0,
+    0.078,
+    -0.009
+   ],
+   [
+    -0.092,
+    -0.054,
+    -0.014,
+    0.004,
+    0.083,
+    0.096,
+    0.006,
+    -0.023,
+    0.078,
+    1.0,
+    -0.202
+   ],
+   [
+    0.164,
+    0.318,
+    -0.027,
+    -0.013,
+    0.078,
+    0.076,
+    -0.143,
+    0.101,
+    -0.009,
+    -0.202,
+    1.0
+   ]
+  ]
+ },
+ "visualization_reasons": {
+  "embedding": null,
+  "correlation": null,
+  "response_surface": null
+ },
+ "seed": 1234,
+ "timestamp": 1795060684,
+ "engine_version": "0.1.0",
+ "run": {
+  "schema_version": 1,
+  "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+  "input_bytes": 13475,
+  "target": "titer_g_L",
+  "profile": "bioprocess",
+  "roles_declared": null,
+  "anonymize": false,
+  "seed": 1234,
+  "torch_threads": 4,
+  "torch_threads_actual": 4,
+  "max_fit_rows": 2000,
+  "sheet_index": null,
+  "sheet_hash": null,
+  "build_sha": "unknown",
+  "library_versions": {
+   "numpy": "2.5.1",
+   "pandas": "3.0.3",
+   "torch": "2.13.0",
+   "botorch": "0.18.1"
+  },
+  "validation_mode": "warn",
+  "n_rows": 160,
+  "n_features": 11,
+  "kind": "upload",
+  "pending_runs": 0,
+  "gates": {
+   "promotion": "promotion",
+   "proposal_gating": "proposal_gating",
+   "validation": "validation"
+  },
+  "data_drops": {
+   "rows_dropped": 0,
+   "censored_rows_excluded": 0,
+   "cells_by_reason": {
+    "missing": 0,
+    "non_numeric": 0,
+    "censored": 0
+   },
+   "auto_categorical_count": 1
+  },
+  "header_row": 0,
+  "filename": "synthetic_bioprocess.csv",
+  "sheet": null
+ },
+ "dataset": "synthetic_bioprocess.csv",
+ "updated": 1795060684.389318,
+ "campaign_generation": "7e87394d471d4f7f9b3a152ca969e059",
+ "conformal_coverage": 0.9
+}

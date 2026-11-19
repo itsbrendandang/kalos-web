@@ -682,7 +682,10 @@ function ModelBasedDetails({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
             {s.pImprove ? (
               <>
                 <dt className="text-fg-muted">{chanceLabel(s.pImprove, ctx.model.goal)}</dt>
-                <dd className="tabular-nums">{chanceText(s)}</dd>
+                <dd className="tabular-nums">
+                  {chanceText(s)}
+                  {s.pImprove.description ? <span className="block text-caption text-fg-muted">Engine: {s.pImprove.description}</span> : null}
+                </dd>
               </>
             ) : null}
             {s.ei ? (

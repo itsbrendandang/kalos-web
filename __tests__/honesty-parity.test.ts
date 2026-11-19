@@ -111,6 +111,11 @@ describe("cvTopKNote", () => {
     const topk: CvTopK = { overlap: 0.6, k: 5, n: 20, evaluable: true, reason: null };
     expect(cvTopKNote(topk)).toBe("3 of the true top 5 caught (n=20).");
   });
+
+  it("names the lowest runs when the engine ranked for minimize (direction, engine aa7396a)", () => {
+    const topk: CvTopK = { overlap: 0.6, k: 5, n: 20, evaluable: true, reason: null, direction: "lowest" };
+    expect(cvTopKNote(topk)).toBe("3 of the true lowest 5 caught (n=20).");
+  });
 });
 
 describe("groupMeanBaselineVerdict", () => {

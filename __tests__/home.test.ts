@@ -75,6 +75,11 @@ describe("summaryRowView (one summary list request, no per-campaign fetch)", () 
     expect(v.unit).toBeNull();
   });
 
+  it("uses the summary's target_unit when the engine sends it (754a87a), including an explicit none", () => {
+    expect(summaryRowView({ ...probe, target_unit: { unit: "g/L", source: "header", header: "titer_g_L", note: "" } }).unit).toBe("g/L");
+    expect(summaryRowView({ ...probe, target: "titer (g/L)", target_unit: { unit: null, source: "none", header: "titer (g/L)", note: "" } }).unit).toBeNull();
+  });
+
   it("flags an analysis that predates newer results, and maximize reads as highest measured", () => {
     const v = summaryRowView(capture);
     expect(v.goal).toBe("maximize");

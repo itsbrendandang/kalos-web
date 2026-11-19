@@ -142,6 +142,8 @@ export type ImprovementStat = {
   basis: string;
   posterior?: string;
   note?: string;
+  /** The engine's plain statement of what the value is (p_improve: P(latent MEAN beats the incumbent), not one measurement). */
+  description?: string;
 };
 
 /** How `proposals[].intervals` were built, with a per-level availability (`interval_method`). */
@@ -418,6 +420,8 @@ export type CvTopK = {
   n: number;
   evaluable: boolean;
   reason: string | null;
+  /** "highest" or "lowest" (the goal's best runs; engine aa7396a). Absent on older engines. */
+  direction?: "highest" | "lowest";
 };
 
 /**
@@ -1150,7 +1154,9 @@ export function cvTopKNote(topk: CvTopK | null | undefined): string | null {
   if (!topk) return null;
   if (!topk.evaluable || topk.overlap == null) return topk.reason ?? "Not scored.";
   const hits = Math.round(topk.overlap * topk.k);
-  return `${hits} of the true top ${topk.k} caught (n=${topk.n}).`;
+  // `direction` (engine aa7396a): under minimize the top k are the LOWEST runs.
+  const which = topk.direction === "lowest" ? `lowest ${topk.k}` : `top ${topk.k}`;
+  return `${hits} of the true ${which} caught (n=${topk.n}).`;
 }
 
 /**
@@ -1591,6 +1597,8 @@ export type CampaignSummaryRow = CampaignMeta & {
         /** The stored analysis's model verdict (trust layer F04), when the engine sends it. */
         verdict?: EngineVerdict | null;
       };
+  /** The target's display unit (engine 754a87a); absent on older engines (fall back to the header). */
+  target_unit?: TargetUnit | null;
   current_stage?: string | null;
   latest_gate_decision?: { gate: string; decision: GateDecision; decided_at: number } | null;
   active_job?: { id: string; kind: string; state: JobState; progress: number; stage: string } | null;

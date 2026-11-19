@@ -76,9 +76,8 @@ export type SummaryRowView = {
   hasData: boolean;
   target: string | null;
   /**
-   * The summary carries no `target_unit` (the analysis does), so the unit is parsed from the target header
-   * with `parseUnit`, which only reads a trailing "(unit)". A unit set in the campaign setup, or one the
-   * engine reads from a suffix like `_g_L`, does not show here; the campaign's own pages show it.
+   * The engine's `target_unit` from the summary (engine 754a87a: setup, then header pattern, else none). Older
+   * engines send none, and the unit is parsed from the target header with `parseUnit` (a trailing "(unit)" only).
    */
   unit: string | null;
   goal: Goal;
@@ -117,7 +116,8 @@ export function summaryRowView(row: CampaignSummaryRow): SummaryRowView {
   return {
     hasData: row.has_data,
     target: row.target,
-    unit: row.target ? parseUnit(row.target).unit : null,
+    // The engine's target_unit when sent (it may know a unit the header does not say, or know there is none).
+    unit: row.target_unit ? row.target_unit.unit : row.target ? parseUnit(row.target).unit : null,
     goal,
     best: { value: row.best_measured?.value ?? null, word: goal === "minimize" ? "lowest measured" : "highest measured" },
     reliability,

@@ -981,6 +981,10 @@ export function constraintNote(constraint: ConstraintReport | null | undefined):
   if (!constraint) return null;
   if (constraint.reason === "no constraint requested") return null;
   if (constraint.applied) {
+    if (typeof constraint.floor !== "number" || !Number.isFinite(constraint.floor)) {
+      const column = constraint.column ?? "the requested column";
+      return `The ${column} constraint is applied, but its floor is not reported.`;
+    }
     return `Constrained by ${constraint.column} >= ${constraint.floor} (fit on ${constraint.n_rows_with_value} rows).`;
   }
   return `Constraint on ${constraint.column ?? "the requested column"} not applied - ${constraint.reason ?? "unknown reason"}.`;

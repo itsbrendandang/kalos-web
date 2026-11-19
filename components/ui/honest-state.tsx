@@ -95,7 +95,7 @@ export function LoadingSkeleton({
   label?: string;
   className?: string;
 }) {
-  const common = { role: "status" as const, "aria-live": "polite" as const, "aria-label": label };
+  const common = { role: "status" as const, "aria-live": "polite" as const, "aria-busy": true as const, "aria-label": label };
 
   if (variant === "chart") {
     return (

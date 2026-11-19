@@ -144,3 +144,66 @@ describe.each([
     expect(s2 / s1).toBeGreaterThanOrEqual(1.3);
   });
 });
+
+function block(selector: string): Map<string, string> {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = css.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`));
+  if (!match) throw new Error(`missing ${selector}`);
+  const out = new Map<string, string>();
+  const clean = match[1].replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const [, name, value] of clean.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out.set(name, value.trim());
+  return out;
+}
+
+const pilotLight = block(".campaign-overview");
+const pilotDark = new Map([...pilotLight, ...block(".dark .campaign-overview")]);
+
+const pilotPairs: Pair[] = [
+  ["--overview-fg", "--overview-bg", 4.5],
+  ["--overview-fg", "--overview-muted", 4.5],
+  ["--overview-fg", "--overview-divider", 4.5],
+  ["--overview-fg-muted", "--overview-bg", 4.5],
+  ["--overview-fg-muted", "--overview-muted", 4.5],
+  ["--overview-fg-muted", "--overview-divider", 4.5],
+  ["--overview-action", "--overview-bg", 4.5],
+  ["--overview-action", "--overview-muted", 4.5],
+  ["--overview-action", "--overview-divider", 4.5],
+  ["--overview-on-action", "--overview-action", 4.5],
+  ["--overview-border", "--overview-bg", 3],
+  ["--overview-border", "--overview-muted", 3],
+  ["--overview-measured", "--overview-bg", 3],
+  ["--overview-predicted", "--overview-bg", 3],
+  ["--overview-ring", "--overview-bg", 3],
+];
+
+describe.each([
+  ["light", pilotLight],
+  ["dark", pilotDark],
+])("%s campaign home pilot", (_theme, tokens) => {
+  it.each(pilotPairs)("%s on %s clears %s:1", (fg, bg, min) => {
+    expect(contrast(tokens, fg, bg)).toBeGreaterThanOrEqual(min);
+  });
+
+  it("pilot colors are opaque oklch and inside sRGB", () => {
+    const names = new Set(pilotPairs.flatMap(([fg, bg]) => [fg, bg]));
+    for (const name of names) {
+      for (const channel of oklchToLinearSrgb(resolve(tokens, name))) {
+        expect(channel, name).toBeGreaterThanOrEqual(-0.002);
+        expect(channel, name).toBeLessThanOrEqual(1.002);
+      }
+    }
+  });
+});
+
+describe("pilot tokens stay scoped", () => {
+  it("does not import a global tokens stylesheet", () => {
+    expect(css).not.toMatch(/@import\s+["'][^"']*tokens\.css["']/);
+  });
+
+  it("leaves the workbench accent and ink on :root", () => {
+    expect(light.get("--accent")).toBe("oklch(0.48 0.16 285)");
+    expect(light.get("--fg")).toBe("oklch(0.22 0.01 270)");
+    expect(light.get("--chart-predicted")).toBe("var(--accent)");
+    expect(dark.get("--accent")).toBe("oklch(0.72 0.13 285)");
+  });
+});

@@ -105,8 +105,8 @@ function openDisclosure(summary: string) {
   return details;
 }
 
-// Proposals sorted by predicted value: the fixture's engine index of each display id.
-const byPred = [...latestFixture.proposals.map((p, i) => ({ i, pred: p.pred }))].sort((a, b) => b.pred - a.pred);
+// The page keeps the engine's order (VIZ_SPEC C2): display id P{n} is proposals[n - 1].
+const engineOrder = latestFixture.proposals.map((p, i) => ({ i, pred: p.pred }));
 
 describe("Predict start flow", () => {
   it("does not start before the approval box is ticked", async () => {
@@ -136,14 +136,14 @@ describe("Predict start flow", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(starts).toHaveLength(1);
     const sent = starts[0].recipes.map((r) => r.recipe);
-    const expected = byPred.slice(0, 4).map(({ i }) => latestFixture.proposals[i].recipe);
+    const expected = engineOrder.slice(0, 4).map(({ i }) => latestFixture.proposals[i].recipe);
     expect(sent).toEqual(expected);
   });
 
   it("shows the exact values in the dialog, matching what is sent", async () => {
     await renderPredict();
     const dialog = await openDialog();
-    const first = latestFixture.proposals[byPred[0].i].recipe as Record<string, number>;
+    const first = latestFixture.proposals[engineOrder[0].i].recipe as Record<string, number>;
     for (const v of Object.values(first)) expect(dialog.getAllByText(String(v)).length).toBeGreaterThan(0);
   });
 
@@ -179,7 +179,7 @@ describe("Predict start flow", () => {
 
   it("switches to the runs-in-flight view after a start the engine confirmed", async () => {
     await renderPredict();
-    const pending = byPred.map(({ i }, k) => ({ id: `r${k}`, recipe: latestFixture.proposals[i].recipe, pred: latestFixture.proposals[i].pred, std: 1, mode: "explore", reason: "x", result: null, awaiting: true, round: 0 }));
+    const pending = engineOrder.map(({ i }, k) => ({ id: `r${k}`, recipe: latestFixture.proposals[i].recipe, pred: latestFixture.proposals[i].pred, std: 1, mode: "explore", reason: "x", result: null, awaiting: true, round: 0 }));
     onDetail = () => detail({ ...campaignFixture, pending, n_awaiting: 5, analysis_in_sync: false });
     const dialog = await openDialog();
     fireEvent.click(dialog.getByRole("checkbox"));
@@ -205,6 +205,42 @@ describe("Predict with runs already in flight", () => {
   });
 });
 
+describe("Predict batch numbers and charts (VIZ_SPEC C2/C3)", () => {
+  it("shows the batch strip and setpoint matrix, in the engine's order, with bands at the engine's coverage", async () => {
+    await renderPredict();
+    expect(screen.getByText("What each proposal is predicted to give")).toBeTruthy();
+    expect(screen.getByText("Where the proposals sit in each input's range")).toBeTruthy();
+    const table = screen.getAllByRole("table").find((t) => /Model-generated proposals/.test(t.textContent ?? "")) as HTMLElement;
+    const t = within(table);
+    expect(t.getByRole("columnheader", { name: "90% held-out band" })).toBeTruthy();
+    const rows = t.getAllByRole("row").slice(1);
+    // Engine order: P4 is proposals[3] (pred 51.205); its band [47.37, 55.04] prints at the band's precision.
+    expect(rows[3].textContent).toContain("P4");
+    expect(rows[3].textContent).toContain("[47, 55]");
+    // Predicted gain over the best measured run (49.76): exact difference, band shifted by the same amount.
+    expect(rows[3].textContent).toContain("+1");
+    expect(rows[3].textContent).toContain("[\u22122, 5]");
+    expect(table.textContent).not.toMatch(/95%/);
+  });
+
+  it("reads p_feasible as n/a when the engine did not gate the batch on it", async () => {
+    analysis = { ...latestFixture, proposals: latestFixture.proposals.map((p) => ({ ...p, p_feasible: 0.2 })) };
+    await renderPredict();
+    // Ungated (the fixture's proposal_gating.gated is false): no low-feasibility flag and no probability shown.
+    expect(screen.queryByText(/engine-estimated feasibility below/)).toBeNull();
+    expect(screen.queryByText("20%")).toBeNull();
+  });
+
+  it("keeps the batch on screen with measured results once runs are in flight", async () => {
+    const p0 = latestFixture.proposals[0];
+    const pending = [{ id: "r1", recipe: p0.recipe, pred: p0.pred, std: 1, mode: "explore", reason: "x", result: 48.1, awaiting: false, round: 0 }];
+    onDetail = () => detail({ ...campaignFixture, pending, n_awaiting: 0, n_measured: 1, analysis_in_sync: false });
+    await renderPredict();
+    expect(screen.getByRole("heading", { name: "The batch these runs came from" })).toBeTruthy();
+    expect(screen.getAllByText(/The analysis predates 1 recorded result/).length).toBeGreaterThan(0);
+  });
+});
+
 describe("Predict with no model", () => {
   it("shows an empty state that links to Harmonize", async () => {
     analysis = { has_data: false };
@@ -216,6 +252,9 @@ describe("Predict with no model", () => {
 });
 
 describe("Predict trust evidence", () => {
+  // The trust panel is now the verdict line plus three charts (VIZ_SPEC C8 scorecard, C6 parity, C7
+  // calibration). jsdom has no layout width, so the SVGs stay skeletons here; the verdict line, the
+  // legends (band, hit count, z_std reading) and the chart subtitles still render and carry the numbers.
   it("shows the reliability verdict, rank agreement with its CI and the engine's floor, evidence counts and the 90% band", async () => {
     analysis = { ...latestFixture, cv_n_groups: 40, cv_n_repeats: 2 };
     await renderPredict();
@@ -223,13 +262,13 @@ describe("Predict trust evidence", () => {
     const p = within(panel);
     expect(p.getByText("Reliable")).toBeTruthy();
     expect(p.getByText("ρ 0.88")).toBeTruthy();
-    expect(p.getByText(/95% CI 0\.72 to 0\.93, trust floor 0\.20/)).toBeTruthy();
-    expect(p.getByText("40 rows")).toBeTruthy();
-    expect(p.getByText("40 CV groups, 2 repeats")).toBeTruthy();
-    expect(p.getByText("± 3.83")).toBeTruthy();
-    expect(p.getByText(/^90% coverage, measured on held-out runs/)).toBeTruthy();
+    expect(p.getByText("[0.72, 0.93] 95% CI")).toBeTruthy();
+    expect(p.getByText("trust floor 0.20")).toBeTruthy();
+    expect(p.getByText("40 rows, 40 CV groups, 2 repeats")).toBeTruthy();
+    expect(p.getByText("90% held-out band (y = x ± 3.83)")).toBeTruthy();
+    expect(p.getByText(/^\d+ of 6 held-out runs inside the band \(\d+%, target 90%\)/)).toBeTruthy();
     expect(panel.textContent).not.toMatch(/95% band|95% coverage/);
-    expect(p.getByText("Bands read too narrow")).toBeTruthy();
+    expect(p.getByText(/^Bands read too narrow · ECE 0\.11 · z-spread 1\.25$/)).toBeTruthy();
     expect(p.getByText(/feasibility probability, scale-up transfer/)).toBeTruthy();
   });
 
@@ -272,12 +311,14 @@ describe("Predict trust evidence", () => {
     expect(screen.getByText("The model does not beat the group-mean baseline")).toBeTruthy();
   });
 
-  it("keeps the method checks in a disclosure", async () => {
+  // Top-k moved out of the disclosure into the scorecard (VIZ_SPEC C8); method detail (noise) stays one click down.
+  it("shows top-k in the scorecard and keeps the method checks in a disclosure", async () => {
     analysis = { ...latestFixture, cv_topk: { overlap: 0.4, k: 5, n: 40, evaluable: true, reason: null } };
     await renderPredict();
-    expect(screen.queryByText(/2 of the true top 5 caught/)).toBeNull();
+    expect(screen.getByText("2 of the true top 5 caught by the model's top 5 (n = 40)")).toBeTruthy();
+    expect(screen.queryByText("Replicate noise")).toBeNull();
     openDisclosure("More checks on the model");
-    expect(await screen.findByText(/2 of the true top 5 caught/)).toBeTruthy();
+    expect(await screen.findByText("Replicate noise")).toBeTruthy();
   });
 });
 
@@ -293,15 +334,15 @@ describe("Predict drivers", () => {
     };
     await renderPredict();
     const section = screen.getByRole("heading", { name: "What goes with lipase_titer" }).closest("section") as HTMLElement;
-    expect(within(section).getByRole("img", { name: /Temp_C: correlation/ })).toBeTruthy();
-    expect(within(section).queryByRole("img", { name: /pH: correlation/ })).toBeNull();
-    expect(section.textContent).toMatch(/Not distinguishable from noise.*pH, Methanol/);
+    // The forest itself needs a measured width (a skeleton in jsdom); the verdict sentence and frame title render.
+    expect(section.textContent).toContain("Temp_C is distinguishable from noise after correcting for testing every input.");
+    expect(within(section).getByText("Rank agreement with lipase_titer")).toBeTruthy();
   });
 
   it("says when no input is distinguishable from noise", async () => {
     analysis = { ...latestFixture, drivers: [{ name: "pH", rho: 0.1, ci95: [-0.2, 0.3], significant: false }] };
     await renderPredict();
-    expect(screen.getByText("No input is distinguishable from noise yet.")).toBeTruthy();
+    expect(screen.getByText("No input is distinguishable from noise yet after correcting for testing every input.")).toBeTruthy();
   });
 });
 
@@ -374,16 +415,17 @@ describe("Predict data notes, provenance and source", () => {
     expect(provenance.textContent).toContain("n/a");
   });
 
-  it("mounts the response surface only when its disclosure is opened, labelled predicted mean only", async () => {
+  it("mounts the response surface only when its disclosure is opened, labelled a model prediction", async () => {
     // The fixture's own surface is empty (the engine sent no grid), so the disclosure must not appear for it.
     await renderPredict();
     expect(screen.queryByText("How the model responds to two inputs")).toBeNull();
     cleanup();
     analysis = { ...latestFixture, response_surface: surfaceMock.response_surface };
     await renderPredict();
-    expect(screen.getByText("model prediction, mean only")).toBeTruthy();
-    expect(screen.queryByText(/Predicted mean only, uncertainty not shown/)).toBeNull();
+    expect(screen.getByText("model prediction")).toBeTruthy();
+    expect(screen.queryByText(/^Model-predicted lipase_titer/)).toBeNull();
     openDisclosure("How the model responds to two inputs");
-    expect(await screen.findByText(/Predicted mean only, uncertainty not shown/)).toBeTruthy();
+    expect((await screen.findAllByText(/^Model-predicted lipase_titer/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Other inputs held at/).length).toBeGreaterThan(0);
   });
 });

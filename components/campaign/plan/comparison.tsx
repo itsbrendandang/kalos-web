@@ -2,19 +2,20 @@
 
 import type { ReactNode, Ref } from "react";
 import { X } from "lucide-react";
-import { MeasuredMark, PredictedMark } from "@/components/campaign/plan/marks";
-import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
-import { BAND_CAVEAT, bandLabel, compareRecipes, formatGain, formatInterval, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
-import { ModeBadge } from "@/components/ui/badge";
+import { gainOf, ModeText, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
+import { BAND_CAVEAT, bandLabel, compareRecipes, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/lib/format";
+import { BasisGlyph } from "@/components/viz/num";
+import { formatValue } from "@/lib/num";
 import { cn } from "@/lib/utils";
+
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
 type Line = { key: string; label: ReactNode; values: string[]; tone?: (i: number) => string | undefined; note?: string };
 
 /**
  * 2-5 proposals side by side. Setpoint rows where the proposals differ at the
- * sheet's precision are marked "differs" (word + tint, never tint alone), with
+ * displayed precision are marked "differs" (word + tint, never tint alone), with
  * the highest and lowest value marked, and the spread as a share of the range
  * tried when that range is known. Wide containers get a table; narrow ones a
  * list with one block per input, so nothing scrolls sideways on a phone.
@@ -40,19 +41,22 @@ export function Comparison({
   );
   const nDiff = diff.filter((d) => d.differs).length;
   const outcome: Line[] = [
-    { key: "pred", label: <><PredictedMark /> Predicted {ctx.target}</>, values: rows.map((r) => formatNumber(r.item.proposal.pred)), note: "model estimate, not a measurement" },
-    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => formatInterval(r.item.proposal.pred, ctx.band) ?? "not reported"), note: ctx.band != null ? `Same width for every proposal. ${BAND_CAVEAT}` : undefined },
+    { key: "pred", label: <><BasisGlyph basis="predicted" /> Predicted {ctx.target}{ctx.unit ? ` (${ctx.unit})` : ""}</>, values: rows.map((r) => predOf(r, ctx).value), note: "model estimate, not a measurement" },
+    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => predOf(r, ctx).interval ?? "n/a (not reported)"), note: ctx.band != null ? `Same width for every proposal. ${BAND_CAVEAT}` : undefined },
     ...(ctx.incumbent != null
       ? [
           {
             key: "gain",
             label: (
               <>
-                vs <MeasuredMark /> {ctx.incumbentLabel} {formatNumber(ctx.incumbent)}
+                Predicted gain vs <BasisGlyph basis="measured" /> {ctx.incumbentLabel} {formatValue(ctx.incumbent, { basis: "measured", unit: ctx.unit }).text}
               </>
             ),
-            values: rows.map((r) => formatGain(r.gain)),
-            note: `predicted minus the ${ctx.incumbentLabel}`,
+            values: rows.map((r) => {
+              const g = gainOf(r, ctx);
+              return g ? `${g.value}${g.interval ? ` ${g.interval}` : ""}` : "n/a";
+            }),
+            note: `predicted minus the ${ctx.incumbentLabel}, with the band shifted by the same amount`,
           },
         ]
       : []),
@@ -69,8 +73,8 @@ export function Comparison({
           </h2>
           <p className="text-body text-fg-muted">
             {nDiff === 0
-              ? "These proposals set every input to the same value at the sheet's precision."
-              : `${formatNumber(nDiff, "count")} of ${formatNumber(diff.length, "count")} inputs differ at the sheet's precision. \u2191 marks the highest and \u2193 the lowest of those compared.`}
+              ? "These proposals set every input to the same value at the displayed precision."
+              : `${count(nDiff)} of ${count(diff.length)} inputs differ at their displayed precision. \u2191 marks the highest and \u2193 the lowest of those compared.`}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={onClear}>
@@ -127,7 +131,7 @@ export function Comparison({
                     {removable ? <RemoveButton row={r} onRemove={onRemove} /> : null}
                   </span>
                   <span className="mt-1 flex justify-end">
-                    <ModeBadge mode={r.item.proposal.mode} />
+                    <ModeText mode={r.item.proposal.mode} />
                   </span>
                 </th>
               ))}
@@ -135,7 +139,7 @@ export function Comparison({
                 Spread
               </th>
               <th scope="col" className="px-3 py-2 text-left text-label font-normal whitespace-nowrap text-fg-muted">
-                Range tried
+                Range
               </th>
             </tr>
           </thead>
@@ -151,7 +155,7 @@ export function Comparison({
                     {mark(d, i)}
                   </td>
                 ))}
-                <td className="px-3 py-2 text-left text-caption whitespace-nowrap text-fg-muted tabular-nums">{d.differs && d.spread != null ? spreadText(d) : "\u2013"}</td>
+                <td className="px-3 py-2 text-left text-caption whitespace-nowrap text-fg-muted tabular-nums">{d.differs && d.spread != null ? spreadText(d) : "none"}</td>
                 <td className="px-3 py-2 text-left text-caption whitespace-nowrap text-fg-muted tabular-nums">{rangeText(d.range, false)}</td>
               </tr>
             ))}
@@ -219,12 +223,12 @@ function Values({ ids, values, mark: markFn, muted = false, tone }: { ids: strin
 }
 
 function spreadText(d: ComparisonRow): string {
-  return `${formatSetpoint(d.spread, d.range?.decimals)}${d.spreadOfRange != null ? ` (${formatNumber(d.spreadOfRange, "pct")} of range)` : ""}`;
+  return `${formatSetpoint(d.spread, d.range)}${d.spreadOfRange != null ? ` (${formatValue(d.spreadOfRange, { quantity: "pct" }).text} of range)` : ""}`;
 }
 
 function rangeText(range: ObservedRange | null, prefix = true): string {
   if (!range) return prefix ? "range not reported" : "not reported";
   return range.source === "observed"
-    ? `${prefix ? "tried " : ""}${formatSetpoint(range.min, range.decimals)} to ${formatSetpoint(range.max, range.decimals)}`
-    : `${prefix ? "engine range " : ""}${formatNumber(range.min)} to ${formatNumber(range.max)}${prefix ? "" : " (engine)"}`;
+    ? `${prefix ? "tried " : ""}${formatSetpoint(range.min, range)} to ${formatSetpoint(range.max, range)}`
+    : `${prefix ? "search range " : ""}${formatSetpoint(range.min, range)} to ${formatSetpoint(range.max, range)}${prefix ? "" : " (engine)"}`;
 }

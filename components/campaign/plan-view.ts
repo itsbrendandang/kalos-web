@@ -5,12 +5,14 @@
  * engine field or computed from rows the engine returned (the observed runs in
  * `response_surface.runs`). When a field is absent the helper returns null or
  * an empty list and the page says nothing (or says it was not reported).
+ * Every number is formatted through lib/num (VIZ_SPEC 2): predictions at the
+ * precision their band supports, setpoints at their range's precision.
  * Tested in __tests__/plan-view.test.ts.
  */
 
 import { LOW_FEASIBILITY } from "@/components/campaign/plan-batch";
 import type { ConstraintReport, DataDrops, PopulatedResult, Proposal, RunRecord } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { coverageText, formatProb, formatSetting, formatValue, MINUS } from "@/lib/num";
 import { engineMessage } from "@/lib/engine-error";
 
 // --- Engine fields newer than lib/api.ts (kalos-engine PR #87) ---------------
@@ -100,8 +102,8 @@ export function observedRanges(d: Pick<PopulatedResult, "response_surface" | "fe
 
 // --- Boundary checks ----------------------------------------------------------
 
-/** A setpoint within this fraction of the range width from either end counts as "at the edge". */
-export const EDGE_FRACTION = 0.02;
+/** A setpoint within this fraction of the range width from either end counts as "at the edge" (VIZ_SPEC 2.4: 1%). */
+export const EDGE_FRACTION = 0.01;
 
 export type BoundaryWhere = "below" | "at-min" | "inside" | "at-max" | "above";
 
@@ -163,7 +165,17 @@ export type FlagContext = {
   nonNegative: boolean;
   ranges: Record<string, ObservedRange>;
   constraint?: ConstraintReport | null;
+  /**
+   * `proposal_gating.gated`. When the engine says the batch was NOT gated on
+   * feasibility, its `p_feasible` is a probability nobody asked to trust, so no
+   * low-feasibility flag is raised from it. Undefined (field absent) keeps the flag.
+   */
+  feasibilityGated?: boolean | null;
 };
+
+const num = (v: number, uncertainty?: number | null) => formatValue(v, { uncertainty: uncertainty ?? null }).text;
+const pct = (v: number) => formatValue(v, { quantity: "pct" }).text;
+const countText = (n: number) => formatValue(n, { quantity: "count" }).text;
 
 const listNames = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`);
 
@@ -185,14 +197,14 @@ export function constraintPrediction(p: Proposal, constraint: ConstraintReport |
 export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, ctx: FlagContext): RecipeFlag[] {
   const flags: RecipeFlag[] = [];
   if (ctx.nonNegative && p.pred < 0) {
-    flags.push({ kind: "negative", label: "Predicted below zero", detail: `Predicted at ${formatNumber(p.pred)}, below zero, but no measured value of this target is negative.` });
+    flags.push({ kind: "negative", label: "Predicted below zero", detail: `Predicted at ${num(p.pred, ctx.band)}, below zero, but no measured value of this target is negative.` });
   }
-  if (p.p_feasible != null && Number.isFinite(p.p_feasible) && p.p_feasible < LOW_FEASIBILITY) {
-    flags.push({ kind: "low-feasibility", label: "Low engine-estimated feasibility", detail: `Engine-estimated feasibility is ${formatNumber(p.p_feasible, "pct")}, below ${formatNumber(LOW_FEASIBILITY, "pct")}.` });
+  if (ctx.feasibilityGated !== false && p.p_feasible != null && Number.isFinite(p.p_feasible) && p.p_feasible < LOW_FEASIBILITY) {
+    flags.push({ kind: "low-feasibility", label: "Low engine-estimated feasibility", detail: `Engine-estimated feasibility is ${formatProb(p.p_feasible).text}, below ${pct(LOW_FEASIBILITY)}.` });
   }
   const c = constraintPrediction(p, ctx.constraint);
   if (c && ctx.constraint?.floor != null && c.mean < ctx.constraint.floor) {
-    flags.push({ kind: "constraint", label: `Below ${ctx.constraint.column} floor`, detail: `Predicted ${ctx.constraint.column} ${formatNumber(c.mean)} is below the requested floor of ${formatNumber(ctx.constraint.floor)}.` });
+    flags.push({ kind: "constraint", label: `Below ${ctx.constraint.column} floor`, detail: `Predicted ${ctx.constraint.column} ${num(c.mean, c.std)} is below the requested floor of ${num(ctx.constraint.floor)}.` });
   }
   const bounds = boundaryChecks(recipe, ctx.ranges);
   const outside = bounds.filter((b) => b.where === "below" || b.where === "above").map((b) => b.input);
@@ -205,7 +217,7 @@ export function recipeFlags(p: Proposal, recipe: Record<string, SetpointValue>, 
   }
   const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
   if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${formatGain(gain).replace(/^\+/, "")}, which is less than the prediction band's half-width of ±${formatNumber(ctx.band)}, so the band also reaches below the best.` });
+    flags.push({ kind: "gain-within-band", label: "Gain within band", detail: `Predicted to beat the best by ${num(gain, ctx.band)}, which is less than the prediction band's half-width of ±${num(ctx.band)}, so the band also reaches below the best.` });
   }
   return flags.sort((a, b) => FLAG_ORDER.indexOf(a.kind) - FLAG_ORDER.indexOf(b.kind));
 }
@@ -216,7 +228,7 @@ export function groupFlags(rows: { rank: number; flags: RecipeFlag[] }[]): { kin
   for (const { rank, flags } of rows) for (const f of flags) by.set(f.kind, [...(by.get(f.kind) ?? []), rank]);
   const label: Record<FlagKind, string> = {
     negative: "predicted below zero for a target that is never negative",
-    "low-feasibility": `engine-estimated feasibility below ${formatNumber(LOW_FEASIBILITY, "pct")}`,
+    "low-feasibility": `engine-estimated feasibility below ${pct(LOW_FEASIBILITY)}`,
     constraint: "predicted below the requested constraint floor",
     "outside-range": "an input outside the range tried so far",
     "at-edge": "an input at the edge of the range tried so far",
@@ -243,16 +255,21 @@ export function predictionInterval(pred: number, band: number | null | undefined
  * was measured on held-out measured runs; see BAND_CAVEAT.
  */
 export function bandLabel(coverage: number | null | undefined): string {
-  return coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} held-out band` : "held-out band";
+  const c = coverageText(coverage);
+  return c ? `${c} held-out band` : "held-out band";
 }
 
 /** Shown wherever the band is: its coverage is not a promise about new recipes. */
 export const BAND_CAVEAT = "Coverage measured on held-out measured runs; not guaranteed for proposals.";
 
-/** "47.38 to 55.04", or null when no band was supplied. */
-export function formatInterval(pred: number, band: number | null | undefined): string | null {
+/**
+ * "[47, 55]": the band at the precision its half-width supports (VIZ_SPEC 2.2),
+ * bounds computed from the unrounded prediction. Null when no band was supplied.
+ */
+export function formatInterval(pred: number, band: number | null | undefined, coverage?: number | null): string | null {
   const iv = predictionInterval(pred, band);
-  return iv ? `${formatNumber(iv[0])} to ${formatNumber(iv[1])}` : null;
+  if (!iv || band == null || band <= 0) return null;
+  return formatValue(pred, { interval: { lo: iv[0], hi: iv[1], coverage: coverage ?? null, method: "conformal" } }).interval;
 }
 
 /**
@@ -281,37 +298,28 @@ export function stripDomain(preds: number[], band: number | null | undefined, be
 // --- Formatting ------------------------------------------------------------------
 
 /**
- * A signed predicted gain. Below 0.005 in size the 2-decimal format would read
- * "+0.00" or "0.00", which hides the sign and size, so up to 4 significant
- * figures are shown instead.
+ * A signed predicted gain at the precision the band supports (3 significant
+ * figures without one), U+2212 minus, never "+0.00" with a sign it cannot show.
  */
-export function formatGain(g: number | null | undefined): string {
+export function formatGain(g: number | null | undefined, band?: number | null): string {
   if (g == null || !Number.isFinite(g)) return "n/a";
-  if (g === 0) return "0";
-  if (Math.abs(g) < 0.005) {
-    const s = Number(Math.abs(g).toPrecision(2)).toString();
-    return `${g < 0 ? "-" : "+"}${s}`;
-  }
-  return formatNumber(g, "value", { sign: true });
+  return formatValue(g, { sign: true, uncertainty: band ?? null }).text;
 }
 
-/** The exact value sent to the engine for a setpoint, unrounded. */
+/** The exact value sent to the engine for a setpoint, unrounded (U+2212 minus for display). */
 export function exactSetpoint(v: SetpointValue | null | undefined): string {
   if (v == null) return "n/a";
-  return typeof v === "number" ? (Number.isFinite(v) ? String(v) : "n/a") : v;
+  return typeof v === "number" ? (Number.isFinite(v) ? String(v).replace("-", MINUS) : "n/a") : v;
 }
 
 /**
- * A setpoint at the sheet's precision when known (the observed values' decimal
- * places), else the app's 2-decimal value format. Labels pass through.
+ * A setpoint at the precision its range supports (VIZ_SPEC 2.4: decimals from
+ * the range width), else 3 significant figures. Labels pass through.
  */
-export function formatSetpoint(v: SetpointValue | null | undefined, decimals?: number | null): string {
+export function formatSetpoint(v: SetpointValue | null | undefined, range?: Pick<ObservedRange, "min" | "max"> | [number, number] | null): string {
   if (typeof v === "string") return v;
-  if (v == null || !Number.isFinite(v)) return "n/a";
-  if (decimals == null) return formatNumber(v);
-  const d = Math.max(0, Math.min(4, decimals));
-  const s = new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }).format(Math.abs(v));
-  return Number(s.replace(/,/g, "")) === 0 ? s : `${v < 0 ? "-" : ""}${s}`;
+  const r: [number, number] | null = range == null ? null : Array.isArray(range) ? range : [range.min, range.max];
+  return formatSetting(v, r).text;
 }
 
 /** Inputs in display order: the engine's `proposal_features` first, then the recipe's other inputs A-Z. */
@@ -354,14 +362,14 @@ export function compareRecipes(recipes: Record<string, SetpointValue>[], keys: s
   return keys.map((key) => {
     const range = ranges[key] ?? null;
     const vals = recipes.map((r) => (key in r ? r[key] : null));
-    const shown = vals.map((v) => formatSetpoint(v, range?.decimals));
+    const shown = vals.map((v) => formatSetpoint(v, range));
     const differs = new Set(shown).size > 1;
     const nums = vals.map((v) => (typeof v === "number" && Number.isFinite(v) ? v : null));
     const finite = nums.filter((v): v is number => v != null);
     const spread = finite.length >= 2 && finite.length === vals.length ? Math.max(...finite) - Math.min(...finite) : null;
     const width = range ? range.max - range.min : 0;
     const spreadOfRange = spread != null && range && width > 0 ? spread / width : null;
-    const idx = (target: number | null) => (target == null ? [] : nums.flatMap((v, i) => (v != null && formatSetpoint(v, range?.decimals) === formatSetpoint(target, range?.decimals) ? [i] : [])));
+    const idx = (target: number | null) => (target == null ? [] : nums.flatMap((v, i) => (v != null && formatSetpoint(v, range) === formatSetpoint(target, range) ? [i] : [])));
     return {
       key,
       shown,
@@ -408,19 +416,19 @@ export function diversitySummary(div: BatchDiversity | null | undefined, notice:
   let headline: string;
   if (requested != null && returned != null) {
     headline = short
-      ? `The engine returned ${formatNumber(returned, "count")} of the ${formatNumber(requested, "count")} proposals requested.`
-      : `The engine returned all ${formatNumber(requested, "count")} proposals requested.`;
+      ? `The engine returned ${countText(returned)} of the ${countText(requested)} proposals requested.`
+      : `The engine returned all ${countText(requested)} proposals requested.`;
   } else {
     headline = short ? "The engine returned fewer proposals than requested." : "The engine reported how far apart this batch's proposals are.";
   }
   if (sep != null && Number.isFinite(sep)) {
-    notes.push(`Minimum separation it enforces: ${formatNumber(sep, "pct")}${div?.metric ? `, measured as "${div.metric}"` : ""}.`);
+    notes.push(`Minimum separation it enforces: ${pct(sep)}${div?.metric ? `, measured as "${div.metric}"` : ""}.`);
   } else if (div?.metric) {
     notes.push(`Separation measured as "${div.metric}".`);
   }
   if (div && div.near_duplicates_replaced > 0) {
     const n = div.near_duplicates_replaced;
-    notes.push(`It replaced ${formatNumber(n, "count")} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
+    notes.push(`It replaced ${countText(n)} near-duplicate ${n === 1 ? "proposal" : "proposals"}.`);
   }
   if (notice?.code === "fewer_distinct_candidates") {
     notes.push("It found no further candidate at least that far from the others (code fewer_distinct_candidates).");
@@ -483,7 +491,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
     const s = r.targetSummary;
     const same =
       s?.min != null && s.max != null && s.min === s.max
-        ? `has the same value (${formatSetpoint(s.min, decimalsOf(s.min))}) in every ${s.n_numeric != null ? `one of its ${formatNumber(s.n_numeric, "count")} rows` : "row"}`
+        ? `has the same value (${formatSetting(s.min, null, null, decimalsOf(s.min)).text}) in every ${s.n_numeric != null ? `one of its ${countText(s.n_numeric)} rows` : "row"}`
         : "does not vary across runs";
     return {
       title: "No proposals: the target never changes",
@@ -508,7 +516,7 @@ export function rejectionCopy(r: UploadRejection): { title: string; body: string
  */
 export type DataNote = { tone: "neutral" | "warn"; text: string };
 
-const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many = `${one}s`) => `${countText(n)} ${n === 1 ? one : many}`;
 
 export function dataNotes(d: {
   auto_categorical?: string[];
@@ -552,9 +560,9 @@ export function runFacts(run: RunRecord | null | undefined): { label: string; va
   else if (run.profile === "generic") add("Columns", "Declared by you (generic profile)");
   if (run.input_sha256) add("Input fingerprint", run.input_sha256.slice(0, 12));
   if (run.anonymize !== true) add("Sheet", run.sheet ?? undefined);
-  if (typeof run.n_rows === "number") add("Runs fitted", run.n_rows.toLocaleString("en-US"));
-  if (typeof run.n_features === "number") add("Inputs modeled", run.n_features.toLocaleString("en-US"));
-  if (typeof run.pending_runs === "number") add("Runs in flight when proposed", run.pending_runs.toLocaleString("en-US"));
+  if (typeof run.n_rows === "number") add("Runs fitted", countText(run.n_rows));
+  if (typeof run.n_features === "number") add("Inputs modeled", countText(run.n_features));
+  if (typeof run.pending_runs === "number") add("Runs in flight when proposed", countText(run.pending_runs));
   if (typeof run.seed === "number") add("Fit seed", String(run.seed));
   if (run.torch_threads !== undefined) add("Threads", run.torch_threads === null ? "not pinned" : String(run.torch_threads));
   if (run.library_versions) {

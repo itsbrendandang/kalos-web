@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { CircleAlert, TriangleAlert } from "lucide-react";
 import { TONE_ICON, TONE_TEXT, type Tone } from "@/components/kit/tone";
 import { dataNotes, diversitySummary, groupFlags, type ObservedRange, type RecipeFlag } from "@/components/campaign/plan-view";
-import { constraintNote, designBoxExclusionsNote } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { constraintNote, type DesignBoxExclusion } from "@/lib/api";
+import { formatSetting, formatValue } from "@/lib/num";
 import { cn } from "@/lib/utils";
 import type { PredictAnalysis } from "@/components/predict/predict-view";
 
@@ -32,7 +32,7 @@ export function BatchNotes({
   const grouped = groupFlags(flags);
   const diversity = diversitySummary(d.batch_diversity, d.proposal_notice);
   const constraint = constraintNote(d.constraint);
-  const boxNote = designBoxExclusionsNote(d.design_box_exclusions);
+  const boxNote = boxExclusionsNote(d.design_box_exclusions, ranges);
   const gating = d.proposal_gating;
   const pending = d.n_pending_considered;
   const data = dataNotes(d);
@@ -76,7 +76,7 @@ export function BatchNotes({
           {gating ? (
             <Note tone="neutral" detail={`Engine reason: ${gating.reason}`}>
               {gating.gated
-                ? `Proposals were limited to recipes the feasibility classifier expects to produce${gating.feasibility_auc != null ? ` (classifier AUC ${formatNumber(gating.feasibility_auc, "corr")})` : ""}.`
+                ? `Proposals were limited to recipes the feasibility classifier expects to produce${gating.feasibility_auc != null ? ` (classifier AUC ${formatValue(gating.feasibility_auc, { quantity: "score" }).text})` : ""}.`
                 : "Proposals were not filtered by predicted feasibility."}
             </Note>
           ) : null}
@@ -84,7 +84,7 @@ export function BatchNotes({
             <Note tone="neutral" detail={d.proposal_optimizer ? `Optimizer: ${d.proposal_optimizer}.` : undefined}>
               {pending === 0
                 ? "The batch was computed as if nothing were in flight."
-                : `The batch was computed knowing about ${formatNumber(pending, "count")} in-flight ${pending === 1 ? "recipe" : "recipes"}.`}
+                : `The batch was computed knowing about ${formatValue(pending, { quantity: "count" }).text} in-flight ${pending === 1 ? "recipe" : "recipes"}.`}
             </Note>
           ) : null}
           {checkedInputs.length ? (
@@ -128,4 +128,19 @@ function edgeSources(inputs: string[], ranges: Record<string, ObservedRange>): s
     observed.length ? `the values tried in the measured runs for ${observed.join(" and ")}` : null,
   ].filter(Boolean);
   return `Edge-of-range checks use ${parts.join(", and ")}.`;
+}
+
+/**
+ * The narrowed search box (`design_box_exclusions`), each bound at the
+ * precision of the input's range (VIZ_SPEC 2.4). Null when nothing was excluded.
+ */
+export function boxExclusionsNote(exclusions: DesignBoxExclusion[] | null | undefined, ranges: Record<string, ObservedRange>): string | null {
+  if (!exclusions || exclusions.length === 0) return null;
+  const parts = exclusions.map((e) => {
+    const r = ranges[e.column];
+    const range: [number, number] | null = r ? [r.min, r.max] : [e.lower, e.upper];
+    const n = formatValue(e.n_excluded, { quantity: "count" }).text;
+    return `${e.column} (${formatSetting(e.lower, range).text} to ${formatSetting(e.upper, range).text}, ${n} ${e.n_excluded === 1 ? "row" : "rows"} excluded)`;
+  });
+  return `Search box narrowed for ${exclusions.length === 1 ? "1 input" : `${formatValue(exclusions.length, { quantity: "count" }).text} inputs`}: ${parts.join("; ")}. The setpoint chart hatches the excluded part.`;
 }

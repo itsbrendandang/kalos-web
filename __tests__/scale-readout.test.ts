@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  READOUT_PATH,
   ReadoutTargetError,
   buildReadoutTarget,
+  gateRefusal,
   hasPhysicsColumns,
+  isScaleReadout,
   parseCsvHeader,
+  readReasons,
   runScaleReadout,
   type ReadoutTarget,
 } from "@/lib/scale-readout";
+import readoutFixture from "./fixtures/scale-v2-readout.json";
+import refusedFixture from "./fixtures/scale-v2-readout-refused.json";
 
 describe("parseCsvHeader", () => {
   it("splits a plain comma-delimited header", () => {
@@ -185,29 +191,72 @@ describe("runScaleReadout", () => {
     return fetchMock;
   }
 
-  it("maps 200 text/html to kind: html", async () => {
-    stubFetch(new Response("<html>Prediction issued</html>", { status: 200, headers: { "content-type": "text/html" } }));
-    const result = await runScaleReadout(file, target);
-    expect(result).toEqual({ kind: "html", html: "<html>Prediction issued</html>" });
-  });
+  const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
-  it("sends the proxy's CSRF marker with the upload", async () => {
-    const fetchMock = stubFetch(new Response("<html></html>", { status: 200, headers: { "content-type": "text/html" } }));
+  it("posts the sheet and target JSON to the JSON readout route through the proxy", async () => {
+    const fetchMock = stubFetch(json(readoutFixture));
     await runScaleReadout(file, target);
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(READOUT_PATH).toBe("/api/scale/readout.json");
+    expect(url).toBe("/api/engine/api/scale/readout.json");
     expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({ "x-kalos-csrf": "1" });
+    expect(init.headers).toMatchObject({ "x-kalos-csrf": "1", Accept: "application/json" });
+    const body = init.body as FormData;
+    expect(body.get("file")).toBeInstanceOf(File);
+    expect(JSON.parse(String(body.get("target")))).toEqual(target);
   });
 
-  it("maps 422 to kind: gate with failedCheck and detail", async () => {
+  it("maps a 200 NUMBER readout (captured from the live engine) to kind: readout", async () => {
+    stubFetch(json(readoutFixture));
+    const result = await runScaleReadout(file, target);
+    expect(result.kind).toBe("readout");
+    if (result.kind !== "readout") return;
+    expect(result.readout.decision).toBe("NUMBER");
+    expect(result.readout.interval_coverage).toBe(0.9);
+    expect(result.readout.readout_id).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("a REFUSAL is a 200 readout, not an error, with reasons and a data plan", async () => {
+    stubFetch(json(refusedFixture));
+    const result = await runScaleReadout(file, target);
+    expect(result.kind).toBe("readout");
+    if (result.kind !== "readout") return;
+    expect(result.readout.decision).toBe("REFUSAL");
+    expect(result.readout.prediction).toBeNull();
+    expect(result.readout.interval).toBeNull();
+    expect(result.readout.reasons.length).toBeGreaterThan(0);
+    expect(result.readout.data_plan.length).toBeGreaterThan(0);
+  });
+
+  it("a 200 that is not a readout (HTML, or another shape) is never charted", async () => {
+    stubFetch(new Response("<html>Prediction issued</html>", { status: 200, headers: { "content-type": "text/html" } }));
+    expect((await runScaleReadout(file, target)).kind).toBe("unavailable");
+    stubFetch(json({ kind: "something_else" }));
+    expect((await runScaleReadout(file, target)).kind).toBe("unavailable");
+    expect(isScaleReadout(readoutFixture)).toBe(true);
+    expect(isScaleReadout({ ...readoutFixture, decision: "MAYBE" })).toBe(false);
+  });
+
+  it("maps 422 to kind: gate with failedCheck and detail (the live engine's 2000 L answer)", async () => {
     stubFetch(
-      new Response(JSON.stringify({ failed_check: "target_scale_too_large", detail: "target exceeds 20x" }), {
-        status: 422,
-        headers: { "content-type": "application/json" },
-      }),
+      json(
+        {
+          error: "interpolation is out of scope for this readout",
+          code: "target_not_interpolation",
+          failed_check: "target_not_interpolation",
+          detail: "interpolation is out of scope for this readout",
+        },
+        422,
+      ),
     );
     const result = await runScaleReadout(file, target);
-    expect(result).toEqual({ kind: "gate", failedCheck: "target_scale_too_large", detail: "target exceeds 20x" });
+    expect(result).toEqual({ kind: "gate", failedCheck: "target_not_interpolation", detail: "interpolation is out of scope for this readout" });
+  });
+
+  it("a 422 without failed_check falls back to the code (invalid_target)", async () => {
+    stubFetch(json({ error: "bad target", code: "invalid_target" }, 422));
+    expect(await runScaleReadout(file, target)).toEqual({ kind: "gate", failedCheck: "invalid_target", detail: "bad target" });
   });
 
   it("maps 503 with Retry-After to kind: busy", async () => {
@@ -281,5 +330,55 @@ describe("runScaleReadout", () => {
     stubFetch(new Response(JSON.stringify({ error: "engine_timeout" }), { status: 504, headers: { "content-type": "application/json" } }));
     const result = await runScaleReadout(file, target);
     expect(result).toEqual({ kind: "unavailable", message: expect.stringMatching(/took too long/) });
+  });
+});
+
+describe("readReasons (the engine's sentences in plain words)", () => {
+  it("rewrites known sentences, keeps unknown ones verbatim, in order", () => {
+    const r = readReasons("pooled ladder MAE does not beat both naive baselines; target ratio 12.00x exceeds 5x the reference step ratio 2.00x; a brand new rule");
+    expect(r.map((x) => x.raw)).toEqual([
+      "pooled ladder MAE does not beat both naive baselines",
+      "target ratio 12.00x exceeds 5x the reference step ratio 2.00x",
+      "a brand new rule",
+    ]);
+    expect(r[1].plain).toMatch(/12.00x/);
+    expect(r[1].plain).toMatch(/2.00x/);
+    expect(r[2].plain).toBe("a brand new rule");
+  });
+
+  it("reads the live refusal reason with the engine's own numbers", () => {
+    const [r] = readReasons(refusedFixture.reasons[0]);
+    expect(r.raw).toBe("target ratio 18.00x exceeds 5x the reference step ratio 3.33x");
+    expect(r.plain).toMatch(/18.00x/);
+    expect(r.plain).toMatch(/3.33x/);
+  });
+});
+
+describe("gateRefusal (a 422 in plain words)", () => {
+  it("names the missing column", () => {
+    expect(gateRefusal("required_columns", "missing required column(s): ['scale_L']").statement).toMatch(/scale_L/);
+  });
+  it("quotes the engine's counts for too few scales", () => {
+    const g = gateRefusal("min_distinct_scales", "only 2 distinct scale(s) present; need 1 more (at least 3 distinct scales total)");
+    expect(g.statement).toMatch(/2 distinct scales/);
+    expect(g.statement).toMatch(/at least 3/);
+    expect(g.fix[0]).toMatch(/1 more distinct scale\./);
+  });
+  it("never states a limit the engine did not send", () => {
+    const g = gateRefusal("target_ratio_hard_cap", "target scale-up ratio 25.00x exceeds the 20x hard cap");
+    expect(g.statement).toMatch(/25.00x/);
+    expect(gateRefusal("target_ratio_hard_cap", "").statement).not.toMatch(/\d/);
+  });
+  it("explains the interpolation refusal (target below the largest scale run)", () => {
+    const g = gateRefusal("target_not_interpolation", "interpolation is out of scope for this readout");
+    expect(g.statement).toMatch(/not larger than every scale/);
+    expect(g.fix.length).toBeGreaterThan(0);
+  });
+  it("every known check and an unknown one give a statement and a fix", () => {
+    for (const check of ["required_columns", "min_distinct_scales", "non_finite_dropped_fraction", "target_not_interpolation", "target_ratio_hard_cap", "invalid_target", "brand_new"]) {
+      const g = gateRefusal(check, "");
+      expect(g.statement.length).toBeGreaterThan(0);
+      expect(g.fix.length).toBeGreaterThan(0);
+    }
   });
 });

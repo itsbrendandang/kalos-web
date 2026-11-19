@@ -1,9 +1,14 @@
-// Client for the Kalos engine's Scale-Up Readout (POST /api/scale/readout -
-// see kalos/docs/SCALE_READOUT.md). Reuses the same same-origin proxy base
+// Client for the Kalos engine's Scale-Up Readout, JSON variant
+// (POST /api/scale/readout.json, engine request R1; ENGINE_API_V2.md section 1).
+// The engine's JSON drives everything on the page: the decision, the
+// prediction and its interval, the ladder evidence and the chart. Nothing is
+// read out of HTML and nothing is recomputed. Reuses the same-origin proxy base
 // URL as lib/api.ts. No React here on purpose - every helper below is
 // unit-testable without a DOM (see __tests__/scale-readout.test.ts).
 import { API, mutationHeaders } from "@/lib/api";
 import { engineMessage } from "@/lib/engine-error";
+
+export type ReadoutDecision = "NUMBER" | "NUMBER_WITH_WARNING" | "REFUSAL";
 
 /** Thrown by `buildReadoutTarget` on a bad or incomplete form - the message
  *  is written to be shown directly to the scientist filling out the form. */
@@ -153,15 +158,123 @@ export function buildReadoutTarget(input: BuildReadoutTargetInput): ReadoutTarge
   return target;
 }
 
+/* ---------------------------------------------------------------------------
+ * The JSON readout (ENGINE_API_V2.md section 1). Types mirror the engine's
+ * dict; every field the engine may omit on another build is optional, and a
+ * missing field renders nothing (never 0).
+ * ------------------------------------------------------------------------ */
+
+export type ReadoutRung = {
+  scale_L: number;
+  step_ratio: number | null;
+  n: number;
+  mae: number | null;
+  naive_mean_mae: number | null;
+  naive_nn_mae: number | null;
+  beats_both: boolean | null;
+  too_few_to_judge: boolean;
+  in_license_window?: boolean;
+  /** backtest.per_scale only. */
+  measured_mean?: number | null;
+  backtest_pred_mean?: number | null;
+};
+
+export type SkippedRung = { scale_L: number; reason: string };
+
+export type ScalePoint = { scale_L: number; actual: number; oof_pred: number | null; basis?: string; oof_pred_basis?: string | null };
+
+export type DivergenceCode = "did_not_beat_baselines" | "outside_backtest_band" | (string & {});
+
+export type DivergencePerScale = {
+  scale_L: number;
+  n: number;
+  measured_mean: number | null;
+  backtest_pred_mean: number | null;
+  band_half_width: number | null;
+  band_basis?: string | null;
+  n_prior_residuals?: number;
+  outside_band: boolean | null;
+  band_unavailable_reason: string | null;
+  beats_both: boolean | null;
+  too_few_to_judge: boolean;
+  diverges: boolean;
+  codes: DivergenceCode[];
+};
+
+export type ScaleReadout = {
+  kind: "scale_readout";
+  schema_version: number;
+  /** SHA-256 over engine version, sheet bytes and canonical target: stable, so a gate decision can link to it. */
+  readout_id: string;
+  generated_at_utc: string | null;
+  target_column: string;
+  target_column_unit: string | null;
+  decision: ReadoutDecision;
+  reasons: string[];
+  prediction: number | null;
+  prediction_basis?: string | null;
+  interval: [number, number] | null;
+  interval_half_width?: number | null;
+  /** Engine-reported coverage of the interval (0.9), null on a refusal. */
+  interval_coverage: number | null;
+  interval_method: string | null;
+  /** The engine's own label for the interval ("approximate 90% coverage ..."); printed as sent. */
+  interval_label: string;
+  rungs: ReadoutRung[];
+  skipped_rungs: SkippedRung[];
+  reference_ratio: number | null;
+  requested_ratio: number | null;
+  out_of_range_params: string[];
+  baseline_comparison: {
+    pooled_mae: number | null;
+    pooled_naive_mean_mae: number | null;
+    pooled_naive_nn_mae: number | null;
+    pooled_beats_both: boolean | null;
+    n_residuals: number | null;
+  } | null;
+  /** "What would fix it": the engine's data plan lines, verbatim. */
+  data_plan: string[];
+  target_inputs: { scale_L: number; agitation_rpm?: number; airflow_L_per_min?: number; process_params?: Record<string, number> } & Record<string, unknown>;
+  feature_set?: string;
+  missing_physics_inputs?: string[];
+  scale_points?: ScalePoint[] | null;
+  backtest?: {
+    method: string;
+    method_description?: string;
+    per_scale: ReadoutRung[];
+    skipped?: SkippedRung[];
+    pooled?: { mae: number | null; naive_mean_mae: number | null; naive_nn_mae: number | null; beats_both: boolean | null; n_residuals: number | null; too_few_to_judge?: boolean } | null;
+  } | null;
+  divergence?:
+    | { computed: true; rule?: string; flags: { scale_L: number; codes: DivergenceCode[] }[]; per_scale: DivergencePerScale[] }
+    | { computed: false; reason?: string; rule?: string }
+    | null;
+  max_trained_scale_L?: number | null;
+  warn_ratio_mult?: number | null;
+  refuse_ratio_mult?: number | null;
+  hard_cap_ratio?: number | null;
+  /** Derived only from engine constants; null when there is no reference ratio. */
+  zones?: { licensed_max_L: number; warn_max_L: number; hard_cap_L: number; basis?: string; rule?: string } | null;
+  provenance?: {
+    engine_version?: string;
+    kalos_git_sha?: string;
+    raw_upload_sha256?: string;
+    alpha?: number;
+    seed?: number;
+    constants?: Record<string, number | string>;
+  } & Record<string, unknown>;
+};
+
 /**
- * Every outcome `POST /api/scale/readout` can produce, as a discriminated
+ * Every outcome `POST /api/scale/readout.json` can produce, as a discriminated
  * union - never thrown for an EXPECTED HTTP outcome, only for a genuine
  * transport failure (caught below and folded into "unavailable" so callers
- * never need a try/catch of their own). Messages are plain sentences from
- * lib/engine-error.ts; raw codes are never shown.
+ * never need a try/catch of their own). A REFUSAL is a 200 readout, not an
+ * error. Messages are plain sentences from lib/engine-error.ts; raw codes are
+ * never shown.
  */
 export type ReadoutResult =
-  | { kind: "html"; html: string }
+  | { kind: "readout"; readout: ScaleReadout }
   | { kind: "gate"; failedCheck: string; detail: string }
   | { kind: "busy"; retryAfterSeconds: number | null }
   | { kind: "auth"; message: string; signIn: boolean }
@@ -179,6 +292,19 @@ async function readJsonSafely(r: Response): Promise<Record<string, unknown> | nu
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 
+/** A 200 body is a readout only when the engine says so; anything else is treated as an engine error, never charted. */
+export function isScaleReadout(v: unknown): v is ScaleReadout {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return (
+    o.kind === "scale_readout" &&
+    typeof o.readout_id === "string" &&
+    (o.decision === "NUMBER" || o.decision === "NUMBER_WITH_WARNING" || o.decision === "REFUSAL") &&
+    Array.isArray(o.reasons) &&
+    Array.isArray(o.rungs)
+  );
+}
+
 const FORBIDDEN_COPY: Record<string, string> = {
   insufficient_scope: "Your account can read campaigns but not run analyses, which a readout needs. Ask an organization admin for write access.",
   mfa_required: "Your organization requires two-step sign-in before running analyses. Set it up in Settings, then try again.",
@@ -186,9 +312,12 @@ const FORBIDDEN_COPY: Record<string, string> = {
   organization_not_provisioned: "Your organization is not set up on the analysis service yet. Ask your administrator.",
 };
 
+/** The JSON readout route through the same-origin proxy. */
+export const READOUT_PATH = "/api/scale/readout.json";
+
 /** Posts the run sheet + target JSON to the engine and maps every documented
- *  response (kalos-engine docs/SCALE_READOUT.md, plus the web proxy's own
- *  failures) onto `ReadoutResult`. */
+ *  response (ENGINE_API_V2.md section 1, plus the web proxy's own failures)
+ *  onto `ReadoutResult`. */
 export async function runScaleReadout(file: File, target: ReadoutTarget): Promise<ReadoutResult> {
   const fd = new FormData();
   fd.append("file", file);
@@ -196,15 +325,17 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
 
   let r: Response;
   try {
-    r = await fetch(`${API}/api/scale/readout`, { method: "POST", body: fd, headers: mutationHeaders() });
+    r = await fetch(`${API}${READOUT_PATH}`, { method: "POST", body: fd, headers: mutationHeaders({ Accept: "application/json" }) });
   } catch {
     return { kind: "unavailable", message: engineMessage({ code: "engine_unreachable" }).message };
   }
 
-  if (r.status === 200) {
-    return { kind: "html", html: await r.text() };
-  }
   const body = await readJsonSafely(r);
+  if (r.status === 200) {
+    return isScaleReadout(body)
+      ? { kind: "readout", readout: body }
+      : { kind: "unavailable", message: "The analysis service answered in a form this page cannot read. Nothing was charted. Try again in a moment." };
+  }
   const code = str(body?.code) ?? (str(body?.error) && /^[a-z][a-z0-9_]*$/.test(str(body?.error)!) ? str(body?.error) : undefined);
   const error = str(body?.error);
   const limitMb = typeof body?.limit_mb === "number" ? body.limit_mb : undefined;
@@ -239,27 +370,13 @@ export async function runScaleReadout(file: File, target: ReadoutTarget): Promis
 }
 
 /* ---------------------------------------------------------------------------
- * Reading the engine's readout page.
+ * The engine's reasons in plain words.
  *
- * The engine answers with one self-contained HTML page (kalos-engine
- * kalos/portal/scale_routes.py `render_readout_html`). The page itself stays
- * the printable record; the app also reads its decision, prediction, ladder
- * and "What it would take" lines out of it so they can be shown in the app's
- * own type. Values are copied as the engine printed them (already rounded by
- * the engine), never recomputed. A field the page does not carry is null.
+ * The engine's refusal and warning sentences (kalos-engine kalos/scale/readout.py
+ * `decide`) are shown in plain wording, with the engine's exact sentence one
+ * click down. Numbers are copied from the engine's sentence, never assumed. A
+ * sentence matching none of the templates is kept as the engine wrote it.
  * ------------------------------------------------------------------------ */
-
-export type ReadoutDecision = "NUMBER" | "NUMBER_WITH_WARNING" | "REFUSAL";
-
-export type ReadoutRung = {
-  scale: string;
-  stepRatio: string;
-  n: string;
-  mae: string;
-  naiveMeanMae: string;
-  naiveNnMae: string;
-  beatsBoth: string;
-};
 
 export type ReadoutReason = { plain: string; raw: string };
 
@@ -319,159 +436,6 @@ export function readReasons(joined: string): ReadoutReason[] {
   }
   leftover(joined.length);
   return out;
-}
-
-export type ReadoutSummary = {
-  /** The engine's decision; null if the page carries no recognisable banner. */
-  decision: ReadoutDecision | null;
-  /** Why the engine refused, or what it warned about: plain wording plus the engine's own sentence. */
-  reasons: ReadoutReason[];
-  /** The neutral scale-only note (sheet lacks agitation/airflow), when present. */
-  scaleOnlyNote: string | null;
-  prediction: {
-    label: string;
-    value: string;
-    intervalLabel: string;
-    low: string | null;
-    high: string | null;
-    intervalRaw: string;
-  } | null;
-  rungs: ReadoutRung[];
-  skippedRungs: string[];
-  referenceRatio: string | null;
-  requestedRatio: string | null;
-  outOfRange: string | null;
-  baseline: {
-    modelMae: string | null;
-    naiveMeanMae: string | null;
-    naiveNnMae: string | null;
-    beatsBoth: string | null;
-    nResiduals: string | null;
-  } | null;
-  /** "What it would take": the engine's own data plan lines. */
-  dataPlan: string[];
-  generatedAt: string | null;
-  engineVersion: string | null;
-  alpha: string | null;
-  uploadSha256: string | null;
-};
-
-const DECISIONS: ReadoutDecision[] = ["NUMBER", "NUMBER_WITH_WARNING", "REFUSAL"];
-const BANNER_CLASS: Record<string, ReadoutDecision> = {
-  "banner-number": "NUMBER",
-  "banner-warning": "NUMBER_WITH_WARNING",
-  "banner-refusal": "REFUSAL",
-};
-
-const text = (el: Element | null | undefined): string => (el?.textContent ?? "").replace(/\s+/g, " ").trim();
-
-/** Reads a parsed readout page (`new DOMParser().parseFromString(html, "text/html")`,
- *  which runs no script and loads nothing). Never throws. */
-export function parseReadoutDocument(doc: Document): ReadoutSummary {
-  const banner = doc.querySelector(".banner");
-  const machine = text(banner?.querySelector(".banner-machine"));
-  let decision: ReadoutDecision | null = (DECISIONS as string[]).includes(machine) ? (machine as ReadoutDecision) : null;
-  if (!decision && banner) {
-    for (const cls of Array.from(banner.classList)) if (BANNER_CLASS[cls]) decision = BANNER_CLASS[cls];
-  }
-  const headline = text(banner?.querySelector(".banner-headline"));
-
-  let reasons: ReadoutReason[] = [];
-  if (decision === "REFUSAL") {
-    const joined = headline.replace(/^No prediction:\s*/i, "");
-    reasons = joined && joined !== "no reason given" ? readReasons(joined) : [];
-  } else {
-    reasons = Array.from(doc.querySelectorAll("ul.reasons li")).map(text).filter(Boolean).flatMap(readReasons);
-  }
-
-  // Key/value rows grouped by the h2 they sit under, in document order.
-  const sections = new Map<string, { k: string; v: string }[]>();
-  let current = "";
-  let ladderTable: Element | null = null;
-  for (const el of Array.from(doc.querySelectorAll("h2, .kv, table"))) {
-    if (el.tagName === "H2") {
-      current = text(el);
-      continue;
-    }
-    if (el.tagName === "TABLE") {
-      if (!ladderTable && current === "Backtest ladder" && !el.classList.contains("const-table")) ladderTable = el;
-      continue;
-    }
-    const list = sections.get(current) ?? [];
-    list.push({ k: text(el.querySelector(".k")), v: text(el.querySelector(".v")) });
-    sections.set(current, list);
-  }
-  const kv = (section: string, match: (k: string) => boolean): { k: string; v: string } | null =>
-    (sections.get(section) ?? []).find((row) => match(row.k)) ?? null;
-  const val = (section: string, key: string): string | null => kv(section, (k) => k === key)?.v || null;
-
-  let prediction: ReadoutSummary["prediction"] = null;
-  const predicted = kv("Prediction", (k) => k.startsWith("Predicted"));
-  const interval = kv("Prediction", (k) => k.startsWith("Interval"));
-  if (predicted?.v) {
-    const m = interval?.v.match(/^\[\s*([^,\]]+?)\s*,\s*([^\]]+?)\s*\]$/);
-    prediction = {
-      label: predicted.k,
-      value: predicted.v,
-      intervalLabel: interval?.k.match(/\(([^)]+)\)/)?.[1] ?? "approximate coverage",
-      low: m?.[1] ?? null,
-      high: m?.[2] ?? null,
-      intervalRaw: interval?.v ?? "",
-    };
-  }
-
-  const rungs: ReadoutRung[] = [];
-  if (ladderTable) {
-    const heads = Array.from(ladderTable.querySelectorAll("thead th")).map((th) => text(th).toLowerCase());
-    const col = (name: string) => heads.indexOf(name);
-    for (const tr of Array.from(ladderTable.querySelectorAll("tbody tr"))) {
-      const cells = Array.from(tr.querySelectorAll("td")).map(text);
-      const at = (name: string, fallback: number) => cells[col(name) >= 0 ? col(name) : fallback] ?? "";
-      rungs.push({
-        scale: at("scale", 0),
-        stepRatio: at("step ratio", 1),
-        n: at("n", 2),
-        mae: at("mae", 3),
-        naiveMeanMae: at("naive_mean mae", 4),
-        naiveNnMae: at("naive_nn mae", 5),
-        beatsBoth: at("beats both", 6),
-      });
-    }
-  }
-
-  const baselineSection = Array.from(sections.keys()).find((k) => k.startsWith("Baseline comparison"));
-  const baseline = baselineSection
-    ? {
-        modelMae: val(baselineSection, "Model MAE"),
-        naiveMeanMae: val(baselineSection, "naive_mean MAE"),
-        naiveNnMae: val(baselineSection, "naive_nn MAE"),
-        beatsBoth: val(baselineSection, "beats both baselines"),
-        nResiduals: val(baselineSection, "pooled residuals (n)"),
-      }
-    : null;
-
-  const outOfRangeLine = Array.from(doc.querySelectorAll("p.muted"))
-    .map(text)
-    .find((t) => t.startsWith("Out-of-range process parameter"));
-  const timestamp = text(doc.querySelector(".timestamp")).replace(/^Generated\s*/i, "");
-
-  return {
-    decision,
-    reasons,
-    scaleOnlyNote: text(doc.querySelector(".note-info")) || null,
-    prediction,
-    rungs,
-    skippedRungs: Array.from(doc.querySelectorAll("ul.skipped-reasons li")).map(text).filter(Boolean),
-    referenceRatio: val("Step ratio", "Reference (backtested) ratio"),
-    requestedRatio: val("Step ratio", "Requested (target) ratio"),
-    outOfRange: outOfRangeLine ? outOfRangeLine.replace(/^[^:]*:\s*/, "") : null,
-    baseline,
-    dataPlan: Array.from(doc.querySelectorAll("ul.data-plan li")).map(text).filter(Boolean),
-    generatedAt: timestamp || null,
-    engineVersion: val("Provenance", "engine version"),
-    alpha: val("Provenance", "alpha"),
-    uploadSha256: val("Provenance", "raw upload SHA-256"),
-  };
 }
 
 /* ---------------------------------------------------------------------------
@@ -551,52 +515,4 @@ export function gateRefusal(failedCheck: string, detail: string): GateRefusal {
         fix: ["Check the sheet and the inputs against the engine's reason below."],
       };
   }
-}
-
-/* ---------------------------------------------------------------------------
- * Numbers out of the engine's printed readout (VIZ_SPEC 2.3, 7 R1).
- *
- * The readout is HTML only (engine request R1), so its numbers arrive as the
- * engine printed them. These read them back into numbers so the app can show
- * them through lib/num (volumes in SI units, step ratios as "3.3×", shared
- * decimals in a column). A string that does not parse stays null, and the
- * view then shows the engine's own text verbatim: nothing is guessed.
- * ------------------------------------------------------------------------ */
-
-/** "0.126" -> 0.126; "1,204" -> 1204; anything else (including "n/a (...)") -> null. */
-export function parseEngineNumber(s: string | null | undefined): number | null {
-  if (s == null) return null;
-  const t = s.trim().replace(/,/g, "").replace(/\u2212/g, "-");
-  if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) return null;
-  const v = Number(t);
-  return Number.isFinite(v) ? v : null;
-}
-
-const VOLUME_UNIT: Record<string, number> = { l: 1, ml: 1e-3, "µl": 1e-6, "μl": 1e-6, ul: 1e-6 };
-
-/** "10 L" -> 10, "250 mL" -> 0.25, "3 µL" -> 3e-6, "7500" -> 7500 (liters). Null when it is not a volume. */
-export function parseLiters(s: string | null | undefined): number | null {
-  if (s == null) return null;
-  const m = s.trim().match(/^([-+]?[\d,]*\.?\d+(?:e[-+]?\d+)?)\s*([a-zA-Zµμ]+)?$/i);
-  if (!m) return null;
-  const v = parseEngineNumber(m[1]);
-  if (v == null) return null;
-  const unit = (m[2] ?? "L").toLowerCase();
-  const factor = VOLUME_UNIT[unit];
-  return factor == null ? null : v * factor;
-}
-
-/** "3.33x" / "3.33×" -> 3.33. Null for "n/a (...)" and anything else. */
-export function parseRatio(s: string | null | undefined): number | null {
-  if (s == null) return null;
-  const m = s.trim().match(/^([\d,]*\.?\d+)\s*[x×]$/i);
-  return m ? parseEngineNumber(m[1]) : null;
-}
-
-/** "Predicted titer_g_per_L at 7500 L" -> { subject: "titer_g_per_L", liters: 7500 }. */
-export function predictionSubject(label: string): { subject: string; liters: number | null } {
-  const rest = label.replace(/^Predicted\s*/, "");
-  const m = rest.match(/^(.*?)\s+at\s+(.+)$/);
-  if (!m) return { subject: rest, liters: null };
-  return { subject: m[1], liters: parseLiters(m[2]) };
 }

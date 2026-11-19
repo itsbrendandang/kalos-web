@@ -11,8 +11,8 @@ export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
 /** The three steps of a cycle the product is organized around. */
 export type CycleKey = "harmonize" | "predict" | "validate";
 
-/** A campaign sub-page: the overview (""), the three cycle steps and the report. */
-export type CampaignPage = "" | CycleKey | "report";
+/** A campaign sub-page: the overview (""), the three cycle steps, the report and the scale-up track. */
+export type CampaignPage = "" | CycleKey | "report" | "scale-up";
 
 export type RouteItem = { href: string; label: string; description: string };
 
@@ -47,7 +47,7 @@ export const CAMPAIGN_STAGES = [
 ] as const satisfies readonly { key: StageKey; label: string; description: string }[];
 
 export const HOME_ROUTE: RouteItem = { href: "/", label: "Campaigns", description: "Every campaign, and where to start a new one." };
-export const SCALE_UP_ROUTE: RouteItem = { href: "/scale-up", label: "Scale-up", description: "Predict-or-refuse readout for a larger scale, and the staged path to scale." };
+export const SCALE_UP_ROUTE: RouteItem = { href: "/scale-up", label: "Scale-up", description: "Predict-or-refuse readout for a larger scale, and each campaign's stage track." };
 export const SETTINGS_ROUTE: RouteItem = { href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." };
 
 /** `/campaigns/<id>` or one of its sub-pages. */
@@ -69,6 +69,7 @@ export const CAMPAIGN_PAGE_LABEL: Record<CampaignPage, string> = {
   predict: "Predict",
   validate: "Validate",
   report: "Report",
+  "scale-up": "Scale-up track",
 };
 
 /** The campaign id and sub-page of a pathname, or null outside a campaign. */

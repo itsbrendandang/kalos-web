@@ -17,7 +17,9 @@ import {
   runScaleReadout,
   type ReadoutResult,
   type ReadoutTarget,
+  type ScaleReadout,
 } from "@/lib/scale-readout";
+import type { LadderStages } from "@/lib/viz-data/scale-ladder";
 import { scanSheet } from "@/lib/sheet-columns";
 
 /** Columns never offered as the response or a process input: the scale itself and the two physics columns. */
@@ -66,7 +68,18 @@ function NumberInput({ value, onChange, placeholder, ariaLabel, className }: { v
   );
 }
 
-export function ReadoutTool() {
+export function ReadoutTool({
+  stages,
+  onReadout,
+  readoutActions,
+}: {
+  /** Stage volume bands behind the ladder chart: a campaign's own (GET /stages), else the engine's defaults. */
+  stages?: LadderStages;
+  /** Called with every readout the engine returns (a NUMBER or a REFUSAL), e.g. so a gate decision can link to it. */
+  onReadout?: (readout: ScaleReadout, fileName: string | null) => void;
+  /** Extra actions under a readout (e.g. "Link to a gate decision"). */
+  readoutActions?: (readout: ScaleReadout) => ReactNode;
+} = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<SheetMode>({ kind: "none" });
 
@@ -168,7 +181,9 @@ export function ReadoutTool() {
     setResult(null);
     setStartedAt(Date.now());
     try {
-      setResult(await runScaleReadout(file, targetAttempt.target));
+      const outcome = await runScaleReadout(file, targetAttempt.target);
+      setResult(outcome);
+      if (outcome.kind === "readout") onReadout?.(outcome.readout, file.name);
     } finally {
       setStartedAt(null);
     }
@@ -180,14 +195,24 @@ export function ReadoutTool() {
     return (
       <ElapsedProgress
         title="Running the scale-up readout"
-        note="The engine backtests itself on your scale ladder in a single request and reports no stages, so only the elapsed time is shown. Keep this page open until it answers."
+        note="The engine backtests itself on your scale ladder in a single request and reports no progress steps, so only the elapsed time is shown. Keep this page open until it answers."
         startedAt={startedAt}
       />
     );
   }
 
   if (result) {
-    if (result.kind === "html") return <ReadoutReport html={result.html} fileName={file?.name ?? null} onEdit={editInputs} onReset={reset} />;
+    if (result.kind === "readout")
+      return (
+        <ReadoutReport
+          readout={result.readout}
+          fileName={file?.name ?? null}
+          stages={stages}
+          onEdit={editInputs}
+          onReset={reset}
+          actions={readoutActions?.(result.readout)}
+        />
+      );
     if (result.kind === "gate") return <GateRefusalView failedCheck={result.failedCheck} detail={result.detail} onEdit={editInputs} onReset={reset} />;
     return <ReadoutProblem result={result} onRetry={submit} onEdit={editInputs} onReset={reset} />;
   }

@@ -64,7 +64,8 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.endsWith("/api/campaigns")) return json({ campaigns: [meta] });
+      // The campaign list is one summary request (GET /api/campaigns?summary=true).
+      if (url.endsWith("/api/campaigns") || url.includes("/api/campaigns?")) return json({ campaigns: [meta], next_cursor: null });
       if (url.endsWith(`/api/campaigns/${ID}`)) return detailStatus === 200 ? json({ campaign: meta, summary }) : json({ error: "not found", code: "not_found" }, 404);
       if (url.endsWith(`/api/campaigns/${ID}/analysis`)) return json({ has_data: true, proposals: [1, 2, 3, 4, 5] });
       if (url.includes(`/api/campaigns/${ID}/jobs`)) return json({ jobs: [] });
@@ -110,9 +111,20 @@ describe("app shell", () => {
     expect(within(nav).getByRole("link", { name: /Harmonize/ }).textContent).toContain("Run sheet analyzed");
     expect(within(nav).getByRole("link", { name: /Validate/ }).getAttribute("href")).toBe(`/campaigns/${ID}/validate`);
     expect(within(nav).getByRole("link", { name: "Report and export" }).getAttribute("href")).toBe(`/campaigns/${ID}/report`);
+    expect(within(nav).getByRole("link", { name: "Scale-up track" }).getAttribute("href")).toBe(`/campaigns/${ID}/scale-up`);
+    // The global Scale-up entry stays.
+    expect(within(nav).getByRole("link", { name: "Scale-up" }).getAttribute("href")).toBe("/scale-up");
     expect(within(nav).getByText("Round 1")).toBeTruthy();
     await waitFor(() => expect(screen.getByRole("button", { name: /Switch campaign \(current: CHO fed-batch\)/ })).toBeTruthy());
     expect(screen.getByRole("main").textContent).toContain("page");
+  });
+
+  it("the campaign's scale-up track is highlighted on its page, not the global Scale-up", async () => {
+    pathname = `/campaigns/${ID}/scale-up`;
+    render(<AppShell>page</AppShell>);
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    await waitFor(() => expect(within(nav).getByRole("link", { name: "Scale-up track" }).getAttribute("aria-current")).toBe("page"));
+    expect(within(nav).getByRole("link", { name: "Scale-up" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("an unknown campaign id reads as not found, not as an engine outage, and hides the page", async () => {

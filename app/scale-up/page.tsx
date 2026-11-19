@@ -1,34 +1,26 @@
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
+import { CampaignTracks } from "@/components/scale/campaign-tracks";
 import { ReadoutTool } from "@/components/scale/readout-tool";
-import { ScaleTrack } from "@/components/scale/scale-track";
 
 /**
- * Scale-up, outside any campaign. Two things, both honest about what the
- * engine does:
- *  - the staged path to scale, drawn as a map: the engine stores no stages
- *    and no go/no-go decisions, so nothing on it is ever marked done;
- *  - the scale-up readout (POST /api/scale/readout, stateless): upload a
+ * Scale-up, outside any campaign:
+ *  - the scale-up readout (POST /api/scale/readout.json, stateless): upload a
  *    multi-scale sheet, get the engine's prediction with its interval, or its
- *    refusal with what data would fix it. The readout page itself stays the
- *    printable record (see components/scale/readout-result.tsx).
+ *    refusal with what data would fix it, drawn as the C9 ladder chart against
+ *    the engine's default stage volume ranges (labelled as such);
+ *  - links to each campaign's own scale-up track, where the current stage is
+ *    recorded and each go/no-go gate decision is recorded by a person
+ *    (GET/PUT /api/campaigns/{id}/stages and /gates).
  */
 export default function ScaleUpPage() {
   return (
     <div className="flex flex-col gap-12">
       <PageHeader
         title="Scale-up"
-        description="The path from screening plates to a pilot bioreactor, what Kalos can show as evidence at each stage, and a readout that predicts the next scale from your own data or says why it will not."
+        description="Predict the next scale from your own multi-scale data, or see why Kalos will not. Each campaign keeps its own stage track, where your team records the current stage and every go/no-go gate decision."
       />
-
-      <Section
-        id="path"
-        title="Staged path to scale"
-        description="Six stages, each closed by a go/no-go gate your team decides. The engine keeps no stage registry and records no gate decisions, so every gate below is open and nothing advances on its own."
-      >
-        <ScaleTrack />
-      </Section>
 
       <Section
         id="readout"
@@ -37,6 +29,14 @@ export default function ScaleUpPage() {
       >
         <ReadoutTool />
         <MethodNote />
+      </Section>
+
+      <Section
+        id="tracks"
+        title="Stage tracks and gates"
+        description="Stages and go/no-go decisions are recorded per campaign, by your team: Kalos stores them and shows its computed evidence beside each gate, but never makes the call. To link a readout to a decision, run it on the campaign's own track page."
+      >
+        <CampaignTracks />
       </Section>
     </div>
   );
@@ -57,8 +57,8 @@ function MethodNote() {
             gets a plain reason, not a number.
           </p>
           <p>
-            <span className="text-fg">Ladder backtest.</span> Each scale with enough smaller scales below it is hidden in turn and predicted
-            from the smaller ones only. Its error is compared with two naive baselines: carrying the smallest scale&apos;s mean forward, and
+            <span className="text-fg">Ladder backtest.</span> Nested leave-last-scale-out: each scale with enough smaller scales below it is
+            predicted by a model fit only on the strictly smaller scales. Its error is compared with two naive baselines: carrying the smallest scale&apos;s mean forward, and
             copying the most similar recipe run at another scale.
           </p>
           <p>
@@ -67,12 +67,13 @@ function MethodNote() {
             its answer. The exact thresholds are printed on every readout.
           </p>
           <p>
-            <span className="text-fg">Interval.</span> Split-conformal on the backtest errors. Because a scale you have not run need not
-            behave like the scales tested, the engine labels it approximate coverage.
+            <span className="text-fg">Interval.</span> Split-conformal on the backtest errors, printed with the coverage the engine reports.
+            Because a scale you have not run need not behave like the scales tested, the engine labels that coverage approximate.
           </p>
           <p>
-            <span className="text-fg">Storage.</span> Nothing is stored on the server. The readout prints a SHA-256 of the uploaded file so
-            the same sheet can be checked and the readout regenerated.
+            <span className="text-fg">Storage.</span> The readout itself is not stored on the server. It carries a readout id (a SHA-256
+            over the engine version, the sheet and the target) and the SHA-256 of the uploaded file, so the same sheet can be checked, the
+            readout regenerated, and a gate decision can link to it.
           </p>
         </div>
       </Disclosure>

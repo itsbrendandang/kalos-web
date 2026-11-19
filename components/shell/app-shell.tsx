@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
-import { ChevronsUpDown, FileText, FolderOpen, LayoutDashboard, Loader2, Menu, Plus, Scale, Settings, X, type LucideIcon } from "lucide-react";
+import { ChevronsUpDown, FileText, FolderOpen, LayoutDashboard, Loader2, Menu, Milestone, Plus, Scale, Settings, X, type LucideIcon } from "lucide-react";
 import { StepBadge } from "@/components/kit/cycle-stepper";
 import { WorkspaceMenu } from "@/components/shell/workspace-menu";
 import { buttonVariants } from "@/components/ui/button";
@@ -29,8 +29,8 @@ const MAIN_ID = "main";
 
 /**
  * The app frame: a left sidebar (campaign switcher, the campaign's
- * Harmonize / Predict / Validate steps with their engine state, Report, then
- * Scale-up and Settings) and the page. On phones the sidebar is a sheet.
+ * Harmonize / Predict / Validate steps with their engine state, Report, the
+ * campaign's Scale-up track, then the global Scale-up and Settings) and the page. On phones the sidebar is a sheet.
  * Mounts what every page shares: the campaign list, and - inside
  * /campaigns/[id] - that campaign's engine data, keyed by id so switching
  * campaigns never shows the previous one's numbers.
@@ -174,7 +174,7 @@ function NavLink({
   );
 }
 
-/** The campaign's own navigation: Overview, the three cycle steps with their engine state, and Report. */
+/** The campaign's own navigation: Overview, the three cycle steps with their engine state, Report, and the scale-up track. */
 function CampaignNav({ page }: { page: CampaignPage }) {
   const data = useOptionalCampaignData();
   if (!data) return null;
@@ -225,6 +225,9 @@ function CampaignNav({ page }: { page: CampaignPage }) {
       <div className="pt-2">
         <NavLink href={campaignHref(id, "report")} icon={FileText} active={page === "report"}>
           Report and export
+        </NavLink>
+        <NavLink href={campaignHref(id, "scale-up")} icon={Milestone} active={page === "scale-up"}>
+          Scale-up track
         </NavLink>
       </div>
     </div>

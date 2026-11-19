@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAMPAIGN_STAGES, CYCLE_STEPS, campaignHref, cycleKeyFor, parseCampaignPath, sectionFor, stageHref } from "@/lib/routes";
+import { CAMPAIGN_PAGE_LABEL, CAMPAIGN_STAGES, CYCLE_STEPS, campaignHref, cycleKeyFor, parseCampaignPath, sectionFor, stageHref } from "@/lib/routes";
 
 const ID = "cmp_0123456789abcdef0123456789abcdef";
 
@@ -32,6 +32,7 @@ describe("campaignHref / stageHref", () => {
     expect(campaignHref(ID)).toBe(`/campaigns/${ID}`);
     expect(campaignHref(ID, "predict")).toBe(`/campaigns/${ID}/predict`);
     expect(campaignHref(ID, "report")).toBe(`/campaigns/${ID}/report`);
+    expect(campaignHref(ID, "scale-up")).toBe(`/campaigns/${ID}/scale-up`);
   });
 
   it("encodes the id", () => {
@@ -53,6 +54,11 @@ describe("parseCampaignPath", () => {
     expect(parseCampaignPath(`/campaigns/${ID}/`)).toEqual({ id: ID, page: "" });
     expect(parseCampaignPath(`/campaigns/${ID}/harmonize`)).toEqual({ id: ID, page: "harmonize" });
     expect(parseCampaignPath(`/campaigns/${ID}/report`)).toEqual({ id: ID, page: "report" });
+    expect(parseCampaignPath(`/campaigns/${ID}/scale-up`)).toEqual({ id: ID, page: "scale-up" });
+  });
+
+  it("labels the campaign's scale-up track", () => {
+    expect(CAMPAIGN_PAGE_LABEL["scale-up"]).toBe("Scale-up track");
   });
 
   it("round-trips campaignHref", () => {
@@ -74,6 +80,8 @@ describe("sectionFor", () => {
     expect(sectionFor("/")).toBe("campaigns");
     expect(sectionFor(`/campaigns/${ID}/predict`)).toBe("campaigns");
     expect(sectionFor("/scale-up")).toBe("scale-up");
+    // A campaign's own scale-up track sits under Campaigns, not the global Scale-up entry.
+    expect(sectionFor(`/campaigns/${ID}/scale-up`)).toBe("campaigns");
     expect(sectionFor("/settings/security")).toBe("settings");
   });
 });

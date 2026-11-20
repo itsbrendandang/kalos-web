@@ -4,7 +4,7 @@
 
 > **Status: under development. Not a public SaaS.**
 > Kalos is a scientific optimization platform being built toward a public SaaS.
-> There is no hosted service. Sign-in (with a required second factor), organizations as tenants and an authenticated engine proxy are implemented on this branch (see [Security model](#security-model)), but the app has not been independently reviewed and is not offered as a service.
+> There is no hosted service. Sign-in (with a required second factor), organizations as tenants and an authenticated engine proxy are implemented on `main` (see [Security model](#security-model)), but the app has not been independently reviewed and is not offered as a service.
 > The optimizer behind it is not scientifically validated (see [Scientific status](#scientific-status)).
 
 ## Overview
@@ -13,8 +13,8 @@ Kalos web is the scientist-facing app for the [Kalos engine](https://github.com/
 You create a campaign and work it in repeating cycles: **Harmonize** (upload past runs, check the sheet, see the explored range), **Predict** (check how far the model can be trusted, review the proposed batch with its intervals), **Validate** (record measured results, compare them with the predictions, re-analyze), then export a data package with provenance.
 The engine does the modelling; this app presents it and keeps predicted and measured values apart.
 
-**Engine requirement:** this branch needs the engine APIs from [kalos-engine#164](https://github.com/itsbrendandang/kalos-engine/pull/164) (campaign setup, stages and gates, run bands recorded at start, re-analysis jobs, exports) or later.
-The trust-layer fields (proposal-coverage caveat, engine verdict, exploration labels, held-out grouping) come from a later engine change; every one is optional, and without them the app shows a fixed caveat and its own verdict rule.
+**Engine requirement:** the app needs the engine APIs from [kalos-engine#164](https://github.com/itsbrendandang/kalos-engine/pull/164) (campaign setup, stages and gates, run bands recorded at start, re-analysis jobs, exports) or later.
+The trust-layer fields (proposal-coverage caveat, engine verdict, exploration labels, held-out grouping) come from [kalos-engine#166](https://github.com/itsbrendandang/kalos-engine/pull/166) or later; every one is optional, and without them the app says the coverage at proposals is unknown for that engine version and uses its own verdict rule.
 
 Intended users (the product is not available to external users yet): process-development scientists running iterative media or process optimisation campaigns, and small teams that want a propose-measure-re-propose loop with an honest read on model reliability.
 
@@ -41,7 +41,7 @@ The recorded result and its correction were typed in by an end-to-end test, not 
 
 ## Capabilities
 
-**IMPLEMENTED** = on this branch (`redesign/engine-aligned`) with tests or a verifiable route; **EXPERIMENTAL** = present but demo/seed data or unvalidated; **PLANNED** = not built.
+**IMPLEMENTED** = on `main` with tests or a verifiable route; **EXPERIMENTAL** = present but demo/seed data or unvalidated; **PLANNED** = not built.
 
 | Capability | Status | Evidence |
 | --- | --- | --- |
@@ -186,14 +186,14 @@ Known limits:
 
 - A token already minted stays valid for up to 60 s plus the engine's leeway after sign-out or a role change; the engine keeps no replay cache.
 - Rate limits and the tenant map are per process and read from local state; see "Known limits" in `docs/ENGINE_AUTH.md`.
-- The engine's reference compose stack (`deploy/compose.yaml` on engine `main`) still configures one shared static engine token, which this branch's proxy never sends; it has to be switched to the JWKS setup above before it can run this branch. Engine-side security findings are tracked in the engine repository.
+- Engine-side security findings are tracked in the engine repository.
 - Not independently audited. No compliance or certification claims.
 
 ## Scientific status
 
 This app displays engine output; it does not validate it.
 **The engine's optimizer is not scientifically validated, and there is no live-lab result.**
-In the engine's own words: the 90% band is calibrated on held-out runs, but at the recipes it proposes coverage measured lower in simulation (about 60-80%); the reliability verdict can look better than it is when batch or round effects are not declared as groups; and the optimizer searches only inside the observed range of each input.
+In the engine's own words (its caveat text from [kalos-engine#193](https://github.com/itsbrendandang/kalos-engine/pull/193) on): each proposal's 90% range "was sized on the held-out past runs the model ranked highest, to mimic how proposals are chosen. At proposed recipes this 90% range covered 86-99% in simulation, below 90% in some cases (measured, not guaranteed)." The app shows that text as the engine sends it, never its own copy. The reliability verdict can look better than it is when batch or round effects are not declared as groups, and the optimizer searches only inside the observed range of each input.
 Details, benchmarks and their limits: [engine README, "Validation and its limits"](https://github.com/itsbrendandang/kalos-engine#validation-and-its-limits).
 
 The UI's reliability verdict follows the engine and is never more optimistic than it: the app never says "Reliable" while the engine's verdict is not yet reliable or refused, and says "Not judged: too few runs" when the engine does not judge the trust floor (`reliabilityVerdict` in `lib/api.ts`).
@@ -203,13 +203,13 @@ Neither is a guarantee.
 ## Current limitations
 
 - The campaign list follows the engine's pages (200 campaigns each) up to 25 pages; beyond that it says "showing N of more" rather than look complete.
-- Bounds and linear constraints narrow the search inside the observed data only; the engine does not extrapolate, and it refuses linear constraints when the design has a categorical input.
+- Bounds and linear constraints narrow the search inside the observed data only; the engine does not extrapolate, and it refuses linear constraints when the design has a categorical input, unless the categorical is a declared clone column (engine `docs/CLONES.md`, "Linear constraints with a clone").
 - Everything the UI can do depends on a running engine; there is no offline mode.
 - A few older pages still show internal engine vocabulary.
 
 ## Roadmap
 
-- **MVP (toward a public beta):** IMPLEMENTED on this branch: campaign workspace, multiple campaigns, background jobs, campaign setup, scale-up tracks with recorded gate decisions, Better Auth sign-in with a second factor, organizations as tenants, the authenticated proxy with per-request engine tokens.
+- **MVP (toward a public beta):** IMPLEMENTED on `main`: campaign workspace, multiple campaigns, background jobs, campaign setup, scale-up tracks with recorded gate decisions, Better Auth sign-in with a second factor, organizations as tenants, the authenticated proxy with per-request engine tokens.
 - **Later (PLANNED):** external security review, validation of the optimizer on independent real data.
 
 ## $0 stack
@@ -221,8 +221,8 @@ Next.js, React, Tailwind, Base UI, visx, Vitest, GitHub Actions, and a local eng
 Each rule names the file that carries it.
 
 - One reliability verdict app-wide ("Reliable", "Not yet reliable", "Not judged: too few runs", "Not enough data"), computed in one place and following the engine's own verdict when it sends one: `reliabilityVerdict` in `lib/api.ts`, tested in `__tests__/reliability-verdict.test.ts` and `__tests__/trust-verdict.test.tsx`.
-- Every proposal interval carries the coverage caveat: the band is calibrated on held-out runs, and at proposed recipes its coverage was measured lower.
-  The engine's own caveat and measured coverage-at-proposals estimate are shown when sent, otherwise a fixed sentence; nothing next to a proposal says "calibrated" without it.
+- Every proposal interval carries the coverage caveat: the band states what it was sized on and the coverage the engine measured at proposed recipes.
+  The engine's own caveat text and its measured coverage-at-proposals estimate are rendered as sent; an engine that sends neither gets a fixed sentence saying the coverage at proposals is unknown for that engine version. Nothing next to a proposal says "calibrated".
   `lib/proposal-caveat.ts`, guarded by `__tests__/trust-caveat-guard.test.tsx` across Predict, the batch strip, the Report and the exported package.
 - Each proposal is labelled "model-guided" or "exploration: model not trusted yet" from the engine's verdict, including in the CSV and data package; a refused batch shows no proposals, the engine's reason and what would help: `lib/proposal-trust.ts`, `__tests__/trust-verdict.test.tsx`.
 - The held-out score names the grouping that produced it (for example "held-out by batch (5 groups)"): `cvGroupingText` in `lib/api.ts`, `components/predict/trust-panel.tsx`.

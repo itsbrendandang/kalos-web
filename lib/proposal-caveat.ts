@@ -2,25 +2,31 @@
  * The trust caveat every PROPOSAL interval carries (REDESIGN_DIRECTION,
  * "PRIORITY: trust layer"). A prediction band's coverage is measured on
  * held-out past runs; proposals are chosen for high predicted values, so at
- * the recipes the user actually runs the band covers less than its nominal
- * level. The app never writes "calibrated" next to a proposal without this
- * caveat, and never claims a coverage it did not get from the engine.
+ * the recipes the user actually runs the band can cover less than its nominal
+ * level. The app never writes "calibrated" next to a proposal, and never claims
+ * a coverage it did not get from the engine.
  *
  * Source, in order:
  *  1. the engine's own caveat on the interval entry (`intervals[].caveat`,
  *     `conformal_caveat` for the global band, else
- *     `interval_method.coverage_at_proposals[level]`): its message verbatim,
- *     its `coverage_at_proposals_estimate` and the band's `interval_basis` /
+ *     `interval_method.coverage_at_proposals[level]`): its message rendered
+ *     verbatim (the engine owns the wording and the measured numbers), its
+ *     `coverage_at_proposals_estimate` and the band's `interval_basis` /
  *     `coverage_basis` shown next to it;
  *  2. an estimate without a message: a sentence built from its numbers;
- *  3. older engines: the fixed text below.
+ *  3. engines that send neither (before kalos-engine#166): the fixed text
+ *     below, which claims no number: the coverage at proposals is unknown.
  * Pure, no React.
  */
 import { coverageText } from "@/lib/num";
 
-/** The fixed caveat while the engine sends no coverage-at-proposals evidence (REDESIGN_DIRECTION, trust layer). */
+/**
+ * The fixed caveat when the engine sends no coverage-at-proposals evidence (an
+ * engine before kalos-engine#166). It quotes no number: no coverage was measured
+ * for that engine version, so none is shown.
+ */
 export const PROPOSAL_INTERVAL_CAVEAT =
-  "Calibrated on held-out runs similar to past runs; at proposed recipes coverage measured lower in simulation (about 60-80% for a nominal 90%).";
+  "Coverage at proposed recipes is unknown for this engine version: it sent no coverage measured at proposals. This band's coverage was measured on held-out past runs; proposals are chosen for high predicted values and their coverage can be lower.";
 
 /** `coverage_at_proposals_estimate` as the engine sends it (compact per proposal, full once per analysis). */
 export type CoverageAtProposalsEstimate = {

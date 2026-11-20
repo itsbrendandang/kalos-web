@@ -26,7 +26,7 @@ import { toBatchStripModel, type BatchStripModel } from "@/lib/viz-data/batch-in
  * GUARD (REDESIGN_DIRECTION, "PRIORITY: trust layer"): every interval on a
  * PROPOSAL shows the trust caveat, and nothing next to a proposal says
  * "calibrated" outside that caveat. The engine's own caveat fields
- * (feat/trust-calibration: intervals[].caveat, coverage_basis /
+ * (kalos-engine#166 and later: intervals[].caveat, coverage_basis /
  * interval_basis, coverage_at_proposals_estimate, conformal_caveat) replace
  * the fixed text when present. These tests fail if a surface that draws a
  * proposal interval drops the caveat, or brings back "Calibrated on ...".
@@ -34,14 +34,19 @@ import { toBatchStripModel, type BatchStripModel } from "@/lib/viz-data/batch-in
 
 type Analysis = typeof v2 & Record<string, unknown>;
 
-// The engine's caveat as feat/trust-calibration sends it (tests/fixtures/trust_golden.json).
+// The engine's caveat text, verbatim, as kalos-engine sends it once the coverage
+// evidence is rerun on main (kalos-engine fix/claims-match-main,
+// kalos/portal/analysis_parts/coverage_evidence.py): the plain band's caveat
+// (coverage_basis held_out_past_runs) and the selection-aware band's.
 const ENGINE_MSG_90 =
-  "This 90% range is calibrated on held-out runs similar to past runs. Proposals are chosen for high predicted values, so coverage at proposals is lower: in simulation it contained the measured result for only 60-81% of proposals.";
+  "Based on held-out runs similar to past runs. Proposals are chosen for high predicted values, so coverage at proposed recipes is lower: in simulation this 90% range covered only 54-83%.";
 const ENGINE_MSG_95 =
-  "This 95% range is calibrated on held-out runs similar to past runs. Proposals are chosen for high predicted values, so coverage at proposals is lower: in simulation it contained the measured result for only 75-85% of proposals.";
+  "Based on held-out runs similar to past runs. Proposals are chosen for high predicted values, so coverage at proposed recipes is lower: in simulation this 95% range covered only 64-91%.";
+const ENGINE_SEL_MSG_90 =
+  "Based on held-out runs: this 90% range was sized on the held-out past runs the model ranked highest, to mimic how proposals are chosen. At proposed recipes this 90% range covered 86-99% in simulation, below 90% in some cases (measured, not guaranteed).";
 const estimate = (nominal: number, min: number, max: number) => ({ nominal, measured_min: min, measured_max: max, basis: "simulation", source: `interval_method.coverage_at_proposals.${nominal}`, benchmark: "python -m kalos.bench.coverage_at_proposals" });
 const CONFORMAL_MSG =
-  "The +/- conformal_q band's coverage was measured on held-out past runs. It is not guaranteed for proposals, especially those far from the data or at the box edge. Proposals are chosen for high predicted values, so coverage at proposals is lower: in simulation it contained the measured result for only 68-83% of proposals.";
+  "The +/- conformal_q band's coverage was measured on held-out past runs. It is not guaranteed for proposals, especially those far from the data or at the box edge. Proposals are chosen for high predicted values, so coverage at proposed recipes is lower: in simulation this 90% range covered only 66-87%.";
 
 /** v2 with the engine's per-interval caveat and basis on every proposal interval. */
 function withEngineCaveat(): Analysis {
@@ -53,7 +58,7 @@ function withEngineCaveat(): Analysis {
       caveat: {
         code: "coverage_lower_at_proposals",
         message: i.coverage === 0.9 ? ENGINE_MSG_90 : ENGINE_MSG_95,
-        coverage_at_proposals_estimate: i.coverage === 0.9 ? estimate(0.9, 0.6, 0.81) : estimate(0.95, 0.755, 0.855),
+        coverage_at_proposals_estimate: i.coverage === 0.9 ? estimate(0.9, 0.545, 0.835) : estimate(0.95, 0.645, 0.915),
       },
     })) as never;
   }
@@ -75,7 +80,7 @@ function globalOnly(conformalCaveat = false): Analysis {
       caveat_code: "coverage_lower_at_proposals",
       coverage_basis: "held_out_past_runs",
       message: CONFORMAL_MSG,
-      coverage_at_proposals_estimate: estimate(0.9, 0.68, 0.83),
+      coverage_at_proposals_estimate: estimate(0.9, 0.66, 0.87),
     };
   return a;
 }
@@ -88,7 +93,7 @@ const VARIANTS: { name: string; make: () => Analysis; caveat: string; basis: str
 ];
 
 /** Every caveat sentence any variant can show, for the "calibrat... only inside a caveat" check. */
-const ALL_CAVEATS = [PROPOSAL_INTERVAL_CAVEAT, ENGINE_MSG_90, ENGINE_MSG_95, CONFORMAL_MSG];
+const ALL_CAVEATS = [PROPOSAL_INTERVAL_CAVEAT, ENGINE_MSG_90, ENGINE_MSG_95, ENGINE_SEL_MSG_90, CONFORMAL_MSG];
 
 /** A proposal interval as printed: "[1.60, 1.91]". */
 const INTERVAL = /\[\u2212?\d[\d.]*, \u2212?\d[\d.]*\]/;
@@ -100,22 +105,32 @@ function assertGuard(text: string, caveat: string) {
 
 describe("lib/proposal-caveat", () => {
   it("uses the engine's message, basis and estimate when sent", () => {
-    const c = proposalCaveat({ coverage_basis: "held_out_past_runs", caveat: { code: "coverage_lower_at_proposals", message: ENGINE_MSG_90, coverage_at_proposals_estimate: estimate(0.9, 0.6, 0.81) } });
-    expect(c).toMatchObject({ text: ENGINE_MSG_90, from: "engine", basis: "held_out_past_runs", basisText: "held-out runs similar to past runs", estimateText: "measured 60-81% at proposals in simulation, nominal 90%" });
+    const c = proposalCaveat({ coverage_basis: "held_out_past_runs", caveat: { code: "coverage_lower_at_proposals", message: ENGINE_MSG_90, coverage_at_proposals_estimate: estimate(0.9, 0.545, 0.835) } });
+    expect(c).toMatchObject({ text: ENGINE_MSG_90, from: "engine", basis: "held_out_past_runs", basisText: "held-out runs similar to past runs", estimateText: "measured 54-83% at proposals in simulation, nominal 90%" });
+  });
+  it("renders the selection-aware band's engine caveat verbatim, including 'below 90% in some cases'", () => {
+    const c = proposalCaveat({ coverage_basis: "held_out_top_ranked_runs", caveat: { code: "coverage_lower_at_proposals", message: ENGINE_SEL_MSG_90, coverage_at_proposals_estimate: estimate(0.9, 0.86, 0.99) } });
+    expect(c).toMatchObject({ text: ENGINE_SEL_MSG_90, from: "engine", basisText: "the held-out past runs the model ranked highest", estimateText: "measured 86-99% at proposals in simulation, nominal 90%" });
+    expect(c.text).not.toMatch(/calibrat/i);
   });
   it("prefers interval_basis over coverage_basis, and builds a sentence from an estimate without a message (no 'calibrated')", () => {
-    const c = proposalCaveat({ interval_basis: "held_out_top_ranked_runs", coverage_basis: "held_out_past_runs", coverage_at_proposals_estimate: estimate(0.9, 0.92, 0.995) });
+    const c = proposalCaveat({ interval_basis: "held_out_top_ranked_runs", coverage_basis: "held_out_past_runs", coverage_at_proposals_estimate: estimate(0.9, 0.86, 0.995) });
     expect(c.basis).toBe("held_out_top_ranked_runs");
     expect(c.text).toBe(
-      "This 90% band's coverage was measured on the held-out past runs the model ranked highest, not at proposals. At proposed recipes it measured 92-99% at proposals in simulation, nominal 90%. Not a guarantee.",
+      "This 90% band's coverage was measured on the held-out past runs the model ranked highest, not at proposals. At proposed recipes it measured 86-99% at proposals in simulation, nominal 90%. Not a guarantee.",
     );
     expect(c.text).not.toMatch(/calibrat/i);
   });
   it("falls back to interval_method.coverage_at_proposals, then to the fixed text", () => {
-    const method = { coverage_at_proposals: { "0.9": { message: ENGINE_MSG_90, coverage_at_proposals_estimate: estimate(0.9, 0.6, 0.81) } } };
+    const method = { coverage_at_proposals: { "0.9": { message: ENGINE_MSG_90, coverage_at_proposals_estimate: estimate(0.9, 0.545, 0.835) } } };
     expect(proposalCaveat({}, methodCaveat(method, 0.9), 0.9).text).toBe(ENGINE_MSG_90);
     expect(methodCaveat(method, 0.95)).toBeNull();
     expect(proposalCaveat(null)).toMatchObject({ text: PROPOSAL_INTERVAL_CAVEAT, from: "static", basis: null, estimate: null });
+  });
+  it("the fixed text (engines that send no caveat) claims no number and never says 'calibrated'", () => {
+    expect(PROPOSAL_INTERVAL_CAVEAT).not.toMatch(/calibrat/i);
+    expect(PROPOSAL_INTERVAL_CAVEAT).not.toMatch(/\d/);
+    expect(PROPOSAL_INTERVAL_CAVEAT).toMatch(/unknown for this engine version/);
   });
 });
 

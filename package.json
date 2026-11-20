@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:auth-integration": "vitest run --config vitest.integration.config.ts"
+    "test:auth-integration": "vitest run --config vitest.integration.config.ts",
+    "check:secrets": "python3 scripts/check_secrets.py --range '@{u}..HEAD' --staged --paths"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

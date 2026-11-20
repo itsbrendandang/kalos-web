@@ -38,9 +38,9 @@ export function Section({
 }
 
 /** A bordered region (12px radius, hairline, no shadow), for content that needs a
- *  boundary. The one bordered-box recipe, shared with the Tremor `Card` (same
- *  rounded-xl / border-border / bg-surface / p-5) so the app has a single
- *  bordered surface, not three. */
+ *  boundary. The one bordered-box recipe, shared with `ChartFrame` in
+ *  components/viz/frame.tsx (same rounded-xl / border-border / bg-surface /
+ *  p-panel) so the app has a single bordered surface, not three. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {
   return <Card bordered padding="panel" className={className} {...props} />;
 }

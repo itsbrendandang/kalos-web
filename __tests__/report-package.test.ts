@@ -16,7 +16,7 @@ import {
   type PackageAnalysis,
 } from "@/lib/report-package";
 
-const CAVEAT = "Calibrated on held-out runs similar to past runs; at proposed recipes coverage measured lower in simulation (about 60-80% for a nominal 90%).";
+const CAVEAT = "Coverage at proposed recipes is unknown for this engine version: it sent no coverage measured at proposals. This band's coverage was measured on held-out past runs; proposals are chosen for high predicted values and their coverage can be lower.";
 
 const meta: Pick<CampaignMeta, "id" | "name" | "created_at"> = { id: "cmp_1", name: "Fed-batch CHO", created_at: 1795058340 };
 const AT = new Date("2026-11-19T10:30:00Z");

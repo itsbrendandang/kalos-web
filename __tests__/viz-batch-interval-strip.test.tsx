@@ -71,7 +71,7 @@ const startedRun = (
 });
 const R1 = { pH: 6.969, temp: 36.1, medium: "CD-CHO" };
 const R2 = { pH: 7.59, temp: 36.2, medium: "ProCHO" };
-const CAVEAT = "Calibrated on held-out runs similar to past runs; at proposed recipes coverage measured lower in simulation (about 60-80% for a nominal 90%).";
+const CAVEAT = "Coverage at proposed recipes is unknown for this engine version: it sent no coverage measured at proposals. This band's coverage was measured on held-out past runs; proposals are chosen for high predicted values and their coverage can be lower.";
 
 afterEach(cleanup);
 

@@ -6,7 +6,7 @@ const CMP = "cmp_0123456789abcdef0123456789abcdef";
 const RUN = "0123456789abcdef0123456789abcdef";
 
 type ManifestEntry = { method: string; path: string; scopes: string[]; auth: string; conditional_scopes?: { scope: string; when: string }[] };
-// kalos-engine docs/route-scopes.json, vendored byte-equal from engine main @ cf7105c (53 routes, incl. the 5 /clones* routes): the scope each engine route enforces.
+// kalos-engine docs/route-scopes.json, vendored byte-equal from kalos-engine #189 (chore/remove-demo-routes @ b4e3697: main's 53 routes incl. the 5 /clones* routes, minus the removed demo routes /api/single and /api/multi; byte-equal to main once #189 merges): the scope each engine route enforces.
 const MANIFEST = manifestJson as ManifestEntry[];
 const ENGINE_SCOPE: Record<string, string> = { read: "campaigns:read", write: "campaigns:write", admin: "org:admin" };
 const GATE = "S3";

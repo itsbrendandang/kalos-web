@@ -35,5 +35,3 @@ export function listPendingInvitations(orgId: string, nowMs: number = Date.now()
 export function publicOrigin(env: Readonly<Record<string, string | undefined>> = process.env): string {
   return (env.KALOS_PUBLIC_URL || env.BETTER_AUTH_URL || "http://localhost:3000").replace(/\/+$/, "");
 }
-
-export const INVITABLE_ROLES = ["viewer", "member", "admin"] as const;

@@ -92,6 +92,76 @@ export async function scanSheet(file: File, sheet?: string): Promise<SheetScan> 
   }
 }
 
+/**
+ * The whole sheet as the browser reads it (first row = header), for the first-run setup step: the columns to
+ * choose the target from and each input's observed low and high next to its bounds. Null when the file cannot
+ * be read here (legacy .xls, over SCAN_MAX_BYTES, not a readable workbook); the engine still reads it on upload.
+ * `sheets` lists an .xlsx file's worksheets (empty for delimited text).
+ */
+export type SheetTable = { header: string[]; rows: string[][]; sheets: string[]; sheetUsed: string | null };
+
+export async function readSheetTable(file: File, sheet?: string): Promise<SheetTable | null> {
+  if (/\.xls$/i.test(file.name) || file.size > SCAN_MAX_BYTES) return null;
+  try {
+    if (/\.xlsx$/i.test(file.name)) {
+      const x = await readXlsxRows(await file.arrayBuffer(), sheet);
+      if (!x || x.rows.length === 0) return null;
+      return { header: x.rows[0].map((h) => h.trim()), rows: x.rows.slice(1), sheets: x.sheets, sheetUsed: x.sheetUsed };
+    }
+    const all = parseDelimited(await file.text());
+    if (all.length === 0) return null;
+    return { header: all[0].map((h) => h.trim()), rows: all.slice(1), sheets: [], sheetUsed: null };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What one column holds, read in the browser BEFORE the engine sees the sheet:
+ *   numeric     at least 80% of its filled cells are numbers (the engine's own numeric gate); min/max over those
+ *   text        repeated text values (a categorical input to the engine, unless it drops it by name)
+ *   identifier  text only, with a different value in every filled row (an ID; the engine leaves these out)
+ *   empty       no filled cell
+ * A preview only: the engine decides the roles when it reads the sheet, and its observed range is computed over
+ * the rows it fits (complete rows), so it can be narrower than the min/max here.
+ */
+export type ColumnProfile = { name: string; kind: "numeric" | "text" | "identifier" | "empty"; filled: number; min: number | null; max: number | null; distinct: number };
+
+const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+const NUMERIC_SHARE = 0.8;
+
+export function columnProfiles(table: Pick<SheetTable, "header" | "rows">): ColumnProfile[] {
+  const seen = new Set<string>();
+  const out: ColumnProfile[] = [];
+  table.header.forEach((name, i) => {
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    let filled = 0;
+    let numeric = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    const values = new Set<string>();
+    for (const r of table.rows) {
+      const v = (r[i] ?? "").trim();
+      if (v === "") continue;
+      filled += 1;
+      values.add(v);
+      if (NUMBER.test(v)) {
+        const n = Number(v);
+        if (Number.isFinite(n)) {
+          numeric += 1;
+          if (n < min) min = n;
+          if (n > max) max = n;
+        }
+      }
+    }
+    const kind: ColumnProfile["kind"] =
+      filled === 0 ? "empty" : numeric / filled >= NUMERIC_SHARE ? "numeric" : numeric === 0 && values.size === filled && filled > 1 ? "identifier" : "text";
+    out.push({ name, kind, filled, min: kind === "numeric" ? min : null, max: kind === "numeric" ? max : null, distinct: values.size });
+  });
+  return out;
+}
+
 /** "1:05" style elapsed time for the fit progress line. */
 export function formatElapsed(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

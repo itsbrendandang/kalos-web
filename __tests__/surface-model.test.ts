@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import mock from "./fixtures/plan-response-surface.json";
-import { fractionalIndex, parseSurface, peakCell, placeable, rampColor, surfaceSummary, valueT } from "@/components/campaign/plan/surface-model";
+import { fractionalIndex, parseSurface, peakCell, placeable } from "@/components/campaign/plan/surface-model";
 
 const good = mock.response_surface;
-const fmt = (n: number) => n.toFixed(2);
 
 /** A 21 x 21 grid, as the engine's viz_utils builds it, to prove nothing assumes that size. */
 function grid(n: number) {
@@ -54,14 +53,26 @@ describe("parseSurface", () => {
   it("keeps the engine's fixed inputs and the sweep label", () => {
     const m = parseSurface(good)!;
     expect(m.fixed).toEqual([
-      { name: "Feed rate (mL/h)", value: "1.25" },
+      { name: "Feed rate (mL/h)", value: 1.25 },
       { name: "Strain", value: "K12" },
     ]);
     expect(m.sweptAt).toBe("incumbent");
   });
 
-  it("does not depend on std, which the engine does not return on main", () => {
-    expect(parseSurface({ ...good, std: undefined })).not.toBeNull();
+  it("takes the held recipe's own axis settings out of the fixed list (they are the incumbent point)", () => {
+    const m = parseSurface({ ...good, fixed_recipe: { ...good.fixed_recipe, "Temperature (C)": 41, pH: 6.9 }, incumbent_basis: "single" })!;
+    expect(m.heldAt).toEqual({ x: 41, y: 6.9 });
+    expect(m.fixed.map((f) => f.name)).toEqual(["Feed rate (mL/h)", "Strain"]);
+    expect(m.incumbentBasis).toBe("single");
+  });
+
+  it("does not depend on std, and keeps it only when it is a complete finite grid", () => {
+    expect(parseSurface({ ...good, std: undefined })!.std).toBeNull();
+    const sd = good.z.map((r) => r.map(() => 0.5));
+    expect(parseSurface({ ...good, std: sd })!.std).toEqual(sd);
+    expect(parseSurface({ ...good, std: sd.slice(1) })!.std).toBeNull();
+    expect(parseSurface({ ...good, std: sd.map((r, i) => (i === 0 ? [NaN, ...r.slice(1)] : r)) })!.std).toBeNull();
+    expect(parseSurface({ ...good, std: sd.map((r, i) => (i === 0 ? [-1, ...r.slice(1)] : r)) })!.std).toBeNull();
   });
 });
 
@@ -82,26 +93,6 @@ describe("fractionalIndex", () => {
   });
 });
 
-describe("rampColor and valueT", () => {
-  it("uses the sequential tokens in order, with the endpoints at the first and last step", () => {
-    expect(rampColor(0)).toBe("color-mix(in oklch, var(--chart-seq-1) 100%, var(--chart-seq-2) 0%)");
-    expect(rampColor(1)).toBe("color-mix(in oklch, var(--chart-seq-4) 0%, var(--chart-seq-5) 100%)");
-  });
-  it("never emits a hard-coded colour", () => {
-    for (let t = 0; t <= 1; t += 0.05) expect(rampColor(t)).not.toMatch(/#|oklch\(|rgb\(/);
-  });
-  it("clamps out-of-range input and maps NaN to mid-ramp", () => {
-    expect(rampColor(-3)).toBe(rampColor(0));
-    expect(rampColor(9)).toBe(rampColor(1));
-    expect(rampColor(NaN)).toBe(rampColor(0.5));
-  });
-  it("places a flat surface mid-ramp and the range ends at 0 and 1", () => {
-    expect(valueT({ zMin: 2, zMax: 2 }, 2)).toBe(0.5);
-    expect(valueT({ zMin: 2, zMax: 4 }, 2)).toBe(0);
-    expect(valueT({ zMin: 2, zMax: 4 }, 4)).toBe(1);
-  });
-});
-
 describe("peakCell and placeable", () => {
   it("finds the highest cell, first in reading order on a tie", () => {
     expect(peakCell([[1, 5, 5], [2, 3, 4]])).toEqual({ row: 0, col: 1 });
@@ -111,19 +102,5 @@ describe("peakCell and placeable", () => {
     const { inside, outside } = placeable(m, mock.proposals);
     expect(inside.map((p) => p.id)).toEqual(["P1", "P2"]);
     expect(outside.map((p) => p.id)).toEqual(["P3"]);
-  });
-});
-
-describe("surfaceSummary", () => {
-  it("states the range, the peak, the held inputs, the uncertainty limit and what is drawn", () => {
-    const m = parseSurface(good)!;
-    const peak = peakCell(m.z);
-    const s = surfaceSummary(m, "titer (g/L)", fmt, { runs: 6, proposals: 2, outside: 1 });
-    expect(s).toContain("Predicted mean titer (g/L) across Temperature (C) from 30.00 to 50.00");
-    expect(s).toContain(`the highest is at Temperature (C) ${fmt(m.x.vals[peak.col])}, pH ${fmt(m.y.vals[peak.row])}`);
-    expect(s).toContain("Feed rate (mL/h) 1.25, Strain K12");
-    expect(s).toContain("Predicted mean only: uncertainty is not shown.");
-    expect(s).toContain("6 measured runs and 2 proposed experiments are plotted");
-    expect(s).toContain("1 proposed experiment lies outside the plotted range and is not drawn");
   });
 });

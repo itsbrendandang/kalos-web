@@ -4,7 +4,7 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 import { cn } from "@/lib/utils";
 
 /**
@@ -126,7 +126,7 @@ function TablePagination({
   return (
     <div className={cn("flex items-center justify-between gap-3 pt-3 text-caption text-fg-muted", className)}>
       <span className="tabular-nums" aria-live="polite">
-        {formatNumber(first, "count")}-{formatNumber(last, "count")} of {formatNumber(total, "count")}
+        {formatValue(first, { quantity: "count" }).text}-{formatValue(last, { quantity: "count" }).text} of {formatValue(total, { quantity: "count" }).text}
       </span>
       <span className="flex gap-1">
         <Button variant="outline" size="icon-sm" aria-label="Previous page" disabled={page === 0} onClick={() => onPageChange(page - 1)}>

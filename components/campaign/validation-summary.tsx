@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Verdict } from "@/components/kit/verdict";
 import type { Tone } from "@/components/kit/tone";
-import { formatNumber } from "@/lib/format";
+import { formatValue } from "@/lib/num";
 import {
   conversionSummary,
   findingPhrase,
@@ -18,15 +18,18 @@ import {
 } from "@/lib/validation";
 import { capFindings } from "@/components/campaign/stage-logic";
 
+/** A count through lib/num ("1,204"); "n/a" when the engine sent nothing, never 0. */
+const count = (n: number | null | undefined) => formatValue(n, { quantity: "count" }).text;
+
 const TONE: Record<ValidationStatus, Tone> = { pass: "good", pass_with_warnings: "warn", fail: "bad" };
 
 function sentence(report: ValidationReport): string {
   const { status, counts } = report;
   const checks = report.checks_run.length;
-  const n = (k: number, one: string) => `${formatNumber(k, "count")} ${one}${k === 1 ? "" : "s"}`;
+  const n = (k: number, one: string) => `${count(k)} ${one}${k === 1 ? "" : "s"}`;
   if (status === "fail") return `Fix ${n(counts.error, "problem")} in this run sheet before you rely on it.`;
   if (status === "pass_with_warnings") return `This run sheet is usable, with ${n(counts.warning, "warning")} to review.`;
-  return checks > 0 ? `This run sheet passed all ${formatNumber(checks, "count")} checks.` : "This run sheet passed every check.";
+  return checks > 0 ? `This run sheet passed all ${count(checks)} checks.` : "This run sheet passed every check.";
 }
 
 /** The data check as one verdict: at most three findings up front, unit conversions in plain words, raw checks one click down. */
@@ -55,12 +58,12 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
       ) : null}
       {hidden > 0 ? (
         <Button variant="outline" size="sm" className="self-start" onClick={() => setAll(true)}>
-          Show all {formatNumber(total, "count")} findings
+          Show all {count(total)} findings
         </Button>
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <h2 className="text-heading text-fg">Unit conversions</h2>
+        <h3 className="text-label text-fg">Unit conversions</h3>
         {report.conversions.length === 0 ? (
           <p className="text-body text-fg-muted">No conversions were needed. Every value was already in its expected unit.</p>
         ) : (
@@ -72,12 +75,12 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
         )}
       </div>
 
-      <Disclosure summary="Method details" meta={names.length > 0 ? `${formatNumber(names.length, "count")} checks` : undefined}>
+      <Disclosure summary="Method details" meta={names.length > 0 ? `${count(names.length)} checks` : undefined}>
         <dl className="flex flex-col gap-3">
           {(names.length > 0 ? names : [...groups.keys()]).map((check) => (
             <div key={check}>
               <dt className="text-label text-fg">
-                {getCheckLabel(check)} <span className="text-fg-muted">({groups.get(check)?.length ?? 0} found)</span>
+                {getCheckLabel(check)} <span className="text-fg-muted">({count(groups.get(check)?.length ?? 0)} found)</span>
               </dt>
               <dd className="text-body text-fg-muted">{getCheckExplanation(check)}</dd>
               {groups.get(check)?.map((f, i) => (
@@ -88,7 +91,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
             </div>
           ))}
           <p className="text-caption text-fg-muted">
-            {formatNumber(report.n_rows, "count")} rows, {formatNumber(report.n_columns, "count")} columns, checked in {report.mode === "strict" ? "strict" : "warn"} mode.
+            {count(report.n_rows)} rows, {count(report.n_columns)} columns, checked in {report.mode === "strict" ? "strict" : "warn"} mode.
           </p>
         </dl>
       </Disclosure>

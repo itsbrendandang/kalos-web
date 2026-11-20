@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runFile } from "@/lib/api";
+import { submitUploadJob, type ColumnRolesInput } from "@/lib/api";
 import { EngineError } from "@/lib/engine-error";
 
 /** Minimal Response stand-in: a JSON body, or a body that is not JSON (text). */
@@ -16,9 +16,14 @@ function htmlResponse(status: number): Response {
   } as unknown as Response;
 }
 
+const CMP = "cmp_0123456789abcdef0123456789abcdef";
+/** The app uploads through the campaign jobs route; same argument order as the old runFile. */
+const runFile = (f: File, target?: string, roles?: ColumnRolesInput, sheet?: string, opts: { replace?: boolean } = {}) =>
+  submitUploadJob(CMP, f, { target, roles, sheet, replace: opts.replace });
+
 const sheet = () => new File(["a,b\n1,2"], "sheet.csv", { type: "text/csv" });
 
-describe("runFile: every failure is typed (EngineError) except the documented 400", () => {
+describe("upload (submitUploadJob): every failure is typed (EngineError) except the documented 400", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -72,7 +77,7 @@ describe("runFile: every failure is typed (EngineError) except the documented 40
 
   it("the documented 400 bad-sheet body is still returned inline, with its code and sheets", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: "Sheet 'X' not found", code: "sheet_not_found", sheets: ["A", "B"] }));
-    await expect(runFile(sheet(), undefined, undefined, "X")).resolves.toMatchObject({ code: "sheet_not_found", sheets: ["A", "B"] });
+    await expect(runFile(sheet(), undefined, undefined, "X")).resolves.toMatchObject({ refused: { code: "sheet_not_found", sheets: ["A", "B"] } });
   });
 
   it("a 400 with no error text is a failure", async () => {

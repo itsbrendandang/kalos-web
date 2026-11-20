@@ -9,6 +9,10 @@ export class EngineError extends Error {
     readonly code: string,
     /** Upload limit in MB, when the proxy said so (payload_too_large). */
     readonly limitMb?: number,
+    /** The engine's own sentence, when it sent one (shown only for codes without app copy). */
+    readonly detail?: string,
+    /** The engine's `what_would_fix_it`, when its refusal carried one. */
+    readonly fix?: string,
   ) {
     super(`engine responded ${status}`);
     this.name = "EngineError";
@@ -47,6 +51,19 @@ const KNOWN: Record<string, (limitMb?: number) => EngineMessage> = {
   }),
   target_constant: () => ({ message: "The target column never changes in this sheet, so there is nothing to learn from. Choose a column that varies.", signIn: false }),
   ambiguous_header: () => ({ message: "The analysis service could not tell which row holds the column names. Make the first row the header and try again.", signIn: false }),
+  upload_pending: () => ({ message: "This campaign is already analyzing an upload. Wait for it to finish, or cancel it first.", signIn: false }),
+  campaign_archived: () => ({ message: "This campaign is archived, so it is read-only.", signIn: false }),
+  campaign_changed: () => ({ message: "The campaign changed while this was running (a result or another upload landed), so nothing was saved. Try again.", signIn: false }),
+  conflict: () => ({ message: "The campaign changed at the same moment. Nothing was lost; try again.", signIn: false }),
+  no_data: () => ({ message: "This campaign has no data yet. Upload a run sheet first.", signIn: false }),
+  reason_required: () => ({ message: "Correcting a recorded result needs a reason. Add one and save again.", signIn: false }),
+  invalid_result: () => ({ message: "That value was not accepted. Enter a finite number.", signIn: false }),
+  interrupted: () => ({ message: "The analysis service restarted while this upload was being analyzed. Upload the sheet again.", signIn: false }),
+  engine_stopped: () => ({ message: "The analysis service shut down while this upload was being analyzed. Upload the sheet again.", signIn: false }),
+  timeout: () => ({ message: "The analysis ran past the engine's time limit and was stopped. Try a smaller sheet.", signIn: false }),
+  worker_exited: () => ({ message: "The analysis stopped unexpectedly. Upload the sheet again; if it repeats, contact your administrator.", signIn: false }),
+  job_cancelled: () => ({ message: "The analysis was cancelled. Nothing was changed.", signIn: false }),
+  not_found: () => ({ message: "That campaign or run does not exist, or you do not have access to it.", signIn: false }),
   sheet_not_found: () => ({ message: "That worksheet is not in this file. Choose one from the list.", signIn: false }),
 };
 
@@ -68,6 +85,6 @@ export function engineMessage(input: { code?: string | null; error?: string | nu
 
 /** Copy for anything thrown by a call: a typed EngineError, or an unexpected failure (network, bug). */
 export function errorMessage(err: unknown): EngineMessage {
-  if (err instanceof EngineError) return engineMessage({ code: err.code, limitMb: err.limitMb });
+  if (err instanceof EngineError) return engineMessage({ code: err.code, error: err.detail, limitMb: err.limitMb });
   return { message: "The analysis service did not respond. Try again in a moment.", signIn: false };
 }

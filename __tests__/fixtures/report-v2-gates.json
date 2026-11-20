@@ -1,0 +1,293 @@
+{
+ "campaign_id": "cmp_a28912911eee460dae2524ecd4047e7b",
+ "stages_source": "default",
+ "current_stage": null,
+ "history_preview": 20,
+ "gates": [
+  {
+   "key": "S1",
+   "decision": null,
+   "state": "open",
+   "basis": "recorded",
+   "current": null,
+   "history_count": 0,
+   "history": [],
+   "history_truncated": false,
+   "stage_label": "HT media screen",
+   "in_stage_definitions": true,
+   "computed_evidence": {
+    "available": true,
+    "basis": "computed",
+    "source": "campaign_analysis",
+    "scope": "campaign",
+    "note": "Computed from the campaign's latest stored analysis. It is campaign-wide, not specific to this stage, and no go/no-go is derived from it: the gate decision is the recorded human decision only.",
+    "analysis_updated_at": 1795116328.807868,
+    "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+    "target": "titer_g_L",
+    "n_measured": 160,
+    "best_measured": {
+     "value": 1.422,
+     "basis": "measured"
+    },
+    "reliability": {
+     "basis": "derived",
+     "method": "grouped_cv_spearman",
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "clears_floor": true,
+     "ci_excludes_zero": true
+    },
+    "promotion": {
+     "basis": "derived",
+     "passed": false,
+     "failures": [
+      "feasibility_auc=0.626 < min 0.65"
+     ],
+     "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)"
+    }
+   }
+  },
+  {
+   "key": "S2",
+   "decision": null,
+   "state": "open",
+   "basis": "recorded",
+   "current": null,
+   "history_count": 0,
+   "history": [],
+   "history_truncated": false,
+   "stage_label": "HT microbioreactor",
+   "in_stage_definitions": true,
+   "computed_evidence": {
+    "available": true,
+    "basis": "computed",
+    "source": "campaign_analysis",
+    "scope": "campaign",
+    "note": "Computed from the campaign's latest stored analysis. It is campaign-wide, not specific to this stage, and no go/no-go is derived from it: the gate decision is the recorded human decision only.",
+    "analysis_updated_at": 1795116328.807868,
+    "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+    "target": "titer_g_L",
+    "n_measured": 160,
+    "best_measured": {
+     "value": 1.422,
+     "basis": "measured"
+    },
+    "reliability": {
+     "basis": "derived",
+     "method": "grouped_cv_spearman",
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "clears_floor": true,
+     "ci_excludes_zero": true
+    },
+    "promotion": {
+     "basis": "derived",
+     "passed": false,
+     "failures": [
+      "feasibility_auc=0.626 < min 0.65"
+     ],
+     "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)"
+    }
+   }
+  },
+  {
+   "key": "S3",
+   "decision": null,
+   "state": "open",
+   "basis": "recorded",
+   "current": null,
+   "history_count": 0,
+   "history": [],
+   "history_truncated": false,
+   "stage_label": "Flask",
+   "in_stage_definitions": true,
+   "computed_evidence": {
+    "available": true,
+    "basis": "computed",
+    "source": "campaign_analysis",
+    "scope": "campaign",
+    "note": "Computed from the campaign's latest stored analysis. It is campaign-wide, not specific to this stage, and no go/no-go is derived from it: the gate decision is the recorded human decision only.",
+    "analysis_updated_at": 1795116328.807868,
+    "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+    "target": "titer_g_L",
+    "n_measured": 160,
+    "best_measured": {
+     "value": 1.422,
+     "basis": "measured"
+    },
+    "reliability": {
+     "basis": "derived",
+     "method": "grouped_cv_spearman",
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "clears_floor": true,
+     "ci_excludes_zero": true
+    },
+    "promotion": {
+     "basis": "derived",
+     "passed": false,
+     "failures": [
+      "feasibility_auc=0.626 < min 0.65"
+     ],
+     "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)"
+    }
+   }
+  },
+  {
+   "key": "S4",
+   "decision": null,
+   "state": "open",
+   "basis": "recorded",
+   "current": null,
+   "history_count": 0,
+   "history": [],
+   "history_truncated": false,
+   "stage_label": "Bench bioreactor",
+   "in_stage_definitions": true,
+   "computed_evidence": {
+    "available": true,
+    "basis": "computed",
+    "source": "campaign_analysis",
+    "scope": "campaign",
+    "note": "Computed from the campaign's latest stored analysis. It is campaign-wide, not specific to this stage, and no go/no-go is derived from it: the gate decision is the recorded human decision only.",
+    "analysis_updated_at": 1795116328.807868,
+    "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+    "target": "titer_g_L",
+    "n_measured": 160,
+    "best_measured": {
+     "value": 1.422,
+     "basis": "measured"
+    },
+    "reliability": {
+     "basis": "derived",
+     "method": "grouped_cv_spearman",
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "clears_floor": true,
+     "ci_excludes_zero": true
+    },
+    "promotion": {
+     "basis": "derived",
+     "passed": false,
+     "failures": [
+      "feasibility_auc=0.626 < min 0.65"
+     ],
+     "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)"
+    }
+   }
+  },
+  {
+   "key": "S5",
+   "decision": null,
+   "state": "open",
+   "basis": "recorded",
+   "current": null,
+   "history_count": 0,
+   "history": [],
+   "history_truncated": false,
+   "stage_label": "Bioreactor",
+   "in_stage_definitions": true,
+   "computed_evidence": {
+    "available": true,
+    "basis": "computed",
+    "source": "campaign_analysis",
+    "scope": "campaign",
+    "note": "Computed from the campaign's latest stored analysis. It is campaign-wide, not specific to this stage, and no go/no-go is derived from it: the gate decision is the recorded human decision only.",
+    "analysis_updated_at": 1795116328.807868,
+    "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+    "target": "titer_g_L",
+    "n_measured": 160,
+    "best_measured": {
+     "value": 1.422,
+     "basis": "measured"
+    },
+    "reliability": {
+     "basis": "derived",
+     "method": "grouped_cv_spearman",
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "clears_floor": true,
+     "ci_excludes_zero": true
+    },
+    "promotion": {
+     "basis": "derived",
+     "passed": false,
+     "failures": [
+      "feasibility_auc=0.626 < min 0.65"
+     ],
+     "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)"
+    }
+   }
+  },
+  {
+   "key": "S6",
+   "decision": null,
+   "state": "open",
+   "basis": "recorded",
+   "current": null,
+   "history_count": 0,
+   "history": [],
+   "history_truncated": false,
+   "stage_label": "Data package and handoff",
+   "in_stage_definitions": true,
+   "computed_evidence": {
+    "available": true,
+    "basis": "computed",
+    "source": "campaign_analysis",
+    "scope": "campaign",
+    "note": "Computed from the campaign's latest stored analysis. It is campaign-wide, not specific to this stage, and no go/no-go is derived from it: the gate decision is the recorded human decision only.",
+    "analysis_updated_at": 1795116328.807868,
+    "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+    "target": "titer_g_L",
+    "n_measured": 160,
+    "best_measured": {
+     "value": 1.422,
+     "basis": "measured"
+    },
+    "reliability": {
+     "basis": "derived",
+     "method": "grouped_cv_spearman",
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "clears_floor": true,
+     "ci_excludes_zero": true
+    },
+    "promotion": {
+     "basis": "derived",
+     "passed": false,
+     "failures": [
+      "feasibility_auc=0.626 < min 0.65"
+     ],
+     "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)"
+    }
+   }
+  }
+ ],
+ "orphaned_gates": [],
+ "orphaned_gates_total": 0,
+ "orphaned_gates_truncated": false
+}

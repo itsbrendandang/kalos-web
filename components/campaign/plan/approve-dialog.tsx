@@ -2,15 +2,16 @@
 
 import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
-import { PredictedMark } from "@/components/campaign/plan/marks";
-import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
+import { BatchCaveats, TrustLabel, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
 import { exactSetpoint } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatNumber } from "@/lib/format";
+import { BasisGlyph } from "@/components/viz/num";
+import { coverageText, formatValue } from "@/lib/num";
+import { bandLegend } from "@/lib/viz-data/batch-interval-strip";
 
-const plural = (n: number, one: string) => `${formatNumber(n, "count")} ${n === 1 ? one : `${one}s`}`;
+const plural = (n: number, one: string) => `${formatValue(n, { quantity: "count" }).text} ${n === 1 ? one : `${one}s`}`;
 
 /**
  * The explicit approval step. Nothing starts until the user ticks the
@@ -82,10 +83,9 @@ export function ApproveDialog({
             <li key={r.id} className="flex flex-col gap-1 py-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-mono text-code text-fg">{r.id}</span>
-                <span className="inline-flex items-center gap-1.5 text-caption text-fg-muted tabular-nums">
-                  <PredictedMark /> predicted {formatNumber(r.item.proposal.pred)}
-                </span>
+                <PredictedLine row={r} ctx={ctx} />
               </div>
+              {r.strip.trust?.kind === "exploration" ? <TrustLabel row={r} className="w-fit" /> : null}
               <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-fg-muted">
                 {[...ctx.features, ...ctx.others]
                   .filter((k) => k in r.recipe)
@@ -98,7 +98,11 @@ export function ApproveDialog({
             </li>
           ))}
         </ul>
-        <p className="text-caption text-fg-muted">Values are exactly what will be sent, unrounded. The table on the page rounds them to the sheet&apos;s precision.</p>
+        <p className="text-caption text-fg-muted">
+          Values are exactly what will be sent, unrounded. The table on the page rounds them to each input&apos;s range precision.{" "}
+          {ctx.model.intervals.kind === "none" ? "The engine reported no prediction band." : `Predicted with the ${bandLegend(ctx.model)}.`}
+        </p>
+        <BatchCaveats ctx={ctx} />
 
         {flagged.length ? (
           <p className="flex items-start gap-2 text-body text-fg">
@@ -114,7 +118,7 @@ export function ApproveDialog({
 
         {failed ? (
           <p role="alert" className="text-body text-bad">
-            The engine did not confirm the start. Check Run to see whether any runs started before you try again.
+            The engine did not confirm the start. Check Validate to see whether any runs started before you try again.
           </p>
         ) : null}
 
@@ -128,5 +132,23 @@ export function ApproveDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** "○ predicted 1.61 g/L [1.39, 1.84] 90%": the prediction with the engine's band and coverage. */
+function PredictedLine({ row, ctx }: { row: PlanRow; ctx: PlanContext }) {
+  const f = predOf(row, ctx);
+  return (
+    <span className="inline-flex items-center gap-1.5 text-caption text-fg-muted tabular-nums">
+      <BasisGlyph basis="predicted" />
+      <span className="sr-only">{f.aria}</span>
+      <span aria-hidden>
+        predicted <span className="text-fg">{f.value}</span>
+        {f.unit ? `\u00A0${f.unit}` : ""}
+        {f.interval ? ` ${f.interval}` : ""}
+        {f.coverage ? ` ${f.coverage}` : ""}
+        {!f.interval && row.strip.interval.kind === "refused" ? `, ${coverageText(row.strip.interval.coverage)} band refused` : ""}
+      </span>
+    </span>
   );
 }

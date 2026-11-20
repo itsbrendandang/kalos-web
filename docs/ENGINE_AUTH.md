@@ -19,18 +19,19 @@ Each step fails closed; nothing reaches the engine until all of them pass.
 
 | # | Check | Failure |
 |---|---|---|
-| 1 | Method in {GET, HEAD, POST, PATCH, DELETE}; path matches the **exact** route table (method + segment pattern). Raw path has no `%2f %5c %2e %25 %00`, no `\`, no `.`/`..` segment; decoded segments have no `/ \ ? # %`, control chars, `.`/`..`, or empty value. | 405 / 404 |
+| 1 | Method in {GET, HEAD, POST, PUT, PATCH, DELETE}; path matches the **exact** route table (method + segment pattern). Raw path has no `%2f %5c %2e %25 %00`, no `\`, no `.`/`..` segment; decoded segments have no `/ \ ? # %`, control chars, `.`/`..`, or empty value. | 405 / 404 |
 | 2 | Query ≤ 2 KB, no control characters; re-serialised, never forwarded raw. | 400 |
 | 3 | CSRF / origin (below). Body type per route: JSON or multipart only. | 403 / 415 |
 | 4 | **`requireApiSession()`** on the cookie header ONLY: Better Auth looks the session up in its database (no cookie cache), MFA must be satisfied, and the organization comes from the `member` table. | 401 anonymous/expired/revoked; 403 `mfa_required`; 403 `no_organization` |
 | 5 | Tenant = `KALOS_TENANT_MAP_FILE[orgId]`. Unmapped, malformed, or `default` (the engine's anonymous tenant) → 403. | 403 `organization_not_provisioned` |
-| 6 | Scopes: the member-table role gives the scopes; the route needs `campaigns:read` (GET/HEAD) or `campaigns:write`; archive/unarchive also needs `org:admin` and a second factor within 300 s. | 403 `insufficient_scope` / `step_up_required` |
+| 6 | Scopes: the member-table role gives the scopes; each route declares the scope the engine enforces for it (`lib/server/engine-routes.ts`, checked against the engine's `docs/route-scopes.json`, vendored in `__tests__/fixtures/engine-route-scopes.json`): `campaigns:read` for every proxied GET/HEAD, `campaigns:write` for every proxied POST/PUT/PATCH today; archive/unarchive also needs `org:admin` and a second factor within 300 s. | 403 `insufficient_scope` / `step_up_required` |
 | 7 | Rate limits (per session, per session-writes, per tenant; in memory, one replica). | 429 |
 | 8 | Body cap: JSON 1 MiB (`KALOS_PROXY_MAX_JSON_BYTES`), uploads per `KALOS_MAX_UPLOAD_MB`; checked on `Content-Length` and while streaming. | 413 |
 | 9 | Mint a 60 s EdDSA token for this one request; forward with an allow-listed header set and a timeout (`KALOS_ENGINE_TIMEOUT_MS`, default 120 s). | 503 key unavailable; 504 timeout; 502 unreachable |
 
-Response path: only `content-type`, `retry-after`, `content-disposition` pass
-back. `Set-Cookie`, `Server`, engine error bodies (5xx) and redirects never
+Response path: only `content-type`, `retry-after`, `content-disposition`, and
+the raw-rows CSV's `X-Kalos-Content-Sha256` (64 hex) and `X-Kalos-Anonymized`
+(`true`/`false`), shape-checked, pass back. `Set-Cookie`, `Server`, engine error bodies (5xx) and redirects never
 reach the browser. An engine 401 becomes 502 `engine_auth_failed` so it never
 looks like a sign-out. Every response carries `Cache-Control: no-store`,
 `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
@@ -194,8 +195,8 @@ isolation tests. Verify engine isolation before relying on it.
 
 - `node scripts/engine-jwks.mjs` with the production env prints one key with
   the expected kid.
-- A signed-in member's `GET /api/engine/api/latest` returns 200 (the engine
+- A signed-in member's `GET /api/engine/api/campaigns` returns 200 (the engine
   accepts the token, so its JWT path is live, not the static-token path).
 - Sign out in a second browser, then retry in the first: 401, and no engine
   request is made (the audit log has `outcome: "unauthenticated"`).
-- `curl -i /api/engine/api/latest` without a cookie: 401 with no engine call.
+- `curl -i /api/engine/api/campaigns` without a cookie: 401 with no engine call.

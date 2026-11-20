@@ -1,0 +1,32 @@
+{
+ "campaign_id": "cmp_a28912911eee460dae2524ecd4047e7b",
+ "status": "not_computed",
+ "reason_code": "no_region_found",
+ "reason": "the model does not give the best measured recipe the required probability of meeting the threshold, so no region around it can be claimed",
+ "what_would_fix_it": "lower the threshold or the probability, or measure more runs near the best recipe",
+ "diagnostics": {
+  "fraction_of_design_space_meeting_rule": 0.0,
+  "n_samples": 4096,
+  "anchor": {
+   "recipe": {
+    "pH": 7.069,
+    "temperature_C": 35.596,
+    "glucose_gL": 6.356,
+    "glutamine_mM": 4.432,
+    "feed_rate_mLh": 0.756,
+    "DO_pct": 59.804,
+    "agitation_rpm": 221.764,
+    "inoculum_1e6": 1.048,
+    "antifoam_mgL": 49.068,
+    "osmolality_mOsm": 326.27,
+    "medium_base": "ProCHO"
+   },
+   "measured_value": 1.422,
+   "measured_basis": "measured",
+   "predicted_mean": 1.4075428844109037,
+   "predicted_sd": 0.017214066010996388,
+   "probability_meets_rule": 0.0,
+   "predicted_basis": "predicted"
+  }
+ }
+}

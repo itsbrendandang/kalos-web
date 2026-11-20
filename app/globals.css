@@ -60,6 +60,21 @@
   --chart-seq-4: oklch(0.53 0.15 285);
   --chart-seq-5: oklch(0.38 0.14 285);
   --chart-band: oklch(0.48 0.16 285 / 0.14);
+  /* Model uncertainty (sigma maps): a neutral grey ramp, so it never reads as the violet model mean. */
+  --chart-unc-1: oklch(0.96 0 0);
+  --chart-unc-2: oklch(0.88 0 0);
+  --chart-unc-3: oklch(0.76 0 0);
+  --chart-unc-4: oklch(0.62 0 0);
+  --chart-unc-5: oklch(0.48 0 0);
+  /* Refusals and zones: a neutral hatch (a refusal is an honest result, not an error). */
+  --chart-refused: var(--border-strong);
+  --chart-zone-warn: var(--warn-soft);
+  --chart-zone-licensed: var(--subtle);
+  --chart-stage-a: var(--bg);
+  --chart-stage-b: var(--subtle);
+  /* Diverging pair for signed correlations (Okabe-Ito blue / vermillion), always with printed values. */
+  --chart-div-neg: var(--chart-1);
+  --chart-div-pos: var(--chart-4);
   --chart-reference: var(--fg-muted);
   --chart-predicted: var(--accent);
   --chart-measured: var(--fg);
@@ -103,46 +118,11 @@
   --chart-seq-4: oklch(0.7 0.12 285);
   --chart-seq-5: oklch(0.86 0.07 285);
   --chart-band: oklch(0.72 0.13 285 / 0.2);
-}
-
-/*
- * COMPATIBILITY ALIASES - temporary. The old token names below are read by
- * pages that have not been rebuilt yet (app/data, the library tools, the
- * campaign stage pages, components/dashboard, components/projects and
- * app/projects/projects.css). Each maps onto a new token so those pages render
- * in the new palette. Page engineers delete an alias once nothing reads it;
- * DESIGN.md lists them. Do not use them in new code.
- */
-:root {
-  --card: var(--surface);
-  --muted: var(--fg-muted);
-  --accent-text: var(--accent);
-  --blue: var(--accent);
-  --blue-hover: var(--accent-hover);
-  --blue-deep: var(--accent);
-  --blue-soft: var(--subtle);
-  --blue-tint: var(--accent-soft);
-  --blue-border: var(--border-strong);
-  --blue-hover-bg: var(--subtle);
-  --explore: var(--border-strong);
-  --explore-deep: var(--fg-muted);
-  --explore-soft: var(--subtle);
-  --green: var(--good);
-  --green-soft: var(--good-soft);
-  --amber: var(--warn);
-  --amber-soft: var(--warn-soft);
-  --red: var(--bad);
-  --grid: var(--chart-grid);
-  --series-1: var(--chart-1);
-  --series-2: var(--chart-2);
-  --series-3: var(--chart-3);
-  --series-4: var(--chart-4);
-  --series-5: var(--chart-5);
-  --series-6: var(--chart-6);
-  --chart-1-ink: var(--accent);
-  --primary-foreground: var(--accent-fg);
-  --secondary: var(--subtle);
-  --font-jbmono: var(--font-geist-mono);
+  --chart-unc-1: oklch(0.3 0 0);
+  --chart-unc-2: oklch(0.42 0 0);
+  --chart-unc-3: oklch(0.55 0 0);
+  --chart-unc-4: oklch(0.68 0 0);
+  --chart-unc-5: oklch(0.8 0 0);
 }
 
 @theme inline {
@@ -177,6 +157,12 @@
   --color-chart-seq-4: var(--chart-seq-4);
   --color-chart-seq-5: var(--chart-seq-5);
   --color-chart-band: var(--chart-band);
+  --color-chart-unc-1: var(--chart-unc-1);
+  --color-chart-unc-2: var(--chart-unc-2);
+  --color-chart-unc-3: var(--chart-unc-3);
+  --color-chart-unc-4: var(--chart-unc-4);
+  --color-chart-unc-5: var(--chart-unc-5);
+  --color-chart-refused: var(--chart-refused);
   --color-chart-reference: var(--chart-reference);
   --color-chart-predicted: var(--chart-predicted);
   --color-chart-measured: var(--chart-measured);
@@ -185,32 +171,7 @@
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* COMPATIBILITY utilities for not-yet-rebuilt pages (see the alias block). */
-  --color-card: var(--surface);
-  --color-muted: var(--fg-muted);
-  --color-accent-text: var(--accent);
-  --color-blue: var(--accent);
-  --color-blue-hover: var(--accent-hover);
-  --color-blue-deep: var(--accent);
-  --color-blue-soft: var(--subtle);
-  --color-blue-tint: var(--accent-soft);
-  --color-blue-border: var(--border-strong);
-  --color-explore: var(--border-strong);
-  --color-explore-deep: var(--fg-muted);
-  --color-explore-soft: var(--subtle);
-  --color-green: var(--good);
-  --color-green-soft: var(--good-soft);
-  --color-amber: var(--warn);
-  --color-amber-soft: var(--warn-soft);
-  --color-red: var(--bad);
-  --color-grid: var(--chart-grid);
-  --color-chart-1-ink: var(--accent);
-  --color-series-1: var(--chart-1);
-  --color-series-2: var(--chart-2);
-  --color-series-3: var(--chart-3);
-  --color-series-4: var(--chart-4);
-  --color-series-5: var(--chart-5);
-  --color-series-6: var(--chart-6);
+  /* shadcn/ui slot names, mapped onto Kalos tokens for registry components. */
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --color-card-foreground: var(--fg);
@@ -224,7 +185,6 @@
   --color-accent-foreground: var(--accent-fg);
   --color-destructive: var(--bad);
   --color-input: var(--border-strong);
-  --font-head: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Type scale: role tokens, one per job. `text-metric` numbers also take
@@ -257,6 +217,16 @@
   --text-metric--letter-spacing: -0.02em;
   --text-code: 0.8125rem;
   --text-code--line-height: 1.125rem;
+
+  /* Semantic spacing: the padding and gaps that recur on panels and stacks, so
+   * Card/Callout/Panel/Section stop each hard-coding p-5 / px-4 py-3.5 / gap-4
+   * independently. Tailwind v4 turns these into p-panel / gap-stack / p-inset
+   * utilities. The raw 8px grid stays for one-off spacing; reach for a token
+   * when a surface's padding is part of the design language, not an accident. */
+  --spacing-panel: 1.25rem;  /* 20px - a bordered surface's padding (was p-5) */
+  --spacing-inset: 1.5rem;   /* 24px - an open Card's padding (was p-6) */
+  --spacing-stack: 1rem;     /* 16px - the gap between stacked blocks (was gap-4) */
+  --spacing-tight: 0.875rem; /* 14px - callout/tile inset (was px-4 py-3.5-ish) */
 
   /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
    * are Tailwind's defaults, so the scale is not overridden. */
@@ -294,11 +264,6 @@ body {
 ::selection {
   background: var(--accent-soft);
   color: var(--fg);
-}
-
-/* COMPATIBILITY: old pages use `.tabular`; new code uses `tabular-nums`. */
-.tabular {
-  font-variant-numeric: tabular-nums;
 }
 
 /* One focus ring everywhere, visible in both themes (accent clears 3:1 on

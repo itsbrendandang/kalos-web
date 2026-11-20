@@ -6,95 +6,95 @@ import { ResponseSurface2D } from "@/components/campaign/plan/response-surface";
 
 afterEach(cleanup);
 
-const surface = mock.response_surface;
+const surface = { ...mock.response_surface, fixed_recipe: { ...mock.response_surface.fixed_recipe, "Temperature (C)": 41, pH: 6.9 } };
 const proposals = mock.proposals;
+const W = 900;
+const withSd = { ...surface, std: surface.z.map((r) => r.map((_, j) => 0.1 + j * 0.05)) };
 
-/** The plot's own svg (the legend has its own small marks). */
-function plot(container: HTMLElement) {
-  return container.querySelector('svg[viewBox="0 0 420 340"]') as SVGSVGElement;
-}
+const panels = (c: HTMLElement) => Array.from(c.querySelectorAll<SVGSVGElement>('svg[role="group"]'));
 
-function cells(container: HTMLElement) {
-  return Array.from(container.querySelectorAll<SVGRectElement>("rect.surface-cell"));
-}
-
-describe("ResponseSurface2D", () => {
+describe("ResponseSurface2D (C5 SurfacePair)", () => {
   it("renders nothing for an absent or malformed surface, without throwing", () => {
     for (const raw of [undefined, null, "x", { x_feature: "a" }, { ...surface, z: [[1]] }]) {
-      const { container, unmount } = render(<ResponseSurface2D surface={raw} target="titer" />);
+      const { container, unmount } = render(<ResponseSurface2D surface={raw} target="titer" width={W} />);
       expect(container.innerHTML).toBe("");
       unmount();
     }
   });
 
-  it("says it shows the predicted mean only and that uncertainty is not shown", () => {
-    render(<ResponseSurface2D surface={surface} target="titer (g/L)" proposals={proposals} />);
-    expect(screen.getByText("Predicted mean only, uncertainty not shown. Other inputs held at the incumbent recipe.")).toBeTruthy();
-    expect(screen.getByText("Predicted mean only: uncertainty is not shown.", { exact: false })).toBeTruthy();
+  it("shows the engine's reason as Not scored when it declined to compute the surface", () => {
+    render(<ResponseSurface2D surface={undefined} target="titer" reason="fewer than 2 continuous drivers" width={W} />);
+    expect(screen.getByText("fewer than 2 continuous drivers")).toBeTruthy();
+    expect(screen.getByText(/Not scored/)).toBeTruthy();
   });
 
-  it("draws one cell per grid point, sized from the payload (5 x 4 here, not 21 x 21)", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" />);
-    expect(cells(container)).toHaveLength(20);
+  it("titles the chart 'Model-predicted' and states what the other inputs are held at", () => {
+    render(<ResponseSurface2D surface={surface} target="titer (g/L)" proposals={proposals} width={W} />);
+    expect(screen.getByText("Model-predicted titer (g/L) across Temperature (C) and pH")).toBeTruthy();
+    expect(screen.getByText("Other inputs held at the incumbent recipe (best single run): Feed rate (mL/h) 1.25, Strain K12.")).toBeTruthy();
   });
 
-  it("draws 21 x 21 when the engine sends that grid", () => {
-    const vals = Array.from({ length: 21 }, (_, i) => i);
-    const big = { x_feature: "A (u)", y_feature: "B", x_vals: vals, y_vals: vals, z: vals.map((y) => vals.map((x) => x + y)), runs: [] };
-    const { container } = render(<ResponseSurface2D surface={big} target="titer" />);
-    expect(cells(container)).toHaveLength(441);
+  it("without std: one full-width mean panel and the not-scored note, no sigma map", () => {
+    const { container } = render(<ResponseSurface2D surface={surface} target="titer" width={W} />);
+    expect(panels(container)).toHaveLength(1);
+    expect(panels(container)[0].getAttribute("width")).toBe(String(W));
+    expect(screen.getByText("Uncertainty map not returned by this engine build.")).toBeTruthy();
+    expect(container.innerHTML).not.toContain("--chart-unc-");
   });
 
-  it("has one tab stop, on the peak cell, and moves focus with the arrow keys", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" />);
-    const tabStops = cells(container).filter((c) => c.getAttribute("tabindex") === "0");
-    expect(tabStops).toHaveLength(1);
-    // The peak of the mock grid is row 2 (pH 7.0), column 4 (Temperature 50).
-    expect(tabStops[0].getAttribute("aria-label")).toContain("Temperature (C) 50.00, pH 7.00");
-
-    const group = container.querySelector('g[role="group"]') as Element;
-    fireEvent.keyDown(group, { key: "ArrowLeft" });
-    const moved = cells(container).find((c) => c.getAttribute("tabindex") === "0")!;
-    expect(moved.getAttribute("aria-label")).toContain("Temperature (C) 45.00, pH 7.00");
-    expect(container.querySelector("p[aria-hidden]")?.textContent).toContain("Temperature (C) 45.00, pH 7.00: predicted mean");
+  it("with the engine's std: a mean and a sigma panel side by side, sigma on the grey ramp", () => {
+    const { container } = render(<ResponseSurface2D surface={withSd} target="titer" width={W} />);
+    expect(panels(container)).toHaveLength(2);
+    expect(container.innerHTML).toContain("var(--chart-unc-");
+    expect(screen.queryByText("Uncertainty map not returned by this engine build.")).toBeNull();
   });
 
-  it("keeps Home and End inside the grid and does not step past an edge", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" />);
-    const group = container.querySelector('g[role="group"]') as Element;
-    fireEvent.keyDown(group, { key: "Home" });
-    expect(cells(container).find((c) => c.getAttribute("tabindex") === "0")!.getAttribute("aria-label")).toContain("Temperature (C) 30.00");
-    fireEvent.keyDown(group, { key: "ArrowLeft" });
-    expect(cells(container).find((c) => c.getAttribute("tabindex") === "0")!.getAttribute("aria-label")).toContain("Temperature (C) 30.00");
+  it("fills contour bands from the violet ramp with surface-coloured isolines, never a hard-coded colour", () => {
+    const { container } = render(<ResponseSurface2D surface={surface} target="titer" width={W} />);
+    const bands = Array.from(container.querySelectorAll("path[fill^='var(--chart-seq-']"));
+    expect(bands.length).toBeGreaterThan(0);
+    expect(bands.every((b) => b.getAttribute("stroke") === "var(--surface)")).toBe(true);
+    expect(container.innerHTML).not.toMatch(/#[0-9a-f]{6}\b|rgb\(/i);
   });
 
   it("labels proposals P1..Pn inside the axes and says which lie outside", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" proposals={proposals} />);
-    const labels = Array.from(plot(container).querySelectorAll("text")).map((t) => t.textContent);
+    const { container } = render(<ResponseSurface2D surface={surface} target="titer" proposals={proposals} width={W} />);
+    const labels = Array.from(panels(container)[0].querySelectorAll("text")).map((t) => t.textContent);
     expect(labels).toContain("P1");
     expect(labels).toContain("P2");
     expect(labels).not.toContain("P3");
-    expect(screen.getByText(/1 proposed experiment lies outside the plotted range and is not drawn/)).toBeTruthy();
+    expect(screen.getByText("P3 lies outside the plotted range and is not drawn.")).toBeTruthy();
   });
 
-  it("draws the measured runs as dots, separate from the proposal rings", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" proposals={proposals} />);
-    expect(plot(container).querySelectorAll('circle[fill="var(--chart-measured)"]')).toHaveLength(6);
-    expect(plot(container).querySelectorAll('circle[stroke="var(--chart-predicted)"]')).toHaveLength(2);
+  it("draws measured runs as filled ink dots and proposals as hollow accent rings", () => {
+    const { container } = render(<ResponseSurface2D surface={surface} target="titer" proposals={proposals} width={W} />);
+    const svg = panels(container)[0];
+    expect(svg.querySelectorAll('circle[fill="var(--chart-measured)"]')).toHaveLength(6);
+    expect(svg.querySelectorAll('circle[stroke="var(--chart-predicted)"][fill="none"]')).toHaveLength(2);
+    expect(screen.getAllByText(/projected: other inputs differ/).length).toBeGreaterThan(0);
   });
 
-  it("carries the grid in a screen-reader table, rows highest y first", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" />);
-    const table = container.querySelector("table") as HTMLTableElement;
-    expect(table.classList.contains("sr-only")).toBe(true);
-    expect(table.querySelectorAll("tr")).toHaveLength(5); // 1 header + 4 y rows
-    const firstBodyRow = table.querySelectorAll("tbody tr")[0];
-    expect(firstBodyRow.querySelector("th")?.textContent).toBe("7.25");
-    expect(firstBodyRow.querySelectorAll("td")).toHaveLength(5);
+  it("links the crosshair across both panels and reads mean and sigma at the grid point", () => {
+    const { container } = render(<ResponseSurface2D surface={withSd} target="titer (g/L)" width={W} />);
+    const explorer = container.querySelector('rect[tabindex="0"][role="application"]') as Element;
+    fireEvent.focus(explorer);
+    // Starts at the incumbent's grid point (Temperature 40, pH 7.0).
+    expect(container.textContent).toContain("at Temperature (C) 40.0, pH 7.000");
+    fireEvent.keyDown(explorer, { key: "ArrowRight" });
+    expect(container.textContent).toMatch(/predicted 43\.59\u00A0g\/L · σ 0\.25\u00A0g\/L at Temperature \(C\) 45\.0, pH 7\.000/);
+    // Both panels draw the crosshair.
+    const crosshairs = panels(container).map((s) => s.querySelectorAll('line[stroke="var(--fg)"]').length);
+    expect(crosshairs).toEqual([2, 2]);
   });
 
-  it("gives the marks their own text meaning and never draws a band", () => {
-    const { container } = render(<ResponseSurface2D surface={surface} target="titer" proposals={proposals} />);
-    expect(container.textContent).not.toMatch(/±|CI|interval/);
+  it("has a Data table of the grid and a source footer", () => {
+    render(<ResponseSurface2D surface={surface} target="titer" width={W} source={{ label: "Analysis of a.csv", field: "response_surface", basis: "predicted", engineVersion: "0.1.0" }} />);
+    expect(screen.getByText("Data")).toBeTruthy();
+    expect(screen.getByText("From: Analysis of a.csv · n = 6 measured runs · engine 0.1.0")).toBeTruthy();
+  });
+
+  it("never prints a coverage percentage (the surface carries no interval)", () => {
+    const { container } = render(<ResponseSurface2D surface={withSd} target="titer" proposals={proposals} width={W} />);
+    expect(container.textContent).not.toMatch(/\d%/);
   });
 });

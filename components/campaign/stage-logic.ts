@@ -1,9 +1,11 @@
 /*
- * Pure rules for the Setup, Run and Record pages, kept out of the components
+ * Pure rules for Harmonize (setup) and Validate (run and record), kept out of the components
  * so they are unit tested directly (__tests__/stage-pages.test.ts).
  */
 
+import { enginePrediction } from "@/components/campaign/learn";
 import type { CampaignRun } from "@/lib/api";
+import { formatSetting } from "@/lib/num";
 import { sortFindings, type ValidationFinding } from "@/lib/validation";
 
 // --- Setup -------------------------------------------------------------------
@@ -34,7 +36,7 @@ export function sortRuns(runs: CampaignRun[], sort: RunSort): CampaignRun[] {
   if (!sort) return runs;
   const sign = sort.direction === "ascending" ? 1 : -1;
   const value = (r: CampaignRun): number | string | null =>
-    sort.key === "id" ? r.id : sort.key === "pred" ? r.pred : sort.key === "result" ? r.result : r.awaiting ? 0 : 1;
+    sort.key === "id" ? r.id : sort.key === "pred" ? enginePrediction(r) : sort.key === "result" ? r.result : r.awaiting ? 0 : 1;
   return [...runs].sort((a, b) => {
     const [x, y] = [value(a), value(b)];
     if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
@@ -47,6 +49,19 @@ export function clampPage(page: number, total: number, pageSize = RUN_PAGE_SIZE)
   return Math.min(Math.max(0, page), Math.max(0, Math.ceil(total / pageSize) - 1));
 }
 
+/**
+ * One recipe setpoint as text. The engine sends categorical inputs (e.g. a
+ * medium name) as strings even though the type says number: show those as
+ * sent; numbers at the precision their search range supports (the analysis'
+ * `feature_ranges`, VIZ_SPEC 2.4; 3 significant figures without one);
+ * anything else as n/a.
+ */
+export function formatRecipeValue(v: unknown, range?: [number, number] | null): string {
+  if (typeof v === "number") return formatSetting(v, range ?? null).text;
+  if (typeof v === "string" && v.trim() !== "") return v;
+  return "n/a";
+}
+
 /** The recipe columns to show inline: the analysis' top drivers present in the recipe, else the first few inputs. */
 export function inlineRecipeKeys(recipe: Record<string, number>, drivers: readonly string[], limit = 3): string[] {
   const ranked = drivers.filter((d) => d in recipe);
@@ -57,10 +72,8 @@ export function inlineRecipeKeys(recipe: Record<string, number>, drivers: readon
 
 export const SANITY_FACTOR = 5;
 
-/** Match Python str.strip(), used by the engine for correction reasons. */
-export function trimCorrectionReason(text: string): string {
-  return text.replace(/^[\p{White_Space}\u001c-\u001f]+|[\p{White_Space}\u001c-\u001f]+$/gu, "");
-}
+/** The engine's whitespace rule for a correction reason (Python str.strip()); defined beside correctionProblem. */
+export { trimCorrectionReason } from "@/components/campaign/learn";
 
 /** Why a value needs the scientist's confirmation, or null when it looks ordinary. */
 export function sanityReason(value: number, best: number | null): string | null {

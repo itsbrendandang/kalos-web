@@ -1,74 +1,97 @@
 /*
- * Every page in the app, in one place: the activity rail, the explorers, the
- * editor tabs and breadcrumb, the command palette and the Library index all
- * read from here, so a route is renamed or added once. Labels are what people see.
+ * Every page in the app, in one place: the sidebar, the mobile sheet, the
+ * campaign stepper and per-page titles read from here, so a route is renamed
+ * or added once. Labels are what people see. See docs/REDESIGN.md for which
+ * engine capability backs each page.
  */
 
+/** The engine's own 5-step campaign stage (kalos-engine campaign_stage.py). */
 export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
+
+/** The three steps of a cycle the product is organized around. */
+export type CycleKey = "harmonize" | "predict" | "validate";
+
+/** A campaign sub-page: the overview (""), the three cycle steps, the report and the scale-up track. */
+export type CampaignPage = "" | CycleKey | "report" | "scale-up";
 
 export type RouteItem = { href: string; label: string; description: string };
 
-/** The activity rail's sections, in order; Settings is pinned at the rail's foot. */
-export const NAV_ITEMS = [
-  { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
-  { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },
-  { key: "library", href: "/library", label: "Library", description: "Standalone tools: vessels, plates, scale-up, simulator." },
-  { key: "projects", href: "/projects", label: "Projects", description: "Client projects (illustrative seed data)." },
-  { key: "settings", href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." },
-] as const satisfies readonly (RouteItem & { key: string })[];
+export type CycleStep = {
+  key: CycleKey;
+  n: 1 | 2 | 3;
+  label: string;
+  description: string;
+  /** The engine stages this step covers. */
+  stages: readonly StageKey[];
+};
 
-export type NavKey = (typeof NAV_ITEMS)[number]["key"];
-
-export const OVERVIEW_ROUTE: RouteItem = { href: "/", label: "Overview", description: "Where the campaign is and what to do next." };
-
-/** The campaign stages, in order: Setup once, then Plan, Run, Record, Learn each round. */
-export const CAMPAIGN_STAGES = [
-  { key: "setup", href: "/campaign/setup", label: "Setup", description: "Upload a run sheet, check data quality and choose the target." },
-  { key: "plan", href: "/campaign/plan", label: "Plan", description: "Review and start the proposed batch." },
-  { key: "run", href: "/campaign/run", label: "Run", description: "Runs in flight and their recipes." },
-  { key: "record", href: "/campaign/record", label: "Record", description: "Enter measured results." },
-  { key: "learn", href: "/campaign/learn", label: "Learn", description: "What the round taught the model, then plan the next one." },
-] as const satisfies readonly (RouteItem & { key: StageKey })[];
-
-export const LIBRARY_ITEMS: readonly RouteItem[] = [
-  { href: "/library/vessels", label: "Vessels", description: "Bioreactor kinetics across vessels." },
-  { href: "/library/plate", label: "Plate analysis", description: "96-well plate QC and growth curves." },
-  { href: "/library/scale-up", label: "Scale-up readout", description: "Predict a recipe at a larger scale from your data." },
-  { href: "/library/simulator", label: "Simulator", description: "A synthetic optimization benchmark to try the method." },
-  { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
+/** Harmonize -> Predict -> Validate, repeated each round. */
+export const CYCLE_STEPS: readonly CycleStep[] = [
+  { key: "harmonize", n: 1, label: "Harmonize", description: "Upload prior runs, check the sheet, choose the target and see the explored design space.", stages: ["setup"] },
+  { key: "predict", n: 2, label: "Predict", description: "Check how far the model can be trusted, then review and start the proposed batch.", stages: ["plan"] },
+  { key: "validate", n: 3, label: "Validate", description: "Record measured results from the lab, compare them with the predictions, then learn and re-propose.", stages: ["run", "record", "learn"] },
 ];
 
-const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
+/** Which cycle step an engine stage belongs to. */
+export function cycleKeyFor(stage: StageKey): CycleKey {
+  return CYCLE_STEPS.find((s) => s.stages.includes(stage))!.key;
+}
 
-/** Which rail section a pathname belongs to. */
-export function navKeyFor(pathname: string): NavKey {
-  if (pathname === "/" || pathname.startsWith("/campaign")) return "campaign";
-  if (pathname.startsWith("/data")) return "data";
-  if (pathname.startsWith("/library")) return "library";
-  if (pathname.startsWith("/projects")) return "projects";
+/** The engine stages with their labels (the engine sends keys and states; the labels are ours). */
+export const CAMPAIGN_STAGES = [
+  { key: "setup", label: "Set up", description: "Upload a run sheet, check data quality and choose the target." },
+  { key: "plan", label: "Plan", description: "Review and start the proposed batch." },
+  { key: "run", label: "Run", description: "Runs in the lab, awaiting results." },
+  { key: "record", label: "Record", description: "Enter measured results." },
+  { key: "learn", label: "Learn", description: "Fold results into the model, then re-propose." },
+] as const satisfies readonly { key: StageKey; label: string; description: string }[];
+
+export const HOME_ROUTE: RouteItem = { href: "/", label: "Campaigns", description: "Every campaign, and where to start a new one." };
+export const SCALE_UP_ROUTE: RouteItem = { href: "/scale-up", label: "Scale-up", description: "Predict-or-refuse readout for a larger scale, and each campaign's stage track." };
+export const SETTINGS_ROUTE: RouteItem = { href: "/settings", label: "Settings", description: "Appearance, engine connection and optional integrations." };
+
+/** `/campaigns/<id>` or one of its sub-pages. */
+export function campaignHref(id: string, page: CampaignPage = ""): string {
+  const base = `/campaigns/${encodeURIComponent(id)}`;
+  return page ? `${base}/${page}` : base;
+}
+
+/** Where an engine stage's action lives: Validate holds run, record and learn (each with its own anchor). */
+export function stageHref(id: string, stage: StageKey): string {
+  const page = cycleKeyFor(stage);
+  const anchor = stage === "record" ? "#record" : stage === "learn" ? "#learn" : "";
+  return `${campaignHref(id, page)}${anchor}`;
+}
+
+export const CAMPAIGN_PAGE_LABEL: Record<CampaignPage, string> = {
+  "": "Overview",
+  harmonize: "Harmonize",
+  predict: "Predict",
+  validate: "Validate",
+  report: "Report",
+  "scale-up": "Scale-up track",
+};
+
+/** The campaign id and sub-page of a pathname, or null outside a campaign. */
+export function parseCampaignPath(pathname: string): { id: string; page: CampaignPage } | null {
+  const m = pathname.match(/^\/campaigns\/([^/]+)(?:\/([^/]+))?\/?$/);
+  if (!m) return null;
+  const page = (m[2] ?? "") as CampaignPage;
+  if (!(page in CAMPAIGN_PAGE_LABEL)) return null;
+  let id: string;
+  try {
+    id = decodeURIComponent(m[1]);
+  } catch {
+    return null;
+  }
+  return { id, page };
+}
+
+/** Which top-level section a pathname belongs to (sidebar highlight). */
+export type SectionKey = "campaigns" | "scale-up" | "settings";
+
+export function sectionFor(pathname: string): SectionKey {
+  if (pathname.startsWith("/scale-up")) return "scale-up";
   if (pathname.startsWith("/settings")) return "settings";
-  return "campaign";
-}
-
-/**
- * Breadcrumb trail for the header: the section, then the page when it is not
- * the section's own index. Unknown sub-pages (a project id) fall back to the
- * section alone; those pages title themselves.
- */
-export function breadcrumbFor(pathname: string): RouteItem[] {
-  const section = NAV_ITEMS.find((n) => n.key === navKeyFor(pathname))!;
-  const page = PAGES.find((p) => p.href === pathname && p.href !== section.href);
-  return page ? [section, page] : [section];
-}
-
-/**
- * A short tab title for any pathname: the page's label, Overview for "/", the
- * section label for a section index, and otherwise the last path segment.
- */
-export function titleFor(pathname: string): string {
-  if (pathname === "/") return OVERVIEW_ROUTE.label;
-  const known = PAGES.find((p) => p.href === pathname) ?? NAV_ITEMS.find((n) => n.href === pathname);
-  if (known) return known.label;
-  const last = pathname.split("/").filter(Boolean).pop() ?? "";
-  return last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, " ");
+  return "campaigns";
 }

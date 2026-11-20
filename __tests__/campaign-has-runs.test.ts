@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { API, CampaignHasRunsError, campaignHasRunsRefusal, runFile } from "@/lib/api";
+import { API, CampaignHasRunsError, campaignHasRunsRefusal, submitUploadJob, type ColumnRolesInput } from "@/lib/api";
+
+const CMP = "cmp_0123456789abcdef0123456789abcdef";
+/** The app uploads through the campaign jobs route; same argument order as the old runFile. */
+const runFile = (f: File, target?: string, roles?: ColumnRolesInput, sheet?: string, opts: { replace?: boolean } = {}) =>
+  submitUploadJob(CMP, f, { target, roles, sheet, replace: opts.replace });
+
 
 /** Minimal Response stand-in - only the members lib/api.ts reads. */
 function fakeResponse(ok: boolean, status: number, body: unknown): Response {
@@ -21,20 +27,20 @@ describe("campaign_has_runs refusal (lib/api.ts)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("runFile without replace sends no replace field", async () => {
-    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { n: 2 }));
+  it("an upload without replace sends no replace field", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 202, { job: { id: "job_1" } }));
     await runFile(sheet(), "yield");
     const fd = fetchMock.mock.calls[0][1].body as FormData;
     expect(fd.has("replace")).toBe(false);
     expect(fd.get("target")).toBe("yield");
   });
 
-  it("runFile with replace sends replace=true alongside the same file", async () => {
-    fetchMock.mockResolvedValueOnce(fakeResponse(true, 200, { n: 2 }));
+  it("an upload with replace sends replace=true alongside the same file", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(true, 202, { job: { id: "job_1" } }));
     const f = sheet();
     await runFile(f, undefined, undefined, undefined, { replace: true });
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(`${API}/api/run`);
+    expect(url).toBe(`${API}/api/campaigns/${CMP}/jobs`);
     const fd = init.body as FormData;
     expect(fd.get("replace")).toBe("true");
     expect(fd.get("file")).toBeInstanceOf(File);
@@ -65,11 +71,11 @@ describe("campaign_has_runs refusal (lib/api.ts)", () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 409, { code: "some_other_conflict" }));
     const err = await runFile(sheet()).catch((e: unknown) => e);
     expect(err).not.toBeInstanceOf(CampaignHasRunsError);
-    expect((err as Error).message).toBe("engine responded 409");
+    expect(err).toMatchObject({ status: 409, code: "some_other_conflict" });
   });
 
   it("a 400 bad-sheet response is still returned inline, not thrown", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(false, 400, { error: "no target column" }));
-    await expect(runFile(sheet())).resolves.toEqual({ error: "no target column" });
+    await expect(runFile(sheet())).resolves.toEqual({ refused: { error: "no target column" } });
   });
 });

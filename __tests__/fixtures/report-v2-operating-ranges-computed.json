@@ -1,0 +1,196 @@
+{
+ "campaign_id": "cmp_8a93125eb87941ff990dfbe45af9f11e",
+ "status": "computed",
+ "method": "gp_posterior_box",
+ "basis": "predicted",
+ "model_based": true,
+ "must_verify_experimentally": true,
+ "statement": "Model-based estimate, not a measurement: the largest axis-aligned box around the best measured recipe (grown face by face, then tightened to the sampled points) in which EVERY sampled point has GP posterior probability >= 0.5 of the target being at least 0.2. Verify it experimentally before relying on it.",
+ "rule": {
+  "target": "titer_g_L",
+  "threshold": 0.2,
+  "probability": 0.5,
+  "direction": "at_least",
+  "goal": "maximize",
+  "goal_source": "default",
+  "basis": "target"
+ },
+ "model": {
+  "kind": "gp_posterior",
+  "posterior": "latent (excludes assay noise)",
+  "noise": "inferred",
+  "refit_rows": 160,
+  "fit_restarts": 3,
+  "seed": 1234,
+  "note": "refit on the campaign's rows with the analysis's features and design box; probabilities come from the GP's Gaussian posterior (not conformal / not held-out calibrated)"
+ },
+ "sampling": {
+  "method": "sobol_scrambled",
+  "seed": 20240611,
+  "n_samples": 4096,
+  "space": "the continuous design box (analysis feature_ranges)",
+  "categoricals_held_at": {
+   "medium_base": "ProCHO"
+  }
+ },
+ "anchor": {
+  "recipe": {
+   "pH": 7.069,
+   "temperature_C": 35.596,
+   "glucose_gL": 6.356,
+   "glutamine_mM": 4.432,
+   "feed_rate_mLh": 0.756,
+   "DO_pct": 59.804,
+   "agitation_rpm": 221.764,
+   "inoculum_1e6": 1.048,
+   "antifoam_mgL": 49.068,
+   "osmolality_mOsm": 326.27,
+   "medium_base": "ProCHO"
+  },
+  "measured_value": 1.422,
+  "measured_basis": "measured",
+  "predicted_mean": 1.4075428844109037,
+  "predicted_sd": 0.017214066010996388,
+  "probability_meets_rule": 1.0,
+  "predicted_basis": "predicted"
+ },
+ "ranges": [
+  {
+   "feature": "pH",
+   "low": 6.368772,
+   "high": 7.516522,
+   "design_low": 6.005,
+   "design_high": 7.594,
+   "basis": "predicted"
+  },
+  {
+   "feature": "temperature_C",
+   "low": 33.310335,
+   "high": 38.508714,
+   "design_low": 30.039,
+   "design_high": 38.968,
+   "basis": "predicted"
+  },
+  {
+   "feature": "glucose_gL",
+   "low": 3.473967,
+   "high": 10.061527,
+   "design_low": 2.004,
+   "design_high": 11.956,
+   "basis": "predicted"
+  },
+  {
+   "feature": "glutamine_mM",
+   "low": 2.28874,
+   "high": 6.538218,
+   "design_low": 1.032,
+   "design_high": 8.0,
+   "basis": "predicted"
+  },
+  {
+   "feature": "feed_rate_mLh",
+   "low": 0.147792,
+   "high": 1.279523,
+   "design_low": 0.108,
+   "design_high": 1.995,
+   "basis": "predicted"
+  },
+  {
+   "feature": "DO_pct",
+   "low": 41.650028,
+   "high": 75.736832,
+   "design_low": 20.306,
+   "design_high": 79.688,
+   "basis": "predicted"
+  },
+  {
+   "feature": "agitation_rpm",
+   "low": 140.672811,
+   "high": 320.053773,
+   "design_low": 101.777,
+   "design_high": 399.907,
+   "basis": "predicted"
+  },
+  {
+   "feature": "inoculum_1e6",
+   "low": 0.365711,
+   "high": 1.71311,
+   "design_low": 0.201,
+   "design_high": 1.995,
+   "basis": "predicted"
+  },
+  {
+   "feature": "antifoam_mgL",
+   "low": 32.818305,
+   "high": 49.703834,
+   "design_low": 0.17,
+   "design_high": 49.971,
+   "basis": "predicted"
+  },
+  {
+   "feature": "osmolality_mOsm",
+   "low": 299.22481,
+   "high": 349.634016,
+   "design_low": 280.044,
+   "design_high": 359.948,
+   "basis": "predicted"
+  }
+ ],
+ "box": {
+  "construction": "largest normalized cube around the anchor free of failing samples, each face then pushed out (features in analysis order, lower then upper) to the nearest failing sample or the design bound, then tightened to the passing samples inside; maximal, not necessarily maximum-volume",
+  "n_samples_inside": 35,
+  "all_samples_inside_meet_rule": true,
+  "min_samples_required": 32
+ },
+ "fraction_of_design_space_meeting_rule": 0.2554,
+ "fraction_scope": "share of the Sobol sample of the continuous design box that meets the rule, with categorical inputs held at the anchor's levels",
+ "reliability": {
+  "spearman": 0.655,
+  "ci95": [
+   0.539,
+   0.767
+  ],
+  "spearman_floor": 0.2,
+  "clears_floor": true,
+  "ci_excludes_zero": true,
+  "calibration": {
+   "available": true,
+   "reason": null,
+   "n": 160,
+   "judgeable": true,
+   "judgement": null,
+   "judge_min_n": 20,
+   "ece": 0.0844,
+   "z_std": 1.4034,
+   "levels": [
+    {
+     "nominal": 0.5,
+     "empirical": 0.7063
+    },
+    {
+     "nominal": 0.8,
+     "empirical": 0.8187
+    },
+    {
+     "nominal": 0.9,
+     "empirical": 0.8562
+    },
+    {
+     "nominal": 0.95,
+     "empirical": 0.8812
+    }
+   ]
+  },
+  "promotion_passed": false
+ },
+ "analysis": {
+  "campaign_generation": "176c58db32354433a22a67c3f84d04b0",
+  "engine_version": "0.1.0",
+  "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0"
+ },
+ "caveats": [
+  "model-based: verify the range experimentally before relying on it",
+  "categorical inputs are held at the best measured recipe's levels",
+  "held-out calibration z_std=1.4034 > 1: the GP's bands were too narrow on held-out runs, so these probabilities may be overstated"
+ ]
+}

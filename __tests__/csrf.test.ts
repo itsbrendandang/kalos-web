@@ -16,7 +16,7 @@ describe("expectedOrigin", () => {
 });
 
 describe("checkCsrf (state-changing)", () => {
-  it.each(["POST", "PATCH", "DELETE"])("%s with same Origin + Sec-Fetch-Site + marker passes", (m) => {
+  it.each(["POST", "PUT", "PATCH", "DELETE"])("%s with same Origin + Sec-Fetch-Site + marker passes", (m) => {
     expect(checkCsrf(m, h(good), APP)).toEqual({ ok: true });
   });
 

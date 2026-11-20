@@ -68,9 +68,10 @@ describe("boundaryChecks", () => {
   it("classifies each setpoint against the observed range", () => {
     const where = (v: number) => boundaryChecks({ pH: v }, ranges)[0].where;
     expect(where(6)).toBe("inside");
-    expect(where(5.03)).toBe("at-min"); // within 2% of a width of 2
-    expect(where(5.05)).toBe("inside");
-    expect(where(6.97)).toBe("at-max");
+    expect(where(5.02)).toBe("at-min"); // within 1% of a width of 2 (VIZ_SPEC 2.4)
+    expect(where(5.03)).toBe("inside");
+    expect(where(6.98)).toBe("at-max");
+    expect(where(6.97)).toBe("inside");
     expect(where(7)).toBe("at-max");
     expect(where(4.9)).toBe("below");
     expect(where(7.2)).toBe("above");
@@ -120,6 +121,11 @@ describe("recipeFlags", () => {
     expect(kinds(p(45, { p_feasible: null }))).toEqual([]);
     expect(kinds(p(45))).toEqual([]);
   });
+  it("does not flag low feasibility when the engine says the batch was not gated on it", () => {
+    expect(kinds(p(45, { p_feasible: 0.2 }), { pH: 6 }, { ...ctx, feasibilityGated: false })).toEqual([]);
+    expect(kinds(p(45, { p_feasible: 0.2 }), { pH: 6 }, { ...ctx, feasibilityGated: true })).toEqual(["low-feasibility"]);
+    expect(recipeFlags(p(45, { p_feasible: 0.2 }), { pH: 6 }, ctx)[0].detail).toBe("Engine-estimated feasibility is 20%, below 50%.");
+  });
   it("flags a negative prediction for a never-negative target, most serious first", () => {
     expect(kinds(p(-1), { pH: 5.0 })).toEqual(["negative", "at-edge"]);
     expect(kinds(p(-1), { pH: 6 }, { ...ctx, nonNegative: false })).toEqual([]);
@@ -152,14 +158,17 @@ describe("uncertainty display", () => {
     expect(predictionInterval(50, undefined)).toBeNull();
     expect(predictionInterval(50, Number.NaN)).toBeNull();
     expect(predictionInterval(50, -1)).toBeNull();
-    expect(formatInterval(51.205, 3.8329)).toBe("47.37 to 55.04");
+    // PDG rule: a half-width of 3.83 keeps one significant figure, bounds from the unrounded prediction.
+    expect(formatInterval(51.205, 3.8329)).toBe("[47, 55]");
+    expect(formatInterval(1.613, 0.2264, 0.9)).toBe("[1.39, 1.84]");
+    expect(formatInterval(-0.004, 0.31)).toBe("[\u22120.31, 0.31]");
     expect(formatInterval(51.205, null)).toBeNull();
   });
   it("names the coverage only when the engine reported it", () => {
     expect(bandLabel(0.9)).toBe("90% held-out band");
     expect(bandLabel(undefined)).toBe("held-out band");
     expect(bandLabel(null)).toBe("held-out band");
-    expect(BAND_CAVEAT).toMatch(/not guaranteed for proposals/);
+    expect(BAND_CAVEAT).toMatch(/at proposed recipes coverage measured lower in simulation/);
   });
   it("builds one padded axis for the batch strips that holds every interval and the best", () => {
     const [lo, hi] = stripDomain([50, 45], 2, 49)!;
@@ -173,26 +182,30 @@ describe("uncertainty display", () => {
 });
 
 describe("formatSetpoint", () => {
-  it("uses the sheet's decimals when known, else 2, and passes labels through", () => {
-    expect(formatSetpoint(33.035, 1)).toBe("33.0");
+  it("uses the precision of the input's range (VIZ_SPEC 2.4), else 3 significant figures, and passes labels through", () => {
+    expect(formatSetpoint(33.035, [25, 35])).toBe("33.0"); // width 10: 1 dp
+    expect(formatSetpoint(6.278, obs(5, 7))).toBe("6.28"); // width 2: 2 dp
+    expect(formatSetpoint(216.403, [101.777, 399.907])).toBe("216"); // width ~300: 0 dp
     expect(formatSetpoint(1.795, null)).toBe("1.80");
-    expect(formatSetpoint(1234.5, 0)).toBe("1,235");
-    expect(formatSetpoint(-0.004, 2)).toBe("0.00");
-    expect(formatSetpoint(-1.26, 1)).toBe("-1.3");
-    expect(formatSetpoint("glycerol", 2)).toBe("glycerol");
+    expect(formatSetpoint(1234.5, [0, 5000])).toBe("1,235");
+    expect(formatSetpoint(-0.004, [0, 2])).toBe("0.00");
+    expect(formatSetpoint(-1.26, [-5, 5])).toBe("\u22121.3");
+    expect(formatSetpoint("glycerol", [0, 1])).toBe("glycerol");
     expect(formatSetpoint(null)).toBe("n/a");
     expect(formatSetpoint(Number.NaN)).toBe("n/a");
   });
-  it("never shows a tiny gain as +0.00", () => {
+  it("prints a gain at the band's precision, signed, with a U+2212 minus", () => {
     expect(formatGain(1.4523)).toBe("+1.45");
-    expect(formatGain(-4.3)).toBe("-4.30");
-    expect(formatGain(0.0031)).toBe("+0.0031");
-    expect(formatGain(-0.00042)).toBe("-0.00042");
-    expect(formatGain(0)).toBe("0");
+    expect(formatGain(1.4523, 3.83)).toBe("+1");
+    expect(formatGain(0.1403, 0.2264)).toBe("+0.14");
+    expect(formatGain(-4.3)).toBe("\u22124.30");
+    expect(formatGain(0.0031)).toBe("+0.00310");
+    expect(formatGain(0.0031, 0.2264)).toBe("0.00");
     expect(formatGain(null)).toBe("n/a");
   });
   it("shows the exact value that is sent", () => {
     expect(exactSetpoint(29.968)).toBe("29.968");
+    expect(exactSetpoint(-1.5)).toBe("\u22121.5");
     expect(exactSetpoint("glucose")).toBe("glucose");
     expect(exactSetpoint(Number.NaN)).toBe("n/a");
   });
@@ -334,11 +347,11 @@ describe("dataNotes", () => {
     expect(dataNotes({})).toEqual([]);
   });
 
-  it("names auto-detected categoricals and asks for the declaration on Setup", () => {
+  it("names auto-detected categoricals and asks for the declaration on Harmonize", () => {
     const [n] = dataNotes({ auto_categorical: ["Strain"] });
     expect(n.tone).toBe("neutral");
     expect(n.text).toContain("Strain was read as categorical");
-    expect(n.text).toContain("Declare the columns on Setup");
+    expect(n.text).toContain("Declare the columns on Harmonize");
   });
 
   it("counts missing and censored exclusions separately and says nothing was imputed", () => {

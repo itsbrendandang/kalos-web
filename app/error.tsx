@@ -33,16 +33,16 @@ export default function GlobalErrorBoundary({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-4 border-red/30 bg-card sm:flex-row sm:items-center sm:justify-between">
+      <Card bordered padding="panel" className="flex flex-col gap-4 bg-surface sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card text-red">
-            <AlertCircle className="size-5" />
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-bad-soft text-bad">
+            <AlertCircle className="size-5" aria-hidden />
           </span>
           <div>
-            <div className="font-head text-[16px] font-semibold text-fg">Something went wrong</div>
-            <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-explore-deep">
-              This page hit an unexpected error while rendering. Try again, or head back and pick a different
-              experiment or page.
+            <h1 className="text-heading text-fg">Something went wrong</h1>
+            <p className="mt-1 max-w-[62ch] text-body text-fg-muted">
+              This page hit an unexpected error while rendering. Your campaign data is unaffected. Try again, or go back to
+              your campaigns.
             </p>
           </div>
         </div>

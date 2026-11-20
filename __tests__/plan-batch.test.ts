@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Proposal } from "@/lib/api";
-import { batchExceptions, orderBatch, targetIsNonNegative } from "@/components/campaign/plan-batch";
+import { batchExceptions, engineBatch, orderBatch, targetIsNonNegative } from "@/components/campaign/plan-batch";
 
 const p = (pred: number, extra: Partial<Proposal> = {}): Proposal => ({ vals: [0], pred, std: 0.1, mode: "exploit", reason: "", ...extra });
 
@@ -25,6 +25,16 @@ describe("orderBatch", () => {
   });
 });
 
+describe("engineBatch", () => {
+  it("keeps the engine's order: rank is the engine index + 1, never re-ranked by prediction", () => {
+    const items = engineBatch([p(4), p(7), p(2)], 5);
+    expect(items.map((i) => i.proposal.pred)).toEqual([4, 7, 2]);
+    expect(items.map((i) => [i.index, i.rank])).toEqual([[0, 1], [1, 2], [2, 3]]);
+    expect(items.map((i) => i.beatsBest)).toEqual([false, true, false]);
+    expect(engineBatch([p(9)], null)[0].beatsBest).toBe(false);
+  });
+});
+
 describe("batchExceptions", () => {
   const ctx: { incumbent: number | null; band: number | null; nonNegative: boolean } = { incumbent: 5, band: 0.5, nonNegative: true };
   const run = (proposals: Proposal[], c = ctx) => batchExceptions(orderBatch(proposals, c.incumbent), c);
@@ -40,7 +50,7 @@ describe("batchExceptions", () => {
   });
   it("flags a gain smaller than the band, never a recipe not predicted to gain", () => {
     expect(run([p(5.3)]).shown.map((e) => e.kind)).toEqual(["gain-within-band"]);
-    expect(run([p(5.3)]).shown[0].text).toContain("half-width of its prediction band (±0.50)");
+    expect(run([p(5.3)]).shown[0].text).toContain("half-width of its prediction band (±0.500)");
     expect(run([p(6)]).shown).toEqual([]);
     expect(run([p(4)]).shown).toEqual([]);
     expect(run([p(5.3)], { ...ctx, band: null }).shown).toEqual([]);

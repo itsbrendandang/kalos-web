@@ -1,10 +1,13 @@
 /*
  * Pure rules for the Plan stage's batch: the order the recipes are shown in
  * and the exceptions worth a second look. Tested in __tests__/plan-batch.test.ts.
+ * The Predict page shows the batch in the engine's own order (`engineBatch`,
+ * VIZ_SPEC C2: never re-ranked client-side); `orderBatch` is kept for callers
+ * that summarise the batch by predicted value.
  */
 
 import { proposalRecipe, type Proposal } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatProb, formatValue } from "@/lib/num";
 
 /** A recipe whose estimated chance of being feasible is below this is flagged. */
 export const LOW_FEASIBILITY = 0.5;
@@ -20,6 +23,20 @@ export type BatchItem = {
   proposal: Proposal;
   beatsBest: boolean;
 };
+
+/**
+ * The batch in the engine's order: rank = engine index + 1, so "P3" is always
+ * `proposals[2]`. `beatsBest` follows the goal: above the incumbent when
+ * maximizing, below it when minimizing.
+ */
+export function engineBatch(proposals: readonly Proposal[], incumbent: number | null, goal: "maximize" | "minimize" = "maximize"): BatchItem[] {
+  return proposals.map((proposal, index) => ({
+    index,
+    rank: index + 1,
+    proposal,
+    beatsBest: incumbent != null && (goal === "minimize" ? proposal.pred < incumbent : proposal.pred > incumbent),
+  }));
+}
 
 /**
  * Recipes predicted to beat the incumbent first, then the rest; each group by
@@ -90,11 +107,11 @@ export function batchExceptions(
   for (const { rank, proposal: p } of items) {
     const gain = ctx.incumbent == null ? null : p.pred - ctx.incumbent;
     if (ctx.nonNegative && p.pred < 0) {
-      flags.push({ rank, kind: "negative", text: `Recipe ${rank} is predicted ${p.pred > -0.005 ? "just below zero" : `at ${formatNumber(p.pred)}, below zero`}, but this target has no negative measurements.` });
+      flags.push({ rank, kind: "negative", text: `Recipe ${rank} is predicted ${p.pred > -0.005 ? "just below zero" : `at ${formatValue(p.pred, { uncertainty: ctx.band }).text}, below zero`}, but this target has no negative measurements.` });
     } else if (p.p_feasible != null && p.p_feasible < LOW_FEASIBILITY) {
-      flags.push({ rank, kind: "low-feasibility", text: `Recipe ${rank} has only a ${formatNumber(p.p_feasible, "pct")} estimated chance of being feasible.` });
+      flags.push({ rank, kind: "low-feasibility", text: `Recipe ${rank} has only a ${formatProb(p.p_feasible).text} estimated chance of being feasible.` });
     } else if (gain != null && gain > 0 && ctx.band != null && ctx.band > gain) {
-      flags.push({ rank, kind: "gain-within-band", text: `Recipe ${rank} is predicted to beat the best by ${formatNumber(gain)}, less than the half-width of its prediction band (±${formatNumber(ctx.band)}).` });
+      flags.push({ rank, kind: "gain-within-band", text: `Recipe ${rank} is predicted to beat the best by ${formatValue(gain, { uncertainty: ctx.band }).text}, less than the half-width of its prediction band (±${formatValue(ctx.band).text}).` });
     } else {
       const edge = edgeInputs(proposalRecipe(p, ctx.features ?? []), ctx.ranges);
       if (edge.length > 0) {

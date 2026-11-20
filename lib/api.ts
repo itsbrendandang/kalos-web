@@ -1,8 +1,22 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+//
+// The response types below (the AnalyzeResult family) are hand-maintained on
+// purpose: they carry version-tolerance (?/Partial<> for fields absent on older
+// engine builds) and documentation the engine's OpenAPI cannot - FastAPI types
+// the request bodies but leaves the analysis RESPONSE an untyped object. The
+// engine guards against silently dropping a field this file reads with a
+// contract test on its side: kalos-engine tests/test_web_contract.py asserts
+// every top-level /api/run field listed here is still returned. Keep that
+// field list and these types in sync when the web starts or stops using a field.
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
+import type { CoverageAtProposalsEstimate, EngineIntervalCaveat } from "@/lib/proposal-caveat";
 import { ENGINE_CSRF_HEADER, ENGINE_CSRF_VALUE } from "@/lib/engine-csrf";
 import { EngineError } from "@/lib/engine-error";
+import { formatValue, parseUnit } from "@/lib/num";
+
+/** A statistic at 2 decimals with a U+2212 minus, through lib/num (never toFixed). */
+const fixed2 = (v: number): string => formatValue(v, { quantity: "score" }).value;
 
 /**
  * Default: the same-origin, authenticated server proxy
@@ -51,36 +65,156 @@ export type Proposal = {
    * lab runs and what a started run must record. Absent on older engines.
    */
   recipe?: Record<string, number>;
+  /**
+   * Distance from this recipe to the nearest measured (training) row: each
+   * continuous input divided by its design-box width, +1 per differing
+   * categorical level, Euclidean. 0 = the recipe is a measured row. A number
+   * only: the engine applies no threshold or label (an extrapolation signal,
+   * compare `training_nn_distance_median`). Absent on older analyses.
+   */
+  nearest_training_distance?: number | null;
+  /** Observation-scale predictive sd the per-proposal intervals are built from. Absent on older analyses. */
+  predictive_std?: number | null;
+  /** Per-level normalized split-conformal intervals (approximate coverage, see `interval_method`). Absent on older analyses. */
+  intervals?: ProposalInterval[];
+  /** Model-based GP posterior bands, per level. Never held-out calibrated; label them so. */
+  gp_intervals?: GpInterval[];
+  /** Model-based predictive quantiles (GP observation posterior). */
+  quantiles?: ProposalQuantiles | null;
+  /**
+   * The verdict's label for this proposal (trust layer F04): `{status: "trusted" | "exploration_untrusted", verdict,
+   * message}`; "model_guided" is read as trusted. Absent on older engines.
+   */
+  trust?: { status: string; verdict?: string; message?: string } | string | null;
+  /** Analytic expected improvement over the incumbent (model-based, context only: the batch is chosen by qLogNEI). */
+  expected_improvement?: ImprovementStat | null;
+  /** Model probability of beating the incumbent (model-based). */
+  p_improve?: ImprovementStat | null;
 };
+
+/** One per-proposal interval entry. A refused level has `available: false`, null bounds and the engine's reason. */
+export type ProposalInterval = {
+  coverage: number;
+  method: string;
+  calibrated_on?: string;
+  n_calibration?: number;
+  available: boolean;
+  lo: number | null;
+  hi: number | null;
+  q_norm?: number;
+  /** Selection-aware quantile (engine F15, `conformal_selection_aware`). */
+  q_sel?: number;
+  empirical_oof_coverage?: number;
+  /** What the coverage claim rests on, e.g. "held_out_past_runs" (engine trust layer; `interval_basis` on newer builds). */
+  coverage_basis?: string | null;
+  interval_basis?: string | null;
+  /** The engine's caveat for this proposal interval: plain message plus the coverage measured at proposals. */
+  caveat?: EngineIntervalCaveat | null;
+  coverage_at_proposals_estimate?: CoverageAtProposalsEstimate | null;
+  code?: string;
+  reason?: string;
+  what_would_fix_it?: string;
+};
+
+export type GpInterval = {
+  coverage: number;
+  method: string;
+  posterior?: string;
+  note?: string;
+  /** "model_based" (trust layer F02); with the coverage measured at proposals in simulation. */
+  coverage_basis?: string | null;
+  coverage_at_proposals_estimate?: CoverageAtProposalsEstimate | null;
+  available: boolean;
+  lo: number | null;
+  hi: number | null;
+  code?: string;
+  reason?: string;
+};
+
+export type ProposalQuantiles = { basis: string; posterior?: string; note?: string; p05: number; p25: number; p50: number; p75: number; p95: number };
+
+export type ImprovementStat = {
+  value: number | null;
+  method: string;
+  incumbent: number | null;
+  incumbent_basis?: string;
+  maximize: boolean;
+  basis: string;
+  posterior?: string;
+  note?: string;
+  /** The engine's plain statement of what the value is (p_improve: P(latent MEAN beats the incumbent), not one measurement). */
+  description?: string;
+};
+
+/** How `proposals[].intervals` were built, with a per-level availability (`interval_method`). */
+export type IntervalMethod = {
+  method: string;
+  calibrated_on?: string;
+  n_calibration?: number;
+  coverage_guarantee?: string;
+  empirical_oof_coverage_note?: string;
+  levels: {
+    coverage: number;
+    available: boolean;
+    q_norm?: number;
+    rank?: number;
+    n_calibration?: number;
+    empirical_oof_coverage?: number;
+    n_inside?: number;
+    coverage_by_sigma_half?: Record<string, { n: number; coverage: number | null }>;
+    code?: string;
+    reason?: string;
+    what_would_fix_it?: string;
+    min_n?: number;
+  }[];
+  gp_posterior?: Record<string, string>;
+} & Record<string, unknown>;
+
+/** The entry of `intervals` (or `gp_intervals`) at a coverage level, or null when the engine sent none for it. */
+export function intervalAt<T extends { coverage: number }>(list: readonly T[] | null | undefined, coverage: number): T | null {
+  return list?.find((i) => Math.abs(i.coverage - coverage) < 1e-9) ?? null;
+}
+
+/** 1D model slice (R2): latent GP mean with a model-based band, other inputs held at `reference`. */
+export type ModelSlice = {
+  feature: string;
+  x: number[];
+  mean: number[];
+  sd: number[];
+  lo: number[];
+  hi: number[];
+  coverage: number;
+  band_method: string;
+  band_of?: string;
+  note?: string;
+  basis: string;
+  range?: [number, number];
+  swept_at?: string;
+  reference?: { basis: string; incumbent_basis?: string; recipe: Record<string, number | string> };
+  n_points?: number;
+};
+
+/** The display unit of the target (R6): user setup, then a well-defined header pattern, else none. */
+export type TargetUnit = { unit: string | null; source: "user" | "header" | "none"; header: string | null; note: string };
+
+/** How the campaign setup was applied to this analysis (`setup`). `status: "refused"` means no proposals. */
+export type AppliedSetup = {
+  status: "applied" | "refused" | string;
+  goal: Goal;
+  hash?: string;
+  bounds_applied?: Record<string, { requested: [number | null, number | null]; observed: [number, number] | null; applied: [number, number] | null; extrapolates: boolean }>;
+  constraints_applied?: LinearConstraint[];
+  warnings?: { code: string; feature?: string; message: string }[];
+  refusal?: { code: string; reason?: string; message?: string; what_would_fix_it?: string } | null;
+  n_proposals_dropped?: number;
+  sign_convention?: string;
+} & Record<string, unknown>;
 
 /** The full recipe to run and record for a proposal. Falls back to the
  *  proposal_features alone only for older engines that do not send `recipe`. */
 export function proposalRecipe(p: Proposal, features: string[]): Record<string, number> {
   return p.recipe ?? Object.fromEntries(features.map((f, i) => [f, p.vals[i]]));
 }
-
-export type MultiProposal = {
-  vals: number[];
-  pred_titer: number;
-  pred_purity: number;
-  mode: "explore" | "exploit";
-  reason: string;
-};
-
-export type SingleRun = {
-  trajectory: { round: number; best: number; n: number }[];
-  proposals: Proposal[];
-  best_recipe: number[];
-  best_value: number;
-  optimum: number[];
-};
-
-export type MultiRun = {
-  trajectory: { round: number; pareto: number; best_titer: number; best_purity: number }[];
-  pareto: { titer: number; purity: number }[];
-  all: { titer: number; purity: number }[];
-  proposals: MultiProposal[];
-};
 
 /**
  * One input's correlation with the target, plus enough uncertainty
@@ -214,12 +348,23 @@ export type Reliability = Partial<ProducerFields> & {
   spearman: number | null;
   ci95: [number, number] | null;
   spearman_floor: number;
-  clears_floor: boolean;
+  /**
+   * Null when the floor was not judged (trust layer F04: fewer than 12 runs or 3 CV groups): neither passed nor failed.
+   * See `verdict` / `not_judged_reason`.
+   */
+  clears_floor: boolean | null;
+  /** "clears_floor" | "below_floor" | "not_judged" (trust layer F04). Absent on older engines. */
+  verdict?: "clears_floor" | "below_floor" | "not_judged" | string;
+  judged?: boolean;
+  not_judged_reason?: string | null;
+  clears_floor_rule?: string;
   ci_excludes_zero: boolean;
   /** Quantities the current engine does not model, surfaced so the UI can say so. */
   unmodeled: string[];
   /** Absent on engine builds before calibration scoring shipped. */
   calibration?: Calibration;
+  /** Set only when the model is below its trust floor: the batch should be read as exploration. */
+  space_filling_advice?: string | null;
 };
 
 /**
@@ -242,6 +387,8 @@ export type Promotion = {
   metrics: Record<string, number>;
   summary: string;
   meaning: string;
+  /** Gates the engine could not judge on this sheet (absent on older engines). */
+  not_judged?: string[];
 };
 
 /**
@@ -273,6 +420,8 @@ export type CvTopK = {
   n: number;
   evaluable: boolean;
   reason: string | null;
+  /** "highest" or "lowest" (the goal's best runs; engine aa7396a). Absent on older engines. */
+  direction?: "highest" | "lowest";
 };
 
 /**
@@ -361,7 +510,8 @@ export type DataDrops = {
   /** Keys: missing, non_numeric, censored (counted over cells). */
   cells_by_reason?: Record<string, number>;
   cells_by_column?: Record<string, Record<string, number>>;
-  blank_cells_as_absent?: number;
+  /** A count, or per-column counts on current engines. */
+  blank_cells_as_absent?: number | Record<string, number>;
   auto_categorical_count?: number;
 };
 
@@ -430,6 +580,8 @@ export type AnalyzeResult = Partial<Diagnostics> & {
    * it's missing. See `coveragePct` below.
    */
   conformal_coverage?: number;
+  /** The engine's caveat for the `conformal_q` band at proposals (trust layer). Absent on older engines. */
+  conformal_caveat?: EngineIntervalCaveat | null;
   reliability?: Reliability;
   /** Fail-closed promotion verdict, REPORTED not enforced. Absent on older engine builds. */
   promotion?: Promotion;
@@ -447,6 +599,11 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   /** Search range [low, high] of each continuous input; used to flag proposals at the edge. Absent on older engine builds. */
   feature_ranges?: Record<string, [number, number]>;
   proposals: Proposal[];
+  /**
+   * Out-of-fold (held-out) pairs, each `[measured, predicted]`: the engine
+   * writes `zip(oof_a, oof_p)` (kalos-engine analysis.py). The first value is
+   * the sheet's measured target, the second the model's held-out prediction.
+   */
   oof: [number, number][];
   /**
    * Input columns whose search range was narrowed because some observed
@@ -561,19 +718,91 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   sheet_used?: string | null;
   /** Machine code on a 400 (e.g. "sheet_not_found", "target_constant"); the human text is `error`. Absent on older engines. */
   code?: string;
+  /** What produced this batch: hashes of inputs and config, seed, engine build. `model_artifact_stored` is false today. */
+  proposal_provenance?: ({ provenance_sha256?: string; input_sha256?: string; config_sha256?: string; engine_version?: string; seed?: number } & Record<string, unknown>) | null;
+  /** The detected header row (0-based) when the sheet had a title block. Absent on older engines. */
+  header_row?: number | null;
+  /** The engine's orientation finding for the sheet. Absent on older engines. */
+  orientation?: unknown;
+  /** Why a visualization (embedding, correlation, surface) was not computed, keyed by name. */
+  visualization_reasons?: unknown;
+  /** Coverage levels the per-proposal intervals were computed at, e.g. [0.9, 0.95]. Absent on older analyses. */
+  interval_levels?: number[];
+  /** How the per-proposal intervals were built, with per-level refusals. Absent on older analyses. */
+  interval_method?: IntervalMethod;
+  /** Median nearest-other-row distance between measured rows, in the `nearest_training_distance` metric (scale for it). */
+  training_nn_distance_median?: number | null;
+  /** 1D model slices; `null` with the reason in `visualization_reasons.slices`. Absent on older analyses. */
+  slices?: ModelSlice[] | null;
+  slices_skipped?: { feature: string; reason: string }[];
+  /** The target's display unit. Absent on older analyses (fall back to the header via `parseUnit`). */
+  target_unit?: TargetUnit;
+  /** The optimization direction this analysis used (absent = maximize, the engine default). */
+  goal?: Goal;
+  /** The campaign setup as applied to this analysis; null when none was stored. */
+  setup?: AppliedSetup | null;
+  /** Why the batch is empty or reduced (e.g. `setup_not_applied`, `model_refused`). */
+  proposal_notice?: { code: string; message?: string; reason?: string } & Record<string, unknown> | null;
+  /** The engine's one answer to "can I trust the model's suggestions?" (trust layer F04). Absent on older engines. */
+  verdict?: EngineVerdict | null;
+  /** What the verdict did to the batch (trust layer F04). Absent on older engines. */
+  proposal_trust?: ProposalTrustBlock | null;
+  /** Set when the verdict refused: `proposals` is empty and this says why (trust layer F04). */
+  refusal?: ModelRefusal | null;
+  /** Which held-out grouping drove the score (trust layer F05). Absent on older engines. */
+  cv_grouping?: CvGrouping | null;
 };
 
-export const runSingle = (): Promise<SingleRun> =>
-  fetch(`${API}/api/single`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
+/** The engine's model verdict (`verdict`, trust layer F04). */
+export type EngineVerdict = {
+  state: "reliable" | "not_yet" | "refused" | string;
+  code?: string;
+  headline?: string;
+  reasons?: { code: string; plain: string }[];
+  n_runs?: number;
+  min_runs?: number;
+  n_groups?: number;
+  min_groups?: number;
+  rule?: string;
+} & Record<string, unknown>;
 
-export const runMulti = (): Promise<MultiRun> =>
-  fetch(`${API}/api/multi`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
+/** `proposal_trust`: trusted (model-guided), exploration_untrusted, or withheld (refused). */
+export type ProposalTrustBlock = {
+  status: "trusted" | "model_guided" | "exploration_untrusted" | "withheld" | string;
+  verdict?: string;
+  gated?: boolean;
+  withheld?: boolean;
+  n_requested?: number;
+  n_returned?: number;
+  reasons?: string[];
+  message?: string;
+  rule?: string;
+};
+
+/** `refusal` when the verdict withheld the batch. */
+export type ModelRefusal = { code: string; plain?: string; what_would_help?: string } & Record<string, unknown>;
+
+/** `cv_grouping` (F05): the grouping whose held-out score drove the verdict, and every candidate. */
+export type CvGrouping = {
+  used?: { basis: string; column?: string | null; n_groups?: number; merged_with_replicates?: boolean } | null;
+  candidates?: { basis: string; column?: string | null; n_groups?: number; evaluable?: boolean; spearman?: number | null; ci95?: [number, number] | null; reason?: string | null; used?: boolean }[];
+  rule?: string;
+  warnings?: { code: string; message: string; column?: string }[];
+} & Record<string, unknown>;
+
+/** Optimization direction. */
+export type Goal = "maximize" | "minimize";
+
+/**
+ * The target's unit for display: the engine's `target_unit` when the analysis
+ * carries it (the user's setup wins over the header), else the unit parsed
+ * from the header for analyses that predate the field. Never invented.
+ */
+export function targetUnitOf(d: { target?: string | null; target_unit?: TargetUnit | null } | null | undefined): string | null {
+  if (!d) return null;
+  if (d.target_unit) return d.target_unit.unit ?? null;
+  return d.target ? parseUnit(d.target).unit : null;
+}
 
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
 export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
@@ -615,44 +844,6 @@ export function campaignHasRunsRefusal(status: number, body: unknown): CampaignH
   return new CampaignHasRunsError(countField(b, "awaiting", "n_awaiting"), countField(b, "measured", "n_measured"));
 }
 
-/**
- * POST /api/run. `roles` is sent when the user confirmed column roles; `sheet` picks a worksheet of a
- * multi-sheet workbook (engine form field `sheet`), omitted the engine chooses. `replace: true` sends the
- * form field `replace=true`, which the engine requires to overwrite a campaign that has awaiting or
- * measured runs; without it that case throws CampaignHasRunsError.
- */
-export async function runFile(
-  file: File,
-  target?: string,
-  roles?: ColumnRolesInput,
-  sheet?: string,
-  opts: { replace?: boolean } = {},
-): Promise<AnalyzeResult> {
-  const fd = new FormData();
-  fd.append("file", file);
-  if (target) fd.append("target", target);
-  if (roles) fd.append("roles", JSON.stringify(roles));
-  if (sheet) fd.append("sheet", sheet);
-  if (opts.replace) fd.append("replace", "true");
-  let r: Response;
-  try {
-    r = await fetch(`${API}/api/run`, { method: "POST", body: fd, headers: mutationHeaders() });
-  } catch {
-    throw new EngineError(0, "engine_unreachable");
-  }
-  // A body that is not JSON (a proxy's HTML page, a truncated reply) is a typed failure, not a parse crash.
-  const d = await readJsonBody(r);
-  const refusal = campaignHasRunsRefusal(r.status, d);
-  if (refusal) throw refusal;
-  if (r.ok && d) return d as AnalyzeResult;
-  // A 400 with the documented { error } body is an expected "bad upload" the caller renders inline
-  // (see setup/page.tsx); it is returned, not thrown.
-  if (r.status === 400 && d && typeof d.error === "string") return d as AnalyzeResult;
-  // Everything else is a failure: the proxy's own code when it sent one, else the code this status means.
-  const code = typeof d?.error === "string" ? d.error : codeForStatus(r.status);
-  throw new EngineError(r.status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined);
-}
-
 async function readJsonBody(r: Response): Promise<Record<string, unknown> | null> {
   try {
     const v: unknown = await r.json();
@@ -687,14 +878,6 @@ export function incumbentLabel(d: Pick<AnalyzeResult, "noise">): string {
   return d.noise?.replicate_aware ? "best reproducible recipe" : "best measured run";
 }
 
-export const getLatest = (): Promise<LatestResult> =>
-  fetch(`${API}/api/latest`).then((r) => {
-    // fetch only rejects on network failure; treat a non-2xx engine response as an
-    // error too, so callers show the offline state instead of a fake "no data".
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
-
 /** The populated (has-data) shape of the latest analysis. */
 export type PopulatedResult = Extract<LatestResult, { has_data: true }>;
 
@@ -727,25 +910,36 @@ export function reliabilityReason(
 ): string {
   const rel = d.reliability;
   if (!rel) return isReliable(d) ? "Clears the trust floor" : "Below the trust floor";
-  const floor = rel.spearman_floor.toFixed(2);
+  if (floorNotJudged(rel)) return NOT_JUDGED_LABEL;
+  const floor = fixed2(rel.spearman_floor);
   if (!rel.clears_floor) return `Below the ${floor} floor`;
   if (!rel.ci_excludes_zero) return `Clears the ${floor} floor, but its 95% CI includes zero`;
   return `Clears the ${floor} floor`;
 }
 
+/** The plain label for a floor the engine did not judge (never shown as a pass or a fail). */
+export const NOT_JUDGED_LABEL = "Not judged: too few runs";
+
+/**
+ * True when the engine did not judge the trust floor (trust layer F04: fewer than 12 runs or 3 CV groups):
+ * `reliability.verdict` "not_judged", or `clears_floor` null. Neither a pass nor a fail.
+ */
+export const floorNotJudged = (rel: Pick<Reliability, "clears_floor" | "verdict"> | null | undefined): boolean =>
+  rel != null && (rel.verdict === "not_judged" || rel.clears_floor === null);
+
 export function isReliable(d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">): boolean {
   const rel = d.reliability;
-  if (rel) return rel.clears_floor && rel.ci_excludes_zero;
+  if (rel) return rel.clears_floor === true && rel.ci_excludes_zero;
   const ci = d.cv_ci95 ?? null;
   return d.cv_spearman != null && ci != null && ci[0] > 0;
 }
 
-export type ReliabilityState = "reliable" | "not-yet" | "insufficient";
+export type ReliabilityState = "reliable" | "not-yet" | "not-judged" | "insufficient";
 
 export type ReliabilityVerdict = {
   state: ReliabilityState;
-  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not enough data". */
-  label: "Reliable" | "Not yet reliable" | "Not enough data";
+  /** The plain label every surface shows: "Reliable", "Not yet reliable", "Not judged: too few runs", "Not enough data". */
+  label: "Reliable" | "Not yet reliable" | typeof NOT_JUDGED_LABEL | "Not enough data";
   /** Held-out rank agreement (Spearman) between predicted and measured order, when measured. */
   rho: number | null;
   /** Its 95% interval, when the engine reported one. */
@@ -763,13 +957,28 @@ export type ReliabilityVerdict = {
  * a separate question with their own line; nothing here reads `promotion`.
  */
 export function reliabilityVerdict(
-  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman">,
+  d: Pick<AnalyzeResult, "reliability" | "cv_ci95" | "cv_spearman"> & Partial<Pick<AnalyzeResult, "verdict">>,
 ): ReliabilityVerdict {
   const rel = d.reliability;
   const rho = rel?.spearman ?? d.cv_spearman ?? null;
   const ci = rel?.ci95 ?? d.cv_ci95 ?? null;
   const floor = rel?.spearman_floor ?? null;
-  const floorText = floor != null ? ` (${floor.toFixed(2)})` : "";
+  const floorText = floor != null ? ` (${fixed2(floor)})` : "";
+  // Trust layer F04: below 12 runs or 3 CV groups the engine does not judge the floor. Not a pass, not a fail.
+  if (floorNotJudged(rel)) {
+    const why = rel?.not_judged_reason ? ` (${rel.not_judged_reason})` : "";
+    return {
+      state: "not-judged",
+      label: NOT_JUDGED_LABEL,
+      rho,
+      ci,
+      floor,
+      reason: `Not judged: too few runs${why}. The trust floor was neither passed nor failed, so treat the model's suggestions as exploration.`,
+    };
+  }
+  // The engine's own verdict can be stricter than the floor (it also needs >= 20 runs and >= 8 groups): never say
+  // "Reliable" while it says "not yet".
+  const engineNotYet = d.verdict?.state === "not_yet" || d.verdict?.state === "refused";
   if (rho == null) {
     return {
       state: "insufficient",
@@ -778,6 +987,16 @@ export function reliabilityVerdict(
       ci,
       floor,
       reason: "There are not enough held-out runs to measure how well the model ranks recipes.",
+    };
+  }
+  if (isReliable(d) && engineNotYet) {
+    return {
+      state: "not-yet",
+      label: "Not yet reliable",
+      rho,
+      ci,
+      floor,
+      reason: d.verdict?.headline ?? `The model clears the trust floor${floorText}, but the engine's verdict is not yet reliable.`,
     };
   }
   if (isReliable(d)) {
@@ -810,6 +1029,31 @@ export function reliabilityVerdict(
           : "The engine did not report a 95% interval for the model's ranking of held-out runs, so it is not confirmed yet.",
   };
 }
+
+/**
+ * Which held-out grouping drove the reliability score (`cv_grouping.used`, trust layer F05), in plain words:
+ * "held-out by batch (5 groups)", "held-out by campaign round (4 groups)", "held-out by replicate group (30 groups)".
+ * Null when the engine did not say (older analyses): nothing is guessed.
+ */
+export function cvGroupingText(g: CvGrouping | null | undefined): string | null {
+  const u = g?.used;
+  if (!u || typeof u.basis !== "string") return null;
+  const by =
+    u.basis === "replicate_clusters"
+      ? "replicate group"
+      : u.basis === "campaign_round"
+        ? "campaign round"
+        : u.column
+          ? u.column
+          : u.basis.replace(/_/g, " ");
+  const n = typeof u.n_groups === "number" && Number.isFinite(u.n_groups) ? ` (${u.n_groups} ${u.n_groups === 1 ? "group" : "groups"})` : "";
+  const merged = u.merged_with_replicates && u.basis !== "replicate_clusters" ? ", replicates kept together" : "";
+  return `held-out by ${by}${n}${merged}`;
+}
+
+/** The engine's sentence for the grouping that drove the score, for a tooltip or disclosure. */
+export const CV_GROUPING_NOTE =
+  "Every grouping the engine could check (replicates, batch, lot, plate, date, round, scale) was cross-validated; the lowest held-out score is the one reported, so runs of one group never sit on both sides of a split.";
 
 /**
  * The conformal band's coverage as a percentage string (`0.9` -> `"90%"`),
@@ -850,13 +1094,21 @@ export function driverSelectionNote(sel: DriverSelection | null | undefined): st
  * measure it on this sheet (`available: false`), returns the engine's own
  * reason rather than a fabricated ECE.
  */
+/**
+ * How far `z_std` may sit from 1 before the UI calls the bands narrow or
+ * wide. The engine reports the number, not a verdict; within this distance
+ * (about the sampling noise of z_std at a few dozen held-out points) the
+ * honest reading is "close to calibrated", not "too narrow".
+ */
+export const Z_STD_TOLERANCE = 0.1;
+
 export function calibrationNote(cal: Calibration | null | undefined): string | null {
   if (!cal) return null;
   if (!cal.available) return `Not scored - ${cal.reason ?? "not enough held-out points"}.`;
-  const parts = [`ECE ${cal.ece != null ? cal.ece.toFixed(2) : "n/a"}`];
+  const parts = [`ECE ${cal.ece != null ? fixed2(cal.ece) : "n/a"}`];
   if (cal.z_std != null) {
-    const shape = cal.z_std > 1 ? "bands read narrow, overconfident" : cal.z_std < 1 ? "bands read wide" : "well-calibrated";
-    parts.push(`z_std ${cal.z_std.toFixed(2)} (${shape})`);
+    const shape = Math.abs(cal.z_std - 1) <= Z_STD_TOLERANCE ? "close to calibrated" : cal.z_std > 1 ? "bands read narrow, overconfident" : "bands read wide";
+    parts.push(`z_std ${fixed2(cal.z_std)} (${shape})`);
   }
   return `${parts.join(" - ")}, n=${cal.n}.`;
 }
@@ -874,8 +1126,8 @@ export function repeatSpreadNote(
 ): string | null {
   const finite = (perRepeat ?? []).filter((v): v is number => v != null);
   if (finite.length < 2) return null;
-  const lo = Math.min(...finite).toFixed(2);
-  const hi = Math.max(...finite).toFixed(2);
+  const lo = fixed2(Math.min(...finite));
+  const hi = fixed2(Math.max(...finite));
   return `${nRepeats ?? finite.length} repeats: ${lo} to ${hi}`;
 }
 
@@ -889,7 +1141,7 @@ export function repeatSpreadNote(
 export function cvLogoNote(logo: CvLogo | null | undefined): string | null {
   if (!logo) return null;
   if (logo.spearman == null) return logo.reason ?? "Not scored.";
-  return `rho ${logo.spearman.toFixed(2)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
+  return `rho ${fixed2(logo.spearman)} across ${logo.n_groups} held-out group${logo.n_groups === 1 ? "" : "s"} (n=${logo.n_oof}).`;
 }
 
 /**
@@ -902,7 +1154,9 @@ export function cvTopKNote(topk: CvTopK | null | undefined): string | null {
   if (!topk) return null;
   if (!topk.evaluable || topk.overlap == null) return topk.reason ?? "Not scored.";
   const hits = Math.round(topk.overlap * topk.k);
-  return `${hits} of the true top ${topk.k} caught (n=${topk.n}).`;
+  // `direction` (engine aa7396a): under minimize the top k are the LOWEST runs.
+  const which = topk.direction === "lowest" ? `lowest ${topk.k}` : `top ${topk.k}`;
+  return `${hits} of the true ${which} caught (n=${topk.n}).`;
 }
 
 /**
@@ -925,7 +1179,7 @@ export function groupMeanBaselineVerdict(
     return { text: baseline.reason ?? "Not scored.", prominent: false };
   }
   const beats = cvSpearman != null && cvSpearman > baseline.spearman;
-  const text = `Group-mean baseline rho ${baseline.spearman.toFixed(2)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
+  const text = `Group-mean baseline rho ${fixed2(baseline.spearman)} (n=${baseline.n_evaluable} rows, ${baseline.n_groups_used} groups)${
     baseline.interpretation ? ` - ${baseline.interpretation}` : ""
   }`;
   return { text, prominent: !beats };
@@ -941,7 +1195,7 @@ export function groupMeanBaselineVerdict(
 export function designBoxExclusionsNote(exclusions: DesignBoxExclusion[] | null | undefined): string | null {
   if (!exclusions || exclusions.length === 0) return null;
   const parts = exclusions.map(
-    (e) => `${e.column} (${e.lower.toFixed(2)} to ${e.upper.toFixed(2)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
+    (e) => `${e.column} (${fixed2(e.lower)} to ${fixed2(e.upper)}, ${e.n_excluded} row${e.n_excluded === 1 ? "" : "s"} excluded)`,
   );
   return `Search box narrowed for ${exclusions.length} feature${exclusions.length === 1 ? "" : "s"}: ${parts.join("; ")}.`;
 }
@@ -998,9 +1252,9 @@ export function isUnmeasuredFailure(failure: string): boolean {
 }
 
 // --- Campaign loop client (kalos/docs/CAMPAIGN_LOOP.md) -------------------
-// The closed optimization loop behind /decide: propose -> run -> log outcome
+// The closed optimization loop (Predict -> Validate): propose -> run -> log outcome
 // -> re-propose. A campaign is one target plus a growing (recipe -> outcome)
-// table; `/api/campaign` reflects it, `/api/campaign/reanalyze` is the loop
+// table; `GET /api/campaigns/{id}` reflects it, `POST .../reanalyze` is the loop
 // closing (folds measured runs into the base data and re-runs `_analyze`).
 
 /** One recipe started from a proposed batch, awaiting or holding a measured outcome. */
@@ -1015,7 +1269,44 @@ export type CampaignRun = {
   awaiting: boolean;
   /** The round the run was started in; optional until the engine sends it. */
   round?: number;
+  created_at?: number;
+  measured_at?: number | null;
+  /** Which analysis proposed this run (provenance hashes, engine version, seed). */
+  analysis_provenance?: { provenance_sha256?: string; input_sha256?: string; config_sha256?: string; engine_version?: string; seed?: number; timestamp?: number } | null;
+  /** Result versioning (present once a result was recorded or corrected). */
+  result_version?: number;
+  previous_result?: number | null;
+  result_reason?: string | null;
+  result_actor?: string | null;
+  result_recorded_at?: number | null;
+  /** Who supplied `pred`/`std`: "engine" (matched a published proposal at start) or "caller". Null on legacy runs. */
+  pred_source?: "engine" | "caller" | null;
+  /** The engine's own prediction and band recorded when the run started (R5). Null on legacy runs. */
+  prediction_at_start?: PredictionAtStart | null;
+  /** measured − predicted (derived), against the prediction recorded at start. Null while awaiting or without one. */
+  residual?: number | null;
+  residual_basis?: string | null;
+  /** Whether the measured value fell inside the band recorded at start. */
+  inside_band?: boolean | null;
 };
+
+export type PredictionAtStart =
+  | {
+      available: true;
+      basis: string;
+      pred: number;
+      std: number;
+      std_method?: string;
+      interval: { lo: number; hi: number; half_width: number; coverage: number; method: string } | null;
+      interval_unavailable_reason: string | null;
+      proposal_index?: number;
+      analysis_provenance?: Record<string, unknown>;
+      analysis_generation?: string;
+      recorded_at?: number;
+      intervals?: ProposalInterval[];
+      gp_intervals?: GpInterval[];
+    }
+  | { available: false; reason: string };
 
 /** The engine's own stage state (forward-compatible: optional until the engine sends it). */
 export type EngineStage = {
@@ -1036,6 +1327,8 @@ export type Campaign =
       features: string[];
       n_base: number;
       best: number | null;
+      /** Optimization direction (`best` is the minimum when minimizing). Absent on older engines. */
+      goal?: Goal;
       round: number;
       /**
        * The progress trajectory: one { round, best, n_base } point per round
@@ -1048,7 +1341,7 @@ export type Campaign =
       n_awaiting: number;
       n_measured: number;
       /**
-       * Whether /api/latest provably describes this campaign as it is now
+       * Whether the campaign analysis provably describes this campaign as it is now
        * (kalos/docs/CAMPAIGN_LOOP.md, "Analysis/campaign coherence"). Every
        * campaign write (start, result, fold, reseed) re-mints the stamp, so
        * this is false from the first run started after an analysis until the
@@ -1089,13 +1382,7 @@ export function campaignComparisons(c: Extract<Campaign, { has_campaign: true }>
   });
 }
 
-export const getCampaign = (): Promise<Campaign> =>
-  fetch(`${API}/api/campaign`).then((r) => {
-    if (!r.ok) throw new Error(`engine responded ${r.status}`);
-    return r.json();
-  });
-
-/** A recipe about to be started, in the shape POST /api/campaign/start expects. */
+/** A recipe about to be started, in the shape POST /api/campaigns/{id}/runs expects. */
 export type StartRecipe = {
   recipe: Record<string, number>;
   pred: number;
@@ -1103,52 +1390,6 @@ export type StartRecipe = {
   mode: string;
   reason: string;
 };
-
-export async function startRuns(recipes: StartRecipe[]): Promise<void> {
-  const r = await fetch(`${API}/api/campaign/start`, {
-    method: "POST",
-    headers: mutationHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ recipes }),
-  });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
-}
-
-export class CampaignResultError extends Error {
-  constructor(message: string, readonly code: string | null) {
-    super(message);
-    this.name = "CampaignResultError";
-  }
-}
-
-export async function logResult(id: string, value: number, reason?: string): Promise<void> {
-  const r = await fetch(`${API}/api/campaign/result`, {
-    method: "POST",
-    headers: mutationHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ id, value, reason }),
-  });
-  if (!r.ok) {
-    // The documented 400 body is { error }; fall back to a status-based
-    // message for anything else (network hiccup, unexpected 5xx shape).
-    let message = `engine responded ${r.status}`;
-    let code: string | null = null;
-    try {
-      const body: unknown = await r.json();
-      if (body && typeof body === "object") {
-        if ("error" in body && typeof body.error === "string") message = body.error;
-        if ("code" in body && typeof body.code === "string") code = body.code;
-      }
-    } catch {
-      // Body wasn't JSON - keep the status-based message.
-    }
-    throw new CampaignResultError(message, code);
-  }
-}
-
-export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
-  const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST", headers: mutationHeaders() });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
-  return r.json();
-}
 
 // --- Optional AI providers (GET /api/providers) -----------------------------
 // Documented optional upgrades some validation checks can use when a key is
@@ -1172,5 +1413,459 @@ export const getProviders = (): Promise<ProvidersResponse> =>
     if (!r.ok) throw new Error(`engine responded ${r.status}`);
     return r.json();
   });
+
+// --- Multi-campaign API (kalos-engine docs/CAMPAIGNS_API.md) ---------------
+// Every campaign-scoped read and write the app makes. The legacy single-
+// campaign routes above act only on the tenant's DEFAULT campaign; the pages
+// use these instead, so a campaign created here is never confused with it.
+
+/** A campaign's identity and lifecycle (not its data: see `Campaign` for the summary). */
+export type CampaignMeta = {
+  id: string;
+  name: string;
+  created_by: string | null;
+  created_at: number;
+  updated_at: number;
+  archived_at: number | null;
+  archived: boolean;
+  /** True once a sheet was uploaded and the campaign has base data. */
+  seeded: boolean;
+  /** The campaign the legacy /api/run, /api/campaign routes act on. */
+  is_default: boolean;
+};
+
+export type CampaignDetail = { campaign: CampaignMeta; summary: Campaign };
+
+/** Background analysis job (kalos-engine docs/JOBS.md). Stage and progress are the engine's, reported at stage boundaries. */
+export type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled" | "timed_out";
+export type Job = {
+  id: string;
+  campaign_id: string;
+  kind: string;
+  state: JobState;
+  /** queued | parsing | fitting | calibrating | proposing | publishing | succeeded (or a terminal state). */
+  stage: string;
+  /** 0-1, reported at stage boundaries, not per iteration. */
+  progress: number;
+  attempts: number;
+  created_at: number;
+  started_at: number | null;
+  finished_at: number | null;
+  updated_at: number;
+  cancel_requested: boolean;
+  input_bytes: number | null;
+  /** Fixed engine text; never the exception text. */
+  error: { code: string; message: string } | null;
+  campaign_generation: string | null;
+};
+
+export const isJobActive = (j: Pick<Job, "state"> | null | undefined): boolean => j?.state === "queued" || j?.state === "running";
+
+/** The engine's `{ error, code }` envelope as a typed EngineError (code, plus the engine's own sentence when it sent one). */
+async function failure(r: Response): Promise<EngineError> {
+  return failureFrom(r.status, await readJsonBody(r));
+}
+
+function failureFrom(status: number, d: Record<string, unknown> | null): EngineError {
+  const code = typeof d?.code === "string" ? d.code : typeof d?.error === "string" && /^[a-z][a-z0-9_]*$/.test(d.error) ? d.error : codeForStatus(status);
+  const detail = typeof d?.error === "string" && d.error !== code ? d.error : undefined;
+  const fix = typeof d?.what_would_fix_it === "string" && d.what_would_fix_it ? d.what_would_fix_it : undefined;
+  return new EngineError(status, code, typeof d?.limit_mb === "number" ? d.limit_mb : undefined, detail, fix);
+}
+
+async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  let r: Response;
+  try {
+    r = await fetch(`${API}${path}`, init);
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  if (!r.ok) throw await failure(r);
+  return (await r.json()) as T;
+}
+
+const jsonInit = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: mutationHeaders({ "Content-Type": "application/json" }),
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
+const enc = encodeURIComponent;
+
+export const listCampaigns = (includeArchived = false): Promise<CampaignMeta[]> =>
+  call<{ campaigns: CampaignMeta[] }>(`/api/campaigns${includeArchived ? "?include_archived=true" : ""}`).then((d) => d.campaigns);
+
+export const createCampaign = (name: string): Promise<CampaignMeta> => call<CampaignMeta>("/api/campaigns", jsonInit("POST", { name }));
+
+/** Rename, or archive/unarchive (archiving needs an admin with a recent second factor). */
+export const updateCampaign = (id: string, patch: { name?: string; archived?: boolean }): Promise<CampaignMeta> =>
+  call<CampaignMeta>(`/api/campaigns/${enc(id)}`, jsonInit("PATCH", patch));
+
+export const getCampaignDetail = (id: string): Promise<CampaignDetail> => call<CampaignDetail>(`/api/campaigns/${enc(id)}`);
+
+/** The campaign's current analysis: the /api/latest shape, `{ has_data: false }` before the first upload. */
+export const getCampaignAnalysis = (id: string): Promise<LatestResult> => call<LatestResult>(`/api/campaigns/${enc(id)}/analysis`);
+
+export type UploadOptions = { target?: string; roles?: ColumnRolesInput; sheet?: string; replace?: boolean };
+
+/**
+ * Submit an upload as a background job. The engine runs the pre-fit checks
+ * before queueing, so a bad sheet comes back at once as `{ refused }` with
+ * the same `{ error, code, sheets }` body /api/run returns (rendered inline,
+ * not thrown). A campaign with runs and no `replace` throws
+ * CampaignHasRunsError; anything else non-2xx throws EngineError.
+ */
+export async function submitUploadJob(campaignId: string, file: File, opts: UploadOptions = {}): Promise<{ job: Job } | { refused: AnalyzeResult }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (opts.target) fd.append("target", opts.target);
+  if (opts.roles) fd.append("roles", JSON.stringify(opts.roles));
+  if (opts.sheet) fd.append("sheet", opts.sheet);
+  if (opts.replace) fd.append("replace", "true");
+  let r: Response;
+  try {
+    r = await fetch(`${API}/api/campaigns/${enc(campaignId)}/jobs`, { method: "POST", body: fd, headers: mutationHeaders() });
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  if (r.ok) {
+    const d = await readJsonBody(r);
+    if (d && typeof d.job === "object" && d.job) return { job: d.job as Job };
+    throw new EngineError(r.status, "engine_error");
+  }
+  const d = await readJsonBody(r);
+  const refusal = campaignHasRunsRefusal(r.status, d);
+  if (refusal) throw refusal;
+  if (r.status === 400 && d && typeof d.error === "string") return { refused: d as unknown as AnalyzeResult };
+  throw failureFrom(r.status, d);
+}
+
+export const getJob = (jobId: string): Promise<Job> => call<{ job: Job }>(`/api/jobs/${enc(jobId)}`).then((d) => d.job);
+
+export const cancelJob = (jobId: string): Promise<Job> => call<{ job: Job }>(`/api/jobs/${enc(jobId)}/cancel`, jsonInit("POST")).then((d) => d.job);
+
+/** Newest first. */
+export const listJobs = (campaignId: string, limit = 5): Promise<Job[]> =>
+  call<{ jobs: Job[] }>(`/api/campaigns/${enc(campaignId)}/jobs?limit=${limit}`).then((d) => d.jobs);
+
+/** Start recipes from the proposed batch: they become awaiting runs. */
+export const startCampaignRuns = (campaignId: string, recipes: StartRecipe[]): Promise<{ started: CampaignRun[] }> =>
+  call(`/api/campaigns/${enc(campaignId)}/runs`, jsonInit("POST", { recipes }));
+
+/**
+ * Record (or correct) a run's measured value. Results are append-only and
+ * versioned: a correction of an existing value needs a `reason`
+ * (400 `reason_required` otherwise).
+ */
+export const recordCampaignResult = (campaignId: string, runId: string, value: number, reason?: string): Promise<CampaignRun> =>
+  call(`/api/campaigns/${enc(campaignId)}/runs/${enc(runId)}/result`, jsonInit("POST", reason ? { value, reason } : { value }));
+
+/**
+ * Fold measured runs into the base data and re-fit, as a background job
+ * (202): track it with getJob, cancel with cancelJob. Stages: planning,
+ * fitting, calibrating, proposing, publishing. Refused before queueing with
+ * 409 `job_pending`, 400 `nothing_to_fold` / `no_data`, 429, 503 (EngineError).
+ */
+export const submitReanalyzeJob = (campaignId: string): Promise<Job> =>
+  call<{ job: Job }>(`/api/campaigns/${enc(campaignId)}/reanalyze/jobs`, jsonInit("POST")).then((d) => d.job);
+
+// --- Campaign list with summary fields (GET /api/campaigns?summary=true) -----
+
+/** One campaign card: identity plus the engine's summary fields, from ONE list request (no request per campaign). */
+export type CampaignSummaryRow = CampaignMeta & {
+  has_data: boolean;
+  target: string | null;
+  n_base: number;
+  round: number;
+  n_awaiting: number;
+  n_measured: number;
+  goal?: { direction: Goal; source: string };
+  /** Measured, folded rows only: never a prediction. Null before data. */
+  best_measured?: { value: number | null; basis: "measured"; direction: "max" | "min" } | null;
+  analysis?:
+    | { present: false }
+    | {
+        present: true;
+        updated: number;
+        in_sync: boolean;
+        engine_version?: string;
+        cv_spearman: number | null;
+        conformal_q: number | null;
+        conformal_coverage: number | null;
+        reliability: { clears_floor: boolean | null; verdict?: string; not_judged_reason?: string | null; ci_excludes_zero: boolean; spearman: number | null; ci95: [number, number] | null; spearman_floor: number; producer_clears_floor?: boolean } | null;
+        n_proposals: number;
+        /** The stored analysis's model verdict (trust layer F04), when the engine sends it. */
+        verdict?: EngineVerdict | null;
+      };
+  /** The target's display unit (engine 754a87a); absent on older engines (fall back to the header). */
+  target_unit?: TargetUnit | null;
+  current_stage?: string | null;
+  latest_gate_decision?: { gate: string; decision: GateDecision; decided_at: number } | null;
+  active_job?: { id: string; kind: string; state: JobState; progress: number; stage: string } | null;
+};
+
+export const listCampaignSummaries = (opts: { includeArchived?: boolean; limit?: number; cursor?: string } = {}): Promise<{ campaigns: CampaignSummaryRow[]; next_cursor: string | null }> => {
+  const q = new URLSearchParams({ summary: "true" });
+  if (opts.includeArchived) q.set("include_archived", "true");
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.cursor) q.set("cursor", opts.cursor);
+  return call<{ campaigns: CampaignSummaryRow[]; next_cursor?: string | null }>(`/api/campaigns?${q}`).then((d) => ({ campaigns: d.campaigns, next_cursor: d.next_cursor ?? null }));
+};
+
+/**
+ * Every page of the summary list, following `next_cursor`. Stops after `maxPages` requests (or if the engine repeats
+ * a cursor) and says so with `complete: false`, so the caller can show "showing N of more" instead of a short list.
+ */
+export async function listAllCampaignSummaries(
+  opts: { includeArchived?: boolean; limit?: number; maxPages?: number } = {},
+): Promise<{ campaigns: CampaignSummaryRow[]; complete: boolean }> {
+  const { maxPages = 25, ...page } = opts;
+  const campaigns: CampaignSummaryRow[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  for (let n = 0; n < maxPages; n++) {
+    const d = await listCampaignSummaries({ ...page, cursor });
+    campaigns.push(...d.campaigns);
+    if (!d.next_cursor) return { campaigns, complete: true };
+    if (seen.has(d.next_cursor)) break;
+    seen.add(d.next_cursor);
+    cursor = d.next_cursor;
+  }
+  return { campaigns, complete: false };
+}
+
+// --- Setup: goal, bounds, linear constraints, target unit (GET/PUT /setup) ----
+
+export type LinearConstraint = { coefficients: Record<string, number>; op: "<=" | ">="; rhs: number };
+export type SetupDoc = {
+  goal: Goal;
+  bounds: Record<string, { lo: number | null; hi: number | null }>;
+  linear_constraints: LinearConstraint[];
+  target_unit: string | null;
+};
+export type SetupView = {
+  campaign_id: string;
+  setup: SetupDoc;
+  source: "default" | "stored" | "unreadable";
+  hash: string;
+  updated_at: number | null;
+  updated_by: string | null;
+  bounds_report: Record<string, { lo: number | null; hi: number | null; observed: [number, number] | null; effective: [number, number] | null; extrapolates: boolean }>;
+  has_analysis: boolean;
+  analysis_setup_hash: string | null;
+  /** false: the setup changed since the analysis, re-analyze to apply it. null: no analysis yet. */
+  settings_in_sync: boolean | null;
+};
+
+export const getSetup = (campaignId: string): Promise<SetupView> => call<SetupView>(`/api/campaigns/${enc(campaignId)}/setup`);
+
+/** Replace the whole setup. 400 codes (EngineError.code): invalid_bounds, infeasible_constraints, constraints_with_categoricals, bounds_outside_data, ... */
+export const putSetup = (campaignId: string, doc: SetupDoc): Promise<SetupView> => call<SetupView>(`/api/campaigns/${enc(campaignId)}/setup`, jsonInit("PUT", doc));
+
+// --- Stage track and go/no-go gates (recorded by people, never computed) -----
+
+export type GateDecision = "go" | "no_go" | "pending";
+export type GateEvidenceRef = { kind: "analysis" | "scale_readout" | "job" | "run"; id: string; label?: string };
+export type GateRecord = {
+  id: number;
+  gate: string;
+  decision: GateDecision;
+  note: string;
+  evidence_linked: GateEvidenceRef[];
+  decided_by: string;
+  auth_method?: string;
+  decided_at: number;
+  basis: "recorded";
+};
+export type StageDef = {
+  key: string;
+  label: string;
+  min_L: number | null;
+  max_L: number | null;
+  nominal_L: number[] | null;
+  volume_unit?: string;
+  gate: { key: string; decision: GateDecision | null; state: "open" | "recorded"; basis: string; current: GateRecord | null; history_count: number };
+};
+export type StagesView = {
+  campaign_id: string;
+  source: "default" | "campaign";
+  updated_at: number | null;
+  updated_by: string | null;
+  current_stage: string | null;
+  current_stage_basis: string;
+  stages: StageDef[];
+  orphaned_gates: unknown[];
+};
+export type ComputedEvidence =
+  | {
+      available: true;
+      basis: "computed";
+      source: string;
+      scope: string;
+      note: string;
+      analysis_updated_at: number | null;
+      campaign_generation?: string;
+      target: string | null;
+      n_measured: number | null;
+      best_measured: { value: number | null; basis: "measured" } | null;
+      reliability: { basis: string; method: string; spearman: number | null; ci95: [number, number] | null; spearman_floor: number | null; clears_floor: boolean | null; ci_excludes_zero: boolean | null; verdict?: string; not_judged_reason?: string | null } | null;
+      promotion: { basis: string; passed: boolean; failures: string[]; summary: string } | null;
+    }
+  | { available: false; basis: "computed"; code: string; reason: string; what_would_fix_it?: string };
+export type GateView = {
+  key: string;
+  stage_label: string;
+  in_stage_definitions: boolean;
+  decision: GateDecision | null;
+  state: "open" | "recorded";
+  basis: string;
+  current: GateRecord | null;
+  history_count: number;
+  history: GateRecord[];
+  history_truncated: boolean;
+  computed_evidence: ComputedEvidence;
+};
+export type GatesView = {
+  campaign_id: string;
+  stages_source: string;
+  current_stage: string | null;
+  history_preview?: number;
+  gates: GateView[];
+  orphaned_gates: GateView[];
+  orphaned_gates_total?: number;
+  orphaned_gates_truncated?: boolean;
+};
+
+export const getStages = (campaignId: string): Promise<StagesView> => call<StagesView>(`/api/campaigns/${enc(campaignId)}/stages`);
+
+/** Replace the stage definitions; `current_stage` is required (null clears it) and is set by a person. */
+export const putStages = (
+  campaignId: string,
+  body: { stages: { key: string; label: string; min_L?: number | null; max_L?: number | null; nominal_L?: number[] | null }[]; current_stage: string | null },
+): Promise<StagesView> => call<StagesView>(`/api/campaigns/${enc(campaignId)}/stages`, jsonInit("PUT", body));
+
+export const getGates = (campaignId: string): Promise<GatesView> => call<GatesView>(`/api/campaigns/${enc(campaignId)}/gates`);
+
+export const getGateHistory = (campaignId: string, gate: string, opts: { limit?: number; beforeId?: number } = {}): Promise<{ items: GateRecord[]; has_more: boolean; next_before_id: number | null }> => {
+  const q = new URLSearchParams();
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.beforeId != null) q.set("before_id", String(opts.beforeId));
+  return call(`/api/campaigns/${enc(campaignId)}/gates/${enc(gate)}/history${q.size ? `?${q}` : ""}`);
+};
+
+/** Record a human go/no-go decision (append-only; the server sets who and when). A note is required. */
+export const recordGateDecision = (
+  campaignId: string,
+  gate: string,
+  body: { decision: GateDecision; note: string; evidence?: GateEvidenceRef[] },
+): Promise<{ campaign_id: string; recorded: GateRecord; gate: GateView }> => call(`/api/campaigns/${enc(campaignId)}/gates/${enc(gate)}`, jsonInit("PUT", body));
+
+// --- Report: raw rows, result history + audit log, operating ranges ----------
+
+export type RowsExport = {
+  campaign_id: string;
+  has_data: boolean;
+  format: "json";
+  target: string | null;
+  columns: string[];
+  original_rows_identifiable: boolean;
+  original_rows_reason: string | null;
+  original_rows: { origin: string; round: number; n: number; rows: Record<string, unknown>[] } | null;
+  folded_rows: { origin: string; n: number; rows: { origin: string; folded_in_round: number; values: Record<string, unknown> }[] } | null;
+  unattributed_rows: { origin: string; n: number; rows: Record<string, unknown>[] } | null;
+  anonymization: { applied: boolean } & Record<string, unknown>;
+  provenance: Record<string, unknown>;
+};
+
+export const exportRowsJson = (campaignId: string): Promise<RowsExport> => call<RowsExport>(`/api/campaigns/${enc(campaignId)}/export/rows?format=json`);
+
+/**
+ * The rows as the engine's CSV (formula-neutralized), with the engine's X-Kalos-Content-Sha256 and
+ * X-Kalos-Anonymized headers when sent (the proxy passes both, shape-checked).
+ */
+export async function exportRowsCsv(campaignId: string): Promise<{ blob: Blob; filename: string | null; contentSha256: string | null; anonymized: boolean | null }> {
+  let r: Response;
+  try {
+    r = await fetch(`${API}/api/campaigns/${enc(campaignId)}/export/rows?format=csv`);
+  } catch {
+    throw new EngineError(0, "engine_unreachable");
+  }
+  if (!r.ok) throw await failure(r);
+  const cd = r.headers.get("content-disposition") ?? "";
+  const m = /filename="?([^";]+)"?/i.exec(cd);
+  const sha = r.headers.get("x-kalos-content-sha256");
+  const anon = r.headers.get("x-kalos-anonymized");
+  return { blob: await r.blob(), filename: m ? m[1] : null, contentSha256: sha && /^[0-9a-f]{64}$/.test(sha) ? sha : null, anonymized: anon === "true" ? true : anon === "false" ? false : null };
+}
+
+export type ResultHistoryItem = {
+  id: number;
+  run_id: string;
+  version: number;
+  value: number;
+  previous_value: number | null;
+  reason: string | null;
+  actor: string | null;
+  auth_method?: string;
+  recorded_at: number;
+  is_correction: boolean;
+  basis: "measured";
+};
+export type AuditItem = {
+  id: number;
+  ts: number;
+  subject: string | null;
+  auth_method?: string;
+  action: string;
+  campaign_id?: string | null;
+  job_id?: string | null;
+  outcome: string;
+  request_id?: string | null;
+  detail: string | null;
+};
+export type ResultHistory = {
+  campaign_id: string;
+  limit: number;
+  results?: { items: ResultHistoryItem[]; has_more: boolean; next_before_id: number | null };
+  audit?: { items: AuditItem[]; has_more: boolean; next_before_id: number | null };
+  notes?: Record<string, string>;
+};
+
+export const getResultHistory = (
+  campaignId: string,
+  opts: { section?: "all" | "results" | "audit"; limit?: number; resultsBeforeId?: number; auditBeforeId?: number } = {},
+): Promise<ResultHistory> => {
+  const q = new URLSearchParams();
+  if (opts.section) q.set("section", opts.section);
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.resultsBeforeId != null) q.set("results_before_id", String(opts.resultsBeforeId));
+  if (opts.auditBeforeId != null) q.set("audit_before_id", String(opts.auditBeforeId));
+  return call<ResultHistory>(`/api/campaigns/${enc(campaignId)}/results/history${q.size ? `?${q}` : ""}`);
+};
+
+export type OperatingRanges =
+  | {
+      campaign_id?: string;
+      status: "computed";
+      method: string;
+      basis: "predicted";
+      model_based: true;
+      must_verify_experimentally: true;
+      statement: string;
+      rule: Record<string, unknown>;
+      model?: Record<string, unknown>;
+      sampling?: Record<string, unknown>;
+      anchor?: Record<string, unknown>;
+      ranges: { feature: string; low: number; high: number; design_low: number; design_high: number; basis: string }[];
+      box?: Record<string, unknown>;
+      fraction_of_design_space_meeting_rule: number | null;
+      reliability?: Record<string, unknown>;
+      caveats?: string[];
+    }
+  | { campaign_id?: string; status: "not_computed"; reason_code: string; reason: string; what_would_fix_it?: string; diagnostics?: Record<string, unknown> };
+
+/** Compute (write scope: it refits the GP and occupies the analysis slot; the proxy offers only this POST form) the model-based operating box, or the engine's not_computed reason. */
+export const computeOperatingRanges = (campaignId: string, body: { threshold: number; probability: number }): Promise<OperatingRanges> =>
+  call<OperatingRanges>(`/api/campaigns/${enc(campaignId)}/operating-ranges`, jsonInit("POST", { ...body, basis: "target" }));
 
 export { API };

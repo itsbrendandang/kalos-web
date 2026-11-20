@@ -1,0 +1,41 @@
+{
+ "setup": {
+  "status": "refused",
+  "goal": "minimize",
+  "hash": "f63464346c98306977a8454c86f91d7dbe7f4f891f3fd7a3464e43dafbb9562b",
+  "bounds_applied": {},
+  "constraints_applied": [],
+  "warnings": [
+   {
+    "code": "gp_shapes_swept_at_highest_run",
+    "message": "gp_shapes sweeps each feature through the run with the HIGHEST measured target; with goal=minimize, read its interior_minimum entries as the candidate optima"
+   },
+   {
+    "code": "bound_extrapolates",
+    "message": "this bound reaches past the observed data range; proposals stay inside the observed range (the model is not extrapolated)",
+    "feature": "pH"
+   }
+  ],
+  "refusal": {
+   "code": "constraints_with_categoricals",
+   "reason": "this sheet has categorical features, and the optimizer does not support linear constraints together with categorical dimensions; proposals are withheld rather than ignoring the constraints",
+   "what_would_fix_it": "remove the linear constraints from the campaign setup, or the categorical column from the sheet"
+  },
+  "n_proposals_dropped": 0,
+  "sign_convention": "drivers[].rho, cv_spearman and gp_shapes describe the target as measured (a positive rho means the target rises with the feature) whatever the goal; with goal=minimize a NEGATIVE driver is the one that helps."
+ },
+ "goal": "minimize",
+ "target_unit": {
+  "unit": "g/L",
+  "source": "user",
+  "header": "titer_g_L",
+  "note": "set by the user in the campaign setup"
+ },
+ "proposal_notice": {
+  "code": "setup_not_applied",
+  "requested": 5,
+  "returned": 0,
+  "min_separation": null,
+  "message": "No proposals: the campaign setup (goal, bounds, linear constraints) could not be applied to this sheet (constraints_with_categoricals). See `setup.refusal`."
+ }
+}

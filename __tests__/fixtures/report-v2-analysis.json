@@ -1,0 +1,1258 @@
+{
+ "has_data": true,
+ "n": 160,
+ "d": 11,
+ "target": "titer_g_L",
+ "group_col": null,
+ "targets": [
+  "titer_g_L"
+ ],
+ "features": [
+  "pH",
+  "temperature_C",
+  "glucose_gL",
+  "glutamine_mM",
+  "feed_rate_mLh",
+  "DO_pct",
+  "agitation_rpm",
+  "inoculum_1e6",
+  "antifoam_mgL",
+  "osmolality_mOsm",
+  "medium_base"
+ ],
+ "categorical_features": [
+  "medium_base"
+ ],
+ "n_dropped_incomplete": 0,
+ "n_censored_excluded": 0,
+ "data_drops": {
+  "rows_dropped": 0,
+  "censored_rows_excluded": 0,
+  "cells_by_reason": {
+   "missing": 0,
+   "non_numeric": 0,
+   "censored": 0
+  },
+  "cells_by_column": {},
+  "blank_cells_as_absent": {}
+ },
+ "auto_categorical": [
+  "medium_base"
+ ],
+ "header_row": 0,
+ "proposal_optimizer": "mixed_exact",
+ "n_pending_considered": 0,
+ "n_pending_dropped": 0,
+ "cv_spearman": 0.655,
+ "cv_ci95": [
+  0.539,
+  0.767
+ ],
+ "cv_n_groups": 160,
+ "cv_n_repeats": 2,
+ "cv_spearman_per_repeat": [
+  0.655,
+  0.67
+ ],
+ "conformal_q": 0.2036,
+ "conformal_coverage": 0.9,
+ "interval_levels": [
+  0.9,
+  0.95
+ ],
+ "interval_method": {
+  "method": "conformal_normalized",
+  "calibrated_on": "grouped_cv_oof",
+  "score": "abs(y - mu_oof) / sigma_oof",
+  "quantile": "k-th smallest score, k = ceil((n + 1) * coverage)",
+  "sigma": "gp_predictive_sd",
+  "sigma_source": "surrogate_fitted_noise",
+  "n_calibration": 160,
+  "coverage_guarantee": "approximate: out-of-fold scores come from grouped-CV fold models and are not exactly exchangeable with a proposal from the full-data model",
+  "empirical_oof_coverage_note": "in-sample: counted on the same scores that set q_norm, so it is >= rank / n by construction; coverage_by_sigma_half shows whether the band adapts to the model's sd",
+  "levels": [
+   {
+    "coverage": 0.9,
+    "available": true,
+    "q_norm": 2.1618,
+    "rank": 145,
+    "n_calibration": 160,
+    "empirical_oof_coverage": 0.9062,
+    "n_inside": 145,
+    "coverage_by_sigma_half": {
+     "low_sigma": {
+      "n": 80,
+      "coverage": 0.8875
+     },
+     "high_sigma": {
+      "n": 80,
+      "coverage": 0.925
+     }
+    }
+   },
+   {
+    "coverage": 0.95,
+    "available": true,
+    "q_norm": 3.1508,
+    "rank": 153,
+    "n_calibration": 160,
+    "empirical_oof_coverage": 0.9563,
+    "n_inside": 153,
+    "coverage_by_sigma_half": {
+     "low_sigma": {
+      "n": 80,
+      "coverage": 0.9375
+     },
+     "high_sigma": {
+      "n": 80,
+      "coverage": 0.975
+     }
+    }
+   }
+  ],
+  "gp_posterior": {
+   "gp_intervals": "observation (latent + observation noise), one new measurement",
+   "quantiles": "observation (latent + observation noise), one new measurement",
+   "expected_improvement": "latent mean (no observation noise)",
+   "p_improve": "latent mean (no observation noise)",
+   "incumbent": "the value the proposal annotation compares against (best single measurement, or best replicate-averaged recipe mean when the replicate-aware surrogate proposed); analytic EI is reported for ranking context, the batch itself was chosen by qLogNEI",
+   "note": "model-based, not held-out calibrated"
+  }
+ },
+ "driver_selection": {
+  "n_tested": 10,
+  "n_reported": 8,
+  "top_k": 8,
+  "fdr_method": "benjamini_hochberg",
+  "fdr_q": 0.05,
+  "n_bootstrap": 200,
+  "ranked_by": "abs_rho",
+  "unit": "recipe",
+  "n_units": 160,
+  "n_rows": 160
+ },
+ "reliability": {
+  "spearman": 0.655,
+  "ci95": [
+   0.539,
+   0.767
+  ],
+  "spearman_floor": 0.2,
+  "clears_floor": true,
+  "producer_spearman": 0.898,
+  "producer_clears_floor": true,
+  "n_producers": 90,
+  "producer_threshold": 0.0,
+  "ci_excludes_zero": true,
+  "calibration": {
+   "available": true,
+   "reason": null,
+   "n": 160,
+   "judgeable": true,
+   "judgement": null,
+   "judge_min_n": 20,
+   "ece": 0.0844,
+   "z_std": 1.4034,
+   "levels": [
+    {
+     "nominal": 0.5,
+     "empirical": 0.7063
+    },
+    {
+     "nominal": 0.8,
+     "empirical": 0.8187
+    },
+    {
+     "nominal": 0.9,
+     "empirical": 0.8562
+    },
+    {
+     "nominal": 0.95,
+     "empirical": 0.8812
+    }
+   ]
+  },
+  "unmodeled": [
+   "feasibility probability",
+   "scale-up transfer"
+  ],
+  "space_filling_advice": null
+ },
+ "promotion": {
+  "passed": false,
+  "failures": [
+   "feasibility_auc=0.626 < min 0.65"
+  ],
+  "metrics": {
+   "surrogate_spearman": 0.6552302402417068,
+   "feasibility_auc": 0.6255555555555555,
+   "ece": 0.10220926608281616,
+   "brier": 0.24912919509596193
+  },
+  "summary": "GATES FAILED: feasibility_auc=0.626 < min 0.65 (not judged: group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor)",
+  "not_judged": [
+   "group-mean floor: only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor"
+  ],
+  "meaning": "passed=false means \"not yet shown fit to promote\", which includes the case where a required metric is unmeasurable on this data (e.g. an all-producer sheet with no non-producers to score feasibility against). It is not a rejection of the analysis."
+ },
+ "proposal_gating": {
+  "gated": false,
+  "reason": "feasibility CV AUC too low to trust: auc=0.626 < 0.65",
+  "n_infeasible": 70,
+  "feasibility_auc": 0.626,
+  "threshold": 0.0
+ },
+ "constraint": {
+  "column": null,
+  "floor": null,
+  "n_rows_with_value": 0,
+  "applied": false,
+  "reason": "no constraint requested"
+ },
+ "cv_logo": {
+  "spearman": null,
+  "n_groups": null,
+  "n_oof": null,
+  "reason": "no declared/detected group column; leave-one-group-out over the recipe-hash fallback would just be a costlier copy of the grouped CV already reported as cv_spearman"
+ },
+ "cv_topk": {
+  "overlap": 0.4,
+  "k": 5,
+  "n": 160,
+  "evaluable": true,
+  "reason": null
+ },
+ "cv_group_mean_baseline": {
+  "spearman": null,
+  "n_evaluable": 0,
+  "n_groups_used": 0,
+  "interpretation": null,
+  "reason": "only 0 recipes have 2+ rows; need at least 5 to compute a group-mean floor",
+  "margin": {
+   "evaluable": false,
+   "passed": null,
+   "reason": "only 0 recipes have 2+ rows; need at least 5 to form a group-mean floor"
+  }
+ },
+ "best": 1.422,
+ "noise": {
+  "n_recipes": 160,
+  "n_replicated": 0,
+  "replicate_aware": false,
+  "icc": null,
+  "n_exact_duplicates": 0,
+  "noise_sd": null,
+  "signal_sd": 0.2288,
+  "best_single": 1.422,
+  "best_reproducible": null,
+  "scale": {
+   "variance_mean_rho": null,
+   "homoscedastic": null,
+   "icc_raw": null,
+   "icc_log": null,
+   "icc_gain": null,
+   "log_offset": null,
+   "suggests_transform": false,
+   "reason": "only 0 replicated recipe(s); at least 4 are needed to relate within-recipe variance to recipe mean"
+  }
+ },
+ "alternative_scale": {
+  "scale": null,
+  "offset": null,
+  "cv_spearman": null,
+  "cv_ci95": null,
+  "calibration": null,
+  "icc": null,
+  "interpretation": null,
+  "reason": "only 0 replicated recipe(s); at least 4 are needed to relate within-recipe variance to recipe mean"
+ },
+ "drivers": [
+  {
+   "name": "temperature_C",
+   "rho": 0.318,
+   "ci95": [
+    0.177,
+    0.457
+   ],
+   "p": 4.1e-05,
+   "ci_excludes_zero": true,
+   "survives_fdr": true,
+   "significant": true
+  },
+  {
+   "name": "osmolality_mOsm",
+   "rho": -0.202,
+   "ci95": [
+    -0.336,
+    -0.055
+   ],
+   "p": 0.010386,
+   "ci_excludes_zero": true,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "pH",
+   "rho": 0.164,
+   "ci95": [
+    0.021,
+    0.318
+   ],
+   "p": 0.038097,
+   "ci_excludes_zero": true,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "agitation_rpm",
+   "rho": -0.143,
+   "ci95": [
+    -0.263,
+    0.008
+   ],
+   "p": 0.072025,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "inoculum_1e6",
+   "rho": 0.101,
+   "ci95": [
+    -0.057,
+    0.243
+   ],
+   "p": 0.203386,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "feed_rate_mLh",
+   "rho": 0.078,
+   "ci95": [
+    -0.077,
+    0.238
+   ],
+   "p": 0.326903,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "DO_pct",
+   "rho": 0.076,
+   "ci95": [
+    -0.058,
+    0.227
+   ],
+   "p": 0.338261,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  },
+  {
+   "name": "glucose_gL",
+   "rho": -0.027,
+   "ci95": [
+    -0.176,
+    0.142
+   ],
+   "p": 0.736088,
+   "ci_excludes_zero": false,
+   "survives_fdr": false,
+   "significant": false
+  }
+ ],
+ "proposal_features": [
+  "temperature_C",
+  "osmolality_mOsm",
+  "pH",
+  "agitation_rpm"
+ ],
+ "feature_ranges": {
+  "pH": [
+   6.005,
+   7.594
+  ],
+  "temperature_C": [
+   30.039,
+   38.968
+  ],
+  "glucose_gL": [
+   2.004,
+   11.956
+  ],
+  "glutamine_mM": [
+   1.032,
+   8.0
+  ],
+  "feed_rate_mLh": [
+   0.108,
+   1.995
+  ],
+  "DO_pct": [
+   20.306,
+   79.688
+  ],
+  "agitation_rpm": [
+   101.777,
+   399.907
+  ],
+  "inoculum_1e6": [
+   0.201,
+   1.995
+  ],
+  "antifoam_mgL": [
+   0.17,
+   49.971
+  ],
+  "osmolality_mOsm": [
+   280.044,
+   359.948
+  ]
+ },
+ "proposal_notice": null,
+ "batch_diversity": {
+  "requested": 5,
+  "returned": 5,
+  "near_duplicates_replaced": 0,
+  "min_separation": 0.05,
+  "metric": "max over continuous factors of |difference| / factor range; any differing categorical level counts as fully distinct"
+ },
+ "proposals": [
+  {
+   "pred": 1.75,
+   "std": 0.069,
+   "mode": "exploit",
+   "reason": "predicted high (+0.328 vs best)",
+   "vals": [
+    36.194,
+    310.452,
+    6.974,
+    216.403
+   ],
+   "recipe": {
+    "pH": 6.974,
+    "temperature_C": 36.194,
+    "glucose_gL": 8.275,
+    "glutamine_mM": 5.089,
+    "feed_rate_mLh": 1.653,
+    "DO_pct": 54.593,
+    "agitation_rpm": 216.403,
+    "inoculum_1e6": 1.143,
+    "antifoam_mgL": 30.003,
+    "osmolality_mOsm": 310.452,
+    "medium_base": "ProCHO"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.5996,
+   "predictive_std": 0.0717,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5951,
+     "hi": 1.9051,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5242,
+     "hi": 1.976,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6322,
+     "hi": 1.868
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6096,
+     "hi": 1.8906
+    }
+   ],
+   "quantiles": {
+    "basis": "gp_posterior",
+    "posterior": "observation",
+    "note": "model-based, not held-out calibrated",
+    "p05": 1.6322,
+    "p25": 1.7018,
+    "p50": 1.7501,
+    "p75": 1.7985,
+    "p95": 1.868
+   },
+   "expected_improvement": {
+    "value": 0.3281,
+    "method": "analytic_ei_gp_posterior",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   },
+   "p_improve": {
+    "value": 1.0,
+    "method": "gp_posterior_cdf",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   }
+  },
+  {
+   "pred": 1.715,
+   "std": 0.064,
+   "mode": "exploit",
+   "reason": "predicted high (+0.293 vs best)",
+   "vals": [
+    36.166,
+    309.519,
+    6.967,
+    234.296
+   ],
+   "recipe": {
+    "pH": 6.967,
+    "temperature_C": 36.166,
+    "glucose_gL": 8.317,
+    "glutamine_mM": 5.16,
+    "feed_rate_mLh": 0.789,
+    "DO_pct": 54.877,
+    "agitation_rpm": 234.296,
+    "inoculum_1e6": 1.098,
+    "antifoam_mgL": 49.971,
+    "osmolality_mOsm": 309.519,
+    "medium_base": "CD-CHO"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.6255,
+   "predictive_std": 0.0667,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.571,
+     "hi": 1.8592,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.505,
+     "hi": 1.9252,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6054,
+     "hi": 1.8248
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.5844,
+     "hi": 1.8458
+    }
+   ],
+   "quantiles": {
+    "basis": "gp_posterior",
+    "posterior": "observation",
+    "note": "model-based, not held-out calibrated",
+    "p05": 1.6054,
+    "p25": 1.6701,
+    "p50": 1.7151,
+    "p75": 1.7601,
+    "p95": 1.8248
+   },
+   "expected_improvement": {
+    "value": 0.2931,
+    "method": "analytic_ei_gp_posterior",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   },
+   "p_improve": {
+    "value": 1.0,
+    "method": "gp_posterior_cdf",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   }
+  },
+  {
+   "pred": 1.736,
+   "std": 0.079,
+   "mode": "exploit",
+   "reason": "predicted high (+0.314 vs best)",
+   "vals": [
+    36.178,
+    293.895,
+    6.974,
+    219.665
+   ],
+   "recipe": {
+    "pH": 6.974,
+    "temperature_C": 36.178,
+    "glucose_gL": 8.246,
+    "glutamine_mM": 4.997,
+    "feed_rate_mLh": 1.695,
+    "DO_pct": 54.718,
+    "agitation_rpm": 219.665,
+    "inoculum_1e6": 1.402,
+    "antifoam_mgL": 29.264,
+    "osmolality_mOsm": 293.895,
+    "medium_base": "BalanCD"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.7511,
+   "predictive_std": 0.0807,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5614,
+     "hi": 1.9105,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.4815,
+     "hi": 1.9904,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6031,
+     "hi": 1.8688
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.5777,
+     "hi": 1.8942
+    }
+   ],
+   "quantiles": {
+    "basis": "gp_posterior",
+    "posterior": "observation",
+    "note": "model-based, not held-out calibrated",
+    "p05": 1.6031,
+    "p25": 1.6815,
+    "p50": 1.736,
+    "p75": 1.7904,
+    "p95": 1.8688
+   },
+   "expected_improvement": {
+    "value": 0.314,
+    "method": "analytic_ei_gp_posterior",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   },
+   "p_improve": {
+    "value": 1.0,
+    "method": "gp_posterior_cdf",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   }
+  },
+  {
+   "pred": 1.732,
+   "std": 0.066,
+   "mode": "exploit",
+   "reason": "predicted high (+0.31 vs best)",
+   "vals": [
+    36.198,
+    325.214,
+    6.972,
+    223.472
+   ],
+   "recipe": {
+    "pH": 6.972,
+    "temperature_C": 36.198,
+    "glucose_gL": 8.143,
+    "glutamine_mM": 5.013,
+    "feed_rate_mLh": 1.719,
+    "DO_pct": 54.498,
+    "agitation_rpm": 223.472,
+    "inoculum_1e6": 0.759,
+    "antifoam_mgL": 29.849,
+    "osmolality_mOsm": 325.214,
+    "medium_base": "BalanCD"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.6926,
+   "predictive_std": 0.0683,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5845,
+     "hi": 1.8799,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5169,
+     "hi": 1.9475,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6198,
+     "hi": 1.8446
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.5983,
+     "hi": 1.8662
+    }
+   ],
+   "quantiles": {
+    "basis": "gp_posterior",
+    "posterior": "observation",
+    "note": "model-based, not held-out calibrated",
+    "p05": 1.6198,
+    "p25": 1.6861,
+    "p50": 1.7322,
+    "p75": 1.7783,
+    "p95": 1.8446
+   },
+   "expected_improvement": {
+    "value": 0.3102,
+    "method": "analytic_ei_gp_posterior",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   },
+   "p_improve": {
+    "value": 1.0,
+    "method": "gp_posterior_cdf",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   }
+  },
+  {
+   "pred": 1.728,
+   "std": 0.075,
+   "mode": "exploit",
+   "reason": "predicted high (+0.306 vs best)",
+   "vals": [
+    36.206,
+    313.02,
+    6.979,
+    168.358
+   ],
+   "recipe": {
+    "pH": 6.979,
+    "temperature_C": 36.206,
+    "glucose_gL": 8.364,
+    "glutamine_mM": 5.284,
+    "feed_rate_mLh": 1.297,
+    "DO_pct": 54.596,
+    "agitation_rpm": 168.358,
+    "inoculum_1e6": 1.409,
+    "antifoam_mgL": 32.52,
+    "osmolality_mOsm": 313.02,
+    "medium_base": "BalanCD"
+   },
+   "p_feasible": null,
+   "nearest_training_distance": 0.583,
+   "predictive_std": 0.0767,
+   "intervals": [
+    {
+     "coverage": 0.9,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.5626,
+     "hi": 1.894,
+     "q_norm": 2.1618,
+     "empirical_oof_coverage": 0.9062
+    },
+    {
+     "coverage": 0.95,
+     "method": "conformal_normalized",
+     "calibrated_on": "grouped_cv_oof",
+     "n_calibration": 160,
+     "available": true,
+     "lo": 1.4867,
+     "hi": 1.9698,
+     "q_norm": 3.1508,
+     "empirical_oof_coverage": 0.9563
+    }
+   ],
+   "gp_intervals": [
+    {
+     "coverage": 0.9,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.6022,
+     "hi": 1.8544
+    },
+    {
+     "coverage": 0.95,
+     "method": "gp_posterior",
+     "posterior": "observation",
+     "note": "model-based, not held-out calibrated",
+     "available": true,
+     "lo": 1.578,
+     "hi": 1.8785
+    }
+   ],
+   "quantiles": {
+    "basis": "gp_posterior",
+    "posterior": "observation",
+    "note": "model-based, not held-out calibrated",
+    "p05": 1.6022,
+    "p25": 1.6766,
+    "p50": 1.7283,
+    "p75": 1.78,
+    "p95": 1.8544
+   },
+   "expected_improvement": {
+    "value": 0.3063,
+    "method": "analytic_ei_gp_posterior",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   },
+   "p_improve": {
+    "value": 1.0,
+    "method": "gp_posterior_cdf",
+    "incumbent": 1.422,
+    "incumbent_basis": "best_measured_single",
+    "maximize": true,
+    "basis": "model",
+    "posterior": "latent",
+    "note": "model-based, not held-out calibrated"
+   }
+  }
+ ],
+ "training_nn_distance_median": 0.7416,
+ "provenance": [
+  {
+   "name": "run_id",
+   "status": "dropped_id",
+   "coerced_cells": 160,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "pH",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "temperature_C",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "glucose_gL",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "glutamine_mM",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "feed_rate_mLh",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "DO_pct",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "agitation_rpm",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "inoculum_1e6",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "antifoam_mgL",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "osmolality_mOsm",
+   "status": "kept_feature",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "medium_base",
+   "status": "kept_feature",
+   "coerced_cells": 160,
+   "non_null": 160,
+   "source": "inferred"
+  },
+  {
+   "name": "titer_g_L",
+   "status": "target",
+   "coerced_cells": 0,
+   "non_null": 160,
+   "source": "inferred"
+  }
+ ],
+ "orientation": {
+  "orientation": "standard",
+  "confidence": 1.0,
+  "signals": {
+   "first_column_id_rate": 1.0
+  }
+ },
+ "validation": {
+  "status": "pass_with_warnings",
+  "mode": "warn",
+  "n_rows": 160,
+  "n_columns": 13,
+  "checks_run": [
+   "units_consistency",
+   "physical_bounds",
+   "duplicate_rows",
+   "missingness",
+   "outliers",
+   "provenance_metadata",
+   "replicate_adequacy",
+   "controls_present",
+   "constant_columns",
+   "informative_missingness",
+   "constant_within_group",
+   "data_accounting"
+  ],
+  "counts": {
+   "error": 0,
+   "warning": 5,
+   "info": 1
+  },
+  "findings": [
+   {
+    "check": "outliers",
+    "severity": "warning",
+    "message": "column 'antifoam_mgL' has values with MAD-based |z| > 5 (assessed on a log10 scale)",
+    "column": "antifoam_mgL",
+    "rows": [
+     63,
+     156
+    ],
+    "detail": {
+     "median": 1.3980772103656438,
+     "mad": 0.2107182033916385,
+     "scale": "log10",
+     "n_rows_affected": 2
+    }
+   },
+   {
+    "check": "outliers",
+    "severity": "warning",
+    "message": "column 'titer_g_L' has values with MAD-based |z| > 5 (assessed on a linear scale)",
+    "column": "titer_g_L",
+    "rows": [
+     1,
+     3,
+     9,
+     10,
+     11,
+     16,
+     17,
+     18,
+     20,
+     24,
+     26,
+     27,
+     31,
+     36,
+     38,
+     39,
+     40,
+     41,
+     43,
+     46
+    ],
+    "detail": {
+     "median": 0.0075,
+     "mad": 0.0075,
+     "scale": "linear",
+     "n_rows_affected": 60
+    }
+   },
+   {
+    "check": "provenance_metadata",
+    "severity": "warning",
+    "message": "no date column found - results cannot be traced to when the run happened",
+    "column": null,
+    "rows": [],
+    "detail": {
+     "missing": "date"
+    }
+   },
+   {
+    "check": "provenance_metadata",
+    "severity": "warning",
+    "message": "no operator/instrument column found - results cannot be traced to who or what equipment ran the assay",
+    "column": null,
+    "rows": [],
+    "detail": {
+     "missing": "operator_or_instrument"
+    }
+   },
+   {
+    "check": "controls_present",
+    "severity": "warning",
+    "message": "no control/blank/reference/baseline label found - no internal reference to detect batch or calibration drift",
+    "column": null,
+    "rows": [],
+    "detail": {}
+   },
+   {
+    "check": "auto_categorical",
+    "severity": "info",
+    "message": "Column 'medium_base' was treated as a categorical feature: text with a few repeated values, detected automatically because no roles were declared. To confirm it, declare it in roles.categoricals. Declaring any roles turns auto-detection off, so list every column the model should use.",
+    "column": "medium_base",
+    "rows": [],
+    "detail": {}
+   }
+  ],
+  "conversions": [],
+  "schema_version": 1
+ },
+ "design_box_exclusions": [],
+ "slices_skipped": [
+  {
+   "feature": "medium_base",
+   "reason": "categorical"
+  }
+ ],
+ "visualization_reasons": {
+  "embedding": null,
+  "correlation": null,
+  "response_surface": null,
+  "slices": null
+ },
+ "seed": 1234,
+ "timestamp": 1795116328,
+ "engine_version": "0.1.0",
+ "target_unit": {
+  "unit": "g/L",
+  "source": "header",
+  "header": "titer_g_L",
+  "note": "parsed from the target column header"
+ },
+ "run": {
+  "schema_version": 1,
+  "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+  "input_bytes": 13475,
+  "target": "titer_g_L",
+  "profile": "bioprocess",
+  "roles_declared": null,
+  "anonymize": false,
+  "seed": 1234,
+  "torch_threads": 4,
+  "torch_threads_actual": 4,
+  "max_fit_rows": 2000,
+  "sheet_index": null,
+  "sheet_hash": null,
+  "build_sha": "unknown",
+  "library_versions": {
+   "numpy": "2.5.1",
+   "pandas": "3.0.3",
+   "torch": "2.13.0",
+   "botorch": "0.18.1"
+  },
+  "validation_mode": "warn",
+  "n_rows": 160,
+  "n_features": 11,
+  "kind": "upload",
+  "pending_runs": 0,
+  "gates": {
+   "promotion": "promotion",
+   "proposal_gating": "proposal_gating",
+   "validation": "validation"
+  },
+  "data_drops": {
+   "rows_dropped": 0,
+   "censored_rows_excluded": 0,
+   "cells_by_reason": {
+    "missing": 0,
+    "non_numeric": 0,
+    "censored": 0
+   },
+   "auto_categorical_count": 1
+  },
+  "header_row": 0,
+  "filename": "synthetic_bioprocess.csv",
+  "sheet": null
+ },
+ "proposal_provenance": {
+  "schema_version": 1,
+  "engine_version": "0.1.0",
+  "build_sha": "unknown",
+  "library_versions": {
+   "torch": "2.13.0",
+   "botorch": "0.18.1",
+   "gpytorch": "1.15.2",
+   "linear-operator": "0.6.1",
+   "numpy": "2.5.1",
+   "scipy": "1.18.0",
+   "pandas": "3.0.3"
+  },
+  "pin_drift": {},
+  "seed": 1234,
+  "input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+  "config_sha256": "333802cd5f07850c8eba9510b0ae871f6ce0dfd5ebdd4d6f6b7eb8f21e456b22",
+  "config_fields": [
+   "kind",
+   "target",
+   "roles_declared",
+   "profile",
+   "anonymize",
+   "seed",
+   "torch_threads",
+   "max_fit_rows",
+   "validation_mode",
+   "sheet_index",
+   "header_row",
+   "pending_runs",
+   "proposal_fit_restarts"
+  ],
+  "model_artifact_stored": false,
+  "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0",
+  "timestamp": 1795116328,
+  "created_at": "2026-11-19T19:25:28Z"
+ },
+ "dataset": "synthetic_bioprocess.csv",
+ "updated": 1795116328.807868,
+ "campaign_generation": "6461f71776af4bac81f7d98ae28fa5f2"
+}

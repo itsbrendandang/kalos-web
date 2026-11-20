@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coveragePct, driverSelectionNote, isReliable, type DriverSelection, type Reliability, reliabilityReason } from "@/lib/api";
-import { verdict } from "@/components/projects/phase2-live";
+import { coveragePct, driverSelectionNote, isReliable, type DriverSelection, type Reliability, reliabilityReason, reliabilityVerdict } from "@/lib/api";
 
 function reliability(overrides: Partial<Reliability>): Reliability {
   return {
@@ -56,39 +55,40 @@ describe("driverSelectionNote", () => {
   });
 });
 
-describe("verdict (phase2-live)", () => {
-  // The verdict must never disagree with isReliable() - that's the whole point
-  // of routing through it instead of re-deriving the 0.20-floor check locally.
-  it("agrees with isReliable() when reliable", () => {
+// The Projects pages' local verdict (components/projects/phase2-live) was
+// deleted with those pages (docs/REDESIGN.md). The same honesty rules now hold
+// for the one app-wide verdict, reliabilityVerdict().
+describe("reliabilityVerdict agrees with isReliable()", () => {
+  it("when reliable", () => {
     const rel = reliability({ clears_floor: true, ci_excludes_zero: true });
     const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).tone).toBe("ok");
+    expect(reliabilityVerdict(d).state).toBe("reliable");
     expect(isReliable(d)).toBe(true);
   });
 
-  it("agrees with isReliable() when clears_floor is false (not reliable)", () => {
+  it("when clears_floor is false (not reliable)", () => {
     const rel = reliability({ clears_floor: false, ci_excludes_zero: true });
     const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).tone).not.toBe("ok");
+    expect(reliabilityVerdict(d).state).not.toBe("reliable");
     expect(isReliable(d)).toBe(false);
   });
 
-  it("agrees with isReliable() when ci_excludes_zero is false (not reliable)", () => {
+  it("when ci_excludes_zero is false (not reliable)", () => {
     const rel = reliability({ clears_floor: true, ci_excludes_zero: false });
     const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).tone).not.toBe("ok");
+    expect(reliabilityVerdict(d).state).not.toBe("reliable");
     expect(isReliable(d)).toBe(false);
   });
 
   it("reads the floor from the engine's spearman_floor, not a hardcoded value", () => {
-    const rel = reliability({ clears_floor: true, ci_excludes_zero: true, spearman_floor: 0.35 });
+    const rel = reliability({ clears_floor: false, ci_excludes_zero: true, spearman_floor: 0.35 });
     const d = { reliability: rel, cv_ci95: rel.ci95, cv_spearman: rel.spearman };
-    expect(verdict(d).text).toContain("0.35");
-    expect(verdict(d).text).not.toContain("0.20");
+    expect(reliabilityVerdict(d).reason).toContain("0.35");
+    expect(reliabilityVerdict(d).reason).not.toContain("0.20");
   });
 
-  it("is bad when there is no reliability block", () => {
-    expect(verdict({ reliability: undefined, cv_ci95: null, cv_spearman: null }).tone).toBe("bad");
+  it("says 'Not enough data' when there is no rank agreement to read", () => {
+    expect(reliabilityVerdict({ reliability: undefined, cv_ci95: null, cv_spearman: null }).state).toBe("insufficient");
   });
 });
 

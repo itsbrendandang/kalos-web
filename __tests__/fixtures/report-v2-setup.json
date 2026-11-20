@@ -1,0 +1,17 @@
+{
+ "campaign_id": "cmp_a28912911eee460dae2524ecd4047e7b",
+ "setup": {
+  "goal": "maximize",
+  "bounds": {},
+  "linear_constraints": [],
+  "target_unit": null
+ },
+ "source": "default",
+ "hash": "4a3510286f61b4cf95823a46c46db75ef12bf8b64d2be30956f9b5377d6634a7",
+ "updated_at": null,
+ "updated_by": null,
+ "bounds_report": {},
+ "has_analysis": true,
+ "analysis_setup_hash": null,
+ "settings_in_sync": true
+}

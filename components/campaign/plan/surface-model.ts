@@ -1,8 +1,10 @@
 /*
- * Pure model for the Plan response surface (components/campaign/plan/response-surface.tsx).
+ * Pure model for the response surface (C5 SurfacePair, components/campaign/plan/response-surface.tsx).
  * It reads the engine's `response_surface` as the engine sends it and returns null for
  * anything it cannot draw honestly: a missing field, a grid whose shape does not match
  * its axes, a non-finite cell. The grid size is read from the arrays, never assumed.
+ * The posterior SD grid (`std`) is kept only when it is complete and finite on the same
+ * grid; otherwise it is null and no uncertainty map is drawn (never synthesized).
  */
 
 import type { PopulatedResult } from "@/lib/api";
@@ -14,12 +16,21 @@ export type SurfaceModel = {
   y: SurfaceAxis;
   /** z[row][col]: row indexes y_vals, col indexes x_vals. Every cell is finite. */
   z: number[][];
+  /** The engine's posterior SD on the same grid, or null when it did not send a complete one. */
+  std: number[][] | null;
+  /** What `std` is (`std_kind`, e.g. "gp_posterior_sd") and of what (`std_basis`, e.g. "latent_mean"), when reported. */
+  stdKind: string | null;
+  stdBasis: string | null;
   zMin: number;
   zMax: number;
   /** Measured runs as [x, y, target], only those with finite numbers. */
   runs: [number, number, number][];
-  /** The other inputs' fixed values, when the engine reports them. */
-  fixed: { name: string; value: string }[];
+  /** The other inputs' fixed values (the two axes excluded), when the engine reports them. */
+  fixed: { name: string; value: number | string }[];
+  /** The held recipe's own setting on each axis (from `fixed_recipe`), when numeric. */
+  heldAt: { x: number | null; y: number | null };
+  /** Which recipe the incumbent was taken from ("single" | "recipe_mean"), when reported. */
+  incumbentBasis: string | null;
   /** "incumbent" when the engine says so; null otherwise. */
   sweptAt: string | null;
 };
@@ -27,6 +38,7 @@ export type SurfaceModel = {
 type Surface = NonNullable<PopulatedResult["response_surface"]>;
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 
 function strictlyMonotonic(vals: number[]): boolean {
   if (vals.length < 2) return false;
@@ -64,10 +76,28 @@ export function parseSurface(raw: unknown): SurfaceModel | null {
     }
   }
 
-  const fixed: { name: string; value: string }[] = [];
+  let std: number[][] | null = null;
+  if (Array.isArray(rs.std) && rs.std.length === yVals.length) {
+    const rows: number[][] = [];
+    for (const row of rs.std) {
+      if (!Array.isArray(row) || row.length !== xVals.length || !row.every((v) => isNum(v) && v >= 0)) {
+        rows.length = 0;
+        break;
+      }
+      rows.push(row as number[]);
+    }
+    if (rows.length === yVals.length) std = rows;
+  }
+
+  const fixed: { name: string; value: number | string }[] = [];
+  const heldAt: { x: number | null; y: number | null } = { x: null, y: null };
   if (typeof rs.fixed_recipe === "object" && rs.fixed_recipe !== null && !Array.isArray(rs.fixed_recipe)) {
     for (const [name, value] of Object.entries(rs.fixed_recipe as Record<string, unknown>)) {
-      if (typeof value === "number" && Number.isFinite(value)) fixed.push({ name, value: String(value) });
+      if (name === rs.x_feature || name === rs.y_feature) {
+        if (isNum(value)) heldAt[name === rs.x_feature ? "x" : "y"] = value;
+        continue;
+      }
+      if (isNum(value)) fixed.push({ name, value });
       else if (typeof value === "string" && value.length > 0) fixed.push({ name, value });
     }
   }
@@ -76,10 +106,15 @@ export function parseSurface(raw: unknown): SurfaceModel | null {
     x: { name: rs.x_feature, vals: xVals },
     y: { name: rs.y_feature, vals: yVals },
     z,
+    std,
+    stdKind: std ? str((raw as Record<string, unknown>).std_kind) : null,
+    stdBasis: std ? str((raw as Record<string, unknown>).std_basis) : null,
     zMin,
     zMax,
     runs,
     fixed,
+    heldAt,
+    incumbentBasis: typeof rs.incumbent_basis === "string" && rs.incumbent_basis.length > 0 ? rs.incumbent_basis : null,
     sweptAt: typeof rs.swept_at === "string" ? rs.swept_at : null,
   };
 }
@@ -107,24 +142,6 @@ export function fractionalIndex(vals: number[], v: number): number | null {
   return null;
 }
 
-/**
- * Colour for a predicted value's position in [0, 1], as a CSS colour-mix of the
- * five sequential tokens (DESIGN.md "data-colour rule"). The tokens already run in
- * lightness order in each theme, so this stays monotonic in lightness.
- */
-export function rampColor(t: number): string {
-  const c = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0.5;
-  const pos = c * 4;
-  const a = Math.min(3, Math.floor(pos));
-  const p = Math.round((pos - a) * 100);
-  return `color-mix(in oklch, var(--chart-seq-${a + 1}) ${100 - p}%, var(--chart-seq-${a + 2}) ${p}%)`;
-}
-
-/** Position of a predicted value within the surface's range, in [0, 1]. A flat surface sits mid-ramp. */
-export function valueT(model: Pick<SurfaceModel, "zMin" | "zMax">, v: number): number {
-  return model.zMax > model.zMin ? (v - model.zMin) / (model.zMax - model.zMin) : 0.5;
-}
-
 /** Row and column of the highest predicted cell (ties: the first in reading order). */
 export function peakCell(z: number[][]): { row: number; col: number } {
   let best = { row: 0, col: 0 };
@@ -145,26 +162,4 @@ export function placeable<T extends PlotPoint>(model: SurfaceModel, points: T[])
     (ok ? inside : outside).push(p);
   }
   return { inside, outside };
-}
-
-/**
- * The text equivalent of the surface: what it covers, where it peaks, what it does
- * not show. Every number is the engine's (grid values) or a count of what is plotted.
- */
-export function surfaceSummary(model: SurfaceModel, target: string, fmt: (n: number) => string, counts: { runs: number; proposals: number; outside: number }): string {
-  const { x, y } = model;
-  const peak = peakCell(model.z);
-  const others = model.fixed.length
-    ? `Other inputs are held at the incumbent recipe (${model.fixed.map((f) => `${f.name} ${f.value}`).join(", ")}).`
-    : model.sweptAt === "incumbent"
-      ? "Other inputs are held at the incumbent recipe."
-      : "Other inputs are held at fixed values the engine did not report.";
-  const plotted = `${counts.runs} measured ${counts.runs === 1 ? "run" : "runs"} and ${counts.proposals} proposed ${counts.proposals === 1 ? "experiment" : "experiments"} are plotted${counts.outside ? `; ${counts.outside} proposed ${counts.outside === 1 ? "experiment lies" : "experiments lie"} outside the plotted range and ${counts.outside === 1 ? "is" : "are"} not drawn` : ""}.`;
-  return [
-    `Predicted mean ${target} across ${x.name} from ${fmt(x.vals[0])} to ${fmt(x.vals[x.vals.length - 1])} and ${y.name} from ${fmt(y.vals[0])} to ${fmt(y.vals[y.vals.length - 1])}.`,
-    `Predicted values run from ${fmt(model.zMin)} to ${fmt(model.zMax)}; the highest is at ${x.name} ${fmt(x.vals[peak.col])}, ${y.name} ${fmt(y.vals[peak.row])}.`,
-    others,
-    "Predicted mean only: uncertainty is not shown.",
-    plotted,
-  ].join(" ");
 }

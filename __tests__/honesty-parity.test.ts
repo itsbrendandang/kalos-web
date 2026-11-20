@@ -46,6 +46,11 @@ describe("calibrationNote", () => {
     expect(calibrationNote(calibration({ z_std: 1.3 }))).toContain("overconfident");
   });
 
+  it("does not call a z_std within 0.1 of 1 narrow or wide", () => {
+    expect(calibrationNote(calibration({ z_std: 1.03 }))).toContain("close to calibrated");
+    expect(calibrationNote(calibration({ z_std: 1.03 }))).not.toContain("overconfident");
+  });
+
   it("names a too-wide band when z_std is below 1", () => {
     expect(calibrationNote(calibration({ z_std: 0.6 }))).toContain("wide");
   });
@@ -105,6 +110,11 @@ describe("cvTopKNote", () => {
   it("reports how many of the true top-k the model caught", () => {
     const topk: CvTopK = { overlap: 0.6, k: 5, n: 20, evaluable: true, reason: null };
     expect(cvTopKNote(topk)).toBe("3 of the true top 5 caught (n=20).");
+  });
+
+  it("names the lowest runs when the engine ranked for minimize (direction, engine aa7396a)", () => {
+    const topk: CvTopK = { overlap: 0.6, k: 5, n: 20, evaluable: true, reason: null, direction: "lowest" };
+    expect(cvTopKNote(topk)).toBe("3 of the true lowest 5 caught (n=20).");
   });
 });
 

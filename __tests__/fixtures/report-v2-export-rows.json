@@ -1,0 +1,100 @@
+{
+ "campaign_id": "cmp_a28912911eee460dae2524ecd4047e7b",
+ "has_data": true,
+ "format": "json",
+ "target": "titer_g_L",
+ "columns": [
+  "run_id",
+  "pH",
+  "temperature_C",
+  "glucose_gL",
+  "glutamine_mM",
+  "feed_rate_mLh",
+  "DO_pct",
+  "agitation_rpm",
+  "inoculum_1e6",
+  "antifoam_mgL",
+  "osmolality_mOsm",
+  "medium_base",
+  "titer_g_L"
+ ],
+ "original_rows_identifiable": true,
+ "original_rows_reason": null,
+ "original_rows": {
+  "origin": "upload",
+  "round": 0,
+  "n": 160,
+  "rows": [
+   {
+    "run_id": "R001",
+    "pH": 6.214,
+    "temperature_C": 34.675,
+    "glucose_gL": 10.014,
+    "glutamine_mM": 1.253,
+    "feed_rate_mLh": 1.13,
+    "DO_pct": 46.672,
+    "agitation_rpm": 105.615,
+    "inoculum_1e6": 0.585,
+    "antifoam_mgL": 43.501,
+    "osmolality_mOsm": 287.266,
+    "medium_base": "CD-CHO",
+    "titer_g_L": 0.0
+   },
+   {
+    "run_id": "R002",
+    "pH": 6.877,
+    "temperature_C": 38.141,
+    "glucose_gL": 2.984,
+    "glutamine_mM": 7.106,
+    "feed_rate_mLh": 1.899,
+    "DO_pct": 41.917,
+    "agitation_rpm": 227.508,
+    "inoculum_1e6": 1.057,
+    "antifoam_mgL": 36.056,
+    "osmolality_mOsm": 281.006,
+    "medium_base": "CD-CHO",
+    "titer_g_L": 0.404
+   },
+   {
+    "run_id": "R003",
+    "pH": 6.908,
+    "temperature_C": 35.785,
+    "glucose_gL": 3.212,
+    "glutamine_mM": 6.117,
+    "feed_rate_mLh": 0.468,
+    "DO_pct": 29.182,
+    "agitation_rpm": 277.251,
+    "inoculum_1e6": 1.573,
+    "antifoam_mgL": 32.928,
+    "osmolality_mOsm": 358.243,
+    "medium_base": "CD-CHO",
+    "titer_g_L": 0.0
+   }
+  ]
+ },
+ "folded_rows": {
+  "origin": "measured_run",
+  "n": 0,
+  "rows": []
+ },
+ "unattributed_rows": null,
+ "anonymization": {
+  "applied": false
+ },
+ "csv_formula_neutralization": "CSV only: text cells and headers starting with = + - @ TAB or CR get a leading apostrophe",
+ "provenance": {
+  "campaign_generation": "5fe48d0ebbd64da696331f6856fe0176",
+  "campaign_round": 0,
+  "analysis_generation": "6461f71776af4bac81f7d98ae28fa5f2",
+  "analysis_in_sync": false,
+  "analysis_engine_version": "0.1.0",
+  "export_engine_version": "0.1.0",
+  "analysis_run_kind": "upload",
+  "analysis_input_sha256": "52955354d0fc7f8dea48086ff867d50515af8030a7e989b80ce59e2523e357be",
+  "analysis_input_describes": "the uploaded file bytes",
+  "provenance_sha256": "9836c009efd80007d4fbe2e6be5f82b0d5ec884235790e8efa5cc74a45eea0e0",
+  "dataset": "synthetic_bioprocess.csv",
+  "anonymized": false,
+  "exported_at": 1795116790.13134
+ }
+}

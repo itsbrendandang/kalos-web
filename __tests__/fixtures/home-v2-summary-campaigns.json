@@ -1,0 +1,106 @@
+{
+ "campaigns": [
+  {
+   "id": "cmp_4682a48be86b4f128f8e8107c4358a7a",
+   "name": "E2E setup probe",
+   "created_by": "dev-user",
+   "created_at": 1795116825.473671,
+   "updated_at": 1795116896.321296,
+   "archived_at": null,
+   "archived": false,
+   "seeded": true,
+   "is_default": false,
+   "has_data": true,
+   "target": "titer_g_L",
+   "n_base": 160,
+   "round": 0,
+   "n_awaiting": 0,
+   "n_measured": 0,
+   "goal": {
+    "direction": "minimize",
+    "source": "setup"
+   },
+   "best_measured": {
+    "value": 0.0,
+    "basis": "measured",
+    "direction": "min"
+   },
+   "analysis": {
+    "present": true,
+    "updated": 1795116896.320867,
+    "in_sync": true,
+    "engine_version": "0.1.0",
+    "cv_spearman": 0.655,
+    "conformal_q": 0.2036,
+    "conformal_coverage": 0.9,
+    "reliability": {
+     "clears_floor": true,
+     "ci_excludes_zero": true,
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "producer_clears_floor": true
+    },
+    "n_proposals": 0
+   },
+   "current_stage": null,
+   "latest_gate_decision": null,
+   "active_job": null
+  },
+  {
+   "id": "cmp_a28912911eee460dae2524ecd4047e7b",
+   "name": "E2E fixture capture",
+   "created_by": "dev-user",
+   "created_at": 1795116187.801945,
+   "updated_at": 1795116379.263403,
+   "archived_at": null,
+   "archived": false,
+   "seeded": true,
+   "is_default": false,
+   "has_data": true,
+   "target": "titer_g_L",
+   "n_base": 160,
+   "round": 0,
+   "n_awaiting": 1,
+   "n_measured": 1,
+   "goal": {
+    "direction": "maximize",
+    "source": "default"
+   },
+   "best_measured": {
+    "value": 1.422,
+    "basis": "measured",
+    "direction": "max"
+   },
+   "analysis": {
+    "present": true,
+    "updated": 1795116328.807868,
+    "in_sync": false,
+    "engine_version": "0.1.0",
+    "cv_spearman": 0.655,
+    "conformal_q": 0.2036,
+    "conformal_coverage": 0.9,
+    "reliability": {
+     "clears_floor": true,
+     "ci_excludes_zero": true,
+     "spearman": 0.655,
+     "ci95": [
+      0.539,
+      0.767
+     ],
+     "spearman_floor": 0.2,
+     "producer_clears_floor": true
+    },
+    "n_proposals": 5
+   },
+   "current_stage": null,
+   "latest_gate_decision": null,
+   "active_job": null
+  }
+ ],
+ "next_cursor": null,
+ "limit": 200
+}

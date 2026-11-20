@@ -2,7 +2,7 @@
 // headers and the expected origin, returns a decision. See
 // docs/ENGINE_AUTH.md ("CSRF") for the design.
 //
-// Layers, all of which a state-changing request (POST/PATCH/DELETE) must pass:
+// Layers, all of which a state-changing request (POST/PUT/PATCH/DELETE) must pass:
 // 1. `Origin` must be present and exactly equal to the app's public origin
 //    (KALOS_PUBLIC_URL, else BETTER_AUTH_URL). Browsers send Origin on every
 //    non-GET fetch, same-origin included, so a missing Origin is refused

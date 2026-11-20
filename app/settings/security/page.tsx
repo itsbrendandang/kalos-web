@@ -12,6 +12,7 @@ import { safeNextPath } from "@/lib/auth-routes";
 import { getAuth } from "@/lib/server/auth";
 import { revokeOtherSessionsAction, revokeSessionAction } from "@/lib/server/auth-actions";
 import { resolveSession } from "@/lib/server/session";
+import { formatTimestamp } from "@/components/kit/source-line";
 
 export const metadata: Metadata = { title: "Security · Kalos" };
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ interface SessionRow {
 }
 
 function fmt(d: string | Date): string {
-  return new Date(d).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC";
+  return formatTimestamp(new Date(d).getTime());
 }
 
 function device(ua: string | null | undefined): string {

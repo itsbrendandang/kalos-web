@@ -2,28 +2,29 @@
 
 ## What runs in CI
 
-`npm test` includes `__tests__/a11y-structure.test.tsx`. It renders the editor tab
-strip and the plate heatmap to static markup and asserts the structure that axe
-flags: no `tablist` with non-tab children, every well button has a full accessible
-name, and the value text on every heatmap fill meets WCAG AA (4.5:1).
+`npm test` includes:
+
+- `__tests__/app-shell.test.tsx` (jsdom + Testing Library): the app frame's landmarks
+  (`complementary` sidebar, `Primary` navigation, `main`), the skip link to `#main`,
+  `aria-current="page"` on the active campaign step, accessible names on the campaign
+  switcher, and an unknown campaign rendered as "not found" (not as an outage).
+- `__tests__/contrast.test.ts`: WCAG AA contrast for every text and UI token pair in both
+  themes, parsed from `app/globals.css`.
+- Page component tests (for example `__tests__/plan-page.test.tsx`) query by role and
+  accessible name, so a control without a name fails them.
+
+The editor tab strip and plate heatmap tests were removed with those surfaces in the
+engine-aligned redesign (`docs/REDESIGN.md`).
 
 ## What is not in CI (and why)
 
-A full axe run needs a DOM and a browser. Neither is a dependency of this repo, and
-the signed-in pages cannot be reached in CI without a sign-in fixture. So axe is run
-by hand, not in CI. Adding `jsdom` plus `axe-core` as dev dependencies would cover the
-component-level cases in CI; it was not added to keep the dev dependency tree small.
+A full axe run needs a browser. The signed-in pages cannot be reached in CI without a
+sign-in fixture, so axe is run by hand, not in CI.
 
 ## Manual axe run (signed-in shell)
 
-1. Render the shell and the page under test to static HTML (the same
-   `renderToStaticMarkup` approach as `a11y-structure.test.tsx`, with
-   `next/navigation` and `next/link` mocked), and link the built CSS from
-   `.next/static/chunks/*.css` so colour contrast is measured with real tokens.
-2. Load the file in the gstack browser (`/browse`) and inject `node_modules/axe-core/axe.min.js`.
-3. Run `axe.run(document)` and read the violations.
-
-Last run on the fixed shell: `/data` (shell + placeholder) and `/library/plate`
-(shell + heatmap) both report zero violations. The original code reported
-`aria-required-children` (critical) on the tab strip, `region` on the tab strip,
-and 25 `color-contrast` failures on the plate heatmap.
+1. Run the app locally with the dev auth bypass (see `README.md`, local development).
+2. Open a page in a browser, inject `node_modules/axe-core/axe.min.js` (or use a browser
+   extension), and run `axe.run(document)`.
+3. Check the campaign pages in both themes: Overview, Harmonize, Predict, Validate, Report,
+   plus Campaigns (`/`) and Scale-up (`/scale-up`).

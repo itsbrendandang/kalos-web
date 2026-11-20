@@ -58,17 +58,15 @@ function Badge({
 }
 
 /**
- * The one Explore/Exploit label, identical everywhere: Exploit is the model's
- * confident bet (accent), Explore is information-gathering (neutral outline).
+ * The one Explore/Exploit label, identical everywhere. The WORD carries the
+ * mode, not a color (VIZ_SPEC: accent means "predicted", so an accent Exploit
+ * chip would read as a prediction): both are the same neutral outline chip.
+ * Exploit is the model's confident bet, Explore is information-gathering.
  */
 function ModeBadge({ mode, className }: { mode: "explore" | "exploit"; className?: string }) {
-  return mode === "exploit" ? (
-    <Badge tone="accent" className={className}>
-      Exploit
-    </Badge>
-  ) : (
+  return (
     <Badge tone="neutral" variant="outline" className={className}>
-      Explore
+      {mode === "exploit" ? "Exploit" : "Explore"}
     </Badge>
   );
 }

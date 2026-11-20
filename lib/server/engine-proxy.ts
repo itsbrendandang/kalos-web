@@ -92,8 +92,17 @@ export const PROXY_SECURITY_HEADERS: Readonly<Record<string, string>> = Object.f
   "content-security-policy": "default-src 'none'; frame-ancestors 'none'; sandbox",
 });
 
-/** Engine response headers that are passed back. Everything else (Set-Cookie, Server, framing, ...) is dropped. */
-const RESPONSE_HEADER_ALLOWLIST = ["content-type", "retry-after", "content-disposition"] as const;
+/**
+ * Engine response headers that are passed back. Everything else (Set-Cookie, Server, framing, ...) is dropped.
+ * The two X-Kalos-* headers describe the raw-rows CSV export (its SHA-256 and whether names are anonymized);
+ * they carry no secret and are validated before they are passed.
+ */
+const RESPONSE_HEADER_ALLOWLIST = ["content-type", "retry-after", "content-disposition", "x-kalos-content-sha256", "x-kalos-anonymized"] as const;
+/** Shape checks for the allow-listed headers that are not plain HTTP: anything else is dropped. */
+const RESPONSE_HEADER_SHAPE: Partial<Record<(typeof RESPONSE_HEADER_ALLOWLIST)[number], RegExp>> = {
+  "x-kalos-content-sha256": /^[0-9a-f]{64}$/,
+  "x-kalos-anonymized": /^(true|false)$/,
+};
 
 function withSecurityHeaders(headers: Headers, rid: string): Headers {
   for (const [k, v] of Object.entries(PROXY_SECURITY_HEADERS)) headers.set(k, v);
@@ -426,7 +435,7 @@ export function createEngineProxy(deps: EngineProxyDeps) {
     const headers = new Headers();
     for (const h of RESPONSE_HEADER_ALLOWLIST) {
       const v = engineRes.headers.get(h);
-      if (v !== null) headers.set(h, v);
+      if (v !== null && (!RESPONSE_HEADER_SHAPE[h] || RESPONSE_HEADER_SHAPE[h].test(v))) headers.set(h, v);
     }
     let resBody: ReadableStream<Uint8Array> | null = null;
     if (method !== "HEAD" && engineRes.body) {

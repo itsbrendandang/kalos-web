@@ -43,4 +43,13 @@ describe("env.example", () => {
       expect(errors.join("\n"), name).toContain(name);
     }
   });
+
+  it("never claims the proxy sends a static KALOS_ENGINE_TOKEN (it mints a per-request token; the static one is ignored)", () => {
+    expect(assignments).not.toHaveProperty("KALOS_ENGINE_TOKEN");
+    for (const f of ["../env.example", "../Dockerfile", "../README.md"]) {
+      const doc = readFileSync(new URL(f, import.meta.url), "utf8");
+      expect(doc, f).not.toMatch(/(attach|send|forward)[a-z]*\s+(the\s+)?KALOS_ENGINE_TOKEN/i);
+      expect(doc, f).not.toMatch(/KALOS_ENGINE_TOKEN=\S*\s*$/m);
+    }
+  });
 });

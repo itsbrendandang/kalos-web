@@ -2,19 +2,21 @@
 
 import type { ReactNode, Ref } from "react";
 import { X } from "lucide-react";
-import { MeasuredMark, PredictedMark } from "@/components/campaign/plan/marks";
-import type { PlanContext, PlanRow } from "@/components/campaign/plan/recommendations";
-import { BAND_CAVEAT, bandLabel, compareRecipes, formatGain, formatInterval, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
-import { ModeBadge } from "@/components/ui/badge";
+import { bandHeader, gainOf, ModeText, predOf, type PlanContext, type PlanRow } from "@/components/campaign/plan/recommendations";
+import { compareRecipes, formatSetpoint, COMPARE_MIN, type ComparisonRow, type ObservedRange } from "@/components/campaign/plan-view";
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/lib/format";
+import { BasisGlyph } from "@/components/viz/num";
+import { formatValue } from "@/lib/num";
 import { cn } from "@/lib/utils";
+import { MODEL_BASED, PER_PROPOSAL_METHOD, chanceLabel, chanceText, distanceText, eiText } from "@/lib/viz-data/batch-interval-strip";
+
+const count = (n: number) => formatValue(n, { quantity: "count" }).text;
 
 type Line = { key: string; label: ReactNode; values: string[]; tone?: (i: number) => string | undefined; note?: string };
 
 /**
  * 2-5 proposals side by side. Setpoint rows where the proposals differ at the
- * sheet's precision are marked "differs" (word + tint, never tint alone), with
+ * displayed precision are marked "differs" (word + tint, never tint alone), with
  * the highest and lowest value marked, and the spread as a share of the range
  * tried when that range is known. Wide containers get a table; narrow ones a
  * list with one block per input, so nothing scrolls sideways on a phone.
@@ -39,20 +41,75 @@ export function Comparison({
     ctx.ranges,
   );
   const nDiff = diff.filter((d) => d.differs).length;
+  // The trust caveat of every compared band, once each (lib/proposal-caveat).
+  const caveats = [...new Set(rows.map((r) => r.strip.caveat?.text).filter((t): t is string => t != null))];
+  const caveatMeta = [...new Set(rows.map((r) => r.strip.caveat).filter((c) => c && (c.basisText || c.estimateText)).map((c) => [c!.basisText ? `interval basis: ${c!.basisText}` : null, c!.estimateText && !c!.text.includes(c!.estimateText) ? `coverage at proposals: ${c!.estimateText}` : null].filter(Boolean).join("; ")))].filter(Boolean);
   const outcome: Line[] = [
-    { key: "pred", label: <><PredictedMark /> Predicted {ctx.target}</>, values: rows.map((r) => formatNumber(r.item.proposal.pred)), note: "model estimate, not a measurement" },
-    { key: "band", label: bandLabel(ctx.coverage), values: rows.map((r) => formatInterval(r.item.proposal.pred, ctx.band) ?? "not reported"), note: ctx.band != null ? `Same width for every proposal. ${BAND_CAVEAT}` : undefined },
+    { key: "pred", label: <><BasisGlyph basis="predicted" /> Predicted {ctx.target}{ctx.unit ? ` (${ctx.unit})` : ""}</>, values: rows.map((r) => predOf(r, ctx).value), note: "model estimate, not a measurement" },
+    {
+      key: "band",
+      label: bandHeader(ctx),
+      values: rows.map((r) => predOf(r, ctx).interval ?? (r.strip.interval.kind === "refused" ? "Refused" : "n/a (not reported)")),
+      note:
+        [
+          ctx.model.intervals.kind === "per-proposal" ? `Each recipe's own band: ${PER_PROPOSAL_METHOD}.` : ctx.model.intervals.kind === "global" ? "Same width for every proposal." : null,
+          ...caveats,
+          ...caveatMeta.map((m) => `(${m}.)`),
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined,
+    },
     ...(ctx.incumbent != null
       ? [
           {
             key: "gain",
             label: (
               <>
-                vs <MeasuredMark /> {ctx.incumbentLabel} {formatNumber(ctx.incumbent)}
+                Predicted gain vs <BasisGlyph basis="measured" /> {ctx.incumbentLabel} {formatValue(ctx.incumbent, { basis: "measured", unit: ctx.unit }).text}
               </>
             ),
-            values: rows.map((r) => formatGain(r.gain)),
-            note: `predicted minus the ${ctx.incumbentLabel}`,
+            values: rows.map((r) => {
+              const g = gainOf(r, ctx);
+              return g ? `${g.value}${g.interval ? ` ${g.interval}` : ""}` : "n/a";
+            }),
+            note:
+              ctx.model.goal === "minimize"
+                ? `the ${ctx.incumbentLabel} minus predicted (the goal is to minimize), with the band shifted by the same amount`
+                : `predicted minus the ${ctx.incumbentLabel}, with the band shifted by the same amount`,
+          },
+        ]
+      : []),
+    ...(ctx.model.hasImprovement
+      ? [
+          {
+            key: "chance",
+            label: `${chanceLabel(rows.find((r) => r.strip.pImprove)?.strip.pImprove ?? null, ctx.model.goal)}, EI`,
+            values: rows.map((r) => `${chanceText(r.strip)}, EI ${eiText(r.strip, ctx.unit)}`),
+            note: MODEL_BASED,
+          },
+        ]
+      : []),
+    ...(rows.some((r) => r.strip.nnDistance != null)
+      ? [
+          {
+            key: "distance",
+            label: "Distance to nearest measured run",
+            values: rows.map((r) => {
+              const d = distanceText(r.strip.nnDistance, ctx.model.nnMedian);
+              return d.ratio ? `${d.value} (${d.ratio})` : d.value;
+            }),
+            note: "0 is a measured recipe; larger is further from the data",
+          },
+        ]
+      : []),
+    ...(rows.some((r) => r.strip.trust)
+      ? [
+          {
+            key: "trust",
+            label: "Model trust",
+            values: rows.map((r) => r.strip.trust?.label ?? "n/a"),
+            tone: (i: number) => (rows[i].strip.trust?.kind === "exploration" ? "text-warn" : undefined),
+            note: rows.find((r) => r.strip.trust?.message)?.strip.trust?.message ?? undefined,
           },
         ]
       : []),
@@ -69,8 +126,8 @@ export function Comparison({
           </h2>
           <p className="text-body text-fg-muted">
             {nDiff === 0
-              ? "These proposals set every input to the same value at the sheet's precision."
-              : `${formatNumber(nDiff, "count")} of ${formatNumber(diff.length, "count")} inputs differ at the sheet's precision. \u2191 marks the highest and \u2193 the lowest of those compared.`}
+              ? "These proposals set every input to the same value at the displayed precision."
+              : `${count(nDiff)} of ${count(diff.length)} inputs differ at their displayed precision. \u2191 marks the highest and \u2193 the lowest of those compared.`}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={onClear}>
@@ -127,7 +184,7 @@ export function Comparison({
                     {removable ? <RemoveButton row={r} onRemove={onRemove} /> : null}
                   </span>
                   <span className="mt-1 flex justify-end">
-                    <ModeBadge mode={r.item.proposal.mode} />
+                    <ModeText mode={r.item.proposal.mode} />
                   </span>
                 </th>
               ))}
@@ -135,7 +192,7 @@ export function Comparison({
                 Spread
               </th>
               <th scope="col" className="px-3 py-2 text-left text-label font-normal whitespace-nowrap text-fg-muted">
-                Range tried
+                Range
               </th>
             </tr>
           </thead>
@@ -151,7 +208,7 @@ export function Comparison({
                     {mark(d, i)}
                   </td>
                 ))}
-                <td className="px-3 py-2 text-left text-caption whitespace-nowrap text-fg-muted tabular-nums">{d.differs && d.spread != null ? spreadText(d) : "\u2013"}</td>
+                <td className="px-3 py-2 text-left text-caption whitespace-nowrap text-fg-muted tabular-nums">{d.differs && d.spread != null ? spreadText(d) : "none"}</td>
                 <td className="px-3 py-2 text-left text-caption whitespace-nowrap text-fg-muted tabular-nums">{rangeText(d.range, false)}</td>
               </tr>
             ))}
@@ -165,7 +222,7 @@ export function Comparison({
                     {v}
                   </td>
                 ))}
-                <td colSpan={2} className="px-3 py-2 text-caption text-fg-muted">
+                <td colSpan={2} className="min-w-64 px-3 py-2 text-caption text-fg-muted">
                   {o.note ?? ""}
                 </td>
               </tr>
@@ -219,12 +276,12 @@ function Values({ ids, values, mark: markFn, muted = false, tone }: { ids: strin
 }
 
 function spreadText(d: ComparisonRow): string {
-  return `${formatSetpoint(d.spread, d.range?.decimals)}${d.spreadOfRange != null ? ` (${formatNumber(d.spreadOfRange, "pct")} of range)` : ""}`;
+  return `${formatSetpoint(d.spread, d.range)}${d.spreadOfRange != null ? ` (${formatValue(d.spreadOfRange, { quantity: "pct" }).text} of range)` : ""}`;
 }
 
 function rangeText(range: ObservedRange | null, prefix = true): string {
   if (!range) return prefix ? "range not reported" : "not reported";
   return range.source === "observed"
-    ? `${prefix ? "tried " : ""}${formatSetpoint(range.min, range.decimals)} to ${formatSetpoint(range.max, range.decimals)}`
-    : `${prefix ? "engine range " : ""}${formatNumber(range.min)} to ${formatNumber(range.max)}${prefix ? "" : " (engine)"}`;
+    ? `${prefix ? "tried " : ""}${formatSetpoint(range.min, range)} to ${formatSetpoint(range.max, range)}`
+    : `${prefix ? "search range " : ""}${formatSetpoint(range.min, range)} to ${formatSetpoint(range.max, range)}${prefix ? "" : " (engine)"}`;
 }

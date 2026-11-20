@@ -13,6 +13,9 @@ Kalos web is the scientist-facing app for the [Kalos engine](https://github.com/
 You create a campaign and work it in repeating cycles: **Harmonize** (upload past runs, check the sheet, see the explored range), **Predict** (check how far the model can be trusted, review the proposed batch with its intervals), **Validate** (record measured results, compare them with the predictions, re-analyze), then export a data package with provenance.
 The engine does the modelling; this app presents it and keeps predicted and measured values apart.
 
+**Engine requirement:** this branch needs the engine APIs from [kalos-engine#164](https://github.com/itsbrendandang/kalos-engine/pull/164) (campaign setup, stages and gates, run bands recorded at start, re-analysis jobs, exports) or later.
+The trust-layer fields (proposal-coverage caveat, engine verdict, exploration labels, held-out grouping) come from a later engine change; every one is optional, and without them the app shows a fixed caveat and its own verdict rule.
+
 Intended users (the product is not available to external users yet): process-development scientists running iterative media or process optimisation campaigns, and small teams that want a propose-measure-re-propose loop with an honest read on model reliability.
 
 ## Related repositories
@@ -25,13 +28,16 @@ Kalos is three repositories with a clear split:
 
 ## Screenshots
 
-Synthetic data (`synthetic_bioprocess.csv`) against a local engine, from the development build. No real or private data is shown.
+One campaign on the engine's generated example sheet (`synthetic_bioprocess.csv`, not measured data), local development build against a local engine at #164 or later, light theme, 1440 px wide.
+The recorded result and its correction were typed in by an end-to-end test, not measured.
 
 | Overview | 1 Harmonize |
 | --- | --- |
-| ![Campaign overview after one round: measured best so far, reliability, next step](docs/images/overview.png) | ![Harmonize: the data check and the explored design space](docs/images/harmonize.png) |
+| ![Overview: next step, best measured run, the started batch's predicted bands, model reliability, run counts](docs/images/overview.png) | ![Harmonize: target and inputs, campaign setup, start of the data check](docs/images/harmonize.png) |
 | **2 Predict** | **3 Validate** |
-| ![Predict: model evidence first, then the proposed batch with 90% bands](docs/images/predict.png) | ![Validate: recorded results against their predicted bands](docs/images/validate.png) |
+| ![Predict: can the model be trusted, held-out rank agreement against the trust floor and baselines](docs/images/predict.png) | ![Validate: a corrected result, measured against the 90% band recorded when the run started](docs/images/validate.png) |
+| **Report** | |
+| ![Report: downloads, provenance, objective, and a note that the analysis is older than the latest runs](docs/images/report.png) | |
 
 ## Capabilities
 
@@ -43,14 +49,17 @@ Synthetic data (`synthetic_bioprocess.csv`) against a local engine, from the dev
 | Upload a run sheet as an engine background job with engine-reported progress and cancel; view the data-quality findings and explored design space | IMPLEMENTED | `app/campaigns/[id]/harmonize/page.tsx`, `__tests__/harmonize-page.test.tsx`, `__tests__/validation.test.ts` |
 | Record results with versioned corrections (reason required), re-analyze, compare measured with predicted | IMPLEMENTED | `app/campaigns/[id]/validate/page.tsx`, `__tests__/validate-page.test.tsx` |
 | Report and export: JSON data package and CSVs built only from engine outputs, with provenance hashes | IMPLEMENTED | `app/campaigns/[id]/report/page.tsx`, `lib/report-package.ts`, `__tests__/report-package.test.ts` |
-| Reliability verdict and uncertainty bands, measured never mixed with predicted | IMPLEMENTED | `lib/api.ts`, `lib/num.ts`, `__tests__/reliability-verdict.test.ts`, `__tests__/workbench.test.ts` |
+| Reliability verdict and uncertainty bands, measured never mixed with predicted | IMPLEMENTED | `lib/api.ts`, `lib/num.ts`, `__tests__/reliability-verdict.test.ts`, `__tests__/num.test.ts`, `__tests__/overview.test.ts` |
+| Trust layer: proposal-coverage caveat on every proposal interval, "not judged" verdict, exploration vs model-guided labels, refusals with reasons, held-out grouping | IMPLEMENTED (renders optional engine fields) | `lib/proposal-caveat.ts`, `lib/proposal-trust.ts`, `components/predict/trust-panel.tsx`, `__tests__/trust-caveat-guard.test.tsx`, `__tests__/trust-verdict.test.tsx` |
+| Charts (visx): reliability scorecard, parity, calibration, driver forest, batch interval strip, validation dumbbells, progress, scale ladder, stage-gate track | IMPLEMENTED | `components/viz/`, `lib/viz-data/`, `__tests__/viz-*.test.ts*`, `__tests__/design-guards.test.ts` |
 | Campaign setup before the first upload: target, maximize or minimize, unit, optional bounds (never wider than the data) and linear constraints, applied by the engine on upload and re-analysis | IMPLEMENTED | `components/setup/*`, `__tests__/setup-logic.test.ts`, `__tests__/harmonize-page.test.tsx` |
 | Sign-in with Better Auth (Google), TOTP second factor required, organizations and members | IMPLEMENTED | `lib/server/auth-config.mjs`, `lib/server/session.ts`, `__tests__/auth-session.test.ts`, `__tests__/session-context.test.ts` |
 | Authenticated engine proxy: exact route table with per-route scopes from the engine manifest, CSRF, tenant map, rate limits, body caps, per-request 60 s EdDSA engine token, audit line | IMPLEMENTED | `lib/server/engine-proxy.ts`, `lib/server/engine-routes.ts`, `lib/server/engine-token.ts`, `__tests__/engine-proxy.test.ts`, `__tests__/engine-routes.test.ts`, `__tests__/csrf.test.ts` |
 | Archive and unarchive campaigns (organization admin, second factor within 5 minutes) | IMPLEMENTED | `components/home/archive-dialog.tsx`, `lib/server/engine-proxy.ts`, `__tests__/home.test.ts` |
 | Security headers (CSP, HSTS, frame and content-type protections), production boot check, loopback dev server | IMPLEMENTED | `lib/security-headers.ts`, `lib/server/boot-check.ts`, `__tests__/security-headers.test.ts`, `__tests__/boot-check.test.ts` |
 | App shell: sidebar with campaign switcher and the cycle steps' engine state | IMPLEMENTED | `components/shell/app-shell.tsx`, `__tests__/app-shell.test.tsx` |
-| Scale-up readout (predict or refuse) and a per-campaign stage track whose go/no-go decisions are recorded by people, never computed | IMPLEMENTED (engine-backed; evidence is synthetic) | `app/scale-up`, `components/scale/*`, `__tests__/scale-readout.test.ts` |
+| Scale-up readout (predict or refuse), and a per-campaign stage track backed by the engine's gate registry: a person records each go/no-go with a required note, the engine keeps every decision's history, and computed evidence sits beside the gate but never decides it | IMPLEMENTED (engine-backed; readout evidence is synthetic) | `app/scale-up/page.tsx`, `app/campaigns/[id]/scale-up/page.tsx`, `components/scale/*`, `lib/viz-data/stage-gate.ts`, `__tests__/viz-stage-gate.test.ts`, `__tests__/scale-readout.test.ts` |
+| Example data on the campaigns home (off by default) | EXPERIMENTAL | `lib/demo.ts`, `lib/mock/campaign.ts`, `components/home/demo-preview.tsx` |
 | Editable column confirmation (the one place to change the target after an upload), `data_type` row counts, stale-analysis handling, xlsx worksheet selector | IMPLEMENTED | `components/campaign/column-confirm.tsx`, `lib/setup-attempt.ts`, `lib/sheet-choice.ts`, `__tests__/setup-attempt.test.ts`, `__tests__/sheet-choice.test.ts`, `__tests__/xlsx-scan.test.ts` |
 
 ## Architecture
@@ -71,7 +80,7 @@ Design and threat model: [`docs/ENGINE_AUTH.md`](docs/ENGINE_AUTH.md) and [`docs
 
 ## What you can do
 
-The app has one left sidebar: a campaign switcher, the current campaign's Overview, its three numbered cycle steps with the engine's own stage state, Report, then Scale-up and Settings.
+The app has one left sidebar: a campaign switcher, the current campaign's Overview, its three numbered cycle steps with the engine's own stage state, Report and export, the campaign's Scale-up track, then All campaigns, Scale-up and Settings.
 See `docs/REDESIGN.md` for which engine capability backs each page.
 
 | Page | Route | What it does |
@@ -81,50 +90,67 @@ See `docs/REDESIGN.md` for which engine capability backs each page.
 | 1 Harmonize | `/campaigns/[id]/harmonize` | Pick the prior-runs sheet, choose the target and the campaign setup (maximize or minimize, unit, optional bounds and linear constraints), upload it as a background job with progress, read the data check, the explored range and how the setup was applied |
 | 2 Predict | `/campaigns/[id]/predict` | Can the model be trusted (CV, calibration, promotion as reported), drivers, the proposed batch with intervals; start runs |
 | 3 Validate | `/campaigns/[id]/validate` | Runs in the lab, record and correct results, predicted vs measured, re-analyze and re-propose |
-| Report | `/campaigns/[id]/report` | Download the data package (JSON) and CSVs; what is and is not included |
-| Scale-up | `/scale-up` | Staged path to scale, and the predict-or-refuse scale-up readout |
-| Settings | `/settings` | Theme, engine connection, optional integrations, members, security |
+| Report | `/campaigns/[id]/report` | Download the data package (JSON) and CSVs, raw rows, result history with corrections, operating ranges or why they were not computed; print |
+| Scale-up track | `/campaigns/[id]/scale-up` | The campaign's current stage and its go/no-go gates, each decided and noted by a person, with the engine's evidence beside it; run a readout to link to a decision |
+| Scale-up | `/scale-up` | The predict-or-refuse scale-up readout, and links to each campaign's track |
+| Settings | `/settings`, `/settings/organization`, `/settings/security` | Theme, engine connection, optional integrations; members and invitations; second factor |
 
 Pages without an engine behind them (Data registry, Vessels, Plate, Projects, Simulator) were removed.
 Older routes redirect (`next.config.ts`): `/campaign/*`, `/data`, `/projects*`, `/library*` and the pre-2026-10 routes go to `/`; `/library/scale-up` and `/scale-readout` go to `/scale-up`.
 
 ## Local development
 
-Start the engine first, from the [kalos-engine](https://github.com/itsbrendandang/kalos-engine) repo, which serves the API on `http://127.0.0.1:8050`:
+Prerequisites: Node 22 (CI pins 22.16.0) and npm; for the engine, [uv](https://docs.astral.sh/uv/) and Python 3.11 or 3.12; a Google OAuth client for sign-in ([`docs/AUTH.md`](docs/AUTH.md)) and an authenticator app for the second factor.
+All tools are free and open source.
 
-```bash
-python -m kalos.portal
-```
+1. Web: install, configure, and create the engine signing key and its public JWKS ([`docs/ENGINE_AUTH.md`](docs/ENGINE_AUTH.md), section 3):
 
-Then, in this repo:
+   ```bash
+   npm ci
+   cp env.example .env.local        # then fill in real values; never commit it
+   node -e "process.stdout.write(require('node:crypto').generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'}))" > engine-jwt.pem
+   KALOS_ENGINE_JWT_PRIVATE_KEY_FILE=engine-jwt.pem KALOS_ENGINE_JWT_KID=dev \
+     node scripts/engine-jwks.mjs > engine-jwks.json
+   ```
 
-```bash
-npm install
-cp env.example .env.local        # then edit
-npm run dev
-```
+   In `.env.local` set `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE` and `KALOS_ENGINE_JWT_KID` to the same key and id, `KALOS_TENANT_MAP_FILE=./tenants.json`, and the Google client id and secret.
 
-Open `http://localhost:3000`, not `http://127.0.0.1:3000`.
-Next 16 dev mode does not treat `127.0.0.1` as the same origin as `localhost`, which can break hot reload and client hydration.
+2. Engine: from a [kalos-engine](https://github.com/itsbrendandang/kalos-engine) checkout at PR #164 or later, trusting that JWKS:
+
+   ```bash
+   uv sync --python 3.11 --extra ml --extra portal
+   KALOS_JWT_PUBLIC_KEYS_FILE=/path/to/engine-jwks.json KALOS_JWT_ISSUER=kalos-web \
+     KALOS_JWT_AUDIENCE=kalos-engine uv run python -m kalos.portal    # http://127.0.0.1:8050
+   ```
+
+3. Web: create the auth database, start the dev server, and create your organization ([`docs/AUTH.md`](docs/AUTH.md), "Running it locally"):
+
+   ```bash
+   mkdir -p data
+   AUTH_MIGRATE=1 npm run dev        # binds 127.0.0.1:3000
+   node scripts/create-org.mjs --name "Dev" --slug dev --owner-email you@gmail.com \
+     --tenant dev --tenant-map ./tenants.json --public-url http://localhost:3000
+   ```
+
+   Open the printed invitation link, sign in with Google, and enrol the second factor.
+   `.env.local`, `engine-jwt.pem` and `data/` are gitignored; `tenants.json` and `engine-jwks.json` are not, so keep them out of commits.
+
+Open `http://localhost:3000`, not `http://127.0.0.1:3000`: Next 16 dev mode does not treat `127.0.0.1` as the same origin as `localhost`, which can break hot reload and client hydration.
 
 The browser never calls the engine directly.
 It calls the same-origin proxy at `/api/engine/*` (`app/api/engine/[...path]/route.ts`), which checks the session and forwards to the engine with a short-lived token minted on the server.
-Configure it in `.env.local` (placeholders in [`env.example`](env.example)):
+The engine-facing variables (placeholders and the rest in [`env.example`](env.example)):
 
 | Variable | Where | What it does |
 | --- | --- | --- |
 | `KALOS_ENGINE_URL` | server only | Engine base URL, for example `http://127.0.0.1:8050`. If unset, the proxy answers 502 "engine unreachable". |
-| `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE`, `KALOS_ENGINE_JWT_KID` | server only | The Ed25519 key the proxy signs per-request engine tokens with, and its key id. The engine trusts the matching public JWKS (see `docs/ENGINE_AUTH.md`). |
-| `KALOS_TENANT_MAP_FILE` | server only | Maps each organization to its engine tenant. Unmapped organizations are refused. |
-| `KALOS_ENGINE_TOKEN` | not used | There is no static engine token. The proxy only sends the per-request token it mints; a `KALOS_ENGINE_TOKEN` left in the environment is ignored and never sent. |
-| `NEXT_PUBLIC_DEMO_MODE` | build time | Set to `true` to render example data where the engine has none (see below). Default off. |
-| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch (not available in the Docker image, which has no build arg for it) that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires auth: the browser would call it with no session check and no token. |
+| `KALOS_ENGINE_JWT_PRIVATE_KEY_FILE`, `KALOS_ENGINE_JWT_KID` | server only | The Ed25519 key the proxy signs per-request engine tokens with, and its key id. The engine trusts the matching public JWKS. |
+| `KALOS_TENANT_MAP_FILE` | server only | Maps each organization to its engine tenant (written by `scripts/create-org.mjs`). Unmapped organizations are refused. |
+| `KALOS_ENGINE_TOKEN` | not used | There is no static engine token. A `KALOS_ENGINE_TOKEN` left in the environment is ignored and never sent. |
+| `NEXT_PUBLIC_DEMO_MODE` | build time | `true` shows a badged example campaign on the home page when the engine has no campaigns at all. Default off. |
+| `NEXT_PUBLIC_API_URL` | build time | Local-dev escape hatch (not available in the Docker image) that points the browser straight at an engine and bypasses the proxy. Do not use it with an engine that requires auth: the browser would call it with no session check and no token. |
 
-To try the app with data, create a campaign and upload the synthetic example sheet from the engine repo (`examples/synthetic_bioprocess/synthetic_bioprocess.csv`) on Harmonize.
-That sheet is generated, not measured.
-
-Prerequisites: Node 22 (CI pins 22.16.0), npm, and Python 3.10+ for the engine. All tools are free and open source.
-The commands `npm ci`, `npm run lint`, `npm run test` (401 tests) and `npm run build` were run clean on this branch's base.
+To try the app with data, create a campaign and upload the engine repo's generated example sheet (`examples/synthetic_bioprocess/synthetic_bioprocess.csv`) on Harmonize.
 
 ## Proxy routes
 
@@ -160,21 +186,19 @@ Known limits:
 
 - A token already minted stays valid for up to 60 s plus the engine's leeway after sign-out or a role change; the engine keeps no replay cache.
 - Rate limits and the tenant map are per process and read from local state; see "Known limits" in `docs/ENGINE_AUTH.md`.
-- Engine-side findings from the 2026-11-19 security review that are open at the time of writing (assistant routes not throttled, `KALOS_ANON_SALT` not required in production, lockfile advisories, and the engine's reference compose stack still using one shared static token) are tracked in the engine repository.
+- The engine's reference compose stack (`deploy/compose.yaml` on engine `main`) still configures one shared static engine token, which this branch's proxy never sends; it has to be switched to the JWKS setup above before it can run this branch. Engine-side security findings are tracked in the engine repository.
 - Not independently audited. No compliance or certification claims.
 
 ## Scientific status
 
 This app displays engine output; it does not validate it.
-**The engine's optimizer is not scientifically validated.** Highlights of the engine's own limitations:
+**The engine's optimizer is not scientifically validated, and there is no live-lab result.**
+In the engine's own words: the 90% band is calibrated on held-out runs, but at the recipes it proposes coverage measured lower in simulation (about 60-80%); the reliability verdict can look better than it is when batch or round effects are not declared as groups; and the optimizer searches only inside the observed range of each input.
+Details, benchmarks and their limits: [engine README, "Validation and its limits"](https://github.com/itsbrendandang/kalos-engine#validation-and-its-limits).
 
-- Its synthetic-surface benchmark, including noise-free simulations, is not validation on real processes.
-- The hybrid `dataset_0.csv` (mostly synthetic rows) gave a weak pool-replay result (Spearman 0.048).
-- The Amii published-media benchmark (engine PR #77) retracted its early "2 faster / 2 slower" summary; a corrected paired test found no detectable difference from random in a smoke run.
-- In the mechanistic-prior benchmark (engine PR #81), only the oracle prior survives multiple-comparison correction.
-
-Full details and links: [engine README, Scientific methodology]({E}#scientific-methodology-and-benchmark-limitations) (on the docs branch until merged).
-The UI's reliability verdict is a transparent rule on the engine's held-out metrics, not a guarantee.
+The UI's reliability verdict follows the engine and is never more optimistic than it: the app never says "Reliable" while the engine's verdict is not yet reliable or refused, and says "Not judged: too few runs" when the engine does not judge the trust floor (`reliabilityVerdict` in `lib/api.ts`).
+For older analyses without a verdict, it falls back to a transparent rule on the held-out rank agreement and its interval against the engine's trust floor.
+Neither is a guarantee.
 
 ## Current limitations
 
@@ -185,34 +209,42 @@ The UI's reliability verdict is a transparent rule on the engine's held-out metr
 
 ## Roadmap
 
-- **MVP (toward a public beta):** IMPLEMENTED on this branch: campaign workspace, multiple campaigns, background jobs, campaign setup, Better Auth sign-in with a second factor, organizations as tenants, the authenticated proxy with per-request engine tokens.
+- **MVP (toward a public beta):** IMPLEMENTED on this branch: campaign workspace, multiple campaigns, background jobs, campaign setup, scale-up tracks with recorded gate decisions, Better Auth sign-in with a second factor, organizations as tenants, the authenticated proxy with per-request engine tokens.
 - **Later (PLANNED):** external security review, validation of the optimizer on independent real data.
 
 ## $0 stack
 
-Next.js, React, Tailwind, Base UI, visx, Vitest, GitHub Actions, and a local engine with SQLite. Local development needs no paid service or API key.
+Next.js, React, Tailwind, Base UI, visx, Vitest, GitHub Actions, and a local engine with SQLite. Local development needs no paid service (the Google OAuth client is free).
 
 ## Honest by design in the UI
 
 Each rule names the file that carries it.
 
-- One reliability verdict app-wide ("Reliable", "Not yet reliable", "Not enough data"), computed in one place: `reliabilityVerdict` in `lib/api.ts`, tested in `__tests__/reliability-verdict.test.ts`.
-- Every number through one formatter, with an interval only when the engine sent one and its coverage taken from the engine: `formatValue` in `lib/num.ts`, tested in `__tests__/num.test.ts`.
+- One reliability verdict app-wide ("Reliable", "Not yet reliable", "Not judged: too few runs", "Not enough data"), computed in one place and following the engine's own verdict when it sends one: `reliabilityVerdict` in `lib/api.ts`, tested in `__tests__/reliability-verdict.test.ts` and `__tests__/trust-verdict.test.tsx`.
+- Every proposal interval carries the coverage caveat: the band is calibrated on held-out runs, and at proposed recipes its coverage was measured lower.
+  The engine's own caveat and measured coverage-at-proposals estimate are shown when sent, otherwise a fixed sentence; nothing next to a proposal says "calibrated" without it.
+  `lib/proposal-caveat.ts`, guarded by `__tests__/trust-caveat-guard.test.tsx` across Predict, the batch strip, the Report and the exported package.
+- Each proposal is labelled "model-guided" or "exploration: model not trusted yet" from the engine's verdict, including in the CSV and data package; a refused batch shows no proposals, the engine's reason and what would help: `lib/proposal-trust.ts`, `__tests__/trust-verdict.test.tsx`.
+- The held-out score names the grouping that produced it (for example "held-out by batch (5 groups)"): `cvGroupingText` in `lib/api.ts`, `components/predict/trust-panel.tsx`.
+- A measured result is judged inside or outside only against the band the engine recorded when that run started, never today's band; runs without a recorded band are labelled and left out of the hit rate: `components/campaign/learn.ts`, `lib/viz-data/validation-dumbbells.ts`, `__tests__/learn.test.ts`, `__tests__/viz-validation-dumbbells.test.ts`.
+- Every number through one formatter, with precision from the reported uncertainty and a coverage percentage only when the engine sent one: `formatValue` in `lib/num.ts`, tested in `__tests__/num.test.ts`; no hand-typed 90% or 95% in components (`__tests__/design-guards.test.ts`).
 - Measured and predicted values are never mixed.
-  Best so far comes from the campaign's measured results, never a prediction: `lib/workbench.ts`, `__tests__/workbench.test.ts`.
-- Demo data wears a visible "Example data" badge, and demo content renders only when `NEXT_PUBLIC_DEMO_MODE=true`: `ExampleBadge` in `components/ui/badge.tsx`, `lib/demo.ts`.
+  Best so far comes from the campaign's measured results, never a prediction: `lib/overview.ts`, `__tests__/overview.test.ts`.
+- Go/no-go gate decisions are recorded by a person with a note; a go does not advance the stage and a no-go pauses later stages: `lib/viz-data/stage-gate.ts`, `__tests__/viz-stage-gate.test.ts`.
+- Example data wears a visible "Example data" badge and renders only when `NEXT_PUBLIC_DEMO_MODE=true`: `ExampleBadge` in `components/ui/badge.tsx`, `lib/demo.ts`.
 - State is never carried by color alone.
   Status colors pair with a word or icon, and text and UI color pairs are checked for WCAG contrast in both themes: `__tests__/contrast.test.ts`.
 - No side-stripe borders on callouts or cards: `__tests__/design-guards.test.ts`.
 - No engine vocabulary in copy.
-  This is a design rule (see `DESIGN.md`), not a test, and a few older pages still show internal names.
+  This is a design rule (see `DESIGN.md`), not a test, and some engine reasons are still shown verbatim.
 
 ## Live vs demo data
 
 | Route | Source |
 | --- | --- |
 | `/`, `/campaigns/*` | Engine multi-campaign API (`/api/campaigns*`, `/api/jobs/*`). With demo mode on and no campaigns at all, `/` also shows a badged example preview from `lib/mock/campaign.ts`. |
-| `/scale-up` | Engine (`POST /api/scale/readout`). The stage track is descriptive; nothing in it is tracked or completed by the software. |
+| `/campaigns/[id]/scale-up` | Engine stage and gate registry (`/api/campaigns/{id}/stages`, `/gates`, `/gates/{gate}/history`). The current stage and each decision are recorded by a person; the software never advances a stage or decides a gate. |
+| `/scale-up` | Engine (`POST /api/scale/readout.json`). |
 | `/settings` | Engine (`/api/providers`, and the connection check). |
 
 ## Design system
@@ -221,13 +253,13 @@ Each rule names the file that carries it.
 - Light first, with full dark mode.
 - OKLCH tokens defined once in `app/globals.css`, exposed through Tailwind v4 `@theme inline`.
 - shadcn/ui primitives on Base UI in `components/ui/`, shared pieces in `components/kit/`.
-- Charts and KPI visuals adapted from [Tremor](https://github.com/tremorlabs/tremor) (Apache-2.0) in `components/tremor/`.
+- Charts are visx SVG in `components/viz/charts/`, with pure data adapters in `lib/viz-data/` and numbers formatted through `lib/num.ts` (`components/viz/num.tsx` for display). Recharts and the earlier Tremor copies are gone, enforced by `__tests__/design-guards.test.ts`.
 
 [`DESIGN.md`](DESIGN.md) has the token reference, type scale and layout rules.
 
 ## Development and CI
 
-CI (`.github/workflows/ci.yml`, Node 22.16.0) runs these on every push and pull request:
+CI (`.github/workflows/ci.yml`, Node 22.16.0) runs these on pushes to `main` and on pull requests (drafts skipped):
 
 ```bash
 npm ci
@@ -236,17 +268,19 @@ npm run test
 npm run build
 ```
 
+CI also runs `npm run test:auth-integration` (Better Auth against a temporary SQLite database and a fake Google). Pushes and pull requests that change only Markdown, `docs/` or `LICENSE` skip CI.
 `npm run build` is also the type-check gate; there is no separate `tsc` step (the workflow explains why).
 
 ## Deploy
 
 This repo has its own [`Dockerfile`](Dockerfile): a multi-stage build on `node:22-alpine` that runs the Next.js standalone output as a non-root user, with a health check.
-The compose stack that runs the engine, this app and a backup sidecar together lives in the engine repo, and its [`deploy/RUNBOOK.md`]({E}/blob/main/deploy/RUNBOOK.md) has the quickstart, the security checklist and the backup drills.
-Because there is no login, deploy only on a private network.
+The compose stack that runs the engine, this app and a backup sidecar together lives in the engine repo, and its [`deploy/RUNBOOK.md`](https://github.com/itsbrendandang/kalos-engine/blob/main/deploy/RUNBOOK.md) has the quickstart, the security checklist and the backup drills; see the static-token limit under [Security model](#security-model).
+The web's auth database, migrations and backups are covered in [`docs/AUTH.md`](docs/AUTH.md).
+The app has not been independently reviewed; do not expose it publicly.
 
 ## Contributing
 
-- Run the CI commands above and make sure all three are green.
+- Run the CI commands above and make sure all of them are green.
 - Conventional commits (`feat:`, `fix:`, `docs:`, `chore:`); one focused pull request per change.
 - PR descriptions should cover: what is implemented, incomplete, tests, security, dependencies, required before merge.
 - Use synthetic data in tests and screenshots. Never commit secrets, tokens, or customer data.
@@ -255,7 +289,6 @@ Because there is no login, deploy only on a private network.
 ## Third-party
 
 - Geist and Geist Mono are licensed under the SIL Open Font License 1.1: [`app/fonts/GEIST-LICENSE.txt`](app/fonts/GEIST-LICENSE.txt).
-- The files in `components/tremor/` are adapted from Tremor under Apache-2.0: [`components/tremor/NOTICE`](components/tremor/NOTICE).
 
 ## License
 

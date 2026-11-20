@@ -162,8 +162,9 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
   sets its padding by name rather than restacking utilities. The raw 8px grid
   (`p-4`, `gap-2`) stays for one-off spacing.
 - **One bordered-box recipe**: `rounded-xl` + `border-border` + `bg-surface` +
-  `p-panel`. `Card` (bordered), the Tremor `Card`, and `kit/section.tsx`'s
-  `Panel` all resolve to it; `Panel` delegates to `<Card bordered padding="panel">`.
+  `p-panel`. `Card` (bordered), `ChartFrame` in `components/viz/frame.tsx`
+  (unless `bare`), and `kit/section.tsx`'s `Panel` all resolve to it; `Panel`
+  delegates to `<Card bordered padding="panel">`.
   Do not hand-roll a fourth bordered box.
 - **Tone marks are `size-4`** everywhere (`Callout`, `Verdict`), so status icons
   align across a page.

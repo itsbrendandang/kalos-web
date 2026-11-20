@@ -90,7 +90,12 @@ export type Proposal = {
   expected_improvement?: ImprovementStat | null;
   /** Model probability of beating the incumbent (model-based). */
   p_improve?: ImprovementStat | null;
+  /** The clone this proposal uses (docs/CLONES.md G5): `{column, level, policy, n_runs}`. Absent without a clone column. */
+  clone?: ProposalClone | null;
 };
+
+/** `proposals[].clone` (engine docs/CLONES.md). */
+export type ProposalClone = { column: string; level: string; policy: "fixed" | "factor" | string; n_runs?: number | null };
 
 /** One per-proposal interval entry. A refused level has `available: false`, null bounds and the engine's reason. */
 export type ProposalInterval = {
@@ -653,7 +658,18 @@ export type AnalyzeResult = Partial<Diagnostics> & {
    * the symmetric correlation grid. Absent on analyses run before the engine
    * returned it - render nothing rather than fabricate.
    */
-  correlation?: { labels: string[]; matrix: number[][] };
+  correlation?: {
+    labels: string[];
+    matrix: number[][];
+    /**
+     * The engine says "recipe", but kalos/portal/viz_utils.py `_correlation_spearman` computes rho over the
+     * fitted rows (one per run), not recipe means: the web labels the matrix per run (row). VIZ_SPEC_V2 E5.
+     */
+    unit?: string;
+    n_units?: number;
+    /** Fitted rows the matrix was computed over. Every fitted row is complete, so it is each cell's n. */
+    n_rows?: number;
+  };
   /**
    * The GP-predicted target across the two strongest drivers, other inputs held
    * at their median. This is a MODEL prediction (surrogate posterior mean), not
@@ -751,6 +767,17 @@ export type AnalyzeResult = Partial<Diagnostics> & {
   refusal?: ModelRefusal | null;
   /** Which held-out grouping drove the score (trust layer F05). Absent on older engines. */
   cv_grouping?: CvGrouping | null;
+  /** Per-clone block (engine docs/CLONES.md); `available: false` with a reason when there is no clone column. Absent on older engines. */
+  strain_summary?: StrainSummary | null;
+  /** Per-clone model slices `{<clone column>: {<label>: slice[]}}` (predicted, model band). `{}` without a modeled clone. */
+  slices_by_level?: Record<string, Record<string, (ModelSlice & { level?: string; band_kind?: string; calibrated?: boolean })[]>>;
+  /** Clones whose slices were not computed, with the engine's message. */
+  slices_by_level_skipped?: Record<string, { level: string; reason: string; n_runs?: number; message?: string }[]>;
+  /** The clone label of each `oof` row, aligned. */
+  oof_levels?: Record<string, (string | null)[]>;
+  /** Categorical inputs the drivers and correlation leave out (a signed rank correlation is undefined for labels). */
+  drivers_skipped?: { feature: string; reason: string }[];
+  correlation_skipped?: { feature: string; reason: string }[];
 };
 
 /** The engine's model verdict (`verdict`, trust layer F04). */
@@ -1869,3 +1896,107 @@ export const computeOperatingRanges = (campaignId: string, body: { threshold: nu
   call<OperatingRanges>(`/api/campaigns/${enc(campaignId)}/operating-ranges`, jsonInit("POST", { ...body, basis: "target" }));
 
 export { API };
+
+/* ---- Clones / strains (engine docs/CLONES.md, schema v7). Labels only; every statistic is the engine's. ---- */
+
+export type EngineRefusalEntry = { code: string; level?: string | null; reason: string; what_would_fix_it?: string | null } & Record<string, unknown>;
+
+/** One clone's MEASURED summary for one outcome (`basis: "measured"`). `ci95` only when n_runs >= 3. */
+export type CloneOutcome = {
+  basis: string;
+  n_runs: number;
+  n_missing?: number;
+  n_recipes?: number | null;
+  n_replicated_recipes?: number | null;
+  mean: number | null;
+  sd?: number | null;
+  median?: number | null;
+  min?: number | null;
+  max?: number | null;
+  best?: number | null;
+  best_run_id?: string | null;
+  ci95: [number, number] | null;
+  ci_reason?: string | null;
+  /** The interval's coverage, e.g. 0.95. */
+  coverage?: number;
+  replicate_sd?: number | null;
+  replicate_sd_reason?: string | null;
+  by_scale?: Record<string, CloneOutcome>;
+};
+
+/** Process-adjusted clone effect (`basis: "derived"`), relative to `relative_to`; withheld with a refusal. */
+export type CloneAdjustedEffect = {
+  basis: string;
+  estimate: number | null;
+  ci95: [number, number] | null;
+  coverage?: number;
+  approximate?: boolean;
+  ci_method?: string;
+  shrinkage_w?: number | null;
+  mostly_pooled?: boolean;
+  is_reference?: boolean;
+  relative_to?: string;
+  n?: number;
+  refusal?: EngineRefusalEntry | null;
+};
+
+/** The GP at one shared reference process with this clone (`basis: "predicted"`). */
+export type CloneGpAtReference = {
+  basis: string;
+  pred: number | null;
+  lo?: number | null;
+  hi?: number | null;
+  coverage?: number;
+  method?: string;
+  calibrated?: boolean;
+  calibrated_on?: string;
+  note?: string;
+  at?: Record<string, number | string | null>;
+  refusal?: EngineRefusalEntry | null;
+};
+
+export type CloneLevel = {
+  label: string;
+  n_runs: number;
+  n_recipes?: number | null;
+  n_replicated_recipes?: number | null;
+  n_fitted?: number;
+  rounds?: string[] | null;
+  scales?: string[] | null;
+  outcomes: Record<string, CloneOutcome>;
+  covariates?: Record<string, { min?: number | null; max?: number | null; n?: number; n_distinct?: number }>;
+  adjusted_effect?: CloneAdjustedEffect | null;
+  gp_at_reference?: CloneGpAtReference | null;
+  oof_coverage?: { n: number; nominal: number; empirical: number | null; reason: string | null } | null;
+  flags: string[];
+};
+
+export type StrainSummary =
+  | { available: false; reason: string; refusals?: EngineRefusalEntry[]; levels?: CloneLevel[] }
+  | {
+      available: true;
+      reason: null;
+      column: string;
+      source?: "setup" | "declared" | "detected" | string;
+      policy?: "fixed" | "factor" | string;
+      modeled?: boolean;
+      fixed_level?: string | null;
+      fixed_level_source?: string | null;
+      fixed_level_note?: string | null;
+      reference_level?: string | null;
+      n_levels?: number;
+      n_levels_with_3_runs?: number;
+      target?: string;
+      outcome_units?: Record<string, string | null>;
+      outcome_direction?: Record<string, string>;
+      levels: CloneLevel[];
+      process_balance?: { flag: boolean; messages?: string[] } & Record<string, unknown>;
+      confounded_with?: { column: string; cramers_v?: number | null; fully?: boolean; confined?: Record<string, string> }[];
+      scale?: { column: string | null; levels: string[]; mixed: boolean; note: string | null };
+      adjusted_method?: string | null;
+      adjusted_note?: string;
+      tau?: number | null;
+      i2?: number | null;
+      leave_one_clone_out?: { spearman: number | null; n_clones?: number; n_oof?: number; reason: string | null; note?: string } | null;
+      refusals: EngineRefusalEntry[];
+    };

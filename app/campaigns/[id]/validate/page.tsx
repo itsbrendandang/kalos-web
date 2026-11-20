@@ -18,6 +18,9 @@ import { isJobActive, targetUnitOf, type PopulatedResult } from "@/lib/api";
 import { campaignStage, cycleSteps, displayRound } from "@/lib/campaign-stage";
 import { coverageText, formatValue, parseUnit } from "@/lib/num";
 import { toDumbbellData } from "@/lib/viz-data/validation-dumbbells";
+import { cloneKeyOf } from "@/lib/viz-data/clones";
+import { toResidualGrid } from "@/lib/viz-data/residual-grid";
+import { ResidualGridChart } from "@/components/viz/charts/residual-grid";
 import { campaignHref } from "@/lib/routes";
 import { inFlight, measured } from "@/lib/workbench";
 
@@ -116,6 +119,8 @@ export default function ValidatePage() {
   const archived = detail.data?.campaign.archived ?? false;
   const drivers = analysis?.drivers.map((d) => d.name) ?? [];
   const hash = analysisHash(analysis);
+  const clone = cloneKeyOf(analysis);
+  const residuals = toResidualGrid(c, unit);
 
   return (
     <div className="flex flex-col gap-10">
@@ -142,6 +147,7 @@ export default function ValidatePage() {
         <nav aria-label="On this page" className="flex flex-wrap gap-x-5 gap-y-1 text-label">
           <a href="#run" className="text-accent hover:underline">In the lab</a>
           <a href="#record" className="text-accent hover:underline">Record results</a>
+          {residuals && residuals.rounds.length > 0 ? <a href="#residuals" className="text-accent hover:underline">Residuals by round</a> : null}
           <a href="#learn" className="text-accent hover:underline">Learn and re-propose</a>
         </nav>
       </div>
@@ -160,7 +166,7 @@ export default function ValidatePage() {
       >
         {awaiting.length > 0 ? (
           <>
-            <RunsTable runs={awaiting} drivers={drivers} analysis={analysis} featureRanges={analysis?.feature_ranges ?? null} target={c.target} unit={unit} />
+            <RunsTable runs={awaiting} drivers={drivers} analysis={analysis} featureRanges={analysis?.feature_ranges ?? null} target={c.target} unit={unit} clone={clone} />
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
               <LegendItem mark="predicted">Predicted by the engine</LegendItem>
               <span>
@@ -187,8 +193,19 @@ export default function ValidatePage() {
             : "Results are recorded here once a batch is running."
         }
       >
-        {started > 0 ? <RecordForm campaignId={id} runs={c.pending} analysis={analysis} best={c.best} target={c.target} unit={unit} readOnly={archived} onSavingChange={setSaving} /> : null}
+        {started > 0 ? <RecordForm campaignId={id} runs={c.pending} analysis={analysis} best={c.best} target={c.target} unit={unit} readOnly={archived} onSavingChange={setSaving} clone={clone} /> : null}
       </Section>
+
+      {residuals && residuals.rounds.length > 0 ? (
+        <Section
+          id="residuals"
+          title="Residuals by round"
+          className="scroll-mt-6"
+          description="Did results land where the engine said they would when each run started? Each cell is one run; a round that leans one way is drift."
+        >
+          <ResidualGridChart grid={residuals} sourceLabel="Campaign runs (GET /api/campaigns/{id})" />
+        </Section>
+      ) : null}
 
       <LearnSection
         campaignId={id}

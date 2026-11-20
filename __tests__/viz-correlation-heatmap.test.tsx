@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import analysis from "./fixtures/harmonize-analysis.json";
 import { CorrelationHeatmap } from "@/components/viz/charts/correlation-heatmap";
 import { sourceFromAnalysis } from "@/lib/source";
-import { cellOpacity, corrText, correlationTable, describeCorrelation, targetPairs, toCorrelationProps } from "@/lib/viz-data/correlation-heatmap";
+import { cellN, cellOpacity, corrText, correlationTable, describeCorrelation, targetPairs, toCorrelationProps } from "@/lib/viz-data/correlation-heatmap";
 
 afterEach(cleanup);
 
@@ -59,7 +59,7 @@ describe("describeCorrelation and the Data table", () => {
   });
   it("names the method, the run count, the strongest target pairs and the n/a pairs", () => {
     expect(describeCorrelation(p)).toBe(
-      "Spearman rank correlation among 2 inputs and titer_g_L, over 1,204 runs. Strongest with the target: pH 0.62. 1 pair has no value from the engine (n/a).",
+      "Spearman rank correlation among 2 inputs and titer_g_L, per run (row), n = 1,204 runs in every computed pair. Strongest with the target: pH 0.62. 1 pair has no value from the engine (n/a).",
     );
   });
   it("lists every cell as printed", () => {
@@ -98,5 +98,27 @@ describe("CorrelationHeatmap", () => {
     fireEvent.mouseLeave(cell);
     fireEvent.mouseEnter(screen.getByRole("button", { name: /^temp and titer_g_L: n\/a/ }));
     expect(screen.getByRole("tooltip").textContent).toMatch(/sent no value for this pair/);
+  });
+});
+
+describe("per run (row) and per-cell n (VIZ_SPEC_V2 E5)", () => {
+  const block = { ...grid, unit: "recipe", n_units: 47, n_rows: 47 };
+  it("takes n from the engine's correlation.n_rows over the analysis n, and keeps the engine's claimed unit only for the source note", () => {
+    const p = toCorrelationProps(block, "titer_g_L", 50)!;
+    expect(p.n).toBe(47);
+    expect(p.engineUnit).toBe("recipe");
+    expect(describeCorrelation(p)).toMatch(/per run \(row\), n = 47 runs in every computed pair/);
+  });
+  it("every computed off-diagonal cell has its n; the diagonal and n/a pairs have none", () => {
+    const p = toCorrelationProps(block, "titer_g_L")!;
+    expect(cellN(p, 0, 1)).toBe(47);
+    expect(cellN(p, 0, 0)).toBeNull();
+    expect(cellN(p, 1, 2)).toBeNull();
+  });
+  it("prints n under rho in every computed cell and says the matrix is per run", () => {
+    render(<CorrelationHeatmap data={toCorrelationProps(block, "titer_g_L")!} source={{ label: "Analysis of runs.csv", field: "correlation", basis: "derived" }} width={600} />);
+    expect(screen.getAllByText("n 47")).toHaveLength(4);
+    expect(screen.getByRole("button", { name: /^pH and temp: .*, n = 47 runs$/ })).toBeTruthy();
+    expect(screen.getByText(/per run \(one row per run in the fit\) \(the engine's block says unit "recipe", but it computes over the fitted rows\)/)).toBeTruthy();
   });
 });

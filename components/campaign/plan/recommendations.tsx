@@ -24,6 +24,8 @@ import type { ConstraintReport } from "@/lib/api";
 import { coverageText, formatInterval, formatProb, formatValue, type Formatted } from "@/lib/num";
 import type { Source } from "@/lib/source";
 import { cn } from "@/lib/utils";
+import { CloneChip } from "@/components/viz/clone-chip";
+import { cloneOfRecipe, type CloneKey } from "@/lib/viz-data/clones";
 import {
   DISTANCE_METHOD,
   MODEL_BASED,
@@ -76,9 +78,19 @@ export type PlanContext = {
   sourceFor?: (row: PlanRow) => Source;
   /** The source of the incumbent. */
   incumbentSource?: Source;
+  /** The clone column and its chips (SV-G5), or null when the analysis has no clone column. */
+  clone?: CloneKey | null;
   /** The batch at the chosen coverage: band mode, goal, distance scale. */
   model: Pick<BatchStripModel, "intervals" | "coverage" | "goal" | "nnMedian" | "hasImprovement" | "caveat" | "caveats">;
 };
+
+/** SV-G5: the clone a proposal uses, hollow (proposed, not measured). Nothing without a clone column. */
+function RowClone({ row, ctx, className }: { row: PlanRow; ctx: PlanContext; className?: string }) {
+  const label = row.item.proposal.clone?.level ?? cloneOfRecipe(row.recipe, ctx.clone ?? null);
+  const glyph = label ? ctx.clone?.glyphs.get(label) : null;
+  if (!label || !ctx.clone) return null;
+  return <CloneChip glyph={glyph ?? { label, color: null, shape: null }} filled={false} className={className} title={`Proposed on clone ${label} (not run yet)`} />;
+}
 
 /** A proposal's prediction with its band at the chosen coverage (none when refused), at the precision the band supports. */
 export function predOf(row: PlanRow, ctx: Pick<PlanContext, "coverage" | "unit">): Formatted {
@@ -338,6 +350,7 @@ export function RecommendationsTable({ rows, ctx, state }: { rows: PlanRow[]; ct
                       <span className="block pl-6 text-caption whitespace-nowrap text-fg-muted">+{ctx.others.filter((k) => k in row.recipe).length} more inputs</span>
                     ) : null}
                     {row.strip.trust ? <TrustLabel row={row} className="mt-1 ml-6 max-w-44" /> : null}
+                    <RowClone row={row} ctx={ctx} className="mt-1 ml-6" />
                   </td>
                   {ctx.features.map((f) => (
                     <td key={f} className="px-2 py-3 text-right tabular-nums whitespace-nowrap">
@@ -419,6 +432,7 @@ export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx
                   <Checkbox checked={s.included} onChange={s.onInclude} aria-label={`Run ${row.id}`} />
                   <span className="font-mono text-code text-fg">{row.id}</span>
                   <ModeText mode={p.mode} className="text-body" />
+                  <RowClone row={row} ctx={ctx} />
                   <span className="hidden text-caption text-fg-muted min-[420px]:inline">{(ctx.model.goal === "minimize" ? MODE_HINT_MIN : MODE_HINT)[p.mode]}</span>
                   <span className="ml-auto">
                     <CompareToggle row={row} state={s} />

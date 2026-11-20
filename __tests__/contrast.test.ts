@@ -71,6 +71,7 @@ const TONES = [
 const CHART = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5", "--chart-6"];
 const SEQ = ["--chart-seq-1", "--chart-seq-2", "--chart-seq-3", "--chart-seq-4", "--chart-seq-5"];
 const UNC = ["--chart-unc-1", "--chart-unc-2", "--chart-unc-3", "--chart-unc-4", "--chart-unc-5"];
+const ORD = ["--chart-ord-1", "--chart-ord-2", "--chart-ord-3", "--chart-ord-4", "--chart-ord-5"];
 
 type Pair = [fg: string, bg: string, min: number];
 
@@ -117,12 +118,33 @@ describe.each([
     for (let i = 1; i < ratios.length; i++) expect(ratios[i]).toBeGreaterThan(ratios[i - 1]);
   });
 
+  it("ordered (count) ramp gets more visible against the page as values rise (VIZ_SPEC_V2 2.8)", () => {
+    const ratios = ORD.map((c) => contrast(tokens, c, "--bg"));
+    for (let i = 1; i < ratios.length; i++) expect(ratios[i]).toBeGreaterThan(ratios[i - 1]);
+  });
+
+  // Heatmap cells print their value and n: --fg on steps 1-3, --surface on steps 4-5 (lib/viz-data/heat.ts ordInk).
+  it.each([
+    ["--fg", "--chart-ord-1"],
+    ["--fg", "--chart-ord-2"],
+    ["--fg", "--chart-ord-3"],
+    ["--surface", "--chart-ord-4"],
+    ["--surface", "--chart-ord-5"],
+  ])("cell text %s on %s clears 4.5:1", (fg, bg) => {
+    expect(contrast(tokens, fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("the model band and the held-out band differ in lightness, so they stay apart in greyscale", () => {
+    const l = (name: string) => Number(/oklch\(\s*([0-9.]+)/.exec(resolve(tokens, name))?.[1]);
+    expect(Math.abs(l("--chart-band-model") - l("--chart-band"))).toBeGreaterThanOrEqual(0.05);
+  });
+
   it("the refusal hatch stroke is visible on its zone fill", () => {
     expect(contrast(tokens, "--chart-refused", "--chart-zone-licensed")).toBeGreaterThanOrEqual(1.3);
   });
 
   it("every tested color is inside the sRGB gamut, so no browser clipping changes it", () => {
-    const names = new Set(pairs.flatMap(([fg, bg]) => [fg, bg]).concat(SEQ, UNC));
+    const names = new Set(pairs.flatMap(([fg, bg]) => [fg, bg]).concat(SEQ, UNC, ORD));
     for (const name of names) {
       for (const v of oklchToLinearSrgb(resolve(tokens, name))) {
         expect(v, name).toBeGreaterThanOrEqual(-0.002);

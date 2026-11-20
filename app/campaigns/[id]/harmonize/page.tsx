@@ -12,6 +12,7 @@ import { ValidationSummary } from "@/components/campaign/validation-summary";
 import { jobProblem } from "@/components/harmonize/data-facts";
 import { PriorDataIntro } from "@/components/harmonize/prior-data-intro";
 import { DataPictures, DesignSpace, YourData } from "@/components/harmonize/your-data";
+import { CloneOutcomeSection, CoverageSection, DataQualityPanel } from "@/components/harmonize/campaign-maps";
 import { Callout } from "@/components/kit/callout";
 import { CycleStepper } from "@/components/kit/cycle-stepper";
 import { ElapsedProgress, JobProgress } from "@/components/kit/job-progress";
@@ -412,10 +413,13 @@ function AnalysisView({
         ) : (
           <p className="text-body text-fg-muted">This analysis came without a data check, so nothing here should be read as a pass.</p>
         )}
+        <DataQualityPanel analysis={analysis} />
       </Section>
 
       <YourData analysis={analysis} roles={roles} />
       <DesignSpace analysis={analysis} />
+      <CoverageSection analysis={analysis} campaignId={campaignId} />
+      <CloneOutcomeSection analysis={analysis} />
       <DataPictures analysis={analysis} />
 
       <SourceLine

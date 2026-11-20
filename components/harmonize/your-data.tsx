@@ -270,9 +270,9 @@ export function DataPictures({ analysis }: { analysis: PicturesAnalysis }) {
   const landscape = toLandscapeProps(analysis.embedding, analysis.target, unit);
   return (
     <div className="flex flex-col">
-      <Disclosure summary="How the inputs and the target move together" meta="Spearman ρ">
+      <Disclosure summary="How the inputs and the target move together" meta="Spearman ρ, per run">
         {correlation ? (
-          <CorrelationHeatmap data={correlation} source={sourceFromAnalysis(analysis, "correlation", "derived", "Spearman rank correlation, pairwise")} />
+          <CorrelationHeatmap data={correlation} source={sourceFromAnalysis(analysis, "correlation", "derived", "Spearman rank correlation, per run (row)")} />
         ) : (
           <Absent text={visualizationAbsentText("correlation", reasons?.correlation ?? null)} raw={reasons?.correlation ?? null} />
         )}

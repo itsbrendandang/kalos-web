@@ -44,6 +44,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BatchIntervalStrip } from "@/components/viz/charts/batch-interval-strip";
 import { RecipeSetpointMatrix } from "@/components/viz/charts/recipe-setpoint-matrix";
 import { SliceProfiler } from "@/components/viz/charts/slice-profiler";
+import { CloneComparisonTable } from "@/components/viz/charts/clone-comparison";
+import { ModelMultiplesChart } from "@/components/viz/charts/model-multiples";
 import { SourceButton } from "@/components/viz/num";
 import { RefusalBlock } from "@/components/viz/refusal";
 import { useCampaign, useCampaignId, useEngineWrites, useLastRejection, useLatest } from "@/hooks/use-engine";
@@ -67,6 +69,8 @@ import {
   type BatchStripModel,
 } from "@/lib/viz-data/batch-interval-strip";
 import { toSliceProfiler } from "@/lib/viz-data/slice-profiler";
+import { cloneKeyOf, toCloneComparison } from "@/lib/viz-data/clones";
+import { toModelMultiples } from "@/lib/viz-data/model-multiples";
 import { toSetpointMatrixModel, type RangeInput } from "@/lib/viz-data/recipe-setpoint-matrix";
 
 const count = (n: number) => formatValue(n, { quantity: "count" }).text;
@@ -255,8 +259,10 @@ function Started({ d, id, stage, round, active }: { d: PredictAnalysis; id: stri
       >
         <StartedBatch d={d} active={active} />
       </Section>
+      <CloneSection d={d} />
       <SliceDisclosure d={d} />
       <SurfaceDisclosure d={d} />
+      <MultiplesDisclosure d={d} />
       <ProvenancePanel d={d} />
       <PredictSource d={d} />
     </Page>
@@ -342,6 +348,7 @@ function Batch({
     gated,
     sourceFor: (r) => sourceFromAnalysis(d, `proposals[${r.item.index}].pred`, "predicted", bandMethodOf(strip)),
     incumbentSource: sourceFromAnalysis(d, d.noise?.replicate_aware ? "noise.best_reproducible" : "best", "measured"),
+    clone: cloneKeyOf(d),
     model: strip,
   };
 
@@ -554,8 +561,10 @@ function Batch({
         </p>
       </Section>
 
+      <CloneSection d={d} />
       <SliceDisclosure d={d} rows={rows} />
       <SurfaceDisclosure d={d} rows={rows} />
+      <MultiplesDisclosure d={d} rows={rows} />
       <ProvenancePanel d={d} />
       <PredictSource d={d} />
 
@@ -781,6 +790,39 @@ function SurfaceDisclosure({ d, rows = [] }: { d: PredictAnalysis; rows?: PlanRo
         source={sourceFromAnalysis(d, "response_surface", "predicted")}
         reason={reason}
       />
+    </Disclosure>
+  );
+}
+
+/**
+ * SV-G4: the clone comparison (measured, process-adjusted, predicted at one reference recipe), only when
+ * the analysis has a clone column. Every number is the engine's `strain_summary`.
+ */
+function CloneSection({ d }: { d: PredictAnalysis }) {
+  const data = useMemo(() => toCloneComparison(d.strain_summary), [d.strain_summary]);
+  if (!data) return null;
+  return (
+    <Section
+      id="clones"
+      title="Clones"
+      description={`How the clones compare on ${targetName(d.target)} (clone column ${data.column}): measured first, then the difference at the same process conditions, then the model at one reference recipe.`}
+    >
+      <CloneComparisonTable data={data} source={sourceFromAnalysis(d, "strain_summary.levels", "measured")} />
+    </Section>
+  );
+}
+
+/** H3: the model's mean and σ as small multiples (the surface pair, then one-input slices, per clone when sliced by clone). */
+function MultiplesDisclosure({ d, rows = [] }: { d: PredictAnalysis; rows?: PlanRow[] }) {
+  const data = useMemo(() => toModelMultiples(d), [d]);
+  const proposals = useMemo(
+    () => (rows.length ? rows.map((r) => ({ key: r.id, recipe: r.recipe as Record<string, number | string> })) : (d.proposals ?? []).map((p, i) => ({ key: `P${i + 1}`, recipe: proposalRecipe(p, d.proposal_features) as Record<string, number | string> }))),
+    [rows, d],
+  );
+  if (!data) return null;
+  return (
+    <Disclosure summary="Model mean and uncertainty, side by side" meta="mean and σ, predicted">
+      <ModelMultiplesChart data={data} target={targetName(d.target)} unit={targetUnitOf(d)} proposals={proposals} source={sourceFromAnalysis(d, "response_surface, slices", "predicted")} bare />
     </Disclosure>
   );
 }

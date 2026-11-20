@@ -38,7 +38,7 @@ export function useChartTip() {
     }),
     [show, hide, pin, close],
   );
-  return { tip, markProps, close };
+  return { tip, markProps, close, show, hide, pin };
 }
 
 export function ChartTooltip({ tip, onClose, width }: { tip: TipState; onClose: () => void; width: number }) {

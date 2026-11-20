@@ -5,7 +5,7 @@ import { ChartTooltip, TipRow, TipSource, useChartTip } from "@/components/viz/t
 import { formatCorr, formatValue } from "@/lib/num";
 import type { Source } from "@/lib/source";
 import { MAX_FOCUSABLE_MARKS } from "@/lib/viz-thresholds";
-import { cellOpacity, corrText, correlationTable, describeCorrelation, type CorrelationProps } from "@/lib/viz-data/correlation-heatmap";
+import { cellN, cellOpacity, corrText, correlationTable, describeCorrelation, type CorrelationProps } from "@/lib/viz-data/correlation-heatmap";
 
 /*
  * Spearman rank correlation among the inputs and the target (VIZ_SPEC 5,
@@ -14,16 +14,18 @@ import { cellOpacity, corrText, correlationTable, describeCorrelation, type Corr
  * also printed (U+2212 minus) in every cell, so the chart reads in greyscale.
  * A pair the engine sent no value for is a muted "n/a" cell, never 0. The
  * diagonal (a column against itself) is printed but left unshaded, so it
- * never reads as the strongest finding.
+ * never reads as the strongest finding. Every computed cell prints its n under
+ * rho. The matrix is per run (row): see lib/viz-data/correlation-heatmap.ts for
+ * why that is the engine's real unit whatever its `unit` field says.
  */
 
 const FONT = 12;
 /** Approximate caption-size glyph width (Geist 12px) used to size the label gutters deterministically. */
 const CHAR_W = 6.6;
-const MIN_CELL = 38;
-const MAX_CELL = 48;
+const MIN_CELL = 46;
+const MAX_CELL = 54;
 
-const METHOD = "Spearman rank correlation, pairwise over the runs in the fit";
+const METHOD = "Spearman rank correlation, per run (one row per run in the fit)";
 
 export function CorrelationHeatmap({ data, source, width: fixedWidth, bare = true }: { data: CorrelationProps; source: Source; width?: number; bare?: boolean }) {
   const { tip, markProps, close } = useChartTip();
@@ -38,13 +40,13 @@ export function CorrelationHeatmap({ data, source, width: fixedWidth, bare = tru
     <ChartFrame
       bare={bare}
       title="Rank correlation"
-      subtitle="How each pair of inputs, and each input with the target, rise and fall together across your runs. Descriptive only: a correlation is not a cause."
+      subtitle="How each pair of inputs, and each input with the target, rise and fall together across your runs, one row per run. Each cell prints rho and the runs (n) behind it. Descriptive only: a correlation is not a cause."
       height={gutter + MIN_CELL * k}
       width={fixedWidth}
       description={description}
       data={correlationTable(data)}
       legend={<DivergingLegend />}
-      footer={`From: ${source.label} · n = ${n} runs · ${METHOD}${source.engineVersion ? ` · engine ${source.engineVersion}` : ""}`}
+      footer={`From: ${source.label} · n = ${n} runs · ${METHOD}${data.engineUnit && data.engineUnit !== "row" && data.engineUnit !== "run" ? ` (the engine's block says unit "${data.engineUnit}", but it computes over the fitted rows)` : ""}${source.engineVersion ? ` · engine ${source.engineVersion}` : ""}`}
     >
       {(width) => {
         const cell = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.floor((width - gutter) / Math.max(k, 1))));
@@ -76,14 +78,16 @@ export function CorrelationHeatmap({ data, source, width: fixedWidth, bare = tru
                     const y = gutter + i * cell;
                     const diag = i === j;
                     const pair = `${data.labels[i]} and ${data.labels[j]}`;
-                    const label = `${pair}: ${rho == null ? "n/a, no value from the engine" : formatCorr(rho).aria}`;
+                    const nCell = cellN(data, i, j);
+                    const label = `${pair}: ${rho == null ? "n/a, no value from the engine" : formatCorr(rho).aria}${nCell != null ? `, n = ${nCell} runs` : ""}`;
                     const content = (
                       <div className="flex flex-col gap-1">
                         <p className="pr-5 text-label text-fg">{diag ? data.labels[i] : pair}</p>
                         <TipRow label="Spearman ρ">{rho == null ? <span className="text-fg-muted">n/a</span> : corrText(rho)}</TipRow>
                         {diag ? <p className="text-fg-muted">A column always ranks identically with itself.</p> : null}
                         {rho == null ? <p className="text-fg-muted">The engine sent no value for this pair (fewer than 3 usable rows, or undefined).</p> : null}
-                        <TipRow label="Runs">{n}</TipRow>
+                        <TipRow label="Runs (n)">{diag ? "n/a" : rho == null ? "fewer than 3 usable" : n}</TipRow>
+                        {!diag && rho != null ? <p className="text-fg-muted">Every run in the fit has all inputs, so each pair uses all of them.</p> : null}
                         <TipSource>
                           correlation.matrix[{i}][{j}] · {source.label}
                           {source.engineVersion ? ` · engine ${source.engineVersion}` : ""}
@@ -98,15 +102,20 @@ export function CorrelationHeatmap({ data, source, width: fixedWidth, bare = tru
                         ) : null}
                         <text
                           x={x + cell / 2}
-                          y={y + cell / 2}
+                          y={nCell != null ? y + cell / 2 - 6 : y + cell / 2}
                           dy="0.33em"
                           textAnchor="middle"
                           fontSize={FONT}
-                          className={rho == null || diag ? "fill-fg-muted tabular-nums" : "fill-fg tabular-nums"}
+                          className={rho == null || diag ? "fill-fg-muted tabular-nums" : "fill-fg tabular-nums font-medium"}
                           aria-hidden
                         >
                           {corrText(rho)}
                         </text>
+                        {nCell != null ? (
+                          <text x={x + cell / 2} y={y + cell / 2 + 10} dy="0.33em" textAnchor="middle" fontSize={FONT} className="fill-fg tabular-nums" aria-hidden>
+                            {`n ${formatValue(nCell, { quantity: "count" }).text}`}
+                          </text>
+                        ) : null}
                       </g>
                     );
                   }),

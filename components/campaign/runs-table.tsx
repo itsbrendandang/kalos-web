@@ -13,6 +13,8 @@ import { displayRound } from "@/lib/campaign-stage";
 import { columnDecimals, coverageText, formatValue, type IntervalSpec } from "@/lib/num";
 import { sourceFromRun } from "@/lib/source";
 import { shortId } from "@/lib/workbench";
+import { RunClone } from "@/components/campaign/run-clone";
+import type { CloneKey } from "@/lib/viz-data/clones";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,6 +35,7 @@ export function RunsTable({
   featureRanges,
   target,
   unit,
+  clone = null,
 }: {
   runs: CampaignRun[];
   drivers: readonly string[];
@@ -42,6 +45,8 @@ export function RunsTable({
   featureRanges?: Record<string, [number, number]> | null;
   target: string;
   unit: string | null;
+  /** The clone column and its chips (SV-G5), or null without one. */
+  clone?: CloneKey | null;
 }) {
   const [sort, setSort] = useState<RunSort>(null);
   const [page, setPage] = useState(0);
@@ -98,6 +103,7 @@ export function RunsTable({
                 <TableRow id={`run-${r.id}`} className="scroll-mt-12">
                   <TableCell className="font-mono text-code" title={r.id}>
                     {shortId(r.id)}
+                    <RunClone run={r} clone={clone} />
                   </TableCell>
                   <TableCell>
                     <button

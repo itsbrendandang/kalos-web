@@ -66,6 +66,15 @@
   --chart-unc-3: oklch(0.76 0 0);
   --chart-unc-4: oklch(0.62 0 0);
   --chart-unc-5: oklch(0.48 0 0);
+  /* Counts and positions in heatmaps (VIZ_SPEC_V2 2.8): an ordered low-chroma blue ramp, 5 stepped
+   * classes. Cell text on steps 1-3 is --fg, on steps 4-5 --surface (both checked in contrast.test.ts). */
+  --chart-ord-1: oklch(0.95 0.02 240);
+  --chart-ord-2: oklch(0.86 0.05 240);
+  --chart-ord-3: oklch(0.74 0.08 240);
+  --chart-ord-4: oklch(0.54 0.1 240);
+  --chart-ord-5: oklch(0.42 0.09 240);
+  /* Model band (GP posterior, not held-out calibrated): lighter and lower chroma than --chart-band. */
+  --chart-band-model: oklch(0.6 0.06 285 / 0.12);
   /* Refusals and zones: a neutral hatch (a refusal is an honest result, not an error). */
   --chart-refused: var(--border-strong);
   --chart-zone-warn: var(--warn-soft);
@@ -123,6 +132,12 @@
   --chart-unc-3: oklch(0.55 0 0);
   --chart-unc-4: oklch(0.68 0 0);
   --chart-unc-5: oklch(0.8 0 0);
+  --chart-ord-1: oklch(0.3 0.03 240);
+  --chart-ord-2: oklch(0.38 0.06 240);
+  --chart-ord-3: oklch(0.48 0.08 240);
+  --chart-ord-4: oklch(0.68 0.09 240);
+  --chart-ord-5: oklch(0.82 0.07 240);
+  --chart-band-model: oklch(0.8 0.06 285 / 0.18);
 }
 
 @theme inline {
@@ -162,6 +177,12 @@
   --color-chart-unc-3: var(--chart-unc-3);
   --color-chart-unc-4: var(--chart-unc-4);
   --color-chart-unc-5: var(--chart-unc-5);
+  --color-chart-ord-1: var(--chart-ord-1);
+  --color-chart-ord-2: var(--chart-ord-2);
+  --color-chart-ord-3: var(--chart-ord-3);
+  --color-chart-ord-4: var(--chart-ord-4);
+  --color-chart-ord-5: var(--chart-ord-5);
+  --color-chart-band-model: var(--chart-band-model);
   --color-chart-refused: var(--chart-refused);
   --color-chart-reference: var(--chart-reference);
   --color-chart-predicted: var(--chart-predicted);

@@ -21,6 +21,8 @@ import { campaignHref } from "@/lib/routes";
 import { sourceFromRun } from "@/lib/source";
 import { fmtInterval, fmtResidual, toDumbbellData, type DumbbellAnalysis, type DumbbellRun } from "@/lib/viz-data/validation-dumbbells";
 import { shortId } from "@/lib/workbench";
+import { RunClone } from "@/components/campaign/run-clone";
+import type { CloneKey } from "@/lib/viz-data/clones";
 
 type Row = { id: string; value: number };
 
@@ -108,6 +110,7 @@ export function RecordForm({
   unit,
   readOnly = false,
   onSavingChange,
+  clone = null,
 }: {
   /** For the engine's result history (corrections) and the link to the Report's history. */
   campaignId?: string;
@@ -119,6 +122,8 @@ export function RecordForm({
   /** Archived campaigns are read-only. */
   readOnly?: boolean;
   onSavingChange?: (saving: boolean) => void;
+  /** The clone column and its chips (SV-G5), or null without one. */
+  clone?: CloneKey | null;
 }) {
   const { logResult } = useEngineWrites();
   const campaign = useCampaign();
@@ -229,6 +234,7 @@ export function RecordForm({
                 <TableRow key={r.id} id={`record-${r.id}`} className="scroll-mt-12">
                   <TableCell className="align-top font-mono text-code" title={r.id}>
                     {shortId(r.id)}
+                    <RunClone run={r} clone={clone} />
                   </TableCell>
                   <TableCell numeric className="h-auto align-top">
                     {r.awaiting ? (

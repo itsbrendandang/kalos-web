@@ -66,8 +66,8 @@ export function ChartFrame({
   const { ref, width } = useWidth<HTMLDivElement>(fixedWidth);
   return (
     <figure className={cn("flex min-w-0 flex-col gap-3", !bare && "rounded-xl border border-border bg-surface p-panel", className)}>
-      <figcaption className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <figcaption className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-64">
           <span className="flex flex-wrap items-center gap-2 text-heading text-fg">
             {title}
             {demo ? <ExampleBadge /> : null}

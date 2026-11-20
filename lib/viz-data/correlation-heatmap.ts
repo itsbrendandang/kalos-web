@@ -6,6 +6,13 @@
  * (kalos/portal/viz_utils.py `_correlation_spearman`) and sends `null` for a
  * pair with fewer than 3 usable rows or an undefined rho. Those cells stay
  * n/a here: nothing is filled in, nothing is re-computed in the browser.
+ *
+ * Unit (VIZ_SPEC_V2 E5): the engine labels the block `unit: "recipe"`, but the
+ * function computes over the fitted ROWS (one per run), never recipe means. The
+ * chart therefore states "per run (row)". Each cell's n is the engine's
+ * `n_rows`: the fit keeps only complete rows (a run with a blank, non-numeric or
+ * censored input is dropped before the fit), so every pair uses all of them.
+ * A per-pair n from the engine (`n_matrix`, E5) would replace this.
  */
 import type { DataTable } from "@/components/viz/frame";
 import { formatCorr, formatValue } from "@/lib/num";
@@ -17,15 +24,17 @@ export type CorrelationProps = {
   matrix: (number | null)[][];
   /** Index of the target row/column, or null when the engine sent no target row. */
   targetIndex: number | null;
-  /** Runs in the fit the correlations were computed over (`analysis.n`), or null when not reported. */
+  /** Runs (rows) the correlations were computed over: `correlation.n_rows`, else `analysis.n`; null when not reported. */
   n: number | null;
+  /** The unit the engine's block claims ("recipe"), kept for the source note; the chart says per run. */
+  engineUnit: string | null;
 };
 
 const finite = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 /** The engine's correlation block as chart props, or null when the engine sent none (or an empty one). */
 export function toCorrelationProps(
-  correlation: { labels: readonly string[]; matrix: readonly (readonly unknown[])[] } | null | undefined,
+  correlation: { labels: readonly string[]; matrix: readonly (readonly unknown[])[]; n_rows?: unknown; unit?: unknown } | null | undefined,
   target: string,
   n?: number | null,
 ): CorrelationProps | null {
@@ -38,8 +47,15 @@ export function toCorrelationProps(
     labels: raw.map((l) => (l === "target_mean" ? target : l)),
     matrix,
     targetIndex: t >= 0 && t < k ? t : null,
-    n: finite(n),
+    n: finite(correlation.n_rows) ?? finite(n),
+    engineUnit: typeof correlation.unit === "string" ? correlation.unit : null,
   };
+}
+
+/** The n behind one cell: the rows the pair was computed over, or null on the diagonal and where the engine sent no rho. */
+export function cellN(p: CorrelationProps, i: number, j: number): number | null {
+  if (i === j || p.matrix[i]?.[j] == null) return null;
+  return p.n;
 }
 
 /** One rho as printed in a cell and the table: 2 dp, U+2212 minus, "n/a" when the engine sent nothing. */
@@ -65,7 +81,7 @@ export function describeCorrelation(p: CorrelationProps): string {
     p.targetIndex == null
       ? `Spearman rank correlation among ${formatValue(inputs, { quantity: "count" }).text} inputs`
       : `Spearman rank correlation among ${formatValue(inputs, { quantity: "count" }).text} inputs and ${p.labels[p.targetIndex]}`;
-  const over = p.n != null ? `, over ${formatValue(p.n, { quantity: "count" }).text} runs` : "";
+  const over = p.n != null ? `, per run (row), n = ${formatValue(p.n, { quantity: "count" }).text} runs in every computed pair` : ", per run (row)";
   const pairs = targetPairs(p).slice(0, 3);
   const strongest = pairs.length ? ` Strongest with the target: ${pairs.map((x) => `${x.label} ${corrText(x.rho)}`).join(", ")}.` : "";
   const missing = p.matrix.reduce((s, row, i) => s + row.filter((v, j) => j > i && v == null).length, 0);
@@ -76,7 +92,7 @@ export function describeCorrelation(p: CorrelationProps): string {
 /** The Data disclosure: the full grid, every cell as printed. */
 export function correlationTable(p: CorrelationProps): DataTable {
   return {
-    caption: "Spearman rho for each pair, as the engine computed it",
+    caption: `Spearman rho for each pair, per run (row), as the engine computed it${p.n != null ? `; n = ${formatValue(p.n, { quantity: "count" }).text} runs in every computed pair` : ""}`,
     columns: ["", ...p.labels],
     rows: p.labels.map((l, i) => [l, ...p.matrix[i].map(corrText)]),
   };

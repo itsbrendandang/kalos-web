@@ -1,6 +1,6 @@
 /*
- * Every page in the app, in one place: the activity rail, the explorers, the
- * editor tabs and breadcrumb, the command palette and the Library index all
+ * Every page in the app, in one place: the top bar's section pills, the
+ * sidebar trees, the command palette and the Library index all
  * read from here, so a route is renamed or added once. Labels are what people see.
  */
 
@@ -8,7 +8,7 @@ export type StageKey = "setup" | "plan" | "run" | "record" | "learn";
 
 export type RouteItem = { href: string; label: string; description: string };
 
-/** The activity rail's sections, in order; Settings is pinned at the rail's foot. */
+/** The app's sections, in order; the top bar shows all but Settings as pills (Settings is in its menu). */
 export const NAV_ITEMS = [
   { key: "campaign", href: "/", label: "Campaign", description: "The live campaign: where the round is and what to do next." },
   { key: "data", href: "/data", label: "Data", description: "Datasets and runs in the registry." },

@@ -7,14 +7,11 @@ Status: one live campaign is wired end to end to the engine; the Data, Library a
 
 ## What you can do
 
-The app is a workbench.
-It has an activity rail, an explorer, a route-per-tab editor, a status bar and a command palette (Cmd+K).
+The app has a top bar with section pills, a sidebar, the page and, on wide screens, an assistant panel, plus a command palette (Cmd+K).
 
-- **Activity rail.** Campaign, Data, Library and Projects, with Settings pinned at the foot.
-- **Explorer.** A tree specific to each section, with keyboard navigation.
-- **Editor tabs.** Every tab is a route, so deep links, reload and Back all work.
-  The open-tab list is a per-viewer convenience kept in `sessionStorage`.
-- **Status bar.** Engine connection, round, runs in flight, best so far, and one text action for the next step.
+- **Top bar.** Campaign, Data, Library and Projects as pills; engine connection, search and the Settings menu (theme, settings, shortcuts) on the right.
+- **Sidebar.** A tree specific to each section, with keyboard navigation; it can be hidden.
+- **Assistant panel.** Beside the stage pages and Data: data coverage, the engine's next step, campaign search, and Ask when the engine has a language model configured (answers cite their sources).
 - **Command palette.** Jump to any page or stage, or run an action such as "Upload a run sheet".
 
 The engine runs one live campaign, and the home page is that campaign's workspace.

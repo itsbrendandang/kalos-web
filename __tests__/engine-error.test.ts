@@ -78,3 +78,13 @@ describe("assist client", () => {
     await expect(getDefaultCampaignId()).resolves.toBe("cmp_a");
   });
 });
+
+describe("sourceLabel", () => {
+  it("reads engine source ids in plain words, rounds 1-based", async () => {
+    const { sourceLabel } = await import("@/components/workbench/context-panel");
+    expect(sourceLabel("row", "row:42")).toBe("Row 42");
+    expect(sourceLabel("round", "1")).toBe("Round 2");
+    expect(sourceLabel("column", "temperature_C")).toBe("Column temperature_C");
+    expect(sourceLabel("doc_chunk", "ASSISTANT.md#3")).toBe("Doc chunk ASSISTANT.md#3");
+  });
+});

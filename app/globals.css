@@ -319,3 +319,9 @@ body {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* A borderless input inside a composer box: the box draws the ring instead
+ * (components/workbench/context-panel.tsx). */
+[data-composer-input]:focus-visible {
+  outline: none;
+}

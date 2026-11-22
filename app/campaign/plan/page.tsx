@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { batchExceptions, orderBatch, targetIsNonNegative, type BatchItem } from "@/components/campaign/plan-batch";
-import { predictionScale, type PredictionScale } from "@/components/campaign/prediction-scale";
+import { recipeRange, scaleOver, type PredictionScale, type RecipeRange } from "@/components/campaign/prediction-scale";
+import { trustView } from "@/components/campaign/trust";
 import { targetName } from "@/components/campaign/target";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
@@ -15,9 +16,10 @@ import { Badge, ModeBadge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
-import { incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
+import { incumbentLabel, proposalIncumbent, proposalRecipe, type PopulatedResult, type Proposal } from "@/lib/api";
+import { describeEngineError, EngineError } from "@/lib/engine-error";
 import { campaignStage } from "@/lib/campaign-stage";
-import { formatBand, formatNumber, formatSetpoint } from "@/lib/format";
+import { formatBand, formatNumber, formatRange, formatSetpoint } from "@/lib/format";
 import { cn, parseUnit } from "@/lib/utils";
 
 /** The proposal cards: as many 300px-minimum columns as fit. */
@@ -113,24 +115,29 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
   // Unticked recipes, by the engine's index: empty means the whole batch is accepted.
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // Why the start failed: null while it has not. A refusal means nothing started; anything else is unknown.
+  const [failed, setFailed] = useState<{ refused: boolean; message: string } | null>(null);
 
   const unit = parseUnit(d.target);
   const name = targetName(d.target);
   const incumbent = proposalIncumbent(d);
   const band = d.conformal_q ?? null;
-  const verdict = reliabilityVerdict(d);
+  const trust = trustView(d);
   const items = orderBatch(d.proposals, incumbent);
   const { shown, total } = batchExceptions(items, { incumbent, band, nonNegative: targetIsNonNegative(d.best, d.oof), ranges: d.feature_ranges, features: d.proposal_features });
   const flagged = new Set(shown.map((e) => e.rank));
   const chosen = items.filter((i) => !skipped.has(i.index));
   const beats = items.filter((i) => i.beatsBest);
   const rest = items.filter((i) => !i.beatsBest);
-  const scale = predictionScale(
-    items.map((i) => i.proposal.pred),
-    band,
-    incumbent,
-  );
+  const ranges = new Map(items.map((i) => [i.index, recipeRange(i.proposal.pred, i.proposal.intervals, band, d.conformal_coverage ?? null)]));
+  const scale = scaleOver([
+    ...items.flatMap((i) => {
+      const r = ranges.get(i.index);
+      return r ? [r.lo, r.hi, i.proposal.pred] : [i.proposal.pred];
+    }),
+    ...(incumbent != null ? [incumbent] : []),
+  ]);
+  const caveat = rangeCaveat(d);
 
   function toggle(index: number) {
     setSkipped((prev) => {
@@ -143,13 +150,15 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
 
   async function start() {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await startRuns(
         chosen.map(({ proposal: p }) => ({ recipe: proposalRecipe(p, d.proposal_features), pred: p.pred, std: p.std, mode: p.mode, reason: p.reason })),
       );
-    } catch {
-      setFailed(true);
+    } catch (e) {
+      // The engine answered with a refusal (bad request, conflict, busy): nothing was started.
+      const refused = e instanceof EngineError && (e.kind === "rejected" || e.kind === "conflict" || e.kind === "busy");
+      setFailed({ refused, message: describeEngineError(e) });
     } finally {
       setBusy(false);
     }
@@ -162,8 +171,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
       features={d.proposal_features}
       unit={unit}
       incumbent={incumbent}
-      band={band}
-      coverage={d.conformal_coverage}
+      range={ranges.get(item.index) ?? null}
       scale={scale}
       checked={!skipped.has(item.index)}
       flagged={flagged.has(item.rank)}
@@ -184,14 +192,32 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
       />
 
       {failed ? (
-        <Callout tone="bad" title="Could not confirm these runs started">
-          The engine did not confirm the batch. Check Run to see whether any runs started before you try again.
-        </Callout>
+        failed.refused ? (
+          <Callout tone="bad" title="The batch was not started">
+            {failed.message}
+          </Callout>
+        ) : (
+          <Callout tone="bad" title="Could not confirm these runs started">
+            {failed.message} Check Run to see whether any runs started before you try again.
+          </Callout>
+        )
       ) : null}
 
-      <Verdict tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}>
-        <span className="font-semibold">{verdict.label}.</span> {verdict.reason}
-      </Verdict>
+      <div className="flex flex-col gap-2">
+        <Verdict tone={trust.tone}>
+          <span className="font-semibold">{trust.label}.</span> {trust.sentence}
+        </Verdict>
+        {d.proposal_trust?.status === "exploration_untrusted" ? <p className="text-body text-fg-muted">{d.proposal_trust.message}</p> : null}
+        {trust.details.length ? (
+          <Disclosure summary="Why" meta={`${trust.details.length} ${trust.details.length === 1 ? "reason" : "reasons"}`}>
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-body text-fg-muted">
+              {trust.details.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </Disclosure>
+        ) : null}
+      </div>
 
       {shown.length ? (
         <div>
@@ -213,15 +239,24 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
       <Section
         title="Proposed batch"
         description={
-          incumbent == null
+          (incumbent == null
             ? "Sorted by predicted value. There is no reproducible best run to compare against for this fit."
-            : `Sorted by predicted value. Compared with the ${incumbentLabel(d)} of ${formatNumber(incumbent)}${unit ? ` ${unit}` : ""}.`
+            : `Sorted by predicted value. Compared with the ${incumbentLabel(d)} of ${formatNumber(incumbent)}${unit ? ` ${unit}` : ""}.`) +
+          (caveat ? ` ${caveat}` : "")
         }
       >
         {items.length === 0 ? (
-          <EmptyState title="No recipes proposed" description="This analysis did not return a batch." />
+          d.refusal ? (
+            <EmptyState
+              title="Kalos is not proposing a batch yet"
+              description={[d.refusal.plain, d.refusal.what_would_help].filter(Boolean).join(" ")}
+            />
+          ) : (
+            <EmptyState title="No recipes proposed" description={d.proposal_notice?.message ?? "This analysis did not return a batch."} />
+          )
         ) : (
           <div className="flex flex-col gap-5">
+            {d.proposal_notice?.message ? <p className="text-body text-fg-muted">{d.proposal_notice.message}</p> : null}
             {incumbent != null && beats.length === 0 ? (
               <p className="text-body text-fg-muted">
                 None of these recipes is predicted to beat the current best, so this batch mostly explores.
@@ -248,12 +283,14 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
           {items.map(({ rank, proposal: p }) => (
             <li key={rank}>
               Recipe {rank}: model standard deviation {formatNumber(p.std)}
-              {p.p_feasible != null ? `, estimated chance of being feasible ${formatNumber(p.p_feasible, "pct")}` : ""}. {p.reason}
+              {p.p_feasible != null ? `, estimated chance of being feasible ${formatNumber(p.p_feasible, "pct")}` : ""}
+              {p.p_improve != null ? `, model's chance that its average here beats the best run ${formatNumber(p.p_improve.value, "pct")}` : ""}. {p.reason}
             </li>
           ))}
         </ul>
         <p className="mt-3 text-caption text-fg-muted">
-          The model standard deviation is the model&apos;s own spread. The prediction band shown on each recipe is the one to use when judging a prediction.
+          The model standard deviation is the model&apos;s own spread. The range shown on each recipe is the one to use when judging a prediction. The
+          chance of beating the best run is the model&apos;s own estimate for the process average, not the chance that one new run beats it.
         </p>
       </Disclosure>
     </div>
@@ -265,8 +302,7 @@ function RecipeCard({
   features,
   unit,
   incumbent,
-  band,
-  coverage,
+  range,
   scale,
   checked,
   flagged,
@@ -276,8 +312,7 @@ function RecipeCard({
   features: string[];
   unit: string;
   incumbent: number | null;
-  band: number | null;
-  coverage: number | undefined;
+  range: RecipeRange | null;
   scale: PredictionScale | null;
   checked: boolean;
   flagged: boolean;
@@ -326,11 +361,12 @@ function RecipeCard({
       </div>
 
       <div className="flex flex-1 flex-col px-5 pt-4 pb-4">
-        {scale ? <PredictionBar pred={p.pred} band={band} incumbent={incumbent} scale={scale} /> : null}
+        {scale ? <PredictionBar pred={p.pred} range={range} incumbent={incumbent} scale={scale} /> : null}
         <p className="mt-2 text-caption text-fg-muted tabular-nums">
-          {band != null ? formatBand(band, coverage) : "No prediction band reported"}
+          {rangeText(range)}
           {incumbent != null ? ` · ${formatNumber(p.pred - incumbent, "value", { sign: true })} vs best` : ""}
         </p>
+        {p.trust && p.trust.status !== "trusted" ? <p className="mt-1 text-caption text-fg-muted">{p.trust.message}</p> : null}
         <dl className="mt-4 flex flex-col gap-1 border-t border-dashed border-border pt-3 text-caption">{main.map(setpoint)}</dl>
         {others.length ? (
           <details className="mt-2 text-caption text-fg-muted">
@@ -350,12 +386,12 @@ function RecipeCard({
  * the prediction band as a soft accent segment, the prediction as an accent
  * dot (predicted), and the best measured run as an ink tick (measured).
  */
-function PredictionBar({ pred, band, incumbent, scale }: { pred: number; band: number | null; incumbent: number | null; scale: PredictionScale }) {
+function PredictionBar({ pred, range, incumbent, scale }: { pred: number; range: RecipeRange | null; incumbent: number | null; scale: PredictionScale }) {
   const x = scale.at(pred);
-  const hasBand = band != null && Number.isFinite(band) && band > 0;
-  const [b0, b1] = hasBand ? [scale.at(pred - band), scale.at(pred + band)] : [x, x];
+  const hasBand = range != null;
+  const [b0, b1] = range ? [scale.at(range.lo), scale.at(range.hi)] : [x, x];
   const best = incumbent != null && Number.isFinite(incumbent) ? scale.at(incumbent) : null;
-  const label = `Predicted ${formatNumber(pred)}${hasBand ? `, band ${formatNumber(pred - band)} to ${formatNumber(pred + band)}` : ""}${
+  const label = `Predicted ${formatNumber(pred)}${range ? `, ${rangeText(range)}` : ""}${
     best != null ? `, best measured run ${formatNumber(incumbent)}` : ""
   }, on a scale from ${formatNumber(scale.lo)} to ${formatNumber(scale.hi)}`;
   return (
@@ -384,3 +420,24 @@ function PredictionBar({ pred, band, incumbent, scale }: { pred: number; band: n
     </div>
   );
 }
+
+/** "90% range 6.61 to 8.19" for an engine interval, "± 0.47 (90% band)" for the global band. */
+function rangeText(r: RecipeRange | null): string {
+  if (!r) return "No prediction range reported";
+  if (r.source === "band") return formatBand((r.hi - r.lo) / 2, r.coverage);
+  return `${r.coverage != null ? `${formatNumber(r.coverage, "pct")} range` : "Range"} ${formatRange(r.lo, r.hi)}`;
+}
+
+/**
+ * The coverage caveat that must sit with the ranges (engine AGENTS.md): the
+ * engine's own sentence for the 90% interval when the recipes carry one,
+ * otherwise the conformal band's caveat. Said once for the batch, not per card.
+ */
+function rangeCaveat(d: PopulatedResult): string | null {
+  const iv = d.proposals
+    .flatMap((p: Proposal) => p.intervals ?? [])
+    .find((i) => i.available && Math.abs(i.coverage - 0.9) < 1e-9);
+  if (iv && iv.available && iv.caveat?.message) return iv.caveat.message;
+  return d.conformal_caveat?.message ?? null;
+}
+

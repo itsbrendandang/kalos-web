@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { predictionScale } from "@/components/campaign/prediction-scale";
+import { predictionScale, recipeRange, scaleOver } from "@/components/campaign/prediction-scale";
 
 describe("predictionScale", () => {
   it("spans every band and the incumbent, padded 5% each side", () => {
@@ -37,5 +37,32 @@ describe("predictionScale", () => {
   it("returns null when there is nothing finite to draw", () => {
     expect(predictionScale([], 0.4, null)).toBeNull();
     expect(predictionScale([Number.NaN], 0.4, Number.NaN)).toBeNull();
+  });
+});
+
+describe("recipeRange", () => {
+  const iv = (coverage: number, lo: number, hi: number) => ({ available: true, coverage, lo, hi });
+
+  it("prefers the engine's own interval at the requested coverage", () => {
+    expect(recipeRange(7.4, [iv(0.9, 6.6, 8.2), iv(0.95, 6.5, 8.3)], 0.5, 0.9)).toEqual({ lo: 6.6, hi: 8.2, coverage: 0.9, source: "interval" });
+  });
+
+  it("falls back to the +/- band when the interval is missing or unavailable", () => {
+    expect(recipeRange(7, undefined, 0.5, 0.9)).toEqual({ lo: 6.5, hi: 7.5, coverage: 0.9, source: "band" });
+    expect(recipeRange(7, [{ available: false, coverage: 0.9 }], 0.5, null)).toEqual({ lo: 6.5, hi: 7.5, coverage: null, source: "band" });
+    expect(recipeRange(7, [iv(0.95, 6, 8)], 0.5, 0.9)?.source).toBe("band");
+  });
+
+  it("rejects a malformed interval and returns null with nothing to draw", () => {
+    expect(recipeRange(7, [iv(0.9, 8, 6)], null, null)).toBeNull();
+    expect(recipeRange(7, [iv(0.9, Number.NaN, 6)], 0, null)).toBeNull();
+  });
+});
+
+describe("scaleOver", () => {
+  it("ignores non-finite values", () => {
+    const s = scaleOver([1, Number.NaN, 3])!;
+    expect([s.lo, s.hi]).toEqual([0.9, 3.1]);
+    expect(scaleOver([Number.NaN])).toBeNull();
   });
 });

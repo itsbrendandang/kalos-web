@@ -60,7 +60,7 @@ function contrast(tokens: Map<string, string>, fg: string, bg: string): number {
   return (Math.max(y1, y2) + 0.05) / (Math.min(y1, y2) + 0.05);
 }
 
-const SURFACES = ["--bg", "--surface", "--subtle"];
+const SURFACES = ["--bg", "--surface", "--subtle", "--selected"];
 const TEXT = ["--fg", "--fg-muted", "--accent", "--good", "--warn", "--bad"];
 const TONES = [
   ["--accent", "--accent-soft"],
@@ -82,6 +82,10 @@ const pairs: Pair[] = [
     ["--fg", soft, 4.5],
     ["--fg-muted", soft, 4.5],
   ]),
+  // The active navigation pill and ink icon buttons: label on the ink fill,
+  // and the fill itself against the canvas and panels (UI, 3:1).
+  ["--ink-fg", "--ink", 4.5],
+  ...["--bg", "--surface"].map((bg): Pair => ["--ink", bg, 3]),
   // Labels on the primary action fill, at rest and hovered.
   ["--accent-fg", "--accent", 4.5],
   ["--accent-fg", "--accent-hover", 4.5],

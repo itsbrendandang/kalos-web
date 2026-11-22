@@ -17,14 +17,20 @@
 :root {
   color-scheme: light;
 
-  /* Neutrals: warm paper, ink text. */
-  --bg: oklch(0.985 0.003 90);
+  /* Neutrals: cool grey canvas, white panels, soft ink text. */
+  --bg: oklch(0.979 0 0);
   --surface: oklch(1 0 0);
-  --subtle: oklch(0.965 0.004 90);
-  --border: oklch(0.91 0.005 90);
-  --border-strong: oklch(0.84 0.006 90);
-  --fg: oklch(0.22 0.01 270);
-  --fg-muted: oklch(0.46 0.01 270);
+  --subtle: oklch(0.956 0.003 286);
+  --selected: oklch(0.935 0.004 286);
+  --border: oklch(0.935 0.004 286);
+  --border-strong: oklch(0.884 0.008 286);
+  --fg: oklch(0.298 0.002 68);
+  --fg-muted: oklch(0.499 0.013 286);
+
+  /* Ink: the dark fill of the active navigation pill and the send-style
+   * primary icon buttons. Never used for status. */
+  --ink: oklch(0.298 0.002 68);
+  --ink-fg: oklch(1 0 0);
 
   /* Accent: the primary action, links, focus, the model's proposal. */
   --accent: oklch(0.48 0.16 285);
@@ -70,10 +76,14 @@
   --bg: oklch(0.17 0.006 270);
   --surface: oklch(0.2 0.006 270);
   --subtle: oklch(0.235 0.007 270);
+  --selected: oklch(0.27 0.008 270);
   --border: oklch(0.3 0.008 270);
   --border-strong: oklch(0.38 0.01 270);
   --fg: oklch(0.95 0.005 90);
   --fg-muted: oklch(0.72 0.01 270);
+
+  --ink: oklch(0.95 0.005 90);
+  --ink-fg: oklch(0.17 0.006 270);
 
   /* A light accent fill on a dark page, so the label on it is dark ink. */
   --accent: oklch(0.72 0.13 285);
@@ -146,6 +156,9 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-subtle: var(--subtle);
+  --color-selected: var(--selected);
+  --color-ink: var(--ink);
+  --color-ink-fg: var(--ink-fg);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-fg: var(--fg);
@@ -258,7 +271,8 @@
    * are Tailwind's defaults, so the scale is not overridden. */
 
   /* Elevation: none, except overlays (popovers, menus, dialogs, the palette),
-   * which use shadow-popover. The scale is zeroed rather than banned with
+   * which use shadow-popover, and cards on the grey canvas, which use
+   * shadow-card. The scale is zeroed rather than banned with
    * `box-shadow: none !important`, which would also kill ring-* focus rings. */
   --shadow-2xs: none;
   --shadow-xs: none;
@@ -267,7 +281,9 @@
   --shadow-lg: none;
   --shadow-xl: none;
   --shadow-2xl: none;
-  --shadow-popover: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12);
+  --shadow-popover: 0 1px 2px 0.5px oklch(0.298 0.002 68 / 0.08), 0 2px 8px oklch(0.298 0.002 68 / 0.12);
+  /* Cards on the grey canvas (proposal cards, the context panel's boxes). */
+  --shadow-card: 0 1px 4px oklch(0.298 0.002 68 / 0.08);
   --inset-shadow-2xs: none;
   --inset-shadow-xs: none;
   --inset-shadow-sm: none;

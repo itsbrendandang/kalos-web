@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Ellipsis, Keyboard, Settings } from "lucide-react";
+import { Keyboard, Settings, SlidersHorizontal } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -20,19 +20,18 @@ import { cn } from "@/lib/utils";
 
 const SHORTCUTS: [keys: string, what: string][] = [
   ["⌘K or Ctrl+K", "Search pages and actions"],
-  ["Up / Down", "Move through the explorer tree"],
+  ["Up / Down", "Move through the sidebar tree"],
   ["Left / Right", "Close or open a tree group"],
   ["Enter", "Open the focused page or run the highlighted action"],
-  ["Left / Right on a tab", "Switch between open pages"],
-  ["Delete on a tab", "Close that page's tab"],
   ["Esc", "Close the palette, menus and dialogs"],
 ];
 
 /**
- * The workspace menu. Kalos has no accounts, so it shows no identity: only
- * Theme, Settings and Keyboard shortcuts.
+ * The Settings menu in the top bar. Kalos has no accounts, so it shows no
+ * identity: only Theme, the Settings page and Keyboard shortcuts. The label
+ * hides on narrow screens; the trigger keeps its accessible name.
  */
-export function WorkspaceMenu({ side = "right", className }: { side?: "right" | "bottom"; className?: string }) {
+export function WorkspaceMenu({ className }: { className?: string }) {
   const router = useRouter();
   const theme = useThemePreference();
   const [shortcuts, setShortcuts] = useState(false);
@@ -40,12 +39,16 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          aria-label="Workspace menu"
-          className={cn("grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-surface hover:text-fg data-popup-open:bg-surface data-popup-open:text-fg", className)}
+          aria-label="Settings menu"
+          className={cn(
+            "inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-body text-fg-muted hover:text-fg data-popup-open:bg-subtle data-popup-open:text-fg",
+            className,
+          )}
         >
-          <Ellipsis className="size-5" aria-hidden />
+          <Settings className="size-4" aria-hidden />
+          <span className="max-sm:hidden">Settings</span>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side={side} align="end" sideOffset={8}>
+        <DropdownMenuContent side="bottom" align="end" sideOffset={8}>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Theme</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={theme} onValueChange={(v: ThemePreference) => setThemePreference(v)}>
@@ -56,8 +59,8 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push("/settings")}>
-            <Settings aria-hidden />
-            Settings
+            <SlidersHorizontal aria-hidden />
+            All settings
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setShortcuts(true)}>
             <Keyboard aria-hidden />

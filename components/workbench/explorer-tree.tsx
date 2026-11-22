@@ -124,9 +124,9 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
         onFocus={() => setFocusKey(n.key)}
         onKeyDown={(e) => onKeyDown(e, visible[at], at)}
         className={cn(
-          "flex h-7 items-center gap-2 rounded-md pr-2 text-label font-normal text-fg focus-visible:outline-offset-[-2px]",
+          "flex h-8 items-center gap-2.5 rounded-lg pr-2 text-body text-fg focus-visible:outline-offset-[-2px]",
           level === 1 ? "pl-2" : "pl-7",
-          selected ? "bg-accent-soft" : "hover:bg-border/60",
+          selected ? "bg-selected" : "hover:bg-subtle",
         )}
       >
         {n.icon}
@@ -137,7 +137,7 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
   };
 
   return (
-    <div role="tree" aria-label={label} className="flex flex-col gap-px px-2 py-2">
+    <div role="tree" aria-label={label} className="flex flex-col gap-1 px-3 py-2">
       {nodes.map((n) => {
         if (n.kind === "leaf") return leaf(n, 1);
         const at = visible.findIndex((r) => r.node.key === n.key);
@@ -172,8 +172,8 @@ export function ExplorerTree({ label, nodes, activeHref }: { label: string; node
               <span className="tabular-nums">{n.leaves.length}</span>
             </div>
             {open ? (
-              <div role="group" className="flex flex-col gap-px">
-                {n.leaves.length ? n.leaves.map((l) => leaf(l, 2)) : <p className="h-7 pl-7 text-caption leading-7 text-fg-muted">{n.empty ?? "None"}</p>}
+              <div role="group" className="flex flex-col gap-1">
+                {n.leaves.length ? n.leaves.map((l) => leaf(l, 2)) : <p className="h-8 pl-7 text-caption leading-8 text-fg-muted">{n.empty ?? "None"}</p>}
               </div>
             ) : null}
           </div>

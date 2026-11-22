@@ -48,7 +48,7 @@ export function CommandPalette({
         { value: "action:upload", label: "Upload a run sheet", hint: "Start or replace the campaign's data", run: go("/campaign/setup") },
         { value: "action:record", label: "Record results", hint: "Enter measured values for runs in flight", run: go("/campaign/record") },
         { value: "action:theme", label: "Toggle theme", hint: "Switch between light and dark", run: toggleTheme },
-        { value: "action:explorer", label: "Toggle explorer", hint: "Show or hide the side tree", run: onToggleExplorer },
+        { value: "action:explorer", label: "Toggle sidebar", hint: "Show or hide the sidebar", run: onToggleExplorer },
       ],
     },
   ];

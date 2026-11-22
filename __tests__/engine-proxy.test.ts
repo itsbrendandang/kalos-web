@@ -211,4 +211,57 @@ describe("engine proxy (app/api/engine/[...path]/route.ts)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(res.status).toBe(502);
   });
+
+  it("rejects encoded traversal that Next decodes into a segment (api/campaign%2f..%2f..%2fdocs)", async () => {
+    // Next hands the catch-all the decoded segment "/../../docs"; fetch() would normalize it to /docs.
+    for (const path of [
+      ["api", "campaign/../../docs"],
+      ["api", "campaign", "..", "..", "openapi.json"],
+      ["api", "campaign", "."],
+      ["api", "campaign\\..\\docs"],
+      ["api", "campaign%2f..%2fdocs"],
+    ]) {
+      const res = await GET(req("http://localhost:3000/api/engine/x"), ctx(path));
+      expect(res.status, path.join("|")).toBe(404);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards the read-only assistant and campaign routes the web uses, with their method only", async () => {
+    const ok = [
+      ["GET", ["api", "assist", "next"]],
+      ["GET", ["api", "assist", "index", "status"]],
+      ["POST", ["api", "assist", "ask"]],
+      ["GET", ["api", "campaigns"]],
+      ["GET", ["api", "campaigns", "cmp_0123abcd", "search"]],
+      ["GET", ["api", "campaigns", "cmp_0123abcd", "track-record"]],
+      ["GET", ["api", "campaigns", "cmp_0123abcd", "track-record", "runs"]],
+    ] as const;
+    for (const [method, path] of ok) {
+      fetchMock.mockResolvedValueOnce(engineResponse(200, {}));
+      const r = req(`http://localhost:3000/api/engine/${path.join("/")}`, method === "POST" ? { method, body: "{}" } : undefined);
+      const res = await (method === "POST" ? POST : GET)(r, ctx([...path]));
+      expect(res.status, path.join("/")).toBe(200);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(ok.length);
+  });
+
+  it("keeps write and admin routes under the newer trees unreachable", async () => {
+    const blocked = [
+      ["POST", ["api", "assist", "index", "rebuild"]],
+      ["POST", ["api", "assist", "sop", "draft"]],
+      ["GET", ["api", "assist", "ask"]],
+      ["POST", ["api", "campaigns"]],
+      ["POST", ["api", "campaigns", "cmp_1", "upload"]],
+      ["GET", ["api", "campaigns", "cmp_1", "gates"]],
+      ["POST", ["api", "campaigns", "cmp_1", "search"]],
+      ["GET", ["api", "jobs", "j1"]],
+    ] as const;
+    for (const [method, path] of blocked) {
+      const r = req(`http://localhost:3000/api/engine/${path.join("/")}`, method === "POST" ? { method, body: "{}" } : undefined);
+      const res = await (method === "POST" ? POST : GET)(r, ctx([...path]));
+      expect(res.status, `${method} ${path.join("/")}`).toBe(404);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

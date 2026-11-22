@@ -49,9 +49,30 @@ const ENGINE_TIMEOUT_MS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 120_000;
 })();
 
-function isAllowedPath(segments: string[]): boolean {
+// Newer engine routes the web reads, matched exactly (not as prefixes), with
+// the one method each is called with. Write routes under these trees
+// (index rebuild, SOP drafts, gates, jobs) stay unreachable from the browser.
+const SEGMENT = "[A-Za-z0-9_-]+";
+const ALLOWED_EXACT: readonly { method: "GET" | "POST"; path: RegExp }[] = [
+  { method: "GET", path: /^api\/assist\/next$/ },
+  { method: "GET", path: /^api\/assist\/index\/status$/ },
+  { method: "POST", path: /^api\/assist\/ask$/ },
+  { method: "GET", path: /^api\/campaigns$/ },
+  { method: "GET", path: new RegExp(`^api/campaigns/${SEGMENT}/search$`) },
+  { method: "GET", path: new RegExp(`^api/campaigns/${SEGMENT}/track-record(?:/runs)?$`) },
+];
+
+// One path segment as the engine routes name them. Next decodes the catch-all
+// segments, so an encoded "%2f.." arrives here as "/.." inside one segment;
+// rejecting "/", "\\", "%", "." and ".." stops it from being normalized into a
+// different engine path after the allowlist check (security review, finding 3).
+const SAFE_SEGMENT = /^[A-Za-z0-9_.~-]+$/;
+
+function isAllowedPath(method: string, segments: string[]): boolean {
+  if (segments.some((s) => !SAFE_SEGMENT.test(s) || s === "." || s === "..")) return false;
   const joined = segments.join("/");
-  return ALLOWED_PATH_PREFIXES.some((prefix) => joined === prefix || joined.startsWith(`${prefix}/`));
+  if (ALLOWED_PATH_PREFIXES.some((prefix) => joined === prefix || joined.startsWith(`${prefix}/`))) return true;
+  return ALLOWED_EXACT.some((r) => r.method === method && r.path.test(joined));
 }
 
 /** `KALOS_ENGINE_URL` with any trailing slash trimmed, or null if unset. */
@@ -62,7 +83,7 @@ function engineBaseUrl(): string | null {
 }
 
 async function forward(req: NextRequest, segments: string[]): Promise<Response> {
-  if (!isAllowedPath(segments)) {
+  if (!isAllowedPath(req.method, segments)) {
     return NextResponse.json({ error: `no such engine route: /${segments.join("/")}` }, { status: 404 });
   }
 
@@ -72,6 +93,10 @@ async function forward(req: NextRequest, segments: string[]): Promise<Response> 
   }
 
   const url = `${base}/${segments.join("/")}${req.nextUrl.search}`;
+  // Belt and braces: the URL the engine will see must be the one that was checked.
+  if (new URL(url).pathname !== `${new URL(base).pathname.replace(/\/$/, "")}/${segments.join("/")}`) {
+    return NextResponse.json({ error: `no such engine route: /${segments.join("/")}` }, { status: 404 });
+  }
 
   // Forward only what the engine needs to interpret the body correctly
   // (content-type, including a multipart boundary) plus the server-only

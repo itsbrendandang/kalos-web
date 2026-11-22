@@ -1,7 +1,7 @@
 # Kalos web design system
 
-Calm, editorial, light first, with full dark mode.
-Generous whitespace, few boxes, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
+Calm, light first, with full dark mode: a cool grey canvas, white panels and cards, hairline rules, plain-language verdicts first, method details one click down.
+The frame (November 2026) is a top bar with section pills, a grey sidebar, the page, and an assistant panel on wide screens.
 Every value below is quoted from `app/globals.css`, which is the single source of truth.
 If this file and the CSS disagree, the CSS wins.
 
@@ -23,17 +23,28 @@ If this file and the CSS disagree, the CSS wins.
 
 ## Neutrals
 
-Warm paper, ink text.
+Cool grey canvas, white panels, soft ink text.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--bg` | `oklch(0.985 0.003 90)` | `oklch(0.17 0.006 270)` | Page background |
-| `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Panels, popovers, inputs |
-| `--subtle` | `oklch(0.965 0.004 90)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header, explorer |
-| `--border` | `oklch(0.91 0.005 90)` | `oklch(0.3 0.008 270)` | Hairline rules and panel borders |
-| `--border-strong` | `oklch(0.84 0.006 90)` | `oklch(0.38 0.01 270)` | Input borders, emphasized dividers |
-| `--fg` | `oklch(0.22 0.01 270)` | `oklch(0.95 0.005 90)` | Primary text |
-| `--fg-muted` | `oklch(0.46 0.01 270)` | `oklch(0.72 0.01 270)` | Secondary text (passes 4.5:1 on `--bg`) |
+| `--bg` | `oklch(0.979 0 0)` | `oklch(0.17 0.006 270)` | Canvas: page, sidebar |
+| `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Top bar, cards, assistant panel, popovers, inputs |
+| `--subtle` | `oklch(0.956 0.003 286)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header |
+| `--selected` | `oklch(0.935 0.004 286)` | `oklch(0.27 0.008 270)` | The selected sidebar row, the sidebar header icon tile |
+| `--border` | `oklch(0.935 0.004 286)` | `oklch(0.3 0.008 270)` | Hairline rules and card borders |
+| `--border-strong` | `oklch(0.884 0.008 286)` | `oklch(0.38 0.01 270)` | Input borders, the sidebar and panel dividers, hovered cards |
+| `--fg` | `oklch(0.298 0.002 68)` | `oklch(0.95 0.005 90)` | Primary text |
+| `--fg-muted` | `oklch(0.499 0.013 286)` | `oklch(0.72 0.01 270)` | Secondary text (passes 4.5:1 on every surface) |
+
+## Ink
+
+A dark fill (light in dark mode) for the active section pill in the top bar and the composer's send button.
+It is navigation, never status and never data.
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--ink` | `oklch(0.298 0.002 68)` | `oklch(0.95 0.005 90)` |
+| `--ink-fg` | `oklch(1 0 0)` | `oklch(0.17 0.006 270)` |
 
 ## Accent
 
@@ -118,15 +129,18 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 
 ## Layout
 
+- The frame (`components/workbench/app-shell.tsx`):
+  - Top bar, 56px, `--surface`: the Kalos wordmark, section pills centred (Campaign, Data, Library, Projects; the active one is `bg-ink text-ink-fg`), then engine status, search (⌘K) and the Settings menu.
+  - Sidebar, 280px, `--bg`: an icon tile and the section name, then the section's tree. Rows are 32px, `rounded-lg`, selected `bg-selected`.
+  - The page, max width 1120px, padding 24px desktop and 16px mobile.
+  - The assistant panel, 360px, `--surface`, at 1280px and wider beside the stage pages and Data; it can be hidden. Overview is the campaign context itself, so it has no panel.
+  - On phones the pills and the tree move into a sheet opened from the top bar.
 - 8px grid.
-- Content max width is 1120px (`max-w-[1120px]` in `components/workbench/app-shell.tsx`), with full width allowed for tables and charts.
-  Page padding is 24px on desktop and 16px on mobile.
-- Radius: `rounded-lg` (8px) for controls and `rounded-xl` (12px) for panels.
-  Tailwind's defaults are not overridden.
-  No `rounded-2xl` boxes, and no pill badges unless they show status.
-- No shadows, except overlays (popovers, menus, dialogs, the command palette), which use `shadow-popover`.
+- Radius: `rounded-lg` (8px) for controls, `rounded-xl` (12px) for panels and boxes, `rounded-2xl` (16px) for cards on the canvas (proposal cards) and the composer.
+  Pills only for section navigation and for status badges.
+- Elevation: `shadow-card` for cards on the grey canvas and the composer, `shadow-popover` for overlays (popovers, menus, dialogs, the command palette).
   The rest of the shadow scale is set to `none` in `@theme`, rather than banned with `!important`, which would also kill `ring-*` focus rings.
-- Prefer whitespace and hairline rules over cards.
+- Prefer hairline rules inside a card over nested boxes.
 - Tables use right-aligned numerics with `tabular-nums`, 40px rows and a sticky header.
 - No horizontal page scroll at 390px.
   Tables scroll inside their own container.
@@ -162,4 +176,17 @@ Text hierarchy comes from the role and from `--fg-muted`, never from opacity.
 They exist only because some pages (Data, the Library tools, the campaign stage pages, Projects) have not been rebuilt on the new kit yet.
 Do not use them in new code, and delete an alias once nothing reads it.
 
-Replaced the earlier blue and Satoshi system in October 2026.
+Replaced the earlier blue and Satoshi system in October 2026. The neutral canvas, ink pills and the top-bar frame replaced the activity rail, editor tabs and status bar in November 2026.
+
+## The assistant panel
+
+- It is not a chat with a made-up answer. It shows, in order: an answer or search results when the user asked, data coverage from `/api/campaign`, the engine's next step (`/api/assist/next`, with the web's own stage logic as the fallback), and links to the pages that answer common questions.
+- The composer at the foot searches the campaign's records (no model needed). It becomes Ask only when `/api/assist/index/status` reports a model; then answers show their cited sources, an abstention says nothing in the data answers it, and the header says which model and whether it is local or external.
+- Language models never produce numbers, intervals, verdicts or proposals (engine AGENTS.md); the panel says so under every answer.
+
+## Prediction ranges on Plan
+
+- Each proposal card draws its own range on an axis shared by the batch: the engine's 90% interval when it sent one, else the global ± band.
+  The prediction is an accent dot (predicted), the best measured run an ink tick (measured).
+- The coverage caveat from the engine is said once, in the batch's description, never per card.
+

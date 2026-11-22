@@ -6,7 +6,7 @@ import { ChevronRight } from "lucide-react";
 import { Badge, ModeBadge } from "@/components/ui/badge";
 import { SortableHead, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from "@/components/ui/table";
 import type { CampaignRun } from "@/lib/api";
-import { formatBand, formatNumber } from "@/lib/format";
+import { formatBand, formatNumber, formatSetpoint } from "@/lib/format";
 import { shortId } from "@/lib/workbench";
 import { cn } from "@/lib/utils";
 import { clampPage, inlineRecipeKeys, nextSort, RUN_PAGE_SIZE, sortRuns, type RunSort, type RunSortKey } from "@/components/campaign/stage-logic";
@@ -76,7 +76,7 @@ export function RunsTable({
                       <ChevronRight className={cn("size-4 shrink-0 text-fg-muted transition-transform", expanded && "rotate-90")} aria-hidden />
                       {inlineRecipeKeys(r.recipe, drivers).map((k) => (
                         <span key={k} className="mr-2 text-fg-muted">
-                          {k} <span className="text-fg tabular-nums">{formatNumber(r.recipe[k])}</span>
+                          {k} <span className="text-fg tabular-nums">{formatSetpoint(r.recipe[k])}</span>
                         </span>
                       ))}
                     </button>

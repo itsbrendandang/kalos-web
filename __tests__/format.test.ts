@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBand, formatNumber, formatRange } from "@/lib/format";
+import { formatBand, formatNumber, formatRange, formatSetpoint } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 describe("formatNumber", () => {
@@ -68,5 +68,32 @@ describe("cn", () => {
 describe("icc", () => {
   it("keeps a near-one ICC from rounding to 1.00", () => {
     expect(formatNumber(0.997, "icc")).toBe("0.997");
+  });
+});
+
+describe("formatSetpoint", () => {
+  it("keeps small setpoints readable instead of rounding them to zero", () => {
+    expect(formatSetpoint(0.0042)).toBe("0.0042");
+    expect(formatSetpoint(0.0061)).toBe("0.0061");
+    expect(formatSetpoint(0.00012345)).toBe("0.0001235");
+  });
+
+  it("uses 4 significant figures without padding zeros", () => {
+    expect(formatSetpoint(36.5)).toBe("36.5");
+    expect(formatSetpoint(6.95)).toBe("6.95");
+    expect(formatSetpoint(220)).toBe("220");
+    expect(formatSetpoint(7.123456)).toBe("7.123");
+  });
+
+  it("shows whole numbers from 1000 up, with grouping", () => {
+    expect(formatSetpoint(1234.5)).toBe("1,235");
+    expect(formatSetpoint(12345.6)).toBe("12,346");
+  });
+
+  it("handles zero, negatives and missing values", () => {
+    expect(formatSetpoint(0)).toBe("0");
+    expect(formatSetpoint(-0.5)).toBe("-0.5");
+    expect(formatSetpoint(null)).toBe("n/a");
+    expect(formatSetpoint(Number.NaN)).toBe("n/a");
   });
 });

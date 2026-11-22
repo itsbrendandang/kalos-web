@@ -53,3 +53,19 @@ export function formatBand(halfWidth: number | null | undefined, coverage?: numb
   const pct = coverage != null && Number.isFinite(coverage) ? `${formatNumber(coverage, "pct")} band` : "prediction band";
   return `± ${formatNumber(halfWidth)} (${pct})`;
 }
+
+const setpointSmall = new Intl.NumberFormat("en-US", { maximumSignificantDigits: 4 });
+const setpointLarge = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+/**
+ * A recipe setpoint, the number someone types into a pump or controller: 4
+ * significant figures below 1000 (0.0042 stays "0.0042", 36.5 stays "36.5"),
+ * whole numbers above. Never rounds a non-zero value to zero, never pads
+ * trailing zeros. Missing reads "n/a".
+ */
+export function formatSetpoint(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return MISSING;
+  if (n === 0) return "0";
+  const body = Math.abs(n) < 1000 ? setpointSmall.format(Math.abs(n)) : setpointLarge.format(Math.abs(n));
+  return `${n < 0 ? "-" : ""}${body}`;
+}

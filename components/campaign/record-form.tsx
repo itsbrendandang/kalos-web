@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useEngineWrites } from "@/hooks/use-engine";
 import type { CampaignRun } from "@/lib/api";
 import { displayRound } from "@/lib/campaign-stage";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatSetpoint } from "@/lib/format";
 import { shortId } from "@/lib/workbench";
 import { changedRows, inlineRecipeKeys, parseEntry, sanityReason } from "@/components/campaign/stage-logic";
 
@@ -103,7 +103,7 @@ export function RecordForm({
                   <TableCell className="hidden sm:table-cell">
                     {inlineRecipeKeys(r.recipe, drivers).map((k) => (
                       <span key={k} className="mr-3 text-fg-muted">
-                        {k} <span className="text-fg tabular-nums">{formatNumber(r.recipe[k])}</span>
+                        {k} <span className="text-fg tabular-nums">{formatSetpoint(r.recipe[k])}</span>
                       </span>
                     ))}
                   </TableCell>

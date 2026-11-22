@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { batchExceptions, orderBatch, targetIsNonNegative, type BatchItem } from "@/components/campaign/plan-batch";
+import { predictionScale, type PredictionScale } from "@/components/campaign/prediction-scale";
 import { targetName } from "@/components/campaign/target";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
@@ -16,8 +17,11 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { incumbentLabel, proposalIncumbent, proposalRecipe, reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
-import { formatBand, formatNumber } from "@/lib/format";
-import { parseUnit } from "@/lib/utils";
+import { formatBand, formatNumber, formatSetpoint } from "@/lib/format";
+import { cn, parseUnit } from "@/lib/utils";
+
+/** The proposal cards: as many 300px-minimum columns as fit. */
+const CARD_GRID = "mt-2 grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4";
 
 const plural = (n: number, one: string) => `${formatNumber(n, "count")} ${n === 1 ? one : `${one}s`}`;
 
@@ -122,6 +126,11 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
   const chosen = items.filter((i) => !skipped.has(i.index));
   const beats = items.filter((i) => i.beatsBest);
   const rest = items.filter((i) => !i.beatsBest);
+  const scale = predictionScale(
+    items.map((i) => i.proposal.pred),
+    band,
+    incumbent,
+  );
 
   function toggle(index: number) {
     setSkipped((prev) => {
@@ -147,7 +156,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
   }
 
   const row = (item: BatchItem) => (
-    <RecipeRow
+    <RecipeCard
       key={item.index}
       item={item}
       features={d.proposal_features}
@@ -155,6 +164,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
       incumbent={incumbent}
       band={band}
       coverage={d.conformal_coverage}
+      scale={scale}
       checked={!skipped.has(item.index)}
       flagged={flagged.has(item.rank)}
       onToggle={() => toggle(item.index)}
@@ -220,13 +230,13 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
             {incumbent != null && beats.length > 0 ? (
               <div>
                 <h3 className="text-label text-fg-muted">Predicted to beat the current best ({beats.length})</h3>
-                <ul className="mt-1 divide-y divide-border border-y border-border">{beats.map(row)}</ul>
+                <ul className={CARD_GRID}>{beats.map(row)}</ul>
               </div>
             ) : null}
             {rest.length > 0 ? (
               <div>
                 {beats.length > 0 ? <h3 className="text-label text-fg-muted">Not predicted to beat the current best ({rest.length})</h3> : null}
-                <ul className="mt-1 divide-y divide-border border-y border-border">{rest.map(row)}</ul>
+                <ul className={CARD_GRID}>{rest.map(row)}</ul>
               </div>
             ) : null}
           </div>
@@ -250,13 +260,14 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
   );
 }
 
-function RecipeRow({
+function RecipeCard({
   item,
   features,
   unit,
   incumbent,
   band,
   coverage,
+  scale,
   checked,
   flagged,
   onToggle,
@@ -267,6 +278,7 @@ function RecipeRow({
   incumbent: number | null;
   band: number | null;
   coverage: number | undefined;
+  scale: PredictionScale | null;
   checked: boolean;
   flagged: boolean;
   onToggle: () => void;
@@ -276,47 +288,99 @@ function RecipeRow({
   const main = features.filter((f) => f in recipe);
   const others = Object.keys(recipe).filter((k) => !features.includes(k));
   const setpoint = (k: string) => (
-    <span key={k} className="whitespace-nowrap">
-      <span className="text-fg-muted">{k}</span> <span className="text-fg tabular-nums">{formatNumber(recipe[k])}</span>
-    </span>
+    <div key={k} className="flex min-w-0 items-baseline justify-between gap-3">
+      <dt className="min-w-0 truncate text-fg-muted" title={k}>
+        {k}
+      </dt>
+      <dd className="text-fg tabular-nums" title={String(recipe[k])}>{formatSetpoint(recipe[k])}</dd>
+    </div>
   );
   return (
-    <li className="flex gap-3 py-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggle}
-        aria-label={`Run recipe ${rank}`}
-        className="mt-0.5 size-4 shrink-0 accent-accent"
-      />
-      <div className="grid min-w-0 flex-1 gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <li
+      className={cn(
+        "flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-surface shadow-card",
+        checked ? "border-border hover:border-border-strong" : "border-dashed border-border-strong",
+      )}
+    >
+      <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-label text-fg">Recipe {rank}</span>
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input type="checkbox" checked={checked} onChange={onToggle} className="size-4 shrink-0 accent-accent" />
+            <span className="text-heading font-normal text-fg">
+              <span className="sr-only">Run </span>Recipe {rank}
+            </span>
+          </label>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <ModeBadge mode={p.mode} />
             {flagged ? <Badge tone="warn">Check</Badge> : null}
+            {!checked ? <span className="text-caption text-fg-muted">Not in this batch</span> : null}
           </div>
-          <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-body">{main.map(setpoint)}</p>
-          {others.length ? (
-            <details className="mt-1 text-caption text-fg-muted">
-              <summary className="cursor-pointer select-none hover:text-fg">
-                {others.length} other {others.length === 1 ? "setpoint" : "setpoints"}
-              </summary>
-              <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">{others.map(setpoint)}</p>
-            </details>
-          ) : null}
         </div>
-        <div className="sm:text-right">
-          <p className="text-heading text-fg tabular-nums">
+        <div className="shrink-0 text-right">
+          <p className="text-heading font-normal text-fg tabular-nums">
             {formatNumber(p.pred)}
-            {unit ? <span className="ml-1 text-body font-normal text-fg-muted">{unit}</span> : null}
+            {unit ? <span className="ml-1 text-body text-fg-muted">{unit}</span> : null}
           </p>
-          <p className="text-caption text-fg-muted tabular-nums">{band != null ? formatBand(band, coverage) : "no prediction band reported"}</p>
-          {incumbent != null ? (
-            <p className="text-caption text-fg-muted tabular-nums">{formatNumber(p.pred - incumbent, "value", { sign: true })} vs best</p>
-          ) : null}
+          <p className="text-caption text-fg-muted">predicted</p>
         </div>
       </div>
+
+      <div className="flex flex-1 flex-col px-5 pt-4 pb-4">
+        {scale ? <PredictionBar pred={p.pred} band={band} incumbent={incumbent} scale={scale} /> : null}
+        <p className="mt-2 text-caption text-fg-muted tabular-nums">
+          {band != null ? formatBand(band, coverage) : "No prediction band reported"}
+          {incumbent != null ? ` · ${formatNumber(p.pred - incumbent, "value", { sign: true })} vs best` : ""}
+        </p>
+        <dl className="mt-4 flex flex-col gap-1 border-t border-dashed border-border pt-3 text-caption">{main.map(setpoint)}</dl>
+        {others.length ? (
+          <details className="mt-2 text-caption text-fg-muted">
+            <summary className="cursor-pointer select-none hover:text-fg">
+              {others.length} other {others.length === 1 ? "setpoint" : "setpoints"}
+            </summary>
+            <dl className="mt-1 flex flex-col gap-1">{others.map(setpoint)}</dl>
+          </details>
+        ) : null}
+      </div>
     </li>
+  );
+}
+
+/**
+ * Where this recipe's prediction sits, on the axis shared by the whole batch:
+ * the prediction band as a soft accent segment, the prediction as an accent
+ * dot (predicted), and the best measured run as an ink tick (measured).
+ */
+function PredictionBar({ pred, band, incumbent, scale }: { pred: number; band: number | null; incumbent: number | null; scale: PredictionScale }) {
+  const x = scale.at(pred);
+  const hasBand = band != null && Number.isFinite(band) && band > 0;
+  const [b0, b1] = hasBand ? [scale.at(pred - band), scale.at(pred + band)] : [x, x];
+  const best = incumbent != null && Number.isFinite(incumbent) ? scale.at(incumbent) : null;
+  const label = `Predicted ${formatNumber(pred)}${hasBand ? `, band ${formatNumber(pred - band)} to ${formatNumber(pred + band)}` : ""}${
+    best != null ? `, best measured run ${formatNumber(incumbent)}` : ""
+  }, on a scale from ${formatNumber(scale.lo)} to ${formatNumber(scale.hi)}`;
+  return (
+    <div role="img" aria-label={label} className="relative h-12">
+      <div className="absolute inset-x-0 top-2 h-1.5 rounded-full bg-subtle" />
+      {hasBand ? <div className="absolute top-2 h-1.5 rounded-full bg-chart-band" style={{ left: `${b0}%`, width: `${b1 - b0}%` }} /> : null}
+      {best != null ? (
+        <>
+          <span className="absolute top-0.5 h-4 w-0.5 -translate-x-1/2 rounded-full bg-chart-measured" style={{ left: `${best}%` }} />
+          {/* Keep the label inside the card near either end of the bar. */}
+          <span
+            className={cn(
+              "absolute top-6 text-caption whitespace-nowrap text-fg-muted",
+              best < 15 ? "" : best > 85 ? "-translate-x-full" : "-translate-x-1/2",
+            )}
+            style={{ left: `${best}%` }}
+          >
+            best {formatNumber(incumbent)}
+          </span>
+        </>
+      ) : null}
+      <span
+        className="absolute top-2.75 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-surface bg-chart-predicted"
+        style={{ left: `${x}%` }}
+      />
+    </div>
   );
 }

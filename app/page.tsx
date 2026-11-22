@@ -10,6 +10,7 @@ import { Badge, ExampleBadge } from "@/components/ui/badge";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCampaign, useLatest } from "@/hooks/use-engine";
+import { trustView } from "@/components/campaign/trust";
 import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage } from "@/lib/campaign-stage";
 import { DEMO_MODE } from "@/lib/demo";
@@ -101,7 +102,8 @@ function Kpis({
 }) {
   const delta = active ? bestDeltaFromPreviousRound(active) : null;
   const verdict = analysis ? reliabilityVerdict(analysis) : null;
-  const verdictTone = verdict?.state === "reliable" ? "good" : verdict?.state === "not-yet" ? "warn" : "neutral";
+  // The badge is the engine's own verdict when it sent one; the number stays the held-out rank agreement.
+  const trust = analysis ? trustView(analysis) : null;
   return (
     <section aria-label="Key numbers" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard
@@ -115,7 +117,7 @@ function Kpis({
         label="Model reliability"
         value={verdict?.rho ?? null}
         quantity="corr"
-        badge={verdict ? <Badge tone={verdictTone}>{verdict.label}</Badge> : null}
+        badge={trust ? <Badge tone={trust.tone}>{trust.label}</Badge> : null}
         qualifier={
           !verdict
             ? "Appears after an analysis"

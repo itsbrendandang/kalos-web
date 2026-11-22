@@ -32,8 +32,9 @@ const PILLS = NAV_ITEMS.filter((n) => n.key !== "settings");
 const sidebarCollapsed = createStorageStore("local", "kalos.explorer-collapsed", (raw) => raw === "true", false);
 const contextCollapsed = createStorageStore("local", "kalos.context-collapsed", (raw) => raw === "true", false);
 const MAIN_ID = "main";
+const SHOW_ASSISTANT_ID = "show-assistant";
 
-/** The campaign context panel sits beside the stage pages and Data; Overview already is that context. */
+/** The assistant panel sits beside the stage pages and Data; Overview already is that context. */
 function hasContextPanel(pathname: string): boolean {
   return pathname.startsWith("/campaign/") || pathname === "/data";
 }
@@ -112,7 +113,15 @@ function Frame({ children }: { children: ReactNode }) {
           <div className="mx-auto w-full max-w-[1120px] p-4 md:p-6 lg:px-8">{children}</div>
         </main>
 
-        {context && !contextHidden ? <ContextPanel onClose={() => contextCollapsed.set(true)} /> : null}
+        {context && !contextHidden ? (
+          <ContextPanel
+            onClose={() => {
+              contextCollapsed.set(true);
+              // Keep keyboard focus: hand it to the button that brings the panel back.
+              requestAnimationFrame(() => document.getElementById(SHOW_ASSISTANT_ID)?.focus());
+            }}
+          />
+        ) : null}
       </div>
 
       <MobileSheet open={sheetOpen} onOpenChange={setSheetOpen} section={section} />
@@ -194,7 +203,7 @@ function TopBar({
           <Search className="size-4" aria-hidden />
         </button>
         {context ? (
-          <button type="button" onClick={context} aria-label="Show campaign context" className={cn(ICON_BUTTON, "max-xl:hidden")}>
+          <button type="button" id={SHOW_ASSISTANT_ID} onClick={context} aria-label="Show assistant" className={cn(ICON_BUTTON, "max-xl:hidden")}>
             <PanelRightOpen className="size-4" aria-hidden />
           </button>
         ) : null}

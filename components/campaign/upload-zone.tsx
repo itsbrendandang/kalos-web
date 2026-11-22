@@ -65,7 +65,7 @@ export function UploadZone({ onFile, disabled = false, compact = false }: { onFi
   );
 }
 
-// --- Upload decisions (pure; unit tested in __tests__/setup-upload.test.ts) --
+// --- Upload decisions (pure; unit tested in __tests__/setup-replace.test.ts) --
 
 /** What started a fit that would replace the campaign: a new sheet, a new target, or new column roles. */
 export type RefitTrigger = "upload" | "target" | "roles";

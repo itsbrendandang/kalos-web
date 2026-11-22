@@ -25,8 +25,13 @@ export function EngineStatus({ className }: { className?: string }) {
   const demo = view.state === "data" && view.demo;
   const busy = campaign.refreshing || latest.refreshing;
 
+  const said = failed ? "Engine not reachable." : loading ? "Connecting to the engine." : "Engine connected.";
   return (
-    <div role="status" className={cn("flex items-center gap-2 text-label font-normal text-fg-muted", className)}>
+    <div className={cn("flex items-center gap-2 text-label font-normal text-fg-muted", className)}>
+      {/* One live sentence for screen readers; the visible labels below repeat it for sighted users only. */}
+      <span role="status" className="sr-only">
+        {said}
+      </span>
       {failed ? (
         <button
           type="button"
@@ -35,21 +40,24 @@ export function EngineStatus({ className }: { className?: string }) {
             void campaign.refresh();
           }}
           disabled={busy}
+          aria-label={busy ? "Reconnecting to the engine" : "Retry connecting to the engine"}
           className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-fg hover:bg-subtle"
         >
           <Unplug className={cn(ICON, "text-bad")} aria-hidden />
-          <span className="max-lg:sr-only">Engine not reachable.</span>
-          <span>{busy ? "Reconnecting..." : "Retry"}</span>
+          <span aria-hidden className="max-lg:hidden">
+            Engine not reachable.
+          </span>
+          <span aria-hidden>{busy ? "Reconnecting..." : "Retry"}</span>
         </button>
       ) : loading ? (
-        <span className="inline-flex items-center gap-1.5 px-2">
-          <LoaderCircle className={cn(ICON, "animate-spin motion-reduce:animate-none")} aria-hidden />
-          <span className="max-lg:sr-only">Connecting to the engine</span>
+        <span aria-hidden className="inline-flex items-center gap-1.5 px-2">
+          <LoaderCircle className={cn(ICON, "animate-spin motion-reduce:animate-none")} />
+          <span className="max-lg:hidden">Connecting to the engine</span>
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1.5 px-2">
-          <CircleCheck className={cn(ICON, "text-good")} aria-hidden />
-          <span className="max-lg:sr-only">Engine connected</span>
+        <span aria-hidden className="inline-flex items-center gap-1.5 px-2">
+          <CircleCheck className={cn(ICON, "text-good")} />
+          <span className="max-lg:hidden">Engine connected</span>
         </span>
       )}
       {demo ? <ExampleBadge className="h-5" /> : null}

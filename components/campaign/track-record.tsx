@@ -9,6 +9,7 @@ import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   chartNote,
+  currentSheetOnly,
   describePoint,
   groupByRound,
   layoutSlots,
@@ -84,16 +85,17 @@ export function TrackRecordSection({ targetName, unit, fallback = null }: { targ
     );
   }
 
-  const points = trackPoints(runs.data.items);
+  const sheet = currentSheetOnly(tr, runs.data.items);
+  const points = trackPoints(sheet.items);
   const groups = groupByRound(points);
-  const rows = roundRows(tr);
+  const rows = roundRows(sheet);
   const rules = scoringRules(tr);
-  const note = chartNote(points, runs.data.has_more);
+  const note = chartNote(points, runs.data.has_more, sheet.leftOut);
   const pct = formatNumber(tr.coverage, "pct");
 
   return (
     <Section title={title} description={description}>
-      <p className="max-w-[68ch] text-body text-fg">{trackVerdict(tr.pooled.coverage)}</p>
+      <p className="max-w-[68ch] text-body text-fg">{trackVerdict(sheet.coverage)}</p>
 
       <ChartFrame
         className={CARD}

@@ -19,7 +19,7 @@ import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { incumbentLabel, proposalIncumbent, proposalRecipe, type PopulatedResult, type Proposal } from "@/lib/api";
 import { describeEngineError, EngineError } from "@/lib/engine-error";
 import { campaignStage } from "@/lib/campaign-stage";
-import { formatBand, formatNumber, formatRange, formatSetpoint } from "@/lib/format";
+import { formatBand, formatChance, formatNumber, formatRange, formatSetpoint } from "@/lib/format";
 import { cn, parseUnit } from "@/lib/utils";
 
 /** The proposal cards: as many 300px-minimum columns as fit. */
@@ -137,7 +137,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
     }),
     ...(incumbent != null ? [incumbent] : []),
   ]);
-  const caveat = rangeCaveat(d);
+  const caveat = rangeCaveat(d, [...ranges.values()]);
 
   function toggle(index: number) {
     setSkipped((prev) => {
@@ -284,7 +284,7 @@ function Batch({ d, round }: { d: PopulatedResult; round: number }) {
             <li key={rank}>
               Recipe {rank}: model standard deviation {formatNumber(p.std)}
               {p.p_feasible != null ? `, estimated chance of being feasible ${formatNumber(p.p_feasible, "pct")}` : ""}
-              {p.p_improve != null ? `, model's chance that its average here beats the best run ${formatNumber(p.p_improve.value, "pct")}` : ""}. {p.reason}
+              {p.p_improve != null ? `, model's chance that its average here beats the best run ${formatChance(p.p_improve.value)}` : ""}. {p.reason}
             </li>
           ))}
         </ul>
@@ -429,15 +429,17 @@ function rangeText(r: RecipeRange | null): string {
 }
 
 /**
- * The coverage caveat that must sit with the ranges (engine AGENTS.md): the
- * engine's own sentence for the 90% interval when the recipes carry one,
- * otherwise the conformal band's caveat. Said once for the batch, not per card.
+ * The coverage caveats that must sit with the ranges (engine AGENTS.md), said
+ * once for the batch: the engine's sentence for its 90% intervals when any
+ * card draws one, and the global band's caveat when any card falls back to
+ * the band.
  */
-function rangeCaveat(d: PopulatedResult): string | null {
-  const iv = d.proposals
-    .flatMap((p: Proposal) => p.intervals ?? [])
-    .find((i) => i.available && Math.abs(i.coverage - 0.9) < 1e-9);
-  if (iv && iv.available && iv.caveat?.message) return iv.caveat.message;
-  return d.conformal_caveat?.message ?? null;
+function rangeCaveat(d: PopulatedResult, ranges: readonly (RecipeRange | null)[]): string | null {
+  const out: string[] = [];
+  if (ranges.some((r) => r?.source === "interval")) {
+    const iv = d.proposals.flatMap((p: Proposal) => p.intervals ?? []).find((i) => i.available && Math.abs(i.coverage - 0.9) < 1e-9);
+    if (iv && iv.available && iv.caveat?.message) out.push(iv.caveat.message);
+  }
+  if (ranges.some((r) => r?.source === "band") && d.conformal_caveat?.message) out.push(d.conformal_caveat.message);
+  return out.length ? out.join(" ") : null;
 }
-

@@ -38,9 +38,7 @@ export const LIBRARY_ITEMS: readonly RouteItem[] = [
   { href: "/projects", label: "Client projects", description: "Client-facing project workspaces (illustrative seed data)." },
 ];
 
-const PAGES: readonly RouteItem[] = [...CAMPAIGN_STAGES, ...LIBRARY_ITEMS];
-
-/** Which rail section a pathname belongs to. */
+/** Which section a pathname belongs to. */
 export function navKeyFor(pathname: string): NavKey {
   if (pathname === "/" || pathname.startsWith("/campaign")) return "campaign";
   if (pathname.startsWith("/data")) return "data";
@@ -48,27 +46,4 @@ export function navKeyFor(pathname: string): NavKey {
   if (pathname.startsWith("/projects")) return "projects";
   if (pathname.startsWith("/settings")) return "settings";
   return "campaign";
-}
-
-/**
- * Breadcrumb trail for the header: the section, then the page when it is not
- * the section's own index. Unknown sub-pages (a project id) fall back to the
- * section alone; those pages title themselves.
- */
-export function breadcrumbFor(pathname: string): RouteItem[] {
-  const section = NAV_ITEMS.find((n) => n.key === navKeyFor(pathname))!;
-  const page = PAGES.find((p) => p.href === pathname && p.href !== section.href);
-  return page ? [section, page] : [section];
-}
-
-/**
- * A short tab title for any pathname: the page's label, Overview for "/", the
- * section label for a section index, and otherwise the last path segment.
- */
-export function titleFor(pathname: string): string {
-  if (pathname === "/") return OVERVIEW_ROUTE.label;
-  const known = PAGES.find((p) => p.href === pathname) ?? NAV_ITEMS.find((n) => n.href === pathname);
-  if (known) return known.label;
-  const last = pathname.split("/").filter(Boolean).pop() ?? "";
-  return last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, " ");
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   chartNote,
+  currentSheetOnly,
   describePoint,
   groupByRound,
   judgeReason,
@@ -209,5 +210,48 @@ describe("scoringRules", () => {
     ]);
     expect(scoringRules(null)).toEqual([]);
     expect(scoringRules({ rules: "nope" })).toEqual([]);
+  });
+});
+
+describe("currentSheetOnly", () => {
+  const rnd = (round: number, current: boolean | undefined, first: number, n: number, inside: number): TrackRound => ({
+    round,
+    current_dataset: current,
+    first_recorded_at: first,
+    n_started: n,
+    n_measured: n,
+    n_corrected: 0,
+    coverage: cov({ n, inside, outside: n - inside }),
+    coverage_so_far: cov(),
+    error: { n, mean: 0.1, mean_abs: 0.2, rmse: 0.3 },
+    excluded: {},
+  });
+  const rec = (rounds: TrackRound[]): TrackRecord => ({ campaign_id: "c", has_campaign: true, coverage: 0.9, current_round: 0, rounds, pooled: { coverage: cov({ judged: true }), error: { n: 1, mean: 0, mean_abs: 0, rmse: 0 } } });
+  const at = (id: number, recorded_at: number) => run({ id, prediction: { available: true, pred: 6, recorded_at } });
+
+  it("passes everything through when no round belongs to an earlier sheet (or the engine does not say)", () => {
+    const r = rec([rnd(0, true, 100, 5, 4), rnd(1, undefined, 200, 2, 2)]);
+    const out = currentSheetOnly(r, [at(1, 100), at(2, 200)]);
+    expect(out.leftOut).toBe(false);
+    expect(out.items).toHaveLength(2);
+    expect(out.coverage).toBe(r.pooled.coverage);
+  });
+
+  it("drops rounds and runs of an earlier sheet so round numbers never merge, and re-sums coverage without judging", () => {
+    // Old sheet: rounds 0 and 1 (t=100, 200). After a replacing upload the new sheet restarts at round 0 (t=300).
+    const r = rec([rnd(1, false, 200, 5, 5), rnd(0, false, 100, 5, 4), rnd(0, true, 300, 4, 3)]);
+    const out = currentSheetOnly(r, [at(1, 100), at(2, 200), at(3, 300), at(4, 310), run({ id: 5, prediction: { available: false, pred: null } })]);
+    expect(out.leftOut).toBe(true);
+    expect(out.rounds.map((x) => x.first_recorded_at)).toEqual([300]);
+    expect(out.items.map((x) => x.id)).toEqual([3, 4]);
+    expect(out.coverage).toMatchObject({ n: 4, inside: 3, outside: 1, judged: false });
+    expect(roundRows(out).map((x) => x.round)).toEqual([1]);
+    expect(chartNote(trackPoints(out.items), false, true)).toMatch(/earlier run sheets are left out/);
+  });
+
+  it("keeps no runs when the current sheet has no recorded round yet", () => {
+    const out = currentSheetOnly(rec([rnd(0, false, 100, 5, 4)]), [at(1, 100)]);
+    expect([out.rounds.length, out.items.length, out.coverage.n]).toEqual([0, 0, 0]);
+    expect(trackVerdict(out.coverage)).toMatch(/No measured result/);
   });
 });

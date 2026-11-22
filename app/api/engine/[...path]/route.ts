@@ -20,7 +20,8 @@ import { NextResponse, type NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 // Every engine path prefix kalos-web's own client code (lib/api.ts)
-// actually calls. Anything outside this list 404s, so
+// actually calls; newer routes (lib/assist.ts: assist next/status/ask,
+// campaign list, search and track record) are in ALLOWED_EXACT below. Anything outside this list 404s, so
 // the proxy can't be turned into an open relay to arbitrary engine routes -
 // or, worse, arbitrary URLs (KALOS_ENGINE_URL is never taken from the
 // request). Checked as whole path segments (`joined === prefix ||

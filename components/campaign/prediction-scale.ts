@@ -12,20 +12,9 @@ export type PredictionScale = {
 };
 
 /**
- * Spans every prediction's band (pred ± band) and the incumbent, padded by 5%
- * on each side so no mark sits on the bar's end. Returns null when there is
- * nothing finite to draw.
- */
-export function predictionScale(preds: readonly number[], band: number | null, incumbent: number | null): PredictionScale | null {
-  const half = band != null && Number.isFinite(band) && band > 0 ? band : 0;
-  const values = preds.filter(Number.isFinite).flatMap((p) => [p - half, p + half]);
-  if (incumbent != null) values.push(incumbent);
-  return scaleOver(values);
-}
-
-/**
- * The same padded scale over any set of values (range ends, predictions, the
- * incumbent). Non-finite values are ignored; null when none is finite.
+ * A padded scale over any set of values (range ends, predictions, the
+ * incumbent), 5% each side so no mark sits on the bar's end. Non-finite
+ * values are ignored; null when none is finite.
  */
 export function scaleOver(input: readonly number[]): PredictionScale | null {
   const values = input.filter(Number.isFinite);

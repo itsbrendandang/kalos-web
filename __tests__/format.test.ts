@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBand, formatNumber, formatRange, formatSetpoint } from "@/lib/format";
+import { formatBand, formatChance, formatNumber, formatRange, formatSetpoint } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 describe("formatNumber", () => {
@@ -95,5 +95,16 @@ describe("formatSetpoint", () => {
     expect(formatSetpoint(-0.5)).toBe("-0.5");
     expect(formatSetpoint(null)).toBe("n/a");
     expect(formatSetpoint(Number.NaN)).toBe("n/a");
+  });
+});
+
+describe("formatChance", () => {
+  it("never shows a tiny chance as 0% or a near-certain one as 100%", () => {
+    expect(formatChance(7.652e-32)).toBe("under 1%");
+    expect(formatChance(0.9999)).toBe("over 99%");
+    expect(formatChance(0)).toBe("0%");
+    expect(formatChance(1)).toBe("100%");
+    expect(formatChance(0.1726)).toBe("17%");
+    expect(formatChance(null)).toBe("n/a");
   });
 });

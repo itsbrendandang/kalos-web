@@ -69,3 +69,11 @@ export function formatSetpoint(n: number | null | undefined): string {
   const body = Math.abs(n) < 1000 ? setpointSmall.format(Math.abs(n)) : setpointLarge.format(Math.abs(n));
   return `${n < 0 ? "-" : ""}${body}`;
 }
+
+/** A model probability as a percentage that never rounds a non-zero chance to 0% or a non-certain one to 100%. */
+export function formatChance(p: number | null | undefined): string {
+  if (p == null || !Number.isFinite(p)) return MISSING;
+  if (p > 0 && p < 0.005) return "under 1%";
+  if (p < 1 && p > 0.995) return "over 99%";
+  return formatNumber(p, "pct");
+}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Campaign, CampaignRun, EngineNextAction, EngineStage } from "@/lib/api";
 import { bestDeltaFromPreviousRound, campaignStage, displayRound, type StepState } from "@/lib/campaign-stage";
 import { DEMO_CAMPAIGN } from "@/lib/mock/campaign";
-import { breadcrumbFor, navKeyFor, titleFor } from "@/lib/routes";
+import { navKeyFor } from "@/lib/routes";
 import type { ActiveCampaign } from "@/lib/workbench";
 
 const run = (id: string, result: number | null): CampaignRun => ({
@@ -125,20 +125,6 @@ describe("routes", () => {
     expect(navKeyFor("/library/plate")).toBe("library");
     expect(navKeyFor("/projects/p-cho/report")).toBe("projects");
     expect(navKeyFor("/settings")).toBe("settings");
-  });
-
-  it("builds a section > page breadcrumb", () => {
-    expect(breadcrumbFor("/campaign/plan").map((r) => r.label)).toEqual(["Campaign", "Plan"]);
-    expect(breadcrumbFor("/library").map((r) => r.label)).toEqual(["Library"]);
-    expect(breadcrumbFor("/projects").map((r) => r.label)).toEqual(["Projects"]);
-  });
-
-  it("titles every tab", () => {
-    expect(titleFor("/")).toBe("Overview");
-    expect(titleFor("/campaign/learn")).toBe("Learn");
-    expect(titleFor("/library/scale-up")).toBe("Scale-up readout");
-    expect(titleFor("/data")).toBe("Data");
-    expect(titleFor("/projects/p-cho/report")).toBe("Report");
   });
 });
 

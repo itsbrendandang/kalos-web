@@ -80,6 +80,7 @@ export function describeEngineError(e: unknown): string {
     case "unreachable":
       return "The analysis service did not respond in time. It may still be working; check again in a minute.";
     case "busy":
+      if (e.code === "assist_provider_unavailable") return "The assistant's language model could not be reached. Search and the rest of Kalos still work.";
       return `The analysis service is busy with another request.${e.retryAfter ? ` Try again in about ${Math.ceil(e.retryAfter)} s.` : " Try again shortly."}`;
     case "auth":
       return "This app is not allowed to make that request. The engine token is missing or lacks permission.";

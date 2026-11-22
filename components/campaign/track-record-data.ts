@@ -148,7 +148,7 @@ export type RoundRow = {
 };
 
 /** Per-round table rows, oldest round first. */
-export function roundRows(record: TrackRecord): RoundRow[] {
+export function roundRows(record: Pick<TrackRecord, "rounds">): RoundRow[] {
   return [...record.rounds]
     .sort((a, b) => a.round - b.round)
     .map((r) => ({
@@ -176,7 +176,7 @@ export function describePoint(p: TrackPoint, unit = ""): string {
 }
 
 /** A line under the chart for what it leaves out; null when nothing is left out. */
-export function chartNote(points: TrackPoint[], hasMore: boolean): string | null {
+export function chartNote(points: TrackPoint[], hasMore: boolean, earlierSheets = false): string | null {
   const awaiting = points.filter((p) => p.kind === "awaiting").length;
   const unscored = points.filter((p) => p.kind === "unscored").length;
   const corrected = points.filter((p) => p.corrected).length;
@@ -184,6 +184,7 @@ export function chartNote(points: TrackPoint[], hasMore: boolean): string | null
   if (awaiting) parts.push(`${plural(awaiting, "run is", "runs are")} awaiting a result, so only the prediction shows.`);
   if (unscored) parts.push(`${plural(unscored, "run has", "runs have")} a result that cannot be scored against a prediction recorded before it.`);
   if (corrected) parts.push(`${plural(corrected, "result was", "results were")} corrected after entry; the latest value is used.`);
+  if (earlierSheets) parts.push("Runs from earlier run sheets are left out.");
   if (hasMore) parts.push(`Only the first ${formatNumber(points.length, "count")} runs are drawn; newer runs exist beyond them.`);
   return parts.length ? parts.join(" ") : null;
 }
@@ -215,3 +216,31 @@ export function scoringRules(record: unknown): { label: string; text: string }[]
   }
   return out;
 }
+
+/**
+ * The track record restricted to the current run sheet. After a replacing
+ * upload the engine restarts round numbers, so rounds of an earlier sheet
+ * would otherwise be drawn and tabled under the same "Round 1". Rounds say
+ * which sheet they belong to (`current_dataset`); runs do not, so a run
+ * belongs to the current sheet when its prediction was recorded at or after
+ * the current sheet's first recorded round. The pooled coverage mixes sheets,
+ * so when anything is left out it is re-summed from the current rounds and
+ * not judged here. Engines that do not mark sheets are passed through.
+ */
+export function currentSheetOnly(record: TrackRecord, items: TrackRun[]): { rounds: TrackRecord["rounds"]; items: TrackRun[]; coverage: CoverageStat; leftOut: boolean } {
+  const earlier = record.rounds.some((r) => r.current_dataset === false);
+  if (!earlier) return { rounds: record.rounds, items, coverage: record.pooled.coverage, leftOut: false };
+  const rounds = record.rounds.filter((r) => r.current_dataset !== false);
+  const starts = rounds.map((r) => r.first_recorded_at).filter(finite);
+  const cutoff = starts.length ? Math.min(...starts) : Infinity;
+  const kept = items.filter((r) => finite(r.prediction?.recorded_at) && (r.prediction.recorded_at as number) >= cutoff);
+  const n = rounds.reduce((t, r) => t + r.coverage.n, 0);
+  const inside = rounds.reduce((t, r) => t + r.coverage.inside, 0);
+  return {
+    rounds,
+    items: kept,
+    coverage: { n, inside, outside: n - inside, observed: n ? inside / n : null, nominal: record.pooled.coverage.nominal, judged: false, reason: null },
+    leftOut: true,
+  };
+}
+

@@ -18,6 +18,7 @@ import { Disclosure } from "@/components/kit/disclosure";
 import { Metric } from "@/components/kit/metric";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
+import { trustView } from "@/components/campaign/trust";
 import { Verdict } from "@/components/kit/verdict";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
@@ -96,7 +97,9 @@ export default function LearnPage() {
   const learned = runs.length > 0 ? round : round - 1;
   const unit = parseUnit(d.target);
   const name = targetName(d.target);
+  // The numbers come from the held-out score; the verdict itself is the engine's when it sent one (same as Plan).
   const verdict = reliabilityVerdict(d);
+  const trust = trustView(d);
   const promotion = promotionLine(d.promotion);
   const calibration = bandCalibration(runs, d.conformal_q);
   const drivers = topDrivers(d.drivers, 8);
@@ -138,21 +141,26 @@ export default function LearnPage() {
 
       <div className="flex flex-col gap-2">
         <Verdict
-          tone={verdict.state === "reliable" ? "good" : verdict.state === "not-yet" ? "warn" : "neutral"}
+          tone={trust.tone}
           detailLabel="Numbers behind this"
           detail={
-            verdict.rho != null ? (
-              <p>
-                Rank agreement between predicted and measured order on held-out runs: {formatNumber(verdict.rho, "corr")}
-                {verdict.ci ? `, 95% CI ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}` : ""}
-                {verdict.floor != null ? `. The trust floor is ${formatNumber(verdict.floor, "corr")}.` : "."}
-              </p>
-            ) : (
-              <p>The model could not be scored on held-out runs.</p>
-            )
+            <>
+              {verdict.rho != null ? (
+                <p>
+                  Rank agreement between predicted and measured order on held-out runs: {formatNumber(verdict.rho, "corr")}
+                  {verdict.ci ? `, 95% CI ${formatRange(verdict.ci[0], verdict.ci[1], "corr")}` : ""}
+                  {verdict.floor != null ? `. The trust floor is ${formatNumber(verdict.floor, "corr")}.` : "."}
+                </p>
+              ) : (
+                <p>The model could not be scored on held-out runs.</p>
+              )}
+              {trust.details.map((t) => (
+                <p key={t}>{t}</p>
+              ))}
+            </>
           }
         >
-          <span className="font-semibold">{verdict.label}.</span> {verdict.reason}
+          <span className="font-semibold">{trust.label}.</span> {trust.sentence}
         </Verdict>
         {promotion ? <p className="ml-7 text-body text-fg-muted">{promotion}</p> : null}
       </div>

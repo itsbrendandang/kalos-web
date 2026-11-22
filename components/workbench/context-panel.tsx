@@ -124,7 +124,8 @@ function PanelBody({ status }: { status: AssistStatus | null }) {
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {reply ? <ReplyView reply={reply} onClear={() => setReply(null)} /> : null}
+        {/* Always mounted, so a new answer is announced. */}
+        <div aria-live="polite">{reply ? <ReplyView reply={reply} onClear={() => setReply(null)} /> : null}</div>
         <ContextBody />
       </div>
       {askable || searchable ? (
@@ -170,7 +171,7 @@ function Composer({ busy, mode, onSubmit }: { busy: boolean; mode: "ask" | "sear
 
 function ReplyView({ reply, onClear }: { reply: Reply; onClear: () => void }) {
   return (
-    <section aria-label="Answer" aria-live="polite" className="mb-4 overflow-hidden rounded-xl border border-border bg-surface">
+    <section aria-label="Answer" className="mb-4 overflow-hidden rounded-xl border border-border bg-surface">
       <div className="flex items-start gap-2 border-b border-border bg-bg px-3 py-2">
         <p className="min-w-0 flex-1 text-caption text-fg-muted">
           <span className="sr-only">You asked: </span>

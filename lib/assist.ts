@@ -120,6 +120,12 @@ export type ErrorStat = { n: number; mean: number | null; mean_abs: number | nul
 
 export type TrackRound = {
   round: number;
+  /** Which uploaded run sheet the round belongs to (1 = the first); rounds restart at 0 after a replacing upload. */
+  dataset_epoch?: number;
+  /** False for rounds of an earlier run sheet. Absent on engines that do not separate them. */
+  current_dataset?: boolean;
+  /** When the round's first prediction was recorded (epoch seconds). */
+  first_recorded_at?: number;
   n_started: number;
   n_measured: number;
   n_corrected: number;
@@ -137,10 +143,13 @@ export type TrackRecord = {
   /** Newest first. `round` is the engine's 0-based round. */
   rounds: TrackRound[];
   pooled: { coverage: CoverageStat; error: ErrorStat };
+  /** The engine's scoring rules, as plain sentences keyed by rule. */
+  rules?: Record<string, string | number>;
 };
 
+/** Up to the engine's cap of 100 rounds, newest first. */
 export const getTrackRecord = (campaignId: string): Promise<TrackRecord | null> =>
-  getJson<TrackRecord>(`/api/campaigns/${encodeURIComponent(campaignId)}/track-record?coverage=0.9`);
+  getJson<TrackRecord>(`/api/campaigns/${encodeURIComponent(campaignId)}/track-record?coverage=0.9&limit=100`);
 
 export type TrackRun = {
   id: number;
@@ -148,7 +157,7 @@ export type TrackRun = {
   /** The engine's 0-based round; people see displayRound(round). */
   round: number;
   status: string;
-  prediction: { available: boolean; pred: number | null; unavailable_reason?: string | null };
+  prediction: { available: boolean; pred: number | null; unavailable_reason?: string | null; recorded_at?: number | null };
   /** The band recorded when the run was started, at the requested coverage; never the current analysis. */
   band: { lo: number; hi: number; coverage: number } | null;
   measured: { value: number | null; corrected?: boolean } | null;

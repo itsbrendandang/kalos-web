@@ -38,6 +38,68 @@ export type Proposal = {
    * lab runs and what a started run must record. Absent on older engines.
    */
   recipe?: Record<string, number>;
+  /** Per-recipe trust, mirroring `proposal_trust`. Absent on older engines. */
+  trust?: { status: ProposalTrustStatus; verdict: VerdictState | null; message: string };
+  /** The engine's prediction ranges at each `interval_levels` coverage (e.g. 0.9, 0.95). Absent on older engines. */
+  intervals?: ProposalInterval[];
+  /**
+   * Model-based probability that the model's latent mean here beats the
+   * incumbent - NOT the chance one new run beats it (engine intervals.py).
+   */
+  p_improve?: ModelProbability;
+};
+
+export type VerdictState = "reliable" | "not_yet" | "refused";
+export type ProposalTrustStatus = "trusted" | "exploration_untrusted" | "withheld";
+
+/** The engine's own trust verdict (kalos/portal/verdict.py). Wins over any web-side derivation. */
+export type EngineVerdict = {
+  state: VerdictState;
+  code: string;
+  headline: string;
+  reasons: { code: string; plain: string }[];
+  ordering?: { state: string; plain: string } | null;
+  range_width?: { state: string; code: string; plain: string } | null;
+  n_runs?: number | null;
+  min_runs?: number;
+  n_groups?: number | null;
+  min_groups?: number;
+  rule?: string;
+};
+
+/** Why the engine returned no batch, and what would let it propose one. */
+export type Refusal = { code: string; plain: string; what_would_help?: string | null };
+
+export type ProposalNotice = { code: string; message: string; requested?: number; returned?: number };
+
+export type ProposalTrust = {
+  status: ProposalTrustStatus;
+  verdict: VerdictState | null;
+  message: string;
+  reasons?: string[];
+};
+
+export type CoverageEstimate = { nominal: number; measured_min: number; measured_max: number; basis: string };
+
+export type ProposalInterval =
+  | {
+      available: true;
+      coverage: number;
+      method: string;
+      coverage_basis?: string;
+      lo: number;
+      hi: number;
+      caveat?: { code: string; message: string; coverage_at_proposals_estimate?: CoverageEstimate | null } | null;
+    }
+  | { available: false; coverage: number; method?: string; code?: string; reason?: string; what_would_fix_it?: string };
+
+export type ModelProbability = { value: number; incumbent?: number; basis: string; note?: string; description?: string };
+
+/** The caveat that goes with the +/- conformal band: coverage was measured on past runs, not at proposals. */
+export type ConformalCaveat = {
+  code: string;
+  message: string;
+  coverage_at_proposals_estimate?: CoverageEstimate | null;
 };
 
 /** The full recipe to run and record for a proposal. Falls back to the
@@ -366,6 +428,18 @@ export type AnalyzeResult = Partial<Diagnostics> & {
    * engine builds.
    */
   cv_spearman_per_repeat?: (number | null)[];
+  /** The engine's trust verdict. Absent on older engines; then the web derives one (reliabilityVerdict). */
+  verdict?: EngineVerdict | null;
+  /** Set only when `verdict.state` is "refused"; proposals are then empty. */
+  refusal?: Refusal | null;
+  /** Why the batch has fewer recipes than asked for, or none. */
+  proposal_notice?: ProposalNotice | null;
+  /** Batch-level trust: trusted, exploration only, or withheld. */
+  proposal_trust?: ProposalTrust | null;
+  /** Coverage caveat for `conformal_q`; must be shown with the band (engine AGENTS.md). */
+  conformal_caveat?: ConformalCaveat | null;
+  /** The coverages each proposal's `intervals` are reported at, e.g. [0.9, 0.95]. */
+  interval_levels?: number[];
   /** Distribution-free +/- band (abs) from pooled out-of-fold residuals. */
   conformal_q?: number | null;
   /**
@@ -889,6 +963,8 @@ export type Campaign =
        * next re-analyze. Optional only because older engines do not send it.
        */
       analysis_in_sync?: boolean;
+      /** The engine's stored trust verdict for the published analysis. Absent on older engines. */
+      verdict?: EngineVerdict | null;
     };
 
 export type CampaignComparison = {

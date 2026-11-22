@@ -1,4 +1,5 @@
 // Client for the Kalos engine API (the FastAPI service in the kalos repo).
+import { engineError } from "@/lib/engine-error";
 import type { StageKey } from "@/lib/routes";
 import type { ValidationReport } from "@/lib/validation";
 
@@ -563,21 +564,38 @@ export const runMulti = (): Promise<MultiRun> =>
 /** Explicit column roles the engine accepts as `roles` (kalos ColumnRoles): replaces name-based inference. */
 export type ColumnRolesInput = { target: string; features: string[]; ids?: string[] };
 
-export async function runFile(file: File, target?: string, roles?: ColumnRolesInput): Promise<AnalyzeResult> {
+/**
+ * POST /api/run. A 400 or 422 carrying `{ error }` is the engine refusing THIS
+ * sheet (parse_error, fit_failed, corrupt_excel, sheet_not_found,
+ * no_usable_sheet, ..., or no code on older engines): it comes back as a
+ * normal result with `error` set, for the caller to show inline. Anything
+ * else that is not ok (the proxy's 502 timeout, 503 busy, 401/403, 409
+ * campaign_has_runs, 5xx) throws an EngineError, so a busy or unreachable
+ * engine is never reported as a bad sheet.
+ *
+ * `replace` confirms that the upload may replace a campaign that has runs
+ * (engine 409 `campaign_has_runs` otherwise). Only send it after the user said
+ * so; older engines ignore the field.
+ */
+export async function runFile(file: File, target?: string, roles?: ColumnRolesInput, replace?: boolean): Promise<AnalyzeResult> {
   const fd = new FormData();
   fd.append("file", file);
   if (target) fd.append("target", target);
   if (roles) fd.append("roles", JSON.stringify(roles));
-  return fetch(`${API}/api/run`, { method: "POST", body: fd }).then(async (r) => {
-    const d = (await r.json()) as AnalyzeResult;
-    // A 400 with the documented { error } body is an expected "bad upload"
-    // response the caller renders inline (see analyze/page.tsx) - not a
-    // failure to throw on. Any other non-ok response (5xx, or a 4xx without
-    // that shape) is unexpected, so route it to the same error/offline path
-    // as the other engine calls instead of returning it as a fake result.
-    if (!r.ok && typeof d.error !== "string") throw new Error(`engine responded ${r.status}`);
-    return d;
-  });
+  if (replace) fd.append("replace", "true");
+  const r = await fetch(`${API}/api/run`, { method: "POST", body: fd });
+  if (r.ok) return (await r.json()) as AnalyzeResult;
+  if (r.status === 400 || r.status === 422) {
+    // Read a copy so a body that is not the sheet-problem shape can still be parsed by engineError.
+    let body: unknown = null;
+    try {
+      body = await r.clone().json();
+    } catch {
+      // Not JSON: not a sheet problem.
+    }
+    if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") return body as AnalyzeResult;
+  }
+  throw await engineError(r);
 }
 
 // The most recent real (uploaded) analysis - what the Overview reflects.
@@ -1020,34 +1038,31 @@ export async function startRuns(recipes: StartRecipe[]): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ recipes }),
   });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) throw await engineError(r);
 }
 
-export async function logResult(id: string, value: number): Promise<void> {
+/** The engine's cap on a correction reason (CAMPAIGNS_API.md, "Recording results"). */
+export const MAX_RESULT_REASON = 256;
+
+/**
+ * Record a measured result. A second value for the same run is a correction:
+ * engines from schema v5 on refuse it without a `reason` (400
+ * `reason_required`); older engines ignore the field. Throws an EngineError.
+ */
+export async function logResult(id: string, value: number, reason?: string): Promise<void> {
+  const body: { id: string; value: number; reason?: string } = { id, value };
+  if (reason !== undefined && reason.trim() !== "") body.reason = reason.trim();
   const r = await fetch(`${API}/api/campaign/result`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, value }),
+    body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    // The documented 400 body is { error }; fall back to a status-based
-    // message for anything else (network hiccup, unexpected 5xx shape).
-    let message = `engine responded ${r.status}`;
-    try {
-      const body: unknown = await r.json();
-      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
-        message = (body as { error: string }).error;
-      }
-    } catch {
-      // Body wasn't JSON - keep the status-based message.
-    }
-    throw new Error(message);
-  }
+  if (!r.ok) throw await engineError(r);
 }
 
 export async function reanalyze(): Promise<{ analysis: PopulatedResult; campaign: Campaign }> {
   const r = await fetch(`${API}/api/campaign/reanalyze`, { method: "POST" });
-  if (!r.ok) throw new Error(`engine responded ${r.status}`);
+  if (!r.ok) throw await engineError(r);
   return r.json();
 }
 

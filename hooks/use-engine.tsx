@@ -101,13 +101,13 @@ export function useCampaign(): EngineResource<Campaign> {
 
 /*
  * The one write path. Pages must call these instead of the lib/api writes so
- * the status bar, Explorer stages and Next card update without a reload:
+ * the sidebar, the assistant panel and every page update without a reload:
  *
  *   const { runFile, startRuns, logResult, reanalyze } = useEngineWrites();
  *
- *   runFile(file, target?, roles?)  -> AnalyzeResult   (same contract as lib/api runFile; refreshes latest + campaign unless the engine rejected the upload)
+ *   runFile(file, target?, roles?, replace?)  -> AnalyzeResult   (same contract as lib/api runFile; refreshes latest + campaign unless the engine rejected the upload)
  *   startRuns(recipes)      -> void            (refreshes campaign)
- *   logResult(id, value)    -> void            (refreshes campaign)
+ *   logResult(id, value, reason?)  -> void     (refreshes campaign; reason is required by newer engines for a correction)
  *   reanalyze()             -> { analysis, campaign }  (sets campaign from the response, refreshes latest)
  *
  * Each throws exactly as the lib/api function does and updates the provider
@@ -119,8 +119,8 @@ export function useEngineWrites() {
   const { refresh: refreshCampaign, set: setCampaign } = campaign;
 
   const runFile = useCallback(
-    async (file: File, target?: string, roles?: api.ColumnRolesInput) => {
-      const d = await api.runFile(file, target, roles);
+    async (file: File, target?: string, roles?: api.ColumnRolesInput, replace?: boolean) => {
+      const d = await api.runFile(file, target, roles, replace);
       if (!d.error) await Promise.all([refreshLatest(), refreshCampaign()]);
       return d;
     },
@@ -134,8 +134,8 @@ export function useEngineWrites() {
     [refreshCampaign],
   );
   const logResult = useCallback(
-    async (id: string, value: number) => {
-      await api.logResult(id, value);
+    async (id: string, value: number, reason?: string) => {
+      await api.logResult(id, value, reason);
       await refreshCampaign();
     },
     [refreshCampaign],

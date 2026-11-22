@@ -11,6 +11,7 @@ import { bandCalibration, calibrationSentence, canPlanNext, promotionLine } from
 import { PredVsMeasured } from "@/components/campaign/pred-vs-measured";
 import { RunLandscape } from "@/components/campaign/run-landscape";
 import { targetName } from "@/components/campaign/target";
+import { TrackRecordSection } from "@/components/campaign/track-record";
 import { ChartFrame } from "@/components/kit/chart-frame";
 import { Callout } from "@/components/kit/callout";
 import { Disclosure } from "@/components/kit/disclosure";
@@ -23,6 +24,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-
 import { useCampaign, useEngineWrites, useLatest } from "@/hooks/use-engine";
 import { reliabilityVerdict, type PopulatedResult } from "@/lib/api";
 import { campaignStage } from "@/lib/campaign-stage";
+import { describeEngineError } from "@/lib/engine-error";
 import { formatNumber, formatRange } from "@/lib/format";
 import { topDrivers } from "@/lib/overview";
 import { parseUnit } from "@/lib/utils";
@@ -40,7 +42,7 @@ export default function LearnPage() {
   const { reanalyze } = useEngineWrites();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   const header = (action?: React.ReactNode, title = "Learn") => (
     <PageHeader title={title} description="What the results taught the model, and whether to trust it." action={action} />
@@ -105,12 +107,12 @@ export default function LearnPage() {
 
   async function planNext() {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await reanalyze();
       router.push("/campaign/plan");
-    } catch {
-      setFailed(true);
+    } catch (e) {
+      setFailed(describeEngineError(e).replace(/([^.!?])$/, "$1."));
       setBusy(false);
     }
   }
@@ -130,7 +132,7 @@ export default function LearnPage() {
 
       {failed ? (
         <Callout tone="bad" title="Could not plan the next round">
-          The engine did not accept the re-analysis. Your recorded results are safe; try again.
+          {failed} Your recorded results are safe.
         </Callout>
       ) : null}
 
@@ -177,15 +179,22 @@ export default function LearnPage() {
         </ul>
       </Section>
 
-      <Section title="Did the results land where predicted?">
-        <p className="text-body text-fg">
-          {calibration == null
-            ? "The engine did not report a prediction band, so this cannot be checked."
-            : calibration.total === 0
-              ? "No measured results to compare with their predictions yet."
-              : calibrationSentence(calibration, d.conformal_coverage)}
-        </p>
-      </Section>
+      {/* The engine's prospective track record; engines without it keep the band check derived here. */}
+      <TrackRecordSection
+        targetName={name}
+        unit={unit}
+        fallback={
+          <Section title="Did the results land where predicted?">
+            <p className="text-body text-fg">
+              {calibration == null
+                ? "The engine did not report a prediction band, so this cannot be checked."
+                : calibration.total === 0
+                  ? "No measured results to compare with their predictions yet."
+                  : calibrationSentence(calibration, d.conformal_coverage)}
+            </p>
+          </Section>
+        }
+      />
 
       <Section
         title="What moves the target"

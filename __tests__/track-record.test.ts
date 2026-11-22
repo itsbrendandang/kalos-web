@@ -1,0 +1,213 @@
+import { describe, expect, it } from "vitest";
+import {
+  chartNote,
+  describePoint,
+  groupByRound,
+  judgeReason,
+  layoutSlots,
+  niceTicks,
+  roundRows,
+  scoringRules,
+  trackPoints,
+  trackVerdict,
+  valueDomain,
+} from "@/components/campaign/track-record-data";
+import type { CoverageStat, TrackRecord, TrackRound, TrackRun } from "@/lib/assist";
+
+const run = (over: Partial<TrackRun> & { id: number }): TrackRun => ({
+  run_id: `run${over.id}abcdef`,
+  round: 0,
+  status: "measured",
+  prediction: { available: true, pred: 6 },
+  band: { lo: 5.5, hi: 6.5, coverage: 0.9 },
+  measured: { value: 6.2, corrected: false },
+  scored: true,
+  inside: true,
+  error: 0.2,
+  ...over,
+});
+
+const awaiting = (id: number, round = 1): TrackRun =>
+  run({ id, round, status: "awaiting", band: null, measured: { value: null, corrected: false }, scored: false, inside: null, error: null });
+
+const cov = (over: Partial<CoverageStat> = {}): CoverageStat => ({ n: 7, inside: 6, outside: 1, observed: 0.857, nominal: 0.9, wilson_95: [0.49, 0.97], ...over });
+
+describe("trackPoints", () => {
+  it("maps a scored run with its recorded band, display round 1-based", () => {
+    const [p] = trackPoints([run({ id: 1 })]);
+    expect(p).toMatchObject({ id: 1, round: 1, kind: "scored", pred: 6, lo: 5.5, hi: 6.5, measured: 6.2, inside: true, error: 0.2, corrected: false });
+  });
+  it("awaiting runs keep only the prediction", () => {
+    const [p] = trackPoints([awaiting(2)]);
+    expect(p).toMatchObject({ kind: "awaiting", round: 2, pred: 6, measured: null, lo: null, hi: null, inside: null, error: null });
+  });
+  it("flags corrected results and keeps the latest value", () => {
+    const [p] = trackPoints([run({ id: 3, measured: { value: 7.1, corrected: true } })]);
+    expect(p.corrected).toBe(true);
+    expect(p.measured).toBe(7.1);
+  });
+  it("a measured run that is not scored is 'unscored', with no inside or error claimed", () => {
+    const [p] = trackPoints([run({ id: 4, scored: false, inside: true, error: 0.3, prediction: { available: false, pred: null } })]);
+    expect(p).toMatchObject({ kind: "unscored", pred: null, inside: null, error: null, measured: 6.2 });
+  });
+  it("drops runs with neither a prediction nor a result, and orders a reversed band", () => {
+    const pts = trackPoints([
+      run({ id: 5, prediction: { available: false, pred: null }, measured: null, scored: false }),
+      run({ id: 6, band: { lo: 7, hi: 5, coverage: 0.9 } }),
+    ]);
+    expect(pts.map((p) => p.id)).toEqual([6]);
+    expect([pts[0].lo, pts[0].hi]).toEqual([5, 7]);
+  });
+  it("is empty for no runs", () => {
+    expect(trackPoints([])).toEqual([]);
+  });
+});
+
+describe("groupByRound", () => {
+  it("groups by display round ascending, keeping run order", () => {
+    const groups = groupByRound(trackPoints([run({ id: 1, round: 1 }), run({ id: 2, round: 0 }), run({ id: 3, round: 1 })]));
+    expect(groups.map((g) => [g.round, g.points.map((p) => p.id)])).toEqual([
+      [1, [2]],
+      [2, [1, 3]],
+    ]);
+  });
+});
+
+describe("layoutSlots", () => {
+  it("one slot per run with one empty slot between rounds", () => {
+    const { slots, rounds } = layoutSlots(groupByRound(trackPoints([run({ id: 1, round: 0 }), run({ id: 2, round: 1 }), run({ id: 3, round: 1 })])));
+    expect(slots).toBe(4);
+    expect(rounds.map((r) => [r.round, r.start, r.end, r.cols.map((c) => c.slot)])).toEqual([
+      [1, 0, 1, [0]],
+      [2, 2, 4, [2, 3]],
+    ]);
+  });
+  it("is empty for no groups", () => {
+    expect(layoutSlots([])).toEqual({ slots: 0, rounds: [] });
+  });
+});
+
+describe("valueDomain and niceTicks", () => {
+  it("covers every mark with padding", () => {
+    const [lo, hi] = valueDomain(trackPoints([run({ id: 1 }), run({ id: 2, measured: { value: 8 } })]))!;
+    expect(lo).toBeLessThan(5.5);
+    expect(hi).toBeGreaterThan(8);
+  });
+  it("is null with nothing to draw and non-degenerate for one value", () => {
+    expect(valueDomain([])).toBeNull();
+    const [lo, hi] = valueDomain(trackPoints([run({ id: 1, band: null, measured: null, scored: false, prediction: { available: true, pred: 0 } })]))!;
+    expect(hi).toBeGreaterThan(lo);
+  });
+  it("gives round-numbered ticks inside the range", () => {
+    expect(niceTicks(5.1, 7.9, 5)).toEqual([5.5, 6, 6.5, 7, 7.5]);
+    expect(niceTicks(0, 1, 5)).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    expect(niceTicks(3, 3)).toEqual([3]);
+  });
+});
+
+describe("trackVerdict", () => {
+  it("states k of n against the recorded range and the engine's reason when not judged", () => {
+    expect(trackVerdict(cov({ judged: false, reason: "needs 10 scored runs to judge; has 7" }))).toBe(
+      "6 of 7 measured results landed inside the 90% range recorded when the run started. Too few to judge the range yet: that takes 10 scored runs, and there are 7 so far.",
+    );
+  });
+  it("never judges when the engine did not say it judged", () => {
+    const s = trackVerdict(cov({ judged: undefined, reason: null }));
+    expect(s).toBe("6 of 7 measured results landed inside the 90% range recorded when the run started.");
+    expect(s).not.toMatch(/consistent|calibrat|narrow|wide/);
+  });
+  it("zero scored runs says so instead of 0 of 0", () => {
+    expect(trackVerdict(cov({ n: 0, inside: 0, outside: 0, observed: null, judged: false, reason: "needs 10 scored runs to judge; has 0" }))).toBe(
+      "No measured result can be compared with its recorded prediction yet.",
+    );
+  });
+  it("singular wording for one result", () => {
+    expect(trackVerdict(cov({ n: 1, inside: 1, judged: false, reason: null }))).toBe("1 of 1 measured result landed inside the 90% range recorded when the run started.");
+  });
+  it("when judged, compares the target with the 95% interval", () => {
+    expect(trackVerdict(cov({ n: 20, inside: 18, judged: true, wilson_95: [0.7, 0.97] }))).toMatch(/consistent with 90% \(plausibly 70% to 97%\)\.$/);
+    expect(trackVerdict(cov({ n: 20, inside: 12, judged: true, wilson_95: [0.39, 0.78] }))).toMatch(/too narrow/);
+    expect(trackVerdict(cov({ n: 40, inside: 40, judged: true, wilson_95: [0.91, 1] }))).toMatch(/wide side/);
+  });
+  it("other reasons are passed through as a sentence", () => {
+    expect(judgeReason("mixed coverage levels")).toBe("Not judged yet: mixed coverage levels.");
+    expect(judgeReason(null)).toBeNull();
+  });
+});
+
+const round = (r: number, over: Partial<TrackRound> = {}): TrackRound => ({
+  round: r,
+  n_started: 5,
+  n_measured: 5,
+  n_corrected: 0,
+  coverage: cov({ n: 5, inside: 4 }),
+  coverage_so_far: cov(),
+  error: { n: 5, mean: 0.1678, mean_abs: 0.385, rmse: 0.44 },
+  excluded: {},
+  ...over,
+});
+
+const record = (rounds: TrackRound[]): TrackRecord => ({
+  campaign_id: "c",
+  has_campaign: true,
+  coverage: 0.9,
+  current_round: 1,
+  rounds,
+  pooled: { coverage: cov(), error: { n: 7, mean: 0.2, mean_abs: 0.4, rmse: 0.5 } },
+});
+
+describe("roundRows", () => {
+  it("orders oldest first with display rounds", () => {
+    const rows = roundRows(record([round(1, { n_measured: 2, coverage: cov({ n: 2, inside: 2 }) }), round(0)]));
+    expect(rows.map((r) => [r.round, r.inside, r.scored])).toEqual([
+      [1, 4, 5],
+      [2, 2, 2],
+    ]);
+  });
+  it("mean error is null when nothing is scored (all awaiting)", () => {
+    const [r] = roundRows(record([round(0, { n_measured: 0, coverage: cov({ n: 0, inside: 0 }), error: { n: 0, mean: null, mean_abs: null, rmse: null } })]));
+    expect(r).toMatchObject({ measured: 0, scored: 0, meanError: null });
+  });
+  it("carries corrected counts", () => {
+    expect(roundRows(record([round(0, { n_corrected: 2 })]))[0].corrected).toBe(2);
+  });
+});
+
+describe("chartNote", () => {
+  it("is null when nothing is left out", () => {
+    expect(chartNote(trackPoints([run({ id: 1 })]), false)).toBeNull();
+  });
+  it("names awaiting, corrected and truncated runs", () => {
+    const pts = trackPoints([run({ id: 1, measured: { value: 6, corrected: true } }), awaiting(2), awaiting(3)]);
+    const note = chartNote(pts, true)!;
+    expect(note).toContain("2 runs are awaiting a result");
+    expect(note).toContain("1 result was corrected");
+    expect(note).toContain("Only the first 3 runs are drawn");
+  });
+  it("all awaiting", () => {
+    expect(chartNote(trackPoints([awaiting(1)]), false)).toBe("1 run is awaiting a result, so only the prediction shows.");
+  });
+});
+
+describe("describePoint", () => {
+  it("reads a scored run in words", () => {
+    expect(describePoint(trackPoints([run({ id: 1, round: 1 })])[0], "g/L")).toBe(
+      "Round 2, run run1ab: predicted 6.00 g/L, range 5.50 to 6.50, measured 6.20 g/L, inside the range.",
+    );
+  });
+  it("reads an awaiting run", () => {
+    expect(describePoint(trackPoints([awaiting(9)])[0])).toBe("Round 2, run run9ab: predicted 6.00, awaiting a result.");
+  });
+});
+
+describe("scoringRules", () => {
+  it("labels the engine's rules and skips unknown input", () => {
+    const rules = scoringRules({ rules: { error_formula: "measured minus the prediction recorded at start", judged_from_n: 10, other: "x" } });
+    expect(rules).toEqual([
+      { label: "Error", text: "measured minus the prediction recorded at start" },
+      { label: "Judged from", text: "10 scored runs or more" },
+    ]);
+    expect(scoringRules(null)).toEqual([]);
+    expect(scoringRules({ rules: "nope" })).toEqual([]);
+  });
+});

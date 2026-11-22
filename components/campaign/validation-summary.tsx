@@ -22,7 +22,8 @@ const TONE: Record<ValidationStatus, Tone> = { pass: "good", pass_with_warnings:
 
 function sentence(report: ValidationReport): string {
   const { status, counts } = report;
-  const checks = report.checks_run.length;
+  // The engine can list a check once per pass; count each check once.
+  const checks = new Set(report.checks_run).size;
   const n = (k: number, one: string) => `${formatNumber(k, "count")} ${one}${k === 1 ? "" : "s"}`;
   if (status === "fail") return `Fix ${n(counts.error, "problem")} in this run sheet before you rely on it.`;
   if (status === "pass_with_warnings") return `This run sheet is usable, with ${n(counts.warning, "warning")} to review.`;
@@ -34,7 +35,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
   const [all, setAll] = useState(false);
   const { shown, hidden } = capFindings(report.findings, all ? Infinity : undefined);
   const total = report.findings.length;
-  const names = report.checks_run;
+  const names = [...new Set(report.checks_run)];
   const groups = new Map(groupFindingsByCheck(report.findings).map((g) => [g.check, g.findings]));
 
   return (

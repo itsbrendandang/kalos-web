@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { StageGateTrack } from "@/components/viz/charts/stage-gate-track";
 import { useCampaign, useCampaignDetail, useCampaignId, useLatest } from "@/hooks/use-engine";
+import { useOnKeyChange } from "@/hooks/use-on-key-change";
 import { getGates, getStages, type GateView, type GatesView, type StagesView } from "@/lib/api";
 import { EngineError, engineMessage } from "@/lib/engine-error";
 import type { ScaleReadout } from "@/lib/scale-readout";
@@ -68,6 +69,10 @@ export default function CampaignScaleUpPage() {
     const next = await fetchAll();
     setLoad((prev) => (next.status === "error" && prev.status === "data" ? prev : next));
   }, [fetchAll]);
+
+  // Gate evidence is computed from the latest analysis: refetch when a re-analysis replaces it.
+  const analysisKey = latest.data && latest.data.has_data ? (analysisEvidence(latest.data)?.id ?? null) : null;
+  useOnKeyChange(analysisKey, reload);
 
   const archived = detail.data?.campaign.archived === true;
   const readOnlyReason = archived ? "This campaign is archived, so it is read-only: decisions and the current stage cannot be changed." : null;

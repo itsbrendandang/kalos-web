@@ -11,6 +11,7 @@ import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaigns } from "@/hooks/use-engine";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
 import { getProviders, type Provider } from "@/lib/api";
+import { providerSetupText } from "@/lib/provider-status";
 import { cn } from "@/lib/utils";
 
 const THEMES: { value: ThemePreference; label: string }[] = [
@@ -144,7 +145,7 @@ function Integrations() {
                 <div key={p.name} className="contents">
                   <dt className="text-fg-muted">Provider {p.name}</dt>
                   <dd className="text-fg">
-                    {p.available ? "configured" : `set ${p.missing_env.join(", ") || p.required_env.join(", ")} on the engine to enable`}
+                    {providerSetupText(p)}
                     <span className="block text-fg-muted">Fallback: {p.fallback}</span>
                   </dd>
                 </div>

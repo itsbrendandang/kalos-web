@@ -12,8 +12,9 @@ export function providerDisabledBy(p: Pick<Provider, "disabled_by">): string[] {
 /** The user-facing line under a provider that is turned off or unavailable. */
 export function providerOffText(p: Pick<Provider, "disabled_by">): string {
   const off = providerDisabledBy(p);
-  if (off.includes(PAID_CALLS_SWITCH)) return "Paid AI calls are turned off on this engine, so a built-in check is used instead.";
-  if (off.length) return "Turned off in the engine's configuration, so a built-in check is used instead.";
+  // What replaces a switched-off provider differs per provider (see its `fallback`), so promise none here.
+  if (off.includes(PAID_CALLS_SWITCH)) return "Paid AI calls are turned off on this engine.";
+  if (off.length) return "Turned off in the engine's configuration.";
   return "Without it, a built-in check is used instead.";
 }
 

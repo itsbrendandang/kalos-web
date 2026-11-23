@@ -42,8 +42,8 @@ describe("providerDisabledBy / providerOffText", () => {
   });
 
   it("says paid calls are off for the paid-call switch, and a neutral line for others", () => {
-    expect(providerOffText({ disabled_by: ["KALOS_NO_PAID_CALLS"] })).toMatch(/^Paid AI calls are turned off on this engine/);
-    expect(providerOffText({ disabled_by: ["SOME_OTHER_SWITCH"] })).toMatch(/^Turned off in the engine's configuration/);
+    expect(providerOffText({ disabled_by: ["KALOS_NO_PAID_CALLS"] })).toBe("Paid AI calls are turned off on this engine.");
+    expect(providerOffText({ disabled_by: ["SOME_OTHER_SWITCH"] })).toBe("Turned off in the engine's configuration.");
     expect(providerOffText({})).toBe("Without it, a built-in check is used instead.");
   });
 });

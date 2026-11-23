@@ -18,6 +18,7 @@ import type { CampaignMeta, CampaignSummaryRow } from "@/lib/api";
 import { DEMO_MODE } from "@/lib/demo";
 import { formatValue } from "@/lib/num";
 import { sortCampaigns } from "@/lib/home";
+import { ToolFinder } from "@/components/shell/tool-finder";
 
 /**
  * Campaigns home. The engine's campaign list decides what shows: while it
@@ -112,6 +113,7 @@ function CampaignsOverview({ list, stale, autoFocus }: { list: CampaignSummaryRo
         title="Campaigns"
         description="Each campaign improves one target, round by round: harmonize the runs you have, predict the next batch, validate it in your lab."
       />
+      <ToolFinder />
       <section aria-labelledby="new-title" className="flex flex-col gap-2">
         <h2 id="new-title" className="text-heading text-fg">
           New campaign

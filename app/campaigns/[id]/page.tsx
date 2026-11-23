@@ -20,6 +20,14 @@ import { analysisSource } from "@/lib/overview";
 import { goalOf } from "@/lib/report-package";
 import { campaignHref, stageHref } from "@/lib/routes";
 import { BestSoFarChart } from "@/components/campaign/best-so-far-chart";
+import { ToolFinder } from "@/components/shell/tool-finder";
+import { VisualReadingGuide } from "@/components/shell/visual-reading-guide";
+import { OutcomeDistribution } from "@/components/viz/charts/outcome-distribution";
+import { ParityPlot } from "@/components/viz/charts/parity-plot";
+import { toParity } from "@/lib/viz-data/parity-plot";
+import { sourceFromAnalysis } from "@/lib/source";
+import { CampaignDataMap } from "@/components/shell/campaign-data-map";
+import { targetUnitOf } from "@/lib/api";
 
 const count = (v: number | null | undefined) => formatValue(v, { quantity: "count" }).text;
 
@@ -95,7 +103,14 @@ export default function OverviewPage() {
       <NextCard action={stage.next.action} href={stage.next.href} reason={stage.next.reason} />
       <EvidenceRow campaign={active} analysis={analysis} analysisFailed={latest.status === "error"} predictHref={campaignHref(id, "predict")} />
       {active ? <BestSoFarChart campaign={active} analysis={analysis} /> : null}
+      {analysis ? <section aria-label="Held-out evidence from the current analysis" className="grid min-w-0 gap-10 xl:grid-cols-2">
+        <ParityPlot bare data={toParity(analysis)} target={analysis.target} unit={targetUnitOf(analysis)} perProposal={Array.isArray(analysis.interval_levels) && analysis.interval_levels.length > 0} source={sourceFromAnalysis(analysis, "oof, conformal_q, conformal_coverage", "derived", "Held-out measured/predicted pairs")} />
+        <OutcomeDistribution analysis={analysis} />
+      </section> : null}
       <ScaleTrackLine campaignId={id} />
+      <CampaignDataMap />
+      <ToolFinder campaignId={id} />
+      <VisualReadingGuide campaignId={id} />
       {outOfSync ? (
         <p className="flex items-start gap-2 text-body text-fg-muted">
           <Info className="mt-1 size-4 shrink-0" aria-hidden />

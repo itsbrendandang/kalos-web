@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
 import { formatTimestamp, shortHash, SourceLine } from "@/components/kit/source-line";
 import { LearnSection } from "@/components/validate/learn-section";
+import { RunCatalog } from "@/components/validate/run-catalog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { LegendItem } from "@/components/viz/frame";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
@@ -52,7 +53,7 @@ export default function ValidatePage() {
     if (!ready || scrolled.current) return;
     scrolled.current = true;
     const target = window.location.hash.slice(1);
-    if (target === "run" || target === "record" || target === "learn" || target === "reanalyze") document.getElementById(target)?.scrollIntoView();
+    if (target === "run" || target === "record" || target === "learn" || target === "reanalyze" || target === "run-log") document.getElementById(target)?.scrollIntoView();
   }, [ready]);
 
   const top = (
@@ -143,6 +144,7 @@ export default function ValidatePage() {
           <a href="#run" className="text-accent hover:underline">In the lab</a>
           <a href="#record" className="text-accent hover:underline">Record results</a>
           <a href="#learn" className="text-accent hover:underline">Learn and re-propose</a>
+          <a href="#run-log" className="text-accent hover:underline">Measured run log</a>
         </nav>
       </div>
 
@@ -190,6 +192,7 @@ export default function ValidatePage() {
         {started > 0 ? <RecordForm campaignId={id} runs={c.pending} analysis={analysis} best={c.best} target={c.target} unit={unit} readOnly={archived} onSavingChange={setSaving} /> : null}
       </Section>
 
+      <RunCatalog runs={c.pending} target={c.target} unit={unit} />
       <LearnSection
         campaignId={id}
         campaign={c}

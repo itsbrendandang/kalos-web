@@ -34,6 +34,8 @@
   --accent-soft: oklch(0.95 0.024 285);
   --accent-fg: oklch(1 0 0);
   --ring: var(--accent);
+  /* Citron is explanatory decoration only, never a scientific status/series. */
+  --brand: oklch(0.91 0.13 110);
 
   /* Status: state only, never a chart series, always paired with a word or icon. */
   --good: oklch(0.5 0.12 150);
@@ -83,6 +85,7 @@
 
 .dark {
   color-scheme: dark;
+  --brand: oklch(0.36 0.045 110);
 
   --bg: oklch(0.17 0.006 270);
   --surface: oklch(0.2 0.006 270);

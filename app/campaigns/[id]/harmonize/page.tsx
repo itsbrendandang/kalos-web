@@ -406,15 +406,13 @@ function AnalysisView({
 
       <SetupSection campaignId={campaignId} analysis={analysis} archived={archived} nMeasured={nMeasured} />
 
-      <Section id="data-check" title="Data check" description="The engine's checks on the sheet, run before the model was fitted.">
+      <YourData analysis={analysis} roles={roles} quality={<Section id="data-check" title="Data check" description="The engine's checks on the sheet, run before the model was fitted.">
         {report ? (
           <ValidationSummary report={report} />
         ) : (
           <p className="text-body text-fg-muted">This analysis came without a data check, so nothing here should be read as a pass.</p>
         )}
-      </Section>
-
-      <YourData analysis={analysis} roles={roles} />
+      </Section>} />
       <DesignSpace analysis={analysis} />
       <DataPictures analysis={analysis} />
 

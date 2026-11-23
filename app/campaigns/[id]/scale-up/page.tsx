@@ -71,7 +71,7 @@ export default function CampaignScaleUpPage() {
   }, [fetchAll]);
 
   // Gate evidence is computed from the latest analysis: refetch when a re-analysis replaces it.
-  const analysisKey = latest.data && latest.data.has_data ? (analysisEvidence(latest.data)?.id ?? null) : null;
+  const analysisKey = latest.data?.has_data ? JSON.stringify([latest.data.updated, analysisEvidence(latest.data)?.id ?? null]) : null;
   useOnKeyChange(analysisKey, reload);
 
   const archived = detail.data?.campaign.archived === true;

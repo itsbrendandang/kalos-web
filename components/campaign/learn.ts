@@ -73,7 +73,7 @@ const fin = (v: number | null | undefined): v is number => v != null && Number.i
 const none = (why: BandWhy, reason: string | null = null): RunBand => ({ halfWidth: null, coverage: null, why, reason });
 
 /** The engine has no prediction of its own for this run: the recipe was not one of its proposals (R5). */
-export const isCallerPrediction = (run: CampaignRun): boolean =>
+export const isCallerPrediction = (run: Pick<CampaignRun, "pred_source" | "prediction_at_start">): boolean =>
   run.pred_source === "caller" || (run.prediction_at_start != null && run.prediction_at_start.available === false);
 
 /**

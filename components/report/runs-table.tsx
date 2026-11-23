@@ -1,3 +1,4 @@
+import { isCallerPrediction } from "@/components/campaign/learn";
 import { formatTimestamp } from "@/components/kit/source-line";
 import { ModeBadge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,29 +18,24 @@ function startBandTitle(r: PackageRun): string | undefined {
   return undefined;
 }
 
-/** Who supplied a run's predicted value and SD, as the engine recorded it at start. */
-export type PredictedBy = "engine" | "caller" | "unrecorded";
-
-export function predictedBy(r: Pick<PackageRun, "pred_source" | "prediction_at_start">): PredictedBy {
-  if (r.pred_source === "caller" || r.prediction_at_start?.available === false) return "caller";
-  if (r.pred_source === "engine") return "engine";
-  return "unrecorded";
+/** The predicted value's tooltip: where it came from, with the engine's reason when it did not record its own. */
+function predictedTitle(r: PackageRun): string {
+  if (!isCallerPrediction(r)) {
+    return r.prediction_at_start
+      ? "The engine's prediction, recorded when the run started."
+      : "The prediction stored with the run, which predates the engine recording its source.";
+  }
+  const p = r.prediction_at_start;
+  const why = p && p.available === false ? p.reason?.trim().replace(/\.$/, "") : "";
+  return `Supplied when the run was started, not the engine's recorded prediction.${why ? ` Engine: ${why}.` : ""}`;
 }
-
-const PREDICTED_BY: Record<PredictedBy, { label: string; title: string }> = {
-  engine: { label: "Engine model", title: "The engine's prediction for this recipe, recorded when the run started." },
-  caller: {
-    label: "Your estimate",
-    title: "Supplied when the run was started. The recipe was not one of the engine's proposals, so the engine has no prediction for it.",
-  },
-  unrecorded: { label: "Not recorded", title: "This run predates the engine recording who supplied its predicted value and SD." },
-};
 
 /**
  * Every started run. Measured is the first column, semibold ink with a filled
  * dot; predicted comes after it, regular weight, beside its 1-sigma SD and who
- * supplied both: only the engine's own predictions carry the model's hollow
- * ring, and an estimate supplied with the run is never labelled as the model's.
+ * supplied both: only the engine's predictions carry the model's hollow ring.
+ * A value the engine did not record as its own (`isCallerPrediction`, as on
+ * Validate) is labelled as supplied at start, never as the model's.
  * Runs started on an engine that records the prediction at start also show the engine's residual and whether the result fell inside
  * the band recorded then (both computed by the engine). The unit sits in the column header, never in the cells, and
  * each numeric column shares one decimal count so the points align.
@@ -55,7 +51,8 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
   const residuals = runs.map((r) => r.residual).filter((v): v is number => v != null);
   const rDec = columnDecimals(residuals.map((value) => ({ value, u: null })));
   const withStart = runs.some((r) => r.prediction_at_start != null);
-  const sources = new Set(runs.map(predictedBy));
+  const anyEngine = runs.some((r) => !isCallerPrediction(r));
+  const anySupplied = runs.some(isCallerPrediction);
   const u = unit ? ` (${unit})` : "";
   const setpoint = (k: string, v: Setpoint | undefined) => {
     if (typeof v === "string") return v;
@@ -67,9 +64,8 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
     <div className="flex min-w-0 flex-col gap-3">
       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
         <LegendItem mark="measured">measured in the lab</LegendItem>
-        {sources.has("engine") ? <LegendItem mark="predicted">predicted by the engine&apos;s model</LegendItem> : null}
-        {sources.has("caller") ? <span>Your estimate: supplied when the run was started, not the engine&apos;s prediction</span> : null}
-        {sources.has("unrecorded") ? <span>Not recorded: the run predates the engine recording who supplied its prediction</span> : null}
+        {anyEngine ? <LegendItem mark="predicted">predicted by the engine&apos;s model</LegendItem> : null}
+        {anySupplied ? <span>Supplied at start: sent with the run when it started, not the engine&apos;s recorded prediction</span> : null}
       </p>
       <Table containerClassName="max-h-[480px] rounded-xl border border-border print:max-h-none print:overflow-visible" className="print:text-caption">
         <TableHeader>
@@ -85,7 +81,7 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
             <TableHead
               className="bg-surface"
               numeric
-              title="1-sigma SD supplied with the predicted value: the model's for engine predictions, yours for an estimate"
+              title="1-sigma SD that came with the predicted value: the model's for engine predictions, otherwise the one supplied at start"
             >
               SD{u}
             </TableHead>
@@ -117,22 +113,21 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
         </TableHeader>
         <TableBody>
           {runs.map((r) => {
-            const by = predictedBy(r);
+            const supplied = isCallerPrediction(r);
+            const predTitle = predictedTitle(r);
             return (
               <TableRow key={r.id}>
                 <TableCell numeric title={r.measured?.recorded_at != null ? `Recorded ${formatTimestamp(r.measured.recorded_at)}` : undefined}>
                   {r.measured?.value != null ? (
-                    <span className="font-semibold text-fg">
-                      {formatValue(r.measured.value, { decimals: mDec, basis: "measured" }).value}
-                    </span>
+                    <span className="font-semibold text-fg">{formatValue(r.measured.value, { decimals: mDec, basis: "measured" }).value}</span>
                   ) : r.status === "awaiting" ? (
                     <NumState state={{ kind: "pending" }} />
                   ) : (
                     <NumState state={{ kind: "na" }} />
                   )}
                 </TableCell>
-                <TableCell numeric className="font-normal text-fg" title={PREDICTED_BY[by].title}>
-                  {by === "engine" ? (
+                <TableCell numeric className="font-normal text-fg" title={predTitle}>
+                  {!supplied ? (
                     <span className="inline-flex items-center gap-1.5">
                       <BasisGlyph basis="predicted" />
                       {formatValue(r.predicted.value, { decimals: pDec, basis: "predicted" }).value}
@@ -144,8 +139,8 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
                 <TableCell numeric className="text-fg-muted">
                   {formatValue(r.predicted.sd, { decimals: sDec }).value}
                 </TableCell>
-                <TableCell className={by === "engine" ? "text-fg" : "text-fg-muted"} title={PREDICTED_BY[by].title}>
-                  {PREDICTED_BY[by].label}
+                <TableCell className={supplied ? "text-fg-muted" : "text-fg"} title={predTitle}>
+                  {supplied ? "Supplied at start" : "Engine model"}
                 </TableCell>
                 {withStart ? (
                   <>

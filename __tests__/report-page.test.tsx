@@ -139,7 +139,7 @@ describe("Report page", () => {
     expect(screen.getByText("The analysis is older than the latest runs")).toBeTruthy();
   });
 
-  it("says who supplied each run's predicted value instead of calling every one the model's", async () => {
+  it("labels a predicted value the engine did not record as its own as supplied at start, not the model's", async () => {
     summary = {
       ...campaignFixture,
       pending: [
@@ -152,7 +152,7 @@ describe("Report page", () => {
           id: "run_caller000001",
           pred: 47.5,
           pred_source: "caller",
-          prediction_at_start: { available: false, reason: "The recipe was not one of the published proposals." },
+          prediction_at_start: { available: false, reason: "recipe is not one of the published proposals; the engine has no prediction recorded for it" },
         }),
         run({ id: "run_legacy000001", pred: 49.9 }),
       ],
@@ -168,13 +168,17 @@ describe("Report page", () => {
     const rows = within(table).getAllByRole("row").slice(1);
     const byId = (id: string) => rows.find((r) => r.textContent?.includes(id.slice(0, 8)))!;
     expect(byId("run_engine000001").textContent).toContain("Engine model");
-    expect(byId("run_caller000001").textContent).toContain("Your estimate");
+    expect(byId("run_caller000001").textContent).toContain("Supplied at start");
     expect(byId("run_caller000001").textContent).not.toContain("Engine model");
-    expect(byId("run_legacy000001").textContent).toContain("Not recorded");
-    // Only the engine's own prediction carries the model's mark.
+    // Legacy runs keep their stored prediction as the engine's, as Validate does.
+    expect(byId("run_legacy000001").textContent).toContain("Engine model");
+    // Only the engine's predictions carry the model's mark.
     expect(byId("run_engine000001").querySelector("td:nth-child(2) svg")).not.toBeNull();
+    expect(byId("run_legacy000001").querySelector("td:nth-child(2) svg")).not.toBeNull();
     expect(byId("run_caller000001").querySelector("td:nth-child(2) svg")).toBeNull();
-    expect(runsRegion.textContent).toContain("Your estimate: supplied when the run was started, not the engine's prediction");
+    // The engine's reason for not recording its own prediction is the tooltip.
+    expect(byId("run_caller000001").querySelector("td:nth-child(2)")!.getAttribute("title")).toContain("Engine: recipe is not one of the published proposals; the engine has no prediction recorded for it.");
+    expect(runsRegion.textContent).toContain("Supplied at start: sent with the run when it started, not the engine's recorded prediction");
   });
 
   it("downloads the JSON package as a file named after the campaign", async () => {

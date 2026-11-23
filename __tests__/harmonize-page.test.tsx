@@ -294,6 +294,8 @@ describe("Harmonize: with an analysis", () => {
     const next = await screen.findByRole("link", { name: /Continue to Predict/ });
     expect(next.getAttribute("href")).toBe(`/campaigns/${ID}/predict`);
 
+    fireEvent.click(screen.getByRole("tab", { name: "Columns & roles" }));
+    await screen.findByRole("table", { name: /Non-numeric cells/ });
     const columns = screen.getAllByRole("table")[0];
     const runId = within(columns).getByText("run_id").closest("tr")!;
     expect(runId.textContent).toMatch(/Left out: treated as an ID/);

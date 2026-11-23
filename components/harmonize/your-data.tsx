@@ -1,7 +1,12 @@
 "use client";
 
+import { useId, useState, type ReactNode } from "react";
+import { ValidationVerdict } from "@/components/campaign/validation-summary";
 import { Disclosure } from "@/components/kit/disclosure";
+import { Metric } from "@/components/kit/metric";
 import { Section } from "@/components/kit/section";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CorrelationHeatmap } from "@/components/viz/charts/correlation-heatmap";
 import { RunLandscape } from "@/components/viz/charts/run-landscape";
@@ -47,19 +52,44 @@ const STATUS_TEXT: Record<ColumnRow["status"], string> = {
  * "Your data": what the engine read from the sheet, column by column, what it left out and why,
  * and how it read the file. Built only from analysis fields (provenance, data_drops, run record).
  */
-export function YourData({ analysis, roles }: { analysis: HarmonizeAnalysis; roles: RolesContext }) {
+export function YourData({ analysis, roles, quality }: { analysis: HarmonizeAnalysis; roles: RolesContext; quality?: ReactNode }) {
   const rows = columnRows(analysis, roles);
+  const [query, setQuery] = useState("");
+  const inputId = useId();
+  const visible = rows.filter((row) => row.name.toLowerCase().includes(query.trim().toLowerCase()));
   return (
     <Section
       id="your-data"
-      title="Your data"
-      description="What the engine read from your sheet. Every count below comes from the analysis; anything it did not report reads n/a."
+      title="Research data"
+      description="Inspect the study source, then its schema and quality. These are the current analysis fields, not the campaign's result log. Anything the engine did not report reads n/a."
     >
-      <ColumnTable rows={rows} />
-      <div className="grid gap-x-10 gap-y-6 md:grid-cols-2">
-        <Excluded analysis={analysis} />
-        <SheetReading analysis={analysis} />
+      <div className="grid gap-5 rounded-xl bg-subtle p-5 sm:grid-cols-3">
+        <Metric label="Rows read" value={analysis.run?.n_rows} quantity="count" qualifier="From input metadata" />
+        <Metric label="Inputs used" value={analysis.run?.n_features ?? analysis.features?.length} quantity="count" qualifier="Current fit, not all sheet columns" />
+        <Metric label="Columns with a role trail" value={analysis.provenance ? rows.length : null} quantity="count" qualifier="From engine provenance" />
       </div>
+      <div role="region" aria-label="Data check and excluded rows" className="space-y-4">
+        <ValidationVerdict report={analysis.validation} />
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {exclusionFacts(analysis).slice(0, 2).map((fact) => (
+            <div key={fact.label} className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
+              <dt className="text-body text-fg-muted">{fact.label}</dt>
+              <dd className="shrink-0 text-body tabular-nums text-fg"><Count value={fact.value} /></dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-caption text-fg-muted">Review findings and exclusion details in Quality &amp; exclusions. Unreported counts are n/a, not zero.</p>
+      </div>
+      <Tabs defaultValue="source">
+        <TabsList className="h-auto min-h-9 max-w-full flex-wrap gap-y-2" aria-label="Research data views"><TabsTrigger value="source" className="py-1">Study & source</TabsTrigger><TabsTrigger value="columns" className="py-1">Columns & roles</TabsTrigger><TabsTrigger value="quality" className="py-1">Quality & exclusions</TabsTrigger></TabsList>
+        <TabsContent value="source" keepMounted className="pt-3"><SheetReading analysis={analysis} /></TabsContent>
+        <TabsContent value="columns" keepMounted className="space-y-4 pt-3">
+          <div className="max-w-sm"><label htmlFor={inputId} className="mb-1 block text-caption text-fg-muted">Find a column</label><Input id={inputId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search a column name" /></div>
+          {rows.length ? <p className="text-caption text-fg-muted" role="status">{visible.length} of {rows.length} columns shown.</p> : null}
+          {rows.length && !visible.length ? <p className="text-body text-fg-muted">No columns match this search.</p> : <ColumnTable rows={visible} />}
+        </TabsContent>
+        <TabsContent value="quality" keepMounted className="space-y-8 pt-3">{quality}<Excluded analysis={analysis} /></TabsContent>
+      </Tabs>
     </Section>
   );
 }
@@ -160,6 +190,8 @@ function SheetReading({ analysis }: { analysis: HarmonizeAnalysis }) {
   const items: { label: string; value: string }[] = [
     { label: "File", value: run?.filename ?? (run?.anonymize ? "Not recorded (anonymized)" : "n/a") },
     { label: "Worksheet", value: run?.sheet ?? (run ? "Only sheet, or a CSV" : "n/a") },
+    { label: "Modeled response", value: analysis.target },
+    { label: "Input SHA-256", value: run?.input_sha256 ?? "Not reported" },
     { label: "Column names", value: header != null ? `Row ${countText(header + 1)} of the sheet` : "n/a" },
     { label: "Layout", value: orientation ? orientationText(orientation) : "n/a" },
     { label: "Rows read", value: countText(run?.n_rows) },

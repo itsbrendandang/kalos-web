@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GateRefusalView, ReadoutProblem, ReadoutReport } from "@/components/scale/readout-result";
 import { SheetDrop } from "@/components/scale/sheet-drop";
+import { PlannedVessel } from "@/components/scale/planned-vessel";
 import {
   ReadoutTargetError,
   buildReadoutTarget,
@@ -357,6 +358,7 @@ export function ReadoutTool({
         </>
       ) : null}
 
+      {ready ? <PlannedVessel scale={scaleLRaw} agitation={agitationRaw} airflow={airflowRaw} physics={physicsColumns} /> : null}
       {ready ? (
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-6">
           <Button onClick={submit} disabled={!targetAttempt.ok}>

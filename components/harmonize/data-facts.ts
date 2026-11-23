@@ -27,6 +27,7 @@ export type HarmonizeAnalysis = Pick<
   | "n_censored_excluded"
   | "data_drops"
   | "run"
+  | "validation"
   | "embedding"
   | "correlation"
 > & { header_row?: unknown; orientation?: unknown; visualization_reasons?: unknown };

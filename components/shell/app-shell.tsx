@@ -7,6 +7,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { ChevronsUpDown, FileText, FolderOpen, LayoutDashboard, Loader2, Menu, Milestone, Plus, Scale, Settings, X, type LucideIcon } from "lucide-react";
 import { StepBadge } from "@/components/kit/cycle-stepper";
 import { WorkspaceMenu } from "@/components/shell/workspace-menu";
+import { ScienceGuide } from "@/components/shell/science-guide";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -70,7 +71,7 @@ function Frame({ pathname, children }: { pathname: string; children: ReactNode }
       </aside>
       <main id={MAIN_ID} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none print:overflow-visible">
         <div className="mx-auto w-full max-w-[1120px] px-4 py-6 md:px-8 md:py-8 print:max-w-none print:p-0">
-          <CampaignGate>{children}</CampaignGate>
+          <CampaignGate><ScienceGuide pathname={pathname} />{children}</CampaignGate>
         </div>
       </main>
       <MobileSheet open={sheetOpen} onOpenChange={setSheetOpen} pathname={pathname} />

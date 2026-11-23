@@ -24,13 +24,34 @@ describe("useLatestLoad", () => {
   it("refetches when the first analysis arrives on a campaign that had none", async () => {
     const { fetcher, resolve } = deferredFetcher<string>();
     const { result, rerender } = renderHook(({ k }: { k: string | null }) => useLatestLoad(fetcher, k), { initialProps: { k: null as string | null } });
-    rerender({ k: "none" });
     await resolve(0, { status: "data", data: "no analysis" });
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    rerender({ k: "none" }); // the analysis read settles: no analysis yet
+    await resolve(1, { status: "data", data: "no analysis" });
+    rerender({ k: "none" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
     rerender({ k: '[1795116400,"abc"]' });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    await resolve(2, { status: "data", data: "evidence" });
+    expect(result.current.load).toEqual({ status: "data", data: "evidence", staleReason: null });
+  });
+
+  it("refetches when the analysis becomes known after a read started without it", async () => {
+    const { fetcher, resolve } = deferredFetcher<string>();
+    const { result, rerender } = renderHook(({ k }: { k: string | null }) => useLatestLoad(fetcher, k), { initialProps: { k: null as string | null } });
+    await resolve(0, { status: "data", data: "no analysis" });
+    rerender({ k: '[1795116400,"abc"]' }); // the first analysis lands before the initial analysis read ever settled
     expect(fetcher).toHaveBeenCalledTimes(2);
     await resolve(1, { status: "data", data: "evidence" });
     expect(result.current.load).toEqual({ status: "data", data: "evidence", staleReason: null });
+  });
+
+  it("does not refetch when the key was already known at the first read", async () => {
+    const { fetcher, resolve } = deferredFetcher<number>();
+    const { rerender } = renderHook(({ k }: { k: string | null }) => useLatestLoad(fetcher, k), { initialProps: { k: "a1" as string | null } });
+    await resolve(0, { status: "data", data: 1 });
+    rerender({ k: null });
+    rerender({ k: "a1" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it("marks the data stale when a refresh fails, and clears it on a successful retry", async () => {

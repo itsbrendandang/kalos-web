@@ -139,6 +139,44 @@ describe("Report page", () => {
     expect(screen.getByText("The analysis is older than the latest runs")).toBeTruthy();
   });
 
+  it("says who supplied each run's predicted value instead of calling every one the model's", async () => {
+    summary = {
+      ...campaignFixture,
+      pending: [
+        run({
+          id: "run_engine000001",
+          pred_source: "engine",
+          prediction_at_start: { available: true, basis: "predicted", pred: 52.1, std: 1.2, interval: null, interval_unavailable_reason: null },
+        }),
+        run({
+          id: "run_caller000001",
+          pred: 47.5,
+          pred_source: "caller",
+          prediction_at_start: { available: false, reason: "The recipe was not one of the published proposals." },
+        }),
+        run({ id: "run_legacy000001", pred: 49.9 }),
+      ],
+      n_awaiting: 3,
+      n_measured: 0,
+    };
+    renderReport();
+    const runsRegion = await screen.findByRole("region", { name: "Runs" });
+    const table = within(runsRegion).getByRole("table");
+    const head = [...table.querySelectorAll("th")].map((th) => th.textContent?.trim());
+    expect(head).toContain("Predicted by");
+    expect(head).not.toContain("Model SD");
+    const rows = within(table).getAllByRole("row").slice(1);
+    const byId = (id: string) => rows.find((r) => r.textContent?.includes(id.slice(0, 8)))!;
+    expect(byId("run_engine000001").textContent).toContain("Engine model");
+    expect(byId("run_caller000001").textContent).toContain("Your estimate");
+    expect(byId("run_caller000001").textContent).not.toContain("Engine model");
+    expect(byId("run_legacy000001").textContent).toContain("Not recorded");
+    // Only the engine's own prediction carries the model's mark.
+    expect(byId("run_engine000001").querySelector("td:nth-child(2) svg")).not.toBeNull();
+    expect(byId("run_caller000001").querySelector("td:nth-child(2) svg")).toBeNull();
+    expect(runsRegion.textContent).toContain("Your estimate: supplied when the run was started, not the engine's prediction");
+  });
+
   it("downloads the JSON package as a file named after the campaign", async () => {
     const created: Blob[] = [];
     const names: string[] = [];

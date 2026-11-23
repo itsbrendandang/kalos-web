@@ -17,11 +17,30 @@ function startBandTitle(r: PackageRun): string | undefined {
   return undefined;
 }
 
+/** Who supplied a run's predicted value and SD, as the engine recorded it at start. */
+export type PredictedBy = "engine" | "caller" | "unrecorded";
+
+export function predictedBy(r: Pick<PackageRun, "pred_source" | "prediction_at_start">): PredictedBy {
+  if (r.pred_source === "caller" || r.prediction_at_start?.available === false) return "caller";
+  if (r.pred_source === "engine") return "engine";
+  return "unrecorded";
+}
+
+const PREDICTED_BY: Record<PredictedBy, { label: string; title: string }> = {
+  engine: { label: "Engine model", title: "The engine's prediction for this recipe, recorded when the run started." },
+  caller: {
+    label: "Your estimate",
+    title: "Supplied when the run was started. The recipe was not one of the engine's proposals, so the engine has no prediction for it.",
+  },
+  unrecorded: { label: "Not recorded", title: "This run predates the engine recording who supplied its predicted value and SD." },
+};
+
 /**
  * Every started run. Measured is the first column, semibold ink with a filled
- * dot; predicted comes after it, regular weight with a hollow ring, beside the
- * model's 1-sigma SD. Runs started on an engine that records the prediction
- * at start also show the engine's residual and whether the result fell inside
+ * dot; predicted comes after it, regular weight, beside its 1-sigma SD and who
+ * supplied both: only the engine's own predictions carry the model's hollow
+ * ring, and an estimate supplied with the run is never labelled as the model's.
+ * Runs started on an engine that records the prediction at start also show the engine's residual and whether the result fell inside
  * the band recorded then (both computed by the engine). The unit sits in the column header, never in the cells, and
  * each numeric column shares one decimal count so the points align.
  */
@@ -36,6 +55,7 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
   const residuals = runs.map((r) => r.residual).filter((v): v is number => v != null);
   const rDec = columnDecimals(residuals.map((value) => ({ value, u: null })));
   const withStart = runs.some((r) => r.prediction_at_start != null);
+  const sources = new Set(runs.map(predictedBy));
   const u = unit ? ` (${unit})` : "";
   const setpoint = (k: string, v: Setpoint | undefined) => {
     if (typeof v === "string") return v;
@@ -47,7 +67,9 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
     <div className="flex min-w-0 flex-col gap-3">
       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
         <LegendItem mark="measured">measured in the lab</LegendItem>
-        <LegendItem mark="predicted">predicted by the model</LegendItem>
+        {sources.has("engine") ? <LegendItem mark="predicted">predicted by the engine&apos;s model</LegendItem> : null}
+        {sources.has("caller") ? <span>Your estimate: supplied when the run was started, not the engine&apos;s prediction</span> : null}
+        {sources.has("unrecorded") ? <span>Not recorded: the run predates the engine recording who supplied its prediction</span> : null}
       </p>
       <Table containerClassName="max-h-[480px] rounded-xl border border-border print:max-h-none print:overflow-visible" className="print:text-caption">
         <TableHeader>
@@ -58,13 +80,16 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
               </span>
             </TableHead>
             <TableHead className="bg-surface" numeric>
-              <span className="inline-flex items-center gap-1.5">
-                <BasisGlyph basis="predicted" /> Predicted{u}
-              </span>
+              Predicted{u}
             </TableHead>
-            <TableHead className="bg-surface" numeric>
-              Model SD{u}
+            <TableHead
+              className="bg-surface"
+              numeric
+              title="1-sigma SD supplied with the predicted value: the model's for engine predictions, yours for an estimate"
+            >
+              SD{u}
             </TableHead>
+            <TableHead className="bg-surface">Predicted by</TableHead>
             {withStart ? (
               <>
                 <TableHead className="bg-surface" numeric title="Measured minus the prediction the engine recorded when the run started">
@@ -91,48 +116,67 @@ export function RunsTable({ runs, unit, ranges }: { runs: PackageRun[]; unit?: s
           </TableRow>
         </TableHeader>
         <TableBody>
-          {runs.map((r) => (
-            <TableRow key={r.id}>
-              <TableCell numeric title={r.measured?.recorded_at != null ? `Recorded ${formatTimestamp(r.measured.recorded_at)}` : undefined}>
-                {r.measured?.value != null ? (
-                  <span className="font-semibold text-fg">{formatValue(r.measured.value, { decimals: mDec, basis: "measured" }).value}</span>
-                ) : r.status === "awaiting" ? (
-                  <NumState state={{ kind: "pending" }} />
-                ) : (
-                  <NumState state={{ kind: "na" }} />
-                )}
-              </TableCell>
-              <TableCell numeric className="font-normal text-fg">
-                {formatValue(r.predicted.value, { decimals: pDec, basis: "predicted" }).value}
-              </TableCell>
-              <TableCell numeric className="text-fg-muted">
-                {formatValue(r.predicted.sd, { decimals: sDec }).value}
-              </TableCell>
-              {withStart ? (
-                <>
-                  <TableCell numeric className="text-fg">
-                    {formatValue(r.residual, { decimals: rDec, sign: true }).value}
-                  </TableCell>
-                  <TableCell className={r.inside_band == null ? "text-fg-muted" : "text-fg"} title={startBandTitle(r)}>
-                    {r.inside_band == null ? "n/a" : r.inside_band ? "Inside" : "Outside"}
-                  </TableCell>
-                </>
-              ) : null}
-              <TableCell className="font-mono text-code text-fg-muted" title={r.id}>
-                {r.id.slice(0, 8)}
-              </TableCell>
-              <TableCell numeric>{r.round != null ? formatValue(displayRound(r.round), { quantity: "count" }).text : "n/a"}</TableCell>
-              <TableCell numeric className="text-fg-muted">
-                {r.measured?.version != null ? `v${formatValue(r.measured.version, { quantity: "count" }).text}` : "n/a"}
-              </TableCell>
-              <TableCell>{r.mode === "exploit" || r.mode === "explore" ? <ModeBadge mode={r.mode} /> : <span className="text-fg-muted">n/a</span>}</TableCell>
-              {recipeKeys.map((k) => (
-                <TableCell key={k} numeric={typeof r.recipe[k] !== "string"} className={cn("print:whitespace-normal", r.recipe[k] == null && "text-fg-muted")}>
-                  {setpoint(k, r.recipe[k])}
+          {runs.map((r) => {
+            const by = predictedBy(r);
+            return (
+              <TableRow key={r.id}>
+                <TableCell numeric title={r.measured?.recorded_at != null ? `Recorded ${formatTimestamp(r.measured.recorded_at)}` : undefined}>
+                  {r.measured?.value != null ? (
+                    <span className="font-semibold text-fg">
+                      {formatValue(r.measured.value, { decimals: mDec, basis: "measured" }).value}
+                    </span>
+                  ) : r.status === "awaiting" ? (
+                    <NumState state={{ kind: "pending" }} />
+                  ) : (
+                    <NumState state={{ kind: "na" }} />
+                  )}
                 </TableCell>
-              ))}
-            </TableRow>
-          ))}
+                <TableCell numeric className="font-normal text-fg" title={PREDICTED_BY[by].title}>
+                  {by === "engine" ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <BasisGlyph basis="predicted" />
+                      {formatValue(r.predicted.value, { decimals: pDec, basis: "predicted" }).value}
+                    </span>
+                  ) : (
+                    formatValue(r.predicted.value, { decimals: pDec }).value
+                  )}
+                </TableCell>
+                <TableCell numeric className="text-fg-muted">
+                  {formatValue(r.predicted.sd, { decimals: sDec }).value}
+                </TableCell>
+                <TableCell className={by === "engine" ? "text-fg" : "text-fg-muted"} title={PREDICTED_BY[by].title}>
+                  {PREDICTED_BY[by].label}
+                </TableCell>
+                {withStart ? (
+                  <>
+                    <TableCell numeric className="text-fg">
+                      {formatValue(r.residual, { decimals: rDec, sign: true }).value}
+                    </TableCell>
+                    <TableCell className={r.inside_band == null ? "text-fg-muted" : "text-fg"} title={startBandTitle(r)}>
+                      {r.inside_band == null ? "n/a" : r.inside_band ? "Inside" : "Outside"}
+                    </TableCell>
+                  </>
+                ) : null}
+                <TableCell className="font-mono text-code text-fg-muted" title={r.id}>
+                  {r.id.slice(0, 8)}
+                </TableCell>
+                <TableCell numeric>{r.round != null ? formatValue(displayRound(r.round), { quantity: "count" }).text : "n/a"}</TableCell>
+                <TableCell numeric className="text-fg-muted">
+                  {r.measured?.version != null ? `v${formatValue(r.measured.version, { quantity: "count" }).text}` : "n/a"}
+                </TableCell>
+                <TableCell>{r.mode === "exploit" || r.mode === "explore" ? <ModeBadge mode={r.mode} /> : <span className="text-fg-muted">n/a</span>}</TableCell>
+                {recipeKeys.map((k) => (
+                  <TableCell
+                    key={k}
+                    numeric={typeof r.recipe[k] !== "string"}
+                    className={cn("print:whitespace-normal", r.recipe[k] == null && "text-fg-muted")}
+                  >
+                    {setpoint(k, r.recipe[k])}
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

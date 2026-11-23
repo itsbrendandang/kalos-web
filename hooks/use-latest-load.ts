@@ -4,22 +4,28 @@ export type Fetched<T> = { status: "error"; message: string } | { status: "data"
 /** `staleReason` is set when a refresh failed and the data shown is from an earlier read. */
 export type LoadState<T> = { status: "loading" } | { status: "error"; message: string } | { status: "data"; data: T; staleReason: string | null };
 
-const invalidate = (ticket: { current: number }) => {
-  ticket.current++;
+const invalidate = (epoch: { current: number }) => {
+  epoch.current++;
 };
 
 /**
  * Loads `fetcher` on mount and again whenever `refreshKey` (null = not known yet)
  * differs from the key the newest request was made under, so data that is only
  * known after the first request started (e.g. the first analysis landing before
- * the initial analysis read settles) still triggers a refetch. Every request takes
- * a ticket and only the newest may write, so an older response landing late never
- * overwrites a newer one. A failed refresh keeps the last data and marks it stale
- * until `reload` succeeds.
+ * the initial analysis read settles) still triggers a refetch.
+ *
+ * Every request takes a ticket. Data is shown only if it is newer than the data
+ * already shown, so an older response landing late never overwrites a newer one;
+ * a failure only counts when it comes from the newest request. A failure keeps the
+ * newest good data (even from a superseded request) and marks it stale until
+ * `reload` succeeds.
  */
 export function useLatestLoad<T>(fetcher: () => Promise<Fetched<T>>, refreshKey: string | null) {
   const [load, setLoad] = useState<LoadState<T>>({ status: "loading" });
-  const ticket = useRef(0);
+  const epoch = useRef(0);
+  const issued = useRef(0);
+  const shown = useRef(0);
+  const failure = useRef<{ ticket: number; message: string } | null>(null);
   const currentKey = useRef(refreshKey);
   const requestedKey = useRef<string | null>(null);
 
@@ -28,19 +34,27 @@ export function useLatestLoad<T>(fetcher: () => Promise<Fetched<T>>, refreshKey:
   }, [refreshKey]);
 
   const reload = useCallback(async () => {
-    const mine = ++ticket.current;
+    const mine = ++issued.current;
+    const myEpoch = epoch.current;
     requestedKey.current = currentKey.current;
     const next = await fetcher();
-    if (mine !== ticket.current) return;
-    setLoad((prev) =>
-      next.status === "data" ? { ...next, staleReason: null } : prev.status === "data" ? { ...prev, staleReason: next.message } : next,
-    );
+    if (myEpoch !== epoch.current) return;
+    if (next.status === "data") {
+      if (mine < shown.current) return;
+      shown.current = mine;
+      const newerFailure = failure.current && failure.current.ticket > mine ? failure.current.message : null;
+      setLoad({ status: "data", data: next.data, staleReason: newerFailure });
+    } else {
+      if (mine !== issued.current) return;
+      failure.current = { ticket: mine, message: next.message };
+      setLoad((prev) => (prev.status === "data" ? { ...prev, staleReason: next.message } : next));
+    }
   }, [fetcher]);
 
   useEffect(() => {
     void reload();
     // Unmount or a new fetcher: whatever is still in flight must not write.
-    return () => invalidate(ticket);
+    return () => invalidate(epoch);
   }, [reload]);
 
   useEffect(() => {

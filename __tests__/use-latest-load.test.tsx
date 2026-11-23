@@ -66,6 +66,45 @@ describe("useLatestLoad", () => {
     await waitFor(() => expect(result.current.load).toEqual({ status: "data", data: 2, staleReason: null }));
   });
 
+  it("keeps the first read's data, marked stale, when the refetch it was superseded by fails", async () => {
+    const { fetcher, resolve } = deferredFetcher<number>();
+    const { result, rerender } = renderHook(({ k }: { k: string | null }) => useLatestLoad(fetcher, k), { initialProps: { k: null as string | null } });
+    rerender({ k: "none" }); // cold mount: the analysis read settles (no analysis) while the first read is in flight
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await resolve(0, { status: "data", data: 1 });
+    expect(result.current.load).toEqual({ status: "data", data: 1, staleReason: null });
+    await resolve(1, { status: "error", message: "The engine is unreachable." });
+    expect(result.current.load).toEqual({ status: "data", data: 1, staleReason: "The engine is unreachable." });
+  });
+
+  it("shows the first read's data, marked stale, when it lands after the refetch already failed", async () => {
+    const { fetcher, resolve } = deferredFetcher<number>();
+    const { result, rerender } = renderHook(({ k }: { k: string | null }) => useLatestLoad(fetcher, k), { initialProps: { k: null as string | null } });
+    rerender({ k: "none" });
+    await resolve(1, { status: "error", message: "The engine is unreachable." });
+    expect(result.current.load).toEqual({ status: "error", message: "The engine is unreachable." });
+    await resolve(0, { status: "data", data: 1 });
+    expect(result.current.load).toEqual({ status: "data", data: 1, staleReason: "The engine is unreachable." });
+  });
+
+  it("ignores a failure from a request that a newer one superseded", async () => {
+    const { fetcher, resolve } = deferredFetcher<number>();
+    const { result, rerender } = renderHook(({ k }: { k: string | null }) => useLatestLoad(fetcher, k), { initialProps: { k: "a1" as string | null } });
+    rerender({ k: "a2" });
+    await resolve(0, { status: "error", message: "old failure" });
+    await resolve(1, { status: "data", data: 2 });
+    expect(result.current.load).toEqual({ status: "data", data: 2, staleReason: null });
+  });
+
+  it("drops responses that land after unmount", async () => {
+    const { fetcher, resolve } = deferredFetcher<number>();
+    const { result, unmount } = renderHook(() => useLatestLoad(fetcher, "a1"));
+    const before = result.current.load;
+    unmount();
+    await resolve(0, { status: "data", data: 1 });
+    expect(result.current.load).toBe(before);
+  });
+
   it("reports an error when the first read fails", async () => {
     const { fetcher, resolve } = deferredFetcher<number>();
     const { result } = renderHook(() => useLatestLoad(fetcher, null));

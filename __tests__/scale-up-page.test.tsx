@@ -43,10 +43,19 @@ let gatesCalls: number;
 let analysisReady: Promise<void>;
 let landAnalysis: () => void;
 let analysisLanded: boolean;
+/** The analysis read's reply once it lands. */
+let analysisBody: unknown;
+/** GET /gates answers 503 from this call on (1-based); null = never. */
+let gatesFailFrom: number | null;
+/** When set, the first GET /gates waits for it before answering. */
+let holdFirstGates: Promise<void> | null;
 
 beforeEach(() => {
   gatesCalls = 0;
   analysisLanded = false;
+  analysisBody = analysis;
+  gatesFailFrom = null;
+  holdFirstGates = null;
   analysisReady = new Promise((r) => (landAnalysis = r));
   vi.stubGlobal(
     "fetch",
@@ -55,11 +64,13 @@ beforeEach(() => {
       if (url.endsWith(`/api/campaigns/${ID}`)) return json(detail);
       if (url.endsWith(`/api/campaigns/${ID}/analysis`)) {
         await analysisReady;
-        return json(analysis);
+        return json(analysisBody);
       }
       if (url.endsWith(`/api/campaigns/${ID}/stages`)) return json({ ...stagesJson, campaign_id: ID });
       if (url.endsWith(`/api/campaigns/${ID}/gates`)) {
-        gatesCalls += 1;
+        const call = ++gatesCalls;
+        if (call === 1 && holdFirstGates) await holdFirstGates;
+        if (gatesFailFrom != null && call >= gatesFailFrom) return json({ error: "unavailable", code: "engine_unavailable" }, 503);
         return json(analysisLanded ? analysedGates : noAnalysisGates);
       }
       if (url.includes(`/api/campaigns/${ID}/jobs`)) return json({ jobs: [] });
@@ -93,5 +104,29 @@ describe("Scale-up page", () => {
     await waitFor(() => expect(gatesCalls).toBe(2));
     expect(await screen.findByText("Measured rows")).toBeTruthy();
     expect(screen.queryByText(/Not available: the campaign has no analysis yet/)).toBeNull();
+  });
+
+  it("keeps the gates it read, with the stale warning, when the refetch after a cold no-analysis read fails", async () => {
+    analysisBody = { has_data: false };
+    gatesFailFrom = 2;
+    let releaseFirstGates = () => {};
+    holdFirstGates = new Promise((r) => (releaseFirstGates = r));
+    render(
+      <EngineDataProvider campaignId={ID}>
+        <ScaleUpPage />
+      </EngineDataProvider>,
+    );
+    await waitFor(() => expect(gatesCalls).toBe(1));
+
+    // While the first gates read is in flight, the analysis read settles with no analysis;
+    // that starts a second stages and gates read, which fails.
+    await act(async () => landAnalysis());
+    await waitFor(() => expect(gatesCalls).toBe(2));
+
+    // Then the first gates read answers.
+    await act(async () => releaseFirstGates());
+    expect(await screen.findByText("These gates may be out of date")).toBeTruthy();
+    expect(screen.getAllByText(/Not available: the campaign has no analysis yet/)).not.toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 });

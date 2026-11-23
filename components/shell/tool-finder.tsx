@@ -14,7 +14,7 @@ export function ToolFinder({ campaignId }: { campaignId?: string }) {
   const tools = campaignId ? [
     { title: "Study source & column roles", detail: "Harmonize · source, schema and quality", href: `${campaignHref(campaignId, "harmonize")}#your-data`, aliases: "data file upload sheet provenance" },
     { title: "Design the next experiments", detail: "Predict · recipes and uncertainty", href: campaignHref(campaignId, "predict"), aliases: "prediction model optimization surface" },
-    { title: "Measured run log", detail: "Validate · lab runs, results and learning", href: campaignHref(campaignId, "validate"), aliases: "record measurement evidence calibration" },
+    { title: "Run log", detail: "Validate · lab runs, results and learning", href: campaignHref(campaignId, "validate"), aliases: "record measurement evidence calibration" },
     { title: "Export the evidence", detail: "Report · traceable campaign package", href: campaignHref(campaignId, "report"), aliases: "download dataset catalog history" },
     { title: "Scale-up readout", detail: "Scale-up · entered conditions and engine gates", href: campaignHref(campaignId, "scale-up"), aliases: "bioprocess vessel oxygen transfer kla rpm agitation airflow" },
   ] : [

@@ -144,7 +144,7 @@ export default function ValidatePage() {
           <a href="#run" className="text-accent hover:underline">In the lab</a>
           <a href="#record" className="text-accent hover:underline">Record results</a>
           <a href="#learn" className="text-accent hover:underline">Learn and re-propose</a>
-          <a href="#run-log" className="text-accent hover:underline">Measured run log</a>
+          <a href="#run-log" className="text-accent hover:underline">Run log</a>
         </nav>
       </div>
 

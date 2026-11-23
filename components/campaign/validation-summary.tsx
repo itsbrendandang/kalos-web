@@ -32,6 +32,15 @@ function sentence(report: ValidationReport): string {
   return checks > 0 ? `This run sheet passed all ${count(checks)} checks.` : "This run sheet passed every check.";
 }
 
+/** The engine's verdict, also kept visible above the Research data tabs. */
+export function ValidationVerdict({ report }: { report?: ValidationReport }) {
+  return (
+    <Verdict tone={report ? TONE[report.status] : "neutral"}>
+      {report ? sentence(report) : "This analysis came without a data check, so nothing here should be read as a pass."}
+    </Verdict>
+  );
+}
+
 /** The data check as one verdict: at most three findings up front, unit conversions in plain words, raw checks one click down. */
 export function ValidationSummary({ report }: { report: ValidationReport }) {
   const [all, setAll] = useState(false);
@@ -42,7 +51,7 @@ export function ValidationSummary({ report }: { report: ValidationReport }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Verdict tone={TONE[report.status]}>{sentence(report)}</Verdict>
+      <ValidationVerdict report={report} />
 
       {total > 0 ? (
         <ul className="flex flex-col border-t border-border">

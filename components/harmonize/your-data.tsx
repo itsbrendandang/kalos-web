@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
+import { ValidationVerdict } from "@/components/campaign/validation-summary";
 import { Disclosure } from "@/components/kit/disclosure";
 import { Metric } from "@/components/kit/metric";
 import { Section } from "@/components/kit/section";
@@ -66,6 +67,18 @@ export function YourData({ analysis, roles, quality }: { analysis: HarmonizeAnal
         <Metric label="Rows read" value={analysis.run?.n_rows} quantity="count" qualifier="From input metadata" />
         <Metric label="Inputs used" value={analysis.run?.n_features ?? analysis.features?.length} quantity="count" qualifier="Current fit, not all sheet columns" />
         <Metric label="Columns with a role trail" value={analysis.provenance ? rows.length : null} quantity="count" qualifier="From engine provenance" />
+      </div>
+      <div role="region" aria-label="Data check and excluded rows" className="space-y-4">
+        <ValidationVerdict report={analysis.validation} />
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {exclusionFacts(analysis).slice(0, 2).map((fact) => (
+            <div key={fact.label} className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
+              <dt className="text-body text-fg-muted">{fact.label}</dt>
+              <dd className="shrink-0 text-body tabular-nums text-fg"><Count value={fact.value} /></dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-caption text-fg-muted">Review findings and exclusion details in Quality &amp; exclusions. Unreported counts are n/a, not zero.</p>
       </div>
       <Tabs defaultValue="source">
         <TabsList className="h-auto min-h-9 max-w-full flex-wrap gap-y-2" aria-label="Research data views"><TabsTrigger value="source" className="py-1">Study & source</TabsTrigger><TabsTrigger value="columns" className="py-1">Columns & roles</TabsTrigger><TabsTrigger value="quality" className="py-1">Quality & exclusions</TabsTrigger></TabsList>

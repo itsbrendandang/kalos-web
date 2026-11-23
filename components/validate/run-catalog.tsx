@@ -22,7 +22,7 @@ export function RunCatalog({ runs, target, unit }: { runs: CampaignRun[]; target
   const searchId = useId();
   const statusId = useId();
   const visible = runs.filter((run) => (status === "all" || measurementState(run) === status) && `${run.id} ${JSON.stringify(run.recipe)} ${run.round == null ? "" : displayRound(run.round)}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <Section id="run-log" title="Measured run log" className="scroll-mt-6" description="Read-only catalog of the started runs in this campaign snapshot. Measured values come first; predictions are kept separate. Full result history and raw rows are available in Report.">
+  return <Section id="run-log" title="Run log" className="scroll-mt-6" description="Read-only catalog of the started runs in this campaign snapshot, including those awaiting results. Measured values come first; predictions are kept separate. Full result history and raw rows are available in Report.">
     <Disclosure summary="Search and inspect run records">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1"><label htmlFor={searchId} className="mb-1 block text-caption text-fg-muted">Find a run or recipe value</label><Input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Run ID, round or recipe value" /></div>

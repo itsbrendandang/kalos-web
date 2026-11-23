@@ -14,7 +14,7 @@ export function CampaignDataMap() {
   const active = campaign.data?.has_campaign ? campaign.data : null;
   const entries = [
     { title: "Study & source", detail: analysis?.run?.filename ?? "Source metadata, column roles and quality checks", page: "harmonize" as const, anchor: "#your-data", icon: Database },
-    { title: "Measured run log", detail: active ? "Started recipes, recorded results and their versions" : "No active campaign run log reported yet", page: "validate" as const, anchor: "#run-log", icon: FlaskConical },
+    { title: "Run log", detail: active ? "Started recipes, pending measurements and recorded results" : "No active campaign run log reported yet", page: "validate" as const, anchor: "#run-log", icon: FlaskConical },
     { title: "Model evidence", detail: "Held-out predictions, coverage and model caveats", page: "predict" as const, anchor: "", icon: GitCompareArrows },
     { title: "Data package", detail: "Raw rows, result history and traceable exports", page: "report" as const, anchor: "", icon: FileCheck },
   ];

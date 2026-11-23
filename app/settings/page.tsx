@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleCheck, Circle, LoaderCircle, Unplug } from "lucide-react";
+import { CircleCheck, Circle, CircleOff, LoaderCircle, Unplug } from "lucide-react";
 import { Disclosure } from "@/components/kit/disclosure";
 import { PageHeader } from "@/components/kit/page-header";
 import { Section } from "@/components/kit/section";
@@ -11,7 +11,7 @@ import { LoadingSkeleton } from "@/components/ui/honest-state";
 import { useCampaigns } from "@/hooks/use-engine";
 import { setThemePreference, useThemePreference, type ThemePreference } from "@/hooks/use-theme";
 import { getProviders, type Provider } from "@/lib/api";
-import { providerSetupText } from "@/lib/provider-status";
+import { providerDisabledBy, providerOffText, providerSetupText } from "@/lib/provider-status";
 import { cn } from "@/lib/utils";
 
 const THEMES: { value: ThemePreference; label: string }[] = [
@@ -126,18 +126,21 @@ function Integrations() {
       ) : (
         <>
           <ul className="divide-y divide-border border-y border-border">
-            {providers.map((p) => (
-              <li key={p.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                <div className="min-w-0">
-                  <p className="text-label text-fg">{p.capability}</p>
-                  {!p.available ? <p className="text-body text-fg-muted">Without it, a built-in check is used instead.</p> : null}
-                </div>
-                <Badge tone={p.available ? "good" : "neutral"} variant={p.available ? "soft" : "outline"} className="shrink-0">
-                  {p.available ? <CircleCheck aria-hidden /> : <Circle aria-hidden />}
-                  {p.available ? "Set up" : "Not set up"}
-                </Badge>
-              </li>
-            ))}
+            {providers.map((p) => {
+              const off = providerDisabledBy(p).length > 0;
+              return (
+                <li key={p.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                  <div className="min-w-0">
+                    <p className="text-label text-fg">{p.capability}</p>
+                    {!p.available ? <p className="text-body text-fg-muted">{providerOffText(p)}</p> : null}
+                  </div>
+                  <Badge tone={p.available ? "good" : "neutral"} variant={p.available ? "soft" : "outline"} className="shrink-0">
+                    {p.available ? <CircleCheck aria-hidden /> : off ? <CircleOff aria-hidden /> : <Circle aria-hidden />}
+                    {p.available ? "Set up" : off ? "Turned off" : "Not set up"}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
           <Disclosure summary="Details for administrators">
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-body">

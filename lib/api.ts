@@ -1402,6 +1402,8 @@ export type Provider = {
   available: boolean;
   required_env: string[];
   missing_env: string[];
+  /** Set policy switches turning the provider off (e.g. KALOS_NO_PAID_CALLS); absent on engines before the field. */
+  disabled_by?: string[];
   capability: string;
   fallback: string;
 };

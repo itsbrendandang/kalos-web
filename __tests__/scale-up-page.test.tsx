@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -43,23 +43,52 @@ let gatesCalls: number;
 let analysisReady: Promise<void>;
 let landAnalysis: () => void;
 let analysisLanded: boolean;
+/** The analysis read's reply once it lands. */
+let analysisBody: unknown;
+/** GET /gates answers 503 from this call on (1-based); null = never. */
+let gatesFailFrom: number | null;
+/** When set, the first GET /gates waits for it before answering. */
+let holdFirstGates: Promise<void> | null;
+/** What the server holds for GET /stages; PUT /stages replaces it. */
+let serverStages: Record<string, unknown>;
+let stagesCalls: number;
+/** When set, GET /stages call `call` answers with what the server held when it started, after `until`. */
+let holdStages: { call: number; until: Promise<void> } | null;
 
 beforeEach(() => {
   gatesCalls = 0;
   analysisLanded = false;
+  analysisBody = analysis;
+  gatesFailFrom = null;
+  holdFirstGates = null;
+  serverStages = { ...stagesJson, campaign_id: ID };
+  stagesCalls = 0;
+  holdStages = null;
   analysisReady = new Promise((r) => (landAnalysis = r));
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith(`/api/campaigns/${ID}`)) return json(detail);
       if (url.endsWith(`/api/campaigns/${ID}/analysis`)) {
         await analysisReady;
-        return json(analysis);
+        return json(analysisBody);
       }
-      if (url.endsWith(`/api/campaigns/${ID}/stages`)) return json({ ...stagesJson, campaign_id: ID });
+      if (url.endsWith(`/api/campaigns/${ID}/stages`)) {
+        if (init?.method === "PUT") {
+          const body = JSON.parse(String(init.body)) as { current_stage: string | null };
+          serverStages = { ...serverStages, source: "saved", current_stage: body.current_stage, updated_at: 1795116400, updated_by: "a@example.com" };
+          return json(serverStages);
+        }
+        const call = ++stagesCalls;
+        const held = serverStages;
+        if (holdStages && call === holdStages.call) await holdStages.until;
+        return json(held);
+      }
       if (url.endsWith(`/api/campaigns/${ID}/gates`)) {
-        gatesCalls += 1;
+        const call = ++gatesCalls;
+        if (call === 1 && holdFirstGates) await holdFirstGates;
+        if (gatesFailFrom != null && call >= gatesFailFrom) return json({ error: "unavailable", code: "engine_unavailable" }, 503);
         return json(analysisLanded ? analysedGates : noAnalysisGates);
       }
       if (url.includes(`/api/campaigns/${ID}/jobs`)) return json({ jobs: [] });
@@ -93,5 +122,60 @@ describe("Scale-up page", () => {
     await waitFor(() => expect(gatesCalls).toBe(2));
     expect(await screen.findByText("Measured rows")).toBeTruthy();
     expect(screen.queryByText(/Not available: the campaign has no analysis yet/)).toBeNull();
+  });
+
+  it("keeps the gates it read, with the stale warning, when the refetch after a cold no-analysis read fails", async () => {
+    analysisBody = { has_data: false };
+    gatesFailFrom = 2;
+    let releaseFirstGates = () => {};
+    holdFirstGates = new Promise((r) => (releaseFirstGates = r));
+    render(
+      <EngineDataProvider campaignId={ID}>
+        <ScaleUpPage />
+      </EngineDataProvider>,
+    );
+    await waitFor(() => expect(gatesCalls).toBe(1));
+
+    // While the first gates read is in flight, the analysis read settles with no analysis;
+    // that starts a second stages and gates read, which fails.
+    await act(async () => landAnalysis());
+    await waitFor(() => expect(gatesCalls).toBe(2));
+
+    // Then the first gates read answers.
+    await act(async () => releaseFirstGates());
+    expect(await screen.findByText("These gates may be out of date")).toBeTruthy();
+    expect(screen.getAllByText(/Not available: the campaign has no analysis yet/)).not.toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("keeps a saved current stage when a read that started before the save lands after it", async () => {
+    analysisBody = { has_data: false };
+    serverStages = { ...serverStages, source: "saved", current_stage: "S1", updated_at: 1795116300, updated_by: "a@example.com" };
+    gatesFailFrom = 3;
+    let releaseRead = () => {};
+    holdStages = { call: 2, until: new Promise((r) => (releaseRead = r)) };
+    render(
+      <EngineDataProvider campaignId={ID}>
+        <ScaleUpPage />
+      </EngineDataProvider>,
+    );
+    const select = () => screen.getByRole<HTMLSelectElement>("combobox", { name: /Current stage/ });
+    await waitFor(() => expect(select().value).toBe("S1"));
+
+    // A background refresh starts while S1 is current; its stages read is slow.
+    await act(async () => landAnalysis());
+    await waitFor(() => expect(stagesCalls).toBe(2));
+
+    // The team saves S2; the read after the save fails.
+    fireEvent.change(select(), { target: { value: "S2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save current stage" }));
+    expect(await screen.findByText("These gates may be out of date")).toBeTruthy();
+    expect(select().value).toBe("S2");
+
+    // The read that started before the save answers with S1.
+    await act(async () => releaseRead());
+    await act(async () => {});
+    expect(select().value).toBe("S2");
+    expect(screen.getByText("These gates may be out of date")).toBeTruthy();
   });
 });

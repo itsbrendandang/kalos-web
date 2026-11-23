@@ -128,15 +128,16 @@ function Integrations() {
           <ul className="divide-y divide-border border-y border-border">
             {providers.map((p) => {
               const off = providerDisabledBy(p).length > 0;
+              const on = p.available && !off;
               return (
                 <li key={p.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
                   <div className="min-w-0">
                     <p className="text-label text-fg">{p.capability}</p>
-                    {!p.available ? <p className="text-body text-fg-muted">{providerOffText(p)}</p> : null}
+                    {!on ? <p className="text-body text-fg-muted">{providerOffText(p)}</p> : null}
                   </div>
-                  <Badge tone={p.available ? "good" : "neutral"} variant={p.available ? "soft" : "outline"} className="shrink-0">
-                    {p.available ? <CircleCheck aria-hidden /> : off ? <CircleOff aria-hidden /> : <Circle aria-hidden />}
-                    {p.available ? "Set up" : off ? "Turned off" : "Not set up"}
+                  <Badge tone={on ? "good" : "neutral"} variant={on ? "soft" : "outline"} className="shrink-0">
+                    {on ? <CircleCheck aria-hidden /> : off ? <CircleOff aria-hidden /> : <Circle aria-hidden />}
+                    {on ? "Set up" : off ? "Turned off" : "Not set up"}
                   </Badge>
                 </li>
               );

@@ -54,6 +54,18 @@ describe("Settings integrations", () => {
     expect(screen.queryByText(/set ANTHROPIC_API_KEY/)).toBeNull();
   });
 
+  it("shows Turned off, not Set up, when the engine reports a switched-off provider as available", async () => {
+    providers = [{ ...base, name: "openai_compatible", available: true, required_env: [], missing_env: [], disabled_by: ["KALOS_NO_PAID_CALLS"] }];
+    renderPage();
+    const item = (await screen.findByText("AI-assisted data checks")).closest("li")!;
+    expect(within(item).getByText("Turned off")).toBeTruthy();
+    expect(within(item).queryByText("Set up")).toBeNull();
+    expect(within(item).getByText(/Paid AI calls are turned off on this engine/)).toBeTruthy();
+    openDetails();
+    expect(await screen.findByText("turned off by KALOS_NO_PAID_CALLS on the engine")).toBeTruthy();
+    expect(screen.queryByText("configured")).toBeNull();
+  });
+
   it("keeps the old wording against an engine without disabled_by", async () => {
     providers = [{ ...base, available: false, missing_env: [] }];
     renderPage();

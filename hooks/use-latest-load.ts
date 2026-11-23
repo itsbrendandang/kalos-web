@@ -14,8 +14,9 @@ const invalidate = (epoch: { current: number }) => {
  * known after the first request started (e.g. the first analysis landing before
  * the initial analysis read settles) still triggers a refetch.
  *
- * Every request takes a ticket. Data is shown only if it is newer than the data
- * already shown, so an older response landing late never overwrites a newer one;
+ * Every request and every `update` takes a ticket. Data is shown only if it is
+ * newer than the data already shown, so an older response landing late never
+ * overwrites a newer one or a confirmed write;
  * a failure only counts when it comes from the newest request. A failure keeps the
  * newest good data (even from a superseded request) and marks it stale until
  * `reload` succeeds.
@@ -61,8 +62,12 @@ export function useLatestLoad<T>(fetcher: () => Promise<Fetched<T>>, refreshKey:
     if (refreshKey != null && refreshKey !== requestedKey.current) void reload();
   }, [refreshKey, reload]);
 
-  /** Apply a response a write already returned to the data shown. */
+  /**
+   * Apply a response a write already returned to the data shown. It counts as a
+   * read newer than every request in flight, so none of those can undo it.
+   */
   const update = useCallback((f: (data: T) => T) => {
+    shown.current = ++issued.current;
     setLoad((prev) => (prev.status === "data" ? { ...prev, data: f(prev.data) } : prev));
   }, []);
 

@@ -105,6 +105,30 @@ describe("useLatestLoad", () => {
     expect(result.current.load).toBe(before);
   });
 
+  it("never lets a read that started before a confirmed write undo it", async () => {
+    const { fetcher, resolve } = deferredFetcher<string>();
+    const { result } = renderHook(() => useLatestLoad(fetcher, "a1"));
+    await resolve(0, { status: "data", data: "A" });
+    act(() => void result.current.reload()); // a background read starts while A is current
+    act(() => result.current.update(() => "B")); // the server confirms a save of B
+    await resolve(1, { status: "data", data: "A" });
+    expect(result.current.load).toEqual({ status: "data", data: "B", staleReason: null });
+  });
+
+  it("keeps a confirmed write, marked stale, when the read after it fails and an older read lands last", async () => {
+    const { fetcher, resolve } = deferredFetcher<string>();
+    const { result } = renderHook(() => useLatestLoad(fetcher, "a1"));
+    await resolve(0, { status: "data", data: "A" });
+    act(() => void result.current.reload());
+    act(() => {
+      result.current.update(() => "B");
+      void result.current.reload();
+    });
+    await resolve(2, { status: "error", message: "The engine is unreachable." });
+    await resolve(1, { status: "data", data: "A" });
+    expect(result.current.load).toEqual({ status: "data", data: "B", staleReason: "The engine is unreachable." });
+  });
+
   it("reports an error when the first read fails", async () => {
     const { fetcher, resolve } = deferredFetcher<number>();
     const { result } = renderHook(() => useLatestLoad(fetcher, null));

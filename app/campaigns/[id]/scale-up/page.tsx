@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link2 } from "lucide-react";
 import { Callout } from "@/components/kit/callout";
 import { PageHeader } from "@/components/kit/page-header";
@@ -12,18 +12,18 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
 import { StageGateTrack } from "@/components/viz/charts/stage-gate-track";
 import { useCampaign, useCampaignDetail, useCampaignId, useLatest } from "@/hooks/use-engine";
+import { useLatestLoad, type Fetched } from "@/hooks/use-latest-load";
 import { getGates, getStages, type GateView, type GatesView, type StagesView } from "@/lib/api";
 import { EngineError, engineMessage } from "@/lib/engine-error";
 import type { ScaleReadout } from "@/lib/scale-readout";
 import { stageBandsFromStages, type LadderStages } from "@/lib/viz-data/scale-ladder";
-import { analysisEvidence, readoutEvidence, recordedAt, runEvidence, toStageTrack } from "@/lib/viz-data/stage-gate";
+import { analysisEvidence, analysisRefreshKey, readoutEvidence, recordedAt, runEvidence, toStageTrack } from "@/lib/viz-data/stage-gate";
 
 const TITLE = "Scale-up track";
 const DESCRIPTION =
   "Where this campaign stands on the path to scale, and the go/no-go call your team recorded at each gate. Kalos shows its computed evidence beside each gate; the decision is always a person's.";
 
 type Loaded = { stages: StagesView; gates: GatesView };
-type LoadState = { status: "loading" } | { status: "error"; message: string } | { status: "data"; data: Loaded };
 
 const optionKey = (o: { kind: string; id: string }) => `${o.kind}:${o.id}`;
 
@@ -39,13 +39,12 @@ export default function CampaignScaleUpPage() {
   const detail = useCampaignDetail();
   const latest = useLatest();
   const campaign = useCampaign();
-  const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selectedGate, setSelectedGate] = useState<string | null>(null);
   const [readouts, setReadouts] = useState<{ readout: ScaleReadout; fileName: string | null }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const gateRef = useRef<HTMLDivElement | null>(null);
 
-  const fetchAll = useCallback(async (): Promise<LoadState> => {
+  const fetchAll = useCallback(async (): Promise<Fetched<Loaded>> => {
     try {
       const [stages, gates] = await Promise.all([getStages(id), getGates(id)]);
       return { status: "data", data: { stages, gates } };
@@ -54,20 +53,8 @@ export default function CampaignScaleUpPage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetchAll().then((s) => {
-      if (!cancelled) setLoad(s);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchAll]);
-
-  const reload = useCallback(async () => {
-    const next = await fetchAll();
-    setLoad((prev) => (next.status === "error" && prev.status === "data" ? prev : next));
-  }, [fetchAll]);
+  // Gate evidence is computed from the latest analysis: refetch when an analysis arrives or is replaced.
+  const { load, reload, update } = useLatestLoad(fetchAll, analysisRefreshKey(latest.data));
 
   const archived = detail.data?.campaign.archived === true;
   const readOnlyReason = archived ? "This campaign is archived, so it is read-only: decisions and the current stage cannot be changed." : null;
@@ -106,13 +93,11 @@ export default function CampaignScaleUpPage() {
 
   const onRecorded = useCallback(
     (gate: GateView) => {
-      setLoad((prev) =>
-        prev.status === "data" ? { status: "data", data: { ...prev.data, gates: { ...prev.data.gates, gates: prev.data.gates.gates.map((g) => (g.key === gate.key ? gate : g)) } } } : prev,
-      );
+      update((d) => ({ ...d, gates: { ...d.gates, gates: d.gates.gates.map((g) => (g.key === gate.key ? gate : g)) } }));
       setSelected(new Set());
       void reload();
     },
-    [reload],
+    [reload, update],
   );
 
   const onReadout = useCallback((readout: ScaleReadout, fileName: string | null) => {
@@ -142,6 +127,19 @@ export default function CampaignScaleUpPage() {
           <ErrorState description={`${load.message} This is a connection problem, not a result.`} onRetry={() => void reload()} />
         ) : track ? (
           <div className="flex flex-col gap-6">
+            {load.staleReason ? (
+              <Callout
+                tone="warn"
+                title="These gates may be out of date"
+                action={
+                  <Button variant="outline" size="sm" onClick={() => void reload()}>
+                    Retry
+                  </Button>
+                }
+              >
+                {`Refreshing the stages and gates failed, so the evidence shown is from an earlier read. ${load.staleReason}`}
+              </Callout>
+            ) : null}
             <StageGateTrack track={track} selectedGate={gateKey} onSelectGate={setSelectedGate} />
             <CurrentStageControl
               key={`${load.data.stages.current_stage}-${load.data.stages.updated_at}`}
@@ -149,7 +147,7 @@ export default function CampaignScaleUpPage() {
               view={load.data.stages}
               readOnly={archived}
               onSaved={(stages) => {
-                setLoad((prev) => (prev.status === "data" ? { status: "data", data: { ...prev.data, stages } } : prev));
+                update((d) => ({ ...d, stages }));
                 void reload();
               }}
             />

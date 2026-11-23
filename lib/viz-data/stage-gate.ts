@@ -222,6 +222,17 @@ export function analysisEvidence(a: {
   return { kind: "analysis", id, label: `Analysis of ${t != null ? recordedAt(t) : "the current data"}` };
 }
 
+/**
+ * Changes whenever the campaign's analysis is replaced: null while it is still
+ * loading, "none" when the campaign has no analysis yet, else its timestamp and
+ * reference (hashless analyses still get a key).
+ */
+export function analysisRefreshKey(latest: Parameters<typeof analysisEvidence>[0] & { has_data: boolean } | null): string | null {
+  if (!latest) return null;
+  if (!latest.has_data) return "none";
+  return JSON.stringify([latest.updated ?? null, analysisEvidence(latest)?.id ?? null]);
+}
+
 /** A scale readout as a reference (its stable readout id). */
 export function readoutEvidence(r: { readout_id: string; decision: string; target_inputs: { scale_L: number } }): GateEvidenceRef {
   const word = r.decision === "REFUSAL" ? "refused" : r.decision === "NUMBER_WITH_WARNING" ? "prediction with warning" : "prediction";

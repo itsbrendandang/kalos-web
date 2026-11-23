@@ -21,7 +21,7 @@ export function RunCatalog({ runs, target, unit }: { runs: CampaignRun[]; target
   const [status, setStatus] = useState("all");
   const searchId = useId();
   const statusId = useId();
-  const visible = runs.filter((run) => (status === "all" || measurementState(run) === status) && `${run.id} ${JSON.stringify(run.recipe)} ${run.round ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const visible = runs.filter((run) => (status === "all" || measurementState(run) === status) && `${run.id} ${JSON.stringify(run.recipe)} ${run.round == null ? "" : displayRound(run.round)}`.toLowerCase().includes(query.trim().toLowerCase()));
   return <Section id="run-log" title="Measured run log" className="scroll-mt-6" description="Read-only catalog of the started runs in this campaign snapshot. Measured values come first; predictions are kept separate. Full result history and raw rows are available in Report.">
     <Disclosure summary="Search and inspect run records">
       <div className="flex flex-wrap items-end gap-3">

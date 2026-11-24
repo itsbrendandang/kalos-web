@@ -7,6 +7,7 @@ import { cvGroupingText, cvTopKNote, reliabilityVerdict, targetUnitOf, type Popu
 import { formatCorr, formatValue } from "@/lib/num";
 import { bestTile, historyLabel, newerBest, nextTile, runsTile } from "@/lib/overview";
 import { sourceFromAnalysis, sourceFromCampaign } from "@/lib/source";
+import { CANVAS_CARD } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { bandName, markInterval, rangeText } from "@/lib/viz-data/progress-chart";
 import type { ActiveCampaign } from "@/lib/workbench";
@@ -33,7 +34,7 @@ export function EvidenceRow({
   // The engine's target_unit (setup, then header); a campaign without an analysis falls back to its header.
   const unit = analysis ? targetUnitOf(analysis) : campaign ? targetUnitOf({ target: campaign.target }) : null;
   return (
-    <section aria-label="Evidence" className="grid rounded-xl border border-border bg-surface sm:grid-cols-2 lg:grid-cols-4">
+    <section aria-label="Evidence" className={cn(CANVAS_CARD, "grid sm:grid-cols-2 lg:grid-cols-4")}>
       <Tile className="border-border max-lg:border-b sm:border-r">
         <BestTileView campaign={campaign} analysis={analysis} unit={unit} />
       </Tile>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { CANVAS_CARD } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,7 +25,7 @@ export function NextCard({
   return (
     <section
       aria-label="Next step"
-      className={cn("flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between", className)}
+      className={cn(CANVAS_CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between", className)}
     >
       <div className="min-w-0">
         <p className="text-label text-accent">{eyebrow}</p>

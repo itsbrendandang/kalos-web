@@ -196,11 +196,16 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
   `Card` takes a typed `padding` prop (`inset` | `panel` | `none`) so a surface
   sets its padding by name rather than restacking utilities. The raw 8px grid
   (`p-4`, `gap-2`) stays for one-off spacing.
-- **One bordered-box recipe**: `rounded-xl` + `border-border` + `bg-surface` +
-  `p-panel`. `Card` (bordered), `ChartFrame` in `components/viz/frame.tsx`
-  (unless `bare`), and `kit/section.tsx`'s `Panel` all resolve to it; `Panel`
-  delegates to `<Card bordered padding="panel">`.
-  Do not hand-roll a fourth bordered box.
+- **One card recipe**: `CANVAS_CARD` in `components/ui/card.tsx`
+  (`rounded-2xl` + `border-border` + `bg-surface` + `shadow-card`), with `p-panel`
+  for padding. `Card` (bordered), `ChartFrame` in `components/viz/frame.tsx`
+  (unless `bare`), `kit/section.tsx`'s `Panel` (`<Card bordered padding="panel">`),
+  `NextCard`, the Overview evidence row and activity rows, and the Predict
+  proposal cards (`RecommendationCards`; the compared card swaps its border to
+  `border-accent`) all use it. Do not hand-roll another card; a card never
+  sits inside a card (pass `bare` to a chart inside one).
+  Boxes inside a page or a card (callouts, tables, job progress, gate panels)
+  stay `rounded-xl` with a hairline and no shadow.
 - **Tone marks are `size-4`** everywhere (`Callout`, `Verdict`), so status icons
   align across a page.
 - Numbers are `tabular-nums`; no `font-mono` for figures (mono is for ids only).

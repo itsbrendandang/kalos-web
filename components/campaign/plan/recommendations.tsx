@@ -23,6 +23,7 @@ import { proposalCaveat } from "@/lib/proposal-caveat";
 import type { ConstraintReport } from "@/lib/api";
 import { coverageText, formatInterval, formatProb, formatValue, type Formatted } from "@/lib/num";
 import type { Source } from "@/lib/source";
+import { CANVAS_CARD } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   DISTANCE_METHOD,
@@ -413,7 +414,7 @@ export function RecommendationCards({ rows, ctx, state }: { rows: PlanRow[]; ctx
           const f = predOf(row, ctx);
           const g = gainOf(row, ctx);
           return (
-            <li key={row.id} className={cn("rounded-xl border bg-surface", s.compared ? "border-accent" : "border-border")}>
+            <li key={row.id} className={cn(CANVAS_CARD, "overflow-hidden", s.compared && "border-accent")}>
               <div className="flex flex-col gap-3 p-3 sm:p-4">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={s.included} onChange={s.onInclude} aria-label={`Run ${row.id}`} />

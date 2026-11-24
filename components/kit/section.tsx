@@ -37,10 +37,10 @@ export function Section({
   );
 }
 
-/** A bordered region (12px radius, hairline, no shadow), for content that needs a
- *  boundary. The one bordered-box recipe, shared with `ChartFrame` in
- *  components/viz/frame.tsx (same rounded-xl / border-border / bg-surface /
- *  p-panel) so the app has a single bordered surface, not three. */
+/** A card on the canvas (`CANVAS_CARD`: 16px radius, hairline, white surface,
+ *  card shadow), for content that needs a boundary. The one card recipe,
+ *  shared with `ChartFrame` in components/viz/frame.tsx (same `CANVAS_CARD` +
+ *  p-panel) so the app has a single card surface, not three. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {
   return <Card bordered padding="panel" className={className} {...props} />;
 }

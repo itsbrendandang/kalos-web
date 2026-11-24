@@ -161,9 +161,21 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
 
 ## App frame
 
-- One left sidebar (`components/shell/app-shell.tsx`, 256px, `bg-subtle`): wordmark, campaign switcher, the campaign's
-  Overview, the numbered **1 Harmonize, 2 Predict, 3 Validate** steps with the engine's stage state, Report, then
-  Scale-up and Settings. On phones it becomes a sheet behind a top bar.
+- The frame (`components/shell/app-shell.tsx`):
+  - **Top bar**, 56px, `bg-surface` with a hairline bottom border (the `banner` landmark): the Kalos wordmark left,
+    the section pills centred (`Sections` navigation: Campaigns -> `/`, Scale-up -> `/scale-up`; the current one is
+    `bg-ink text-ink-fg rounded-full` with `aria-current="page"`, the others `text-fg-muted` with a `bg-subtle` hover),
+    then Settings and the workspace menu (theme, security, members, sign out) on the right.
+  - **Sidebar**, 256px, on the `--bg` canvas with a hairline right border (`Sidebar` complementary, `Primary`
+    navigation): the campaign switcher, then inside a campaign its Overview, the numbered
+    **1 Harmonize, 2 Predict, 3 Validate** steps with the engine's stage state, Report and the campaign's Scale-up
+    track; outside a campaign, recent campaigns. The current row is `bg-selected`; others are muted with a
+    `bg-subtle` hover.
+  - **The page**, on the canvas, max width 1120px.
+  - **Assistant slot**: `AppShell`'s `assistant` prop renders a 360px `bg-surface` column at `xl` widths, only inside
+    `/campaigns/[id]` (elsewhere it is dropped). Nothing fills it yet; the panel brings its own landmark.
+  - On phones the top bar keeps the wordmark, a menu button and the workspace menu; the pills, Settings and the
+    sidebar move into a sheet.
 - The cycle motif is the numbered step badge (`components/kit/cycle-stepper.tsx`): filled ink with a check when done,
   an accent ring when current, a hairline circle when upcoming. Never mark a step done without the engine's detail.
 - Every engine number on a campaign surface carries a quiet `SourceLine` (`components/kit/source-line.tsx`):

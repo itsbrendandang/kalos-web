@@ -39,9 +39,10 @@ maps onto the cycle: Harmonize = setup, Predict = plan, Validate = run + record 
 | Scale-up readout | `/scale-up` | `POST /api/scale/readout.json` (stateless predict-or-refuse readout, drawn as the scale ladder chart) |
 | Settings | `/settings`, `/settings/organization`, `/settings/security` | `GET /api/providers`, auth |
 
-Navigation: one left sidebar. Top: wordmark and a campaign switcher. Inside a campaign: Overview, then the three
-numbered cycle steps with their engine state (done / current / upcoming), then Report. Below: Scale-up and
-Settings. Mobile: the sidebar becomes a sheet. The VS Code-style workbench (activity rail, explorer, editor tabs,
+Navigation: a top bar (wordmark, Campaigns / Scale-up section pills, Settings and the workspace menu) and a left
+sidebar. Sidebar top: a campaign switcher. Inside a campaign: Overview, then the three numbered cycle steps with
+their engine state (done / current / upcoming), then Report and the campaign's Scale-up track. Mobile: the pills,
+Settings and the sidebar move into a sheet. See `DESIGN.md`, "App frame". The VS Code-style workbench (activity rail, explorer, editor tabs,
 status bar, command palette) is removed: it duplicated navigation three ways.
 
 Proxy allowlist (`lib/server/engine-routes.ts`): an exact route table with the scope each route needs declared per

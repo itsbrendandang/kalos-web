@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * Structure of the app frame (components/shell/app-shell.tsx): landmarks, the
- * skip link, the campaign's Harmonize / Predict / Validate navigation with the
- * engine's stage states, and an honest "not found" for an unknown campaign.
+ * skip link, the top bar's section pills and Settings link, the campaign's
+ * Harmonize / Predict / Validate navigation with the engine's stage states,
+ * the assistant slot (campaign pages only), and an honest "not found" for an
+ * unknown campaign.
  * Replaces the editor-tab-strip structure test of the removed workbench shell.
  */
 
@@ -86,15 +88,47 @@ describe("app shell", () => {
     expect(screen.getByRole("main").id).toBe("main");
     expect(screen.getByRole("complementary", { name: "Sidebar" })).toBeTruthy();
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeTruthy();
+    expect(screen.getByRole("banner")).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Sections" })).toBeTruthy();
   });
 
-  it("outside a campaign: workspace links, no cycle steps", async () => {
+  it("the top bar: section pills with aria-current, Settings and the workspace menu", () => {
     pathname = "/";
     render(<AppShell>page</AppShell>);
+    const bar = screen.getByRole("banner");
+    const pills = within(bar).getByRole("navigation", { name: "Sections" });
+    const campaigns = within(pills).getByRole("link", { name: "Campaigns" });
+    expect(campaigns.getAttribute("href")).toBe("/");
+    expect(campaigns.getAttribute("aria-current")).toBe("page");
+    expect(campaigns.className).toContain("bg-ink");
+    const scale = within(pills).getByRole("link", { name: "Scale-up" });
+    expect(scale.getAttribute("href")).toBe("/scale-up");
+    expect(scale.getAttribute("aria-current")).toBeNull();
+    expect(within(bar).getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
+    expect(within(bar).getByRole("button", { name: "Workspace menu" })).toBeTruthy();
+    expect(within(bar).getByRole("button", { name: "Open navigation" })).toBeTruthy();
+  });
+
+  it("the Scale-up pill is current on /scale-up, Settings on /settings", () => {
+    pathname = "/scale-up";
+    const { unmount } = render(<AppShell>page</AppShell>);
+    const pills = screen.getByRole("navigation", { name: "Sections" });
+    expect(within(pills).getByRole("link", { name: "Scale-up" }).getAttribute("aria-current")).toBe("page");
+    expect(within(pills).getByRole("link", { name: "Campaigns" }).getAttribute("aria-current")).toBeNull();
+    unmount();
+    pathname = "/settings/security";
+    render(<AppShell>page</AppShell>);
+    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("aria-current")).toBe("page");
+    expect(within(screen.getByRole("navigation", { name: "Sections" })).queryByRole("link", { current: "page" })).toBeNull();
+  });
+
+  it("outside a campaign: recent campaigns, no cycle steps, no assistant slot", async () => {
+    pathname = "/";
+    const { container } = render(<AppShell assistant={<p>assistant</p>}>page</AppShell>);
     const nav = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(nav).getByRole("link", { name: "All campaigns" }).getAttribute("aria-current")).toBe("page");
-    expect(within(nav).getByRole("link", { name: "Scale-up" }).getAttribute("href")).toBe("/scale-up");
     expect(within(nav).queryByRole("link", { name: /Harmonize/ })).toBeNull();
+    expect(container.querySelector('[data-slot="assistant"]')).toBeNull();
+    expect(screen.queryByText("assistant")).toBeNull();
     await waitFor(() => expect(within(nav).getByRole("link", { name: "CHO fed-batch" }).getAttribute("href")).toBe(`/campaigns/${ID}`));
   });
 
@@ -112,8 +146,11 @@ describe("app shell", () => {
     expect(within(nav).getByRole("link", { name: /Validate/ }).getAttribute("href")).toBe(`/campaigns/${ID}/validate`);
     expect(within(nav).getByRole("link", { name: "Report and export" }).getAttribute("href")).toBe(`/campaigns/${ID}/report`);
     expect(within(nav).getByRole("link", { name: "Scale-up track" }).getAttribute("href")).toBe(`/campaigns/${ID}/scale-up`);
-    // The global Scale-up entry stays.
-    expect(within(nav).getByRole("link", { name: "Scale-up" }).getAttribute("href")).toBe("/scale-up");
+    // The global Scale-up lives in the top bar; inside a campaign the Campaigns pill stays current.
+    const pills = screen.getByRole("navigation", { name: "Sections" });
+    expect(within(pills).getByRole("link", { name: "Scale-up" }).getAttribute("href")).toBe("/scale-up");
+    expect(within(pills).getByRole("link", { name: "Campaigns" }).getAttribute("aria-current")).toBe("page");
+    expect(predict.className).toContain("bg-selected");
     expect(within(nav).getByText("Round 1")).toBeTruthy();
     await waitFor(() => expect(screen.getByRole("button", { name: /Switch campaign \(current: CHO fed-batch\)/ })).toBeTruthy());
     expect(screen.getByRole("main").textContent).toContain("page");
@@ -124,7 +161,19 @@ describe("app shell", () => {
     render(<AppShell>page</AppShell>);
     const nav = screen.getByRole("navigation", { name: "Primary" });
     await waitFor(() => expect(within(nav).getByRole("link", { name: "Scale-up track" }).getAttribute("aria-current")).toBe("page"));
-    expect(within(nav).getByRole("link", { name: "Scale-up" }).getAttribute("aria-current")).toBeNull();
+    const pills = screen.getByRole("navigation", { name: "Sections" });
+    expect(within(pills).getByRole("link", { name: "Scale-up" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("inside a campaign the assistant slot renders what it is given, and nothing when given nothing", async () => {
+    pathname = `/campaigns/${ID}/predict`;
+    const { container, unmount } = render(<AppShell assistant={<p>assistant</p>}>page</AppShell>);
+    const slot = container.querySelector('[data-slot="assistant"]');
+    expect(slot?.textContent).toBe("assistant");
+    expect(slot?.className).toContain("xl:flex");
+    unmount();
+    const again = render(<AppShell>page</AppShell>);
+    expect(again.container.querySelector('[data-slot="assistant"]')).toBeNull();
   });
 
   it("an unknown campaign id reads as not found, not as an engine outage, and hides the page", async () => {

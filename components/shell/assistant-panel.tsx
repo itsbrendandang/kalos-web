@@ -160,7 +160,7 @@ function SearchBox({ busy, onSearch }: { busy: boolean; onSearch: (q: string) =>
   }
   return (
     <form role="search" onSubmit={submit} className="sticky bottom-0 border-t border-border bg-surface p-3">
-      <label className="flex items-center gap-2 rounded-xl border border-border-input bg-surface px-3 shadow-card focus-within:border-accent">
+      <label className="flex items-center gap-2 rounded-xl border border-border-input bg-surface px-3 focus-within:border-accent">
         <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />
         <span className="sr-only">Search this campaign</span>
         <input

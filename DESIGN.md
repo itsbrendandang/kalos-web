@@ -173,7 +173,10 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
     `bg-subtle` hover.
   - **The page**, on the canvas, max width 1120px.
   - **Assistant slot**: `AppShell`'s `assistant` prop renders a 360px `bg-surface` column at `xl` widths, only inside
-    `/campaigns/[id]` (elsewhere it is dropped). Nothing fills it yet; the panel brings its own landmark.
+    `/campaigns/[id]` (elsewhere it is dropped). `components/shell/assistant-panel.tsx` fills it: an
+    `<aside aria-label="Assistant">` with the engine guide's next step (`GET /api/assist/next`, no language model
+    needed) and a search over the campaign's own records (`GET /api/campaigns/{id}/search`), labelled as records,
+    never generated text. Free-text Ask is not offered: the proxy does not forward `POST /api/assist/ask`.
   - On phones the top bar keeps the wordmark, a menu button and the workspace menu; the pills, Settings and the
     sidebar move into a sheet.
 - The cycle motif is the numbered step badge (`components/kit/cycle-stepper.tsx`): filled ink with a check when done,

@@ -92,6 +92,16 @@ describe("app shell", () => {
     expect(screen.getByRole("navigation", { name: "Sections" })).toBeTruthy();
   });
 
+  it("main contains its sr-only text, so an anchor jump scrolls main and never the page (top bar stays)", () => {
+    pathname = "/";
+    render(<AppShell>page</AppShell>);
+    const main = screen.getByRole("main");
+    // A positioned scroll container clips absolutely positioned descendants; without it they make the document scroll.
+    expect(main.className).toMatch(/\brelative\b/);
+    expect(main.className).toMatch(/\boverflow-y-auto\b/);
+    expect(main.closest(".h-dvh")?.className).toMatch(/\boverflow-clip\b/);
+  });
+
   it("the top bar: section pills with aria-current, Settings and the workspace menu", () => {
     pathname = "/";
     render(<AppShell>page</AppShell>);

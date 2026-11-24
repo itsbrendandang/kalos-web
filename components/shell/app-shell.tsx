@@ -68,10 +68,14 @@ export function AppShell({ children, assistant }: { children: ReactNode; assista
   );
 }
 
+// Only <main> and the assistant column scroll. Both are `relative` so absolutely positioned descendants (every
+// sr-only label) are contained and clipped by them; otherwise those escape to the page, make the document taller
+// than the screen, and scrollIntoView (Validate's #record, #track-record) scrolls the window and pushes the top bar
+// off screen. overflow-clip on the frame keeps it from becoming a scroll container itself.
 function Frame({ pathname, assistant, children }: { pathname: string; assistant: ReactNode; children: ReactNode }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg print:block print:h-auto print:overflow-visible">
+    <div className="flex h-dvh flex-col overflow-clip bg-bg print:block print:h-auto print:overflow-visible">
       <a
         href={`#${MAIN_ID}`}
         className="sr-only z-50 rounded-md bg-surface px-3 py-2 text-label text-fg focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -79,11 +83,11 @@ function Frame({ pathname, assistant, children }: { pathname: string; assistant:
         Skip to content
       </a>
       <TopBar pathname={pathname} onOpenSheet={() => setSheetOpen(true)} />
-      <div className="flex min-h-0 flex-1 print:block">
+      <div className="flex min-h-0 flex-1 overflow-clip print:block print:overflow-visible">
         <aside aria-label="Sidebar" className="hidden w-64 shrink-0 flex-col border-r border-border bg-bg md:flex print:hidden">
           <SidebarContent pathname={pathname} />
         </aside>
-        <main id={MAIN_ID} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none print:overflow-visible">
+        <main id={MAIN_ID} tabIndex={-1} className="relative min-h-0 min-w-0 flex-1 overflow-y-auto outline-none print:overflow-visible">
           <div className="mx-auto w-full max-w-[1120px] px-4 py-6 md:px-8 md:py-8 print:max-w-none print:p-0">
             <CampaignGate><ScienceGuide pathname={pathname} />{children}</CampaignGate>
           </div>
@@ -95,7 +99,7 @@ function Frame({ pathname, assistant, children }: { pathname: string; assistant:
          * frame only gives it a 360px surface column. Nothing is passed yet.
          */}
         {assistant ? (
-          <div data-slot="assistant" className="hidden w-[360px] shrink-0 flex-col overflow-y-auto border-l border-border bg-surface xl:flex print:hidden">
+          <div data-slot="assistant" className="relative hidden w-[360px] shrink-0 flex-col overflow-y-auto border-l border-border bg-surface xl:flex print:hidden">
             {assistant}
           </div>
         ) : null}

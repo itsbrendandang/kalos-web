@@ -160,10 +160,11 @@ function SearchBox({ busy, onSearch }: { busy: boolean; onSearch: (q: string) =>
   }
   return (
     <form role="search" onSubmit={submit} className="sticky bottom-0 border-t border-border bg-surface p-3">
-      <label className="flex items-center gap-2 rounded-xl border border-border-input bg-surface px-3 focus-within:border-accent">
+      <label className="flex items-center gap-2 rounded-xl border border-border-input bg-surface px-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
         <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />
         <span className="sr-only">Search this campaign</span>
         <input
+          data-composer-input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           maxLength={SEARCH_MAX_QUERY}

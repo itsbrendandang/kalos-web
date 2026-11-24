@@ -316,3 +316,8 @@ body {
 .surface-cell:focus-visible {
   stroke: var(--ring);
 }
+
+/* The assistant's search field draws its focus on the surrounding box (focus-within); no second ring inside it. */
+[data-composer-input]:focus-visible {
+  outline: none;
+}

@@ -44,7 +44,7 @@ export type EngineResource<T> = {
   update: (change: (current: T | null) => T | null) => void;
 };
 
-function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
+export function useEngineResource<T>(fetcher: () => Promise<T>): EngineResource<T> {
   const [state, setState] = useState<{ data: T | null; error: boolean; failure: unknown }>({ data: null, error: false, failure: null });
   const [refreshing, setRefreshing] = useState(false);
   // Every request takes a ticket; only the newest one may write state, so a

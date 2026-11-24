@@ -1486,6 +1486,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return (await r.json()) as T;
 }
 
+/** A read through the same client path (proxy or dev engine), errors as EngineError. For sibling clients such as lib/assist.ts. */
+export const engineGet = <T>(path: string): Promise<T> => call<T>(path);
+
 const jsonInit = (method: string, body?: unknown): RequestInit => ({
   method,
   headers: mutationHeaders({ "Content-Type": "application/json" }),

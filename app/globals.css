@@ -17,16 +17,29 @@
 :root {
   color-scheme: light;
 
-  /* Neutrals: warm paper, ink text. */
-  --bg: oklch(0.985 0.003 90);
+  /* Neutrals: a cool grey canvas, white surfaces, soft ink text. */
+  --bg: oklch(0.979 0 0);
   --surface: oklch(1 0 0);
-  --subtle: oklch(0.965 0.004 90);
-  --border: oklch(0.91 0.005 90);
-  --border-strong: oklch(0.84 0.006 90);
-  /* Control boundaries (input, select, checkbox): 3:1 on --surface (WCAG 1.4.11). */
-  --border-input: oklch(0.6 0.008 90);
-  --fg: oklch(0.22 0.01 270);
-  --fg-muted: oklch(0.46 0.01 270);
+  --subtle: oklch(0.956 0.003 286);
+  /* The selected sidebar row. */
+  --selected: oklch(0.935 0.004 286);
+  --border: oklch(0.935 0.004 286);
+  --border-strong: oklch(0.884 0.008 286);
+  /* Control boundaries (input, select, checkbox): 3:1 on every surface (WCAG 1.4.11). */
+  --border-input: oklch(0.6 0.008 286);
+  --fg: oklch(0.298 0.002 68);
+  --fg-muted: oklch(0.499 0.013 286);
+
+  /* Ink: the dark fill of the active section pill. Navigation only, never
+   * status and never data. */
+  --ink: oklch(0.298 0.002 68);
+  --ink-fg: oklch(1 0 0);
+
+  /* Elevation, read by the shadow-card and shadow-popover utilities through
+   * the theme block below. Cards on the grey canvas take elevation-card;
+   * overlays (popovers, menus, dialogs, the sheet) take elevation-popover. */
+  --elevation-card: 0 1px 4px oklch(0.298 0.002 68 / 0.07);
+  --elevation-popover: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12);
 
   /* Accent: the primary action, links, focus, the model's proposal. */
   --accent: oklch(0.48 0.16 285);
@@ -69,7 +82,7 @@
   --chart-unc-4: oklch(0.62 0 0);
   --chart-unc-5: oklch(0.48 0 0);
   /* Refusals and zones: a neutral hatch (a refusal is an honest result, not an error). */
-  --chart-refused: var(--border-strong);
+  --chart-refused: oklch(0.84 0.008 286);
   --chart-zone-warn: var(--warn-soft);
   --chart-zone-licensed: var(--subtle);
   --chart-stage-a: var(--bg);
@@ -90,11 +103,21 @@
   --bg: oklch(0.17 0.006 270);
   --surface: oklch(0.2 0.006 270);
   --subtle: oklch(0.235 0.007 270);
+  --selected: oklch(0.27 0.008 270);
   --border: oklch(0.3 0.008 270);
   --border-strong: oklch(0.38 0.01 270);
   --border-input: oklch(0.56 0.01 270);
   --fg: oklch(0.95 0.005 90);
   --fg-muted: oklch(0.72 0.01 270);
+
+  /* A light ink pill on a dark page, so its label is dark. */
+  --ink: oklch(0.95 0.005 90);
+  --ink-fg: oklch(0.17 0.006 270);
+
+  /* Shadows do not read on a dark page: cards keep their hairline border and
+   * a faint light ring; overlays keep a deeper drop. */
+  --elevation-card: 0 0 0 1px oklch(1 0 0 / 0.03);
+  --elevation-popover: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.5);
 
   /* A light accent fill on a dark page, so the label on it is dark ink. */
   --accent: oklch(0.72 0.13 285);
@@ -126,12 +149,16 @@
   --chart-unc-3: oklch(0.55 0 0);
   --chart-unc-4: oklch(0.68 0 0);
   --chart-unc-5: oklch(0.8 0 0);
+  --chart-refused: var(--border-strong);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-subtle: var(--subtle);
+  --color-selected: var(--selected);
+  --color-ink: var(--ink);
+  --color-ink-fg: var(--ink-fg);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-border-input: var(--border-input);
@@ -173,6 +200,10 @@
 
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* shadow-card and shadow-popover follow the theme (see the elevation tokens). */
+  --shadow-card: var(--elevation-card);
+  --shadow-popover: var(--elevation-popover);
 
   /* shadcn/ui slot names, mapped onto Kalos tokens for registry components. */
   --color-background: var(--bg);
@@ -234,8 +265,9 @@
   /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
    * are Tailwind's defaults, so the scale is not overridden. */
 
-  /* Elevation: none, except overlays (popovers, menus, dialogs, the palette),
-   * which use shadow-popover. The scale is zeroed rather than banned with
+  /* Elevation: none, except cards on the grey canvas, which use shadow-card,
+   * and overlays (popovers, menus, dialogs, the sheet), which use
+   * shadow-popover; both are defined with the theme-aware tokens above. The scale is zeroed rather than banned with
    * `box-shadow: none !important`, which would also kill ring-* focus rings. */
   --shadow-2xs: none;
   --shadow-xs: none;
@@ -244,7 +276,6 @@
   --shadow-lg: none;
   --shadow-xl: none;
   --shadow-2xl: none;
-  --shadow-popover: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12);
   --inset-shadow-2xs: none;
   --inset-shadow-xs: none;
   --inset-shadow-sm: none;

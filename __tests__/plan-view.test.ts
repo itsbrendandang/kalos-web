@@ -188,7 +188,8 @@ describe("formatSetpoint", () => {
     expect(formatSetpoint(216.403, [101.777, 399.907])).toBe("216"); // width ~300: 0 dp
     expect(formatSetpoint(1.795, null)).toBe("1.80");
     expect(formatSetpoint(1234.5, [0, 5000])).toBe("1,235");
-    expect(formatSetpoint(-0.004, [0, 2])).toBe("0.00");
+    expect(formatSetpoint(-0.004, [0, 2])).toBe("\u22120.0040"); // a non-zero setpoint never prints as zero
+    expect(formatSetpoint(-0.0000001, [0, 2])).toBe(">\u22120.000001");
     expect(formatSetpoint(-1.26, [-5, 5])).toBe("\u22121.3");
     expect(formatSetpoint("glycerol", [0, 1])).toBe("glycerol");
     expect(formatSetpoint(null)).toBe("n/a");

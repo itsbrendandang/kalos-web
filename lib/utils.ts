@@ -8,7 +8,7 @@ const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       text: ["display", "title", "heading", "body", "label", "caption", "metric", "code"],
-      shadow: ["popover"],
+      shadow: ["popover", "card"],
     },
   },
 });

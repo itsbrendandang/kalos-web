@@ -1,7 +1,6 @@
 # Kalos web design system
 
-Calm, editorial, light first, with full dark mode.
-Generous whitespace, few boxes, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
+Calm, light first, with full dark mode: a cool grey canvas, white cards and panels, hairline rules, big clear numbers, plain-language verdicts first, method details one click down.
 Every value below is quoted from `app/globals.css`, which is the single source of truth.
 If this file and the CSS disagree, the CSS wins.
 
@@ -12,9 +11,9 @@ If this file and the CSS disagree, the CSS wins.
 - `:root` holds the light values and `.dark` overrides them.
   Dark mode is a `dark` class on `<html>`, set before first paint by the inline script in `app/layout.tsx` and changed through `hooks/use-theme.ts`.
   It does not follow the OS media query directly, so every `dark:` utility follows the in-app choice (Light, Dark or System, set in Settings or the workspace menu).
-- `@theme inline` maps each token to a Tailwind color utility (`bg-surface`, `text-fg-muted`, `border-border`, `bg-accent`, `text-good`, `bg-chart-3`).
+- `@theme inline` maps each token to a Tailwind utility (`bg-surface`, `bg-selected`, `bg-ink`, `text-ink-fg`, `text-fg-muted`, `border-border`, `bg-accent`, `text-good`, `bg-chart-3`, `shadow-card`, `shadow-popover`).
   The same block sets `--font-sans` and `--font-mono`.
-- A second `@theme` block defines the type roles and zeroes the shadow scale.
+- A second `@theme` block defines the type roles and zeroes the rest of the shadow scale.
 - `__tests__/contrast.test.ts` parses `app/globals.css` and checks WCAG contrast for every text and UI pair in both themes.
   Keep values as `oklch()` literals or `var()` references, and keep braces out of comments inside the token blocks.
 - Fonts are Geist (UI and text) and Geist Mono (code-like values only), self-hosted from `app/fonts/` with `next/font/local`.
@@ -23,17 +22,41 @@ If this file and the CSS disagree, the CSS wins.
 
 ## Neutrals
 
-Warm paper, ink text.
+A cool grey canvas, white surfaces, soft ink text.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--bg` | `oklch(0.985 0.003 90)` | `oklch(0.17 0.006 270)` | Page background |
-| `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Panels, popovers, inputs |
-| `--subtle` | `oklch(0.965 0.004 90)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header, explorer |
-| `--border` | `oklch(0.91 0.005 90)` | `oklch(0.3 0.008 270)` | Hairline rules and panel borders |
-| `--border-strong` | `oklch(0.84 0.006 90)` | `oklch(0.38 0.01 270)` | Input borders, emphasized dividers |
-| `--fg` | `oklch(0.22 0.01 270)` | `oklch(0.95 0.005 90)` | Primary text |
-| `--fg-muted` | `oklch(0.46 0.01 270)` | `oklch(0.72 0.01 270)` | Secondary text (passes 4.5:1 on `--bg`) |
+| `--bg` | `oklch(0.979 0 0)` | `oklch(0.17 0.006 270)` | Canvas: page and sidebar |
+| `--surface` | `oklch(1 0 0)` | `oklch(0.2 0.006 270)` | Top bar, cards, panels, popovers, inputs |
+| `--subtle` | `oklch(0.956 0.003 286)` | `oklch(0.235 0.007 270)` | Quiet fills: hover, table header |
+| `--selected` | `oklch(0.935 0.004 286)` | `oklch(0.27 0.008 270)` | The selected sidebar row |
+| `--border` | `oklch(0.935 0.004 286)` | `oklch(0.3 0.008 270)` | Hairline rules and card borders |
+| `--border-strong` | `oklch(0.884 0.008 286)` | `oklch(0.38 0.01 270)` | Emphasized dividers, hovered controls |
+| `--border-input` | `oklch(0.6 0.008 286)` | `oklch(0.56 0.01 270)` | Control boundaries (3:1 on every surface) |
+| `--fg` | `oklch(0.298 0.002 68)` | `oklch(0.95 0.005 90)` | Primary text |
+| `--fg-muted` | `oklch(0.499 0.013 286)` | `oklch(0.72 0.01 270)` | Secondary text (passes 4.5:1 on every surface, `--selected` included) |
+
+## Ink
+
+A dark fill (light in dark mode) for the active section pill in the top bar.
+It is navigation, never status and never data.
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--ink` | `oklch(0.298 0.002 68)` | `oklch(0.95 0.005 90)` |
+| `--ink-fg` | `oklch(1 0 0)` | `oklch(0.17 0.006 270)` |
+
+`--ink-fg` on `--ink` clears 4.5:1 and `--ink` clears 3:1 on `--bg` and `--surface` (`__tests__/contrast.test.ts`).
+
+## Elevation
+
+| Token | Light | Dark | Utility |
+| --- | --- | --- | --- |
+| `--elevation-card` | `0 1px 4px oklch(0.298 0.002 68 / 0.07)` | `0 0 0 1px oklch(1 0 0 / 0.03)` | `shadow-card` |
+| `--elevation-popover` | `0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12)` | `0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.5)` | `shadow-popover` |
+
+The utilities are mapped in `@theme inline` (`--shadow-card: var(--elevation-card)`), so they follow the theme.
+A dark page does not show a drop shadow, so in dark mode a card keeps its hairline border and a faint ring.
 
 ## Accent
 
@@ -138,9 +161,24 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
 
 ## App frame
 
-- One left sidebar (`components/shell/app-shell.tsx`, 256px, `bg-subtle`): wordmark, campaign switcher, the campaign's
-  Overview, the numbered **1 Harmonize, 2 Predict, 3 Validate** steps with the engine's stage state, Report, then
-  Scale-up and Settings. On phones it becomes a sheet behind a top bar.
+- The frame (`components/shell/app-shell.tsx`):
+  - **Top bar**, 56px, `bg-surface` with a hairline bottom border (the `banner` landmark): the Kalos wordmark left,
+    the section pills centred (`Sections` navigation: Campaigns -> `/`, Scale-up -> `/scale-up`; the current one is
+    `bg-ink text-ink-fg rounded-full` with `aria-current="page"`, the others `text-fg-muted` with a `bg-subtle` hover),
+    then Settings and the workspace menu (theme, security, members, sign out) on the right.
+  - **Sidebar**, 256px, on the `--bg` canvas with a hairline right border (`Sidebar` complementary, `Primary`
+    navigation): the campaign switcher, then inside a campaign its Overview, the numbered
+    **1 Harmonize, 2 Predict, 3 Validate** steps with the engine's stage state, Report and the campaign's Scale-up
+    track; outside a campaign, recent campaigns. The current row is `bg-selected`; others are muted with a
+    `bg-subtle` hover.
+  - **The page**, on the canvas, max width 1120px.
+  - **Assistant slot**: `AppShell`'s `assistant` prop renders a 360px `bg-surface` column at `xl` widths, only inside
+    `/campaigns/[id]` (elsewhere it is dropped). `components/shell/assistant-panel.tsx` fills it: an
+    `<aside aria-label="Assistant">` with the engine guide's next step (`GET /api/assist/next`, no language model
+    needed) and a search over the campaign's own records (`GET /api/campaigns/{id}/search`), labelled as records,
+    never generated text. Free-text Ask is not offered: the proxy does not forward `POST /api/assist/ask`.
+  - On phones the top bar keeps the wordmark, a menu button and the workspace menu; the pills, Settings and the
+    sidebar move into a sheet.
 - The cycle motif is the numbered step badge (`components/kit/cycle-stepper.tsx`): filled ink with a check when done,
   an accent ring when current, a hairline circle when upcoming. Never mark a step done without the engine's detail.
 - Every engine number on a campaign surface carries a quiet `SourceLine` (`components/kit/source-line.tsx`):
@@ -161,25 +199,33 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
   `Card` takes a typed `padding` prop (`inset` | `panel` | `none`) so a surface
   sets its padding by name rather than restacking utilities. The raw 8px grid
   (`p-4`, `gap-2`) stays for one-off spacing.
-- **One bordered-box recipe**: `rounded-xl` + `border-border` + `bg-surface` +
-  `p-panel`. `Card` (bordered), `ChartFrame` in `components/viz/frame.tsx`
-  (unless `bare`), and `kit/section.tsx`'s `Panel` all resolve to it; `Panel`
-  delegates to `<Card bordered padding="panel">`.
-  Do not hand-roll a fourth bordered box.
+- **One card recipe**: `CANVAS_CARD` in `components/ui/card.tsx`
+  (`rounded-2xl` + `border-border` + `bg-surface` + `shadow-card`), with `p-panel`
+  for padding. `Card` (bordered), `ChartFrame` in `components/viz/frame.tsx`
+  (unless `bare`), `kit/section.tsx`'s `Panel` (`<Card bordered padding="panel">`),
+  `NextCard`, the Overview evidence row and activity rows, and the Predict
+  proposal cards (`RecommendationCards`; the compared card swaps its border to
+  `border-accent`) all use it. Do not hand-roll another card; a card never
+  sits inside a card (pass `bare` to a chart inside one).
+  Boxes inside a page or a card (callouts, tables, job progress, gate panels)
+  stay `rounded-xl` with a hairline and no shadow.
 - **Tone marks are `size-4`** everywhere (`Callout`, `Verdict`), so status icons
   align across a page.
 - Numbers are `tabular-nums`; no `font-mono` for figures (mono is for ids only).
 - Type sizes come from the role tokens (`text-heading`, `text-caption`, ...), not
   arbitrary `text-[Npx]`.
-  `design-guards.test.ts` holds a burn-down ceiling on `text-[Npx]`, `uppercase`,
-  `rounded-2xl` and the `shadow-{sm..xl}` scale: each count may only decrease, so
+  `design-guards.test.ts` holds a burn-down ceiling on `text-[Npx]`, `uppercase`
+  and the `shadow-{sm..xl}` scale: each count may only decrease, so
   a new violation fails the build.  Lower the ceiling as uses are removed.
-- Radius: `rounded-lg` (8px) for controls and `rounded-xl` (12px) for panels.
+  `rounded-2xl` has a fixed ceiling equal to the sanctioned cards on the canvas (see Radius).
+- Radius: `rounded-lg` (8px) for controls, `rounded-xl` (12px) for panels and boxes inside a page,
+  `rounded-2xl` (16px) only for a **card on the canvas**: a top-level `bg-surface` card with `border-border` and `shadow-card`.
   Tailwind's defaults are not overridden.
-  No `rounded-2xl` boxes, and no pill badges unless they show status.
-- No shadows, except overlays (popovers, menus, dialogs, the command palette), which use `shadow-popover`.
+  Pills (`rounded-full`) only for the top bar's section navigation and for status badges.
+- Elevation: `shadow-card` for cards on the grey canvas (the same cards that take `rounded-2xl`), `shadow-popover` for overlays (popovers, menus, dialogs, the mobile sheet). Nothing else casts a shadow.
   The rest of the shadow scale is set to `none` in `@theme`, rather than banned with `!important`, which would also kill `ring-*` focus rings.
-- Prefer whitespace and hairline rules over cards.
+  `design-guards.test.ts` holds `rounded-2xl` to a fixed count and requires every use to sit on a line with `shadow-card`.
+- Prefer hairline rules inside a card over nested boxes; never put a card inside a card.
 - Tables use right-aligned numerics with `tabular-nums`, 40px rows and a sticky header.
 - No horizontal page scroll at 390px.
   Tables scroll inside their own container.
@@ -205,7 +251,7 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
 ## Dark mode
 
 - Every token has a dark value in `.dark`.
-- Surfaces step up in lightness from `--bg` to `--surface` to `--subtle`, with hairline borders doing the separation that shadows do elsewhere.
+- Surfaces step up in lightness from `--bg` to `--surface` to `--subtle` to `--selected`, with hairline borders doing the separation that shadows do in light mode.
 - Status colors are lightened, and soft fills darkened, so each text and fill pair still passes contrast.
 - Sequential ramps reverse lightness, as described above.
 

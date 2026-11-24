@@ -5,8 +5,9 @@
 `npm test` includes:
 
 - `__tests__/app-shell.test.tsx` (jsdom + Testing Library): the app frame's landmarks
-  (`complementary` sidebar, `Primary` navigation, `main`), the skip link to `#main`,
-  `aria-current="page"` on the active campaign step, accessible names on the campaign
+  (`banner` top bar with the `Sections` navigation, `complementary` sidebar, `Primary`
+  navigation, `main`), the skip link to `#main`, `aria-current="page"` on the current
+  section pill, Settings and the active campaign step, accessible names on the campaign
   switcher, and an unknown campaign rendered as "not found" (not as an outage).
 - `__tests__/contrast.test.ts`: WCAG AA contrast for every text and UI token pair in both
   themes, parsed from `app/globals.css`.

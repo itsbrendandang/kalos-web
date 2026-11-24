@@ -23,6 +23,15 @@ import { cn } from "@/lib/utils";
  * never defines - a silent no-op. It is replaced with the `text-heading` type role (the kalos
  * Satoshi heading utility from app/globals.css), which is what it was for.
  */
+/**
+ * The card on the canvas (DESIGN.md "Layout" > Radius / Elevation): a white
+ * surface with a hairline border, 16px radius and the card shadow, for
+ * top-level blocks that sit directly on the grey page. The only place in the
+ * app that spells out the 16px radius and the card shadow (design-guards
+ * counts them); reuse it, and never nest one inside another.
+ */
+export const CANVAS_CARD = "rounded-2xl border border-border bg-surface shadow-card";
+
 const CARD_PADDING = {
   inset: "p-inset", // 24px - an open Card
   panel: "p-panel", // 20px - a bordered surface
@@ -38,7 +47,7 @@ export function Card({
   return (
     <div
       data-slot="card"
-      className={cn("rounded-xl", CARD_PADDING[padding], bordered && "border border-border", className)}
+      className={cn("rounded-xl", CARD_PADDING[padding], bordered && CANVAS_CARD, className)}
       {...props}
     />
   );

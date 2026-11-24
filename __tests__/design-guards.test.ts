@@ -37,7 +37,12 @@ describe("design-language burn-down (count may only decrease)", () => {
   const CEILINGS: Array<{ what: string; re: RegExp; ceiling: number }> = [
     { what: "arbitrary px type sizes (text-[Npx])", re: /text-\[[0-9.]+px\]/g, ceiling: 0 },
     { what: "uppercase labels", re: /\buppercase\b/g, ceiling: 0 },
-    { what: "rounded-2xl", re: /\brounded-2xl\b/g, ceiling: 0 },
+    // Raised 0 -> 1 on purpose (2026-11, demo-influenced look): DESIGN.md
+    // "Layout" > Radius allows rounded-2xl for a card on the canvas only. The one
+    // sanctioned use is CANVAS_CARD in components/ui/card.tsx, which every such
+    // card reuses; a second spelling is a new recipe and fails here. The pairing
+    // test below keeps rounded-2xl and shadow-card on the same line.
+    { what: "rounded-2xl (CANVAS_CARD only, DESIGN.md Radius)", re: /\brounded-2xl\b/g, ceiling: 1 },
     { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
     // Compatibility aliases (globals.css "COMPATIBILITY ALIASES"): old token
     // names kept only so not-yet-rebuilt pages still resolve. New code uses the
@@ -52,6 +57,18 @@ describe("design-language burn-down (count may only decrease)", () => {
       expect(countMatches(new RegExp(re.source, re.flags))).toBeLessThanOrEqual(ceiling);
     });
   }
+});
+
+// DESIGN.md "Layout" > Radius / Elevation: rounded-2xl and shadow-card are one
+// recipe, the card on the canvas. Neither appears without the other.
+describe("cards on the canvas", () => {
+  const lines = sources(/\.tsx?$/).flatMap(({ file, text }) => text.split("\n").map((line, i) => ({ file, line, i })));
+  it("every rounded-2xl sits with shadow-card, and every shadow-card with rounded-2xl", () => {
+    const offenders = lines
+      .filter(({ line }) => /\brounded-2xl\b/.test(line) !== /\bshadow-card\b/.test(line))
+      .map(({ file, i, line }) => `${file}:${i + 1}: ${line.trim()}`);
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe("no side-stripe borders", () => {

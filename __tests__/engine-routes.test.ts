@@ -6,7 +6,7 @@ const CMP = "cmp_0123456789abcdef0123456789abcdef";
 const RUN = "0123456789abcdef0123456789abcdef";
 
 type ManifestEntry = { method: string; path: string; scopes: string[]; auth: string; conditional_scopes?: { scope: string; when: string }[] };
-// kalos-engine docs/route-scopes.json (feat/web-redesign-apis a9f020c), vendored: the scope each engine route enforces.
+// kalos-engine docs/route-scopes.json (engine main, re-vendored with the track-record and assist routes), vendored: the scope each engine route enforces.
 const MANIFEST = manifestJson as ManifestEntry[];
 const ENGINE_SCOPE: Record<string, string> = { read: "campaigns:read", write: "campaigns:write", admin: "org:admin" };
 const GATE = "S3";
@@ -39,6 +39,11 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
     ["POST", `api/campaigns/${CMP}/reanalyze/jobs`, ["campaigns:write"]],
     ["GET", `api/jobs/${JOB}`, ["campaigns:read"]],
     ["POST", `api/jobs/${JOB}/cancel`, ["campaigns:write"]],
+    ["GET", `api/campaigns/${CMP}/track-record`, ["campaigns:read"]],
+    ["GET", `api/campaigns/${CMP}/track-record/runs`, ["campaigns:read"]],
+    ["GET", `api/campaigns/${CMP}/search`, ["campaigns:read"]],
+    ["GET", "api/assist/next", ["campaigns:read"]],
+    ["GET", "api/assist/index/status", ["campaigns:read"]],
   ])("%s /%s -> %j", (method, path, scopes) => {
     const m = matchEngineRoute(method, path.split("/"));
     expect(m.kind).toBe("ok");
@@ -65,6 +70,27 @@ describe("engine route table (lib/server/engine-routes.ts)", () => {
   it("GET operating-ranges is not proxied: it refits the GP, so the engine needs write (manifest a9f020c); the web uses POST", () => {
     expect(matchEngineRoute("GET", `api/campaigns/${CMP}/operating-ranges`.split("/")).kind).toBe("method_not_allowed");
     expect(ENGINE_ROUTES.filter((r) => r.method === "GET").every((r) => r.scopes.every((s) => s === "campaigns:read"))).toBe(true);
+  });
+
+  it("the new read routes are GET only and forward no body", () => {
+    for (const path of [`api/campaigns/${CMP}/track-record`, `api/campaigns/${CMP}/track-record/runs`, `api/campaigns/${CMP}/search`, "api/assist/next", "api/assist/index/status"]) {
+      const m = matchEngineRoute("GET", path.split("/"));
+      expect(m.kind === "ok" && m.route.body, path).toBe("none");
+      expect(matchEngineRoute("POST", path.split("/")), path).toEqual({ kind: "method_not_allowed", allow: ["GET", "HEAD"] });
+    }
+  });
+
+  it("assist routes the web does not call stay unproxied (ask, index rebuild, SOP drafts, setup suggestions)", () => {
+    for (const [method, path] of [
+      ["POST", "api/assist/index/rebuild"],
+      ["GET", "api/assist/sop"],
+      ["POST", "api/assist/sop/draft"],
+      ["GET", "api/assist/sop/draft_1"],
+      ["POST", `api/campaigns/${CMP}/setup/suggestions`],
+      ["GET", `api/campaigns/${CMP}/runs/${RUN}/history`],
+    ] as const) {
+      expect(matchEngineRoute(method, path.split("/")).kind, `${method} ${path}`).not.toBe("ok");
+    }
   });
 
   it("removed legacy, demo and unused routes stay unreachable", () => {

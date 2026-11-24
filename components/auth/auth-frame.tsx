@@ -3,6 +3,7 @@
 import { redirect, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/app-shell";
+import { AssistantPanel } from "@/components/shell/assistant-panel";
 import { classifyRoute, isSessionFlowPage } from "@/lib/auth-routes";
 
 export type FrameState = "anonymous" | "mfa_required" | "no_org" | "ok";
@@ -25,5 +26,5 @@ export function AuthFrame({ state, children }: { state: FrameState; children: Re
   if (isSessionFlowPage(pathname)) return state === "ok" ? <AppShell>{children}</AppShell> : <>{children}</>;
   if (state === "mfa_required") redirect(`/settings/security${next}`);
   if (state === "no_org") redirect(`/select-org${next}`);
-  return <AppShell>{children}</AppShell>;
+  return <AppShell assistant={<AssistantPanel />}>{children}</AppShell>;
 }

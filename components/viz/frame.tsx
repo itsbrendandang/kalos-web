@@ -7,6 +7,7 @@ import { ExampleBadge } from "@/components/ui/badge";
 import { ErrorState } from "@/components/ui/honest-state";
 import { InsufficientBlock, NotScoredBlock, RefusalBlock } from "@/components/viz/refusal";
 import { useWidth } from "@/components/viz/use-width";
+import { CANVAS_CARD } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export type VizState =
@@ -65,7 +66,7 @@ export function ChartFrame({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>(fixedWidth);
   return (
-    <figure className={cn("flex min-w-0 flex-col gap-3", !bare && "rounded-xl border border-border bg-surface p-panel", className)}>
+    <figure className={cn("flex min-w-0 flex-col gap-3", !bare && cn(CANVAS_CARD, "p-panel"), className)}>
       <figcaption className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="flex flex-wrap items-center gap-2 text-heading text-fg">

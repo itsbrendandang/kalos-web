@@ -7,6 +7,8 @@ import { useCampaignId, useReanalysis, useUploadJob } from "@/hooks/use-engine";
 import { isJobActive, type Job } from "@/lib/api";
 import { formatValue } from "@/lib/num";
 import { campaignHref } from "@/lib/routes";
+import { CANVAS_CARD } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /** "Fitting the model..., 40% as reported by the engine." The stage and progress are the engine's own. */
 export function jobStatusLine(job: Pick<Job, "stage" | "kind" | "progress">): string {
@@ -53,7 +55,7 @@ export function CampaignActivity({ harmonizeHref, validateHref }: { harmonizeHre
 
 function ActivityRow({ label, title, status, href, link }: { label: string; title: string; status: string; href: string; link: string }) {
   return (
-    <section aria-label={label} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-panel">
+    <section aria-label={label} className={cn(CANVAS_CARD, "flex flex-wrap items-center gap-3 p-panel")}>
       <Loader2 className="size-4 shrink-0 animate-spin text-accent motion-reduce:animate-none" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-label text-fg">{title}</p>

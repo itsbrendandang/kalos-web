@@ -31,7 +31,7 @@ export function WorkspaceMenu({ side = "right", className }: { side?: "right" | 
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label="Workspace menu"
-          className={cn("grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-surface hover:text-fg data-popup-open:bg-surface data-popup-open:text-fg", className)}
+          className={cn("grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-subtle hover:text-fg data-popup-open:bg-selected data-popup-open:text-fg", className)}
         >
           <Ellipsis className="size-5" aria-hidden />
         </DropdownMenuTrigger>

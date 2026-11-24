@@ -11,6 +11,7 @@ import { Section } from "@/components/kit/section";
 import { formatTimestamp, shortHash, SourceLine } from "@/components/kit/source-line";
 import { LearnSection } from "@/components/validate/learn-section";
 import { RunCatalog } from "@/components/validate/run-catalog";
+import { TrackRecordSection } from "@/components/validate/track-record-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { LegendItem } from "@/components/viz/frame";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/honest-state";
@@ -53,7 +54,7 @@ export default function ValidatePage() {
     if (!ready || scrolled.current) return;
     scrolled.current = true;
     const target = window.location.hash.slice(1);
-    if (target === "run" || target === "record" || target === "learn" || target === "reanalyze" || target === "run-log") document.getElementById(target)?.scrollIntoView();
+    if (target === "run" || target === "record" || target === "learn" || target === "reanalyze" || target === "run-log" || target === "track-record") document.getElementById(target)?.scrollIntoView();
   }, [ready]);
 
   const top = (
@@ -202,6 +203,7 @@ export default function ValidatePage() {
         uploadActive={isJobActive(upload.job)}
         saving={saving}
       />
+      <TrackRecordSection campaignId={id} unit={unit} />
     </div>
   );
 }

@@ -323,10 +323,23 @@ export function settingDecimals(range: [number, number] | null | undefined): num
   return Math.max(0, Math.min(3, 2 - Math.floor(Math.log10(w))));
 }
 
-/** A recipe setpoint, at the precision its search range supports (3 sf, at most 3 decimals, without one). */
+/**
+ * A recipe setpoint, at the precision its search range supports (3 sf, at most 3 decimals, without one).
+ *
+ * The range-based precision never hides a small non-zero setpoint: when |v| < 1 and fewer than 2
+ * significant digits would show (0.0042 in a 0.001 to 50 range would print "0.0"), the decimals
+ * are raised until 2 significant digits show. Below 10^-6 it prints "<0.000001" rather than zero.
+ */
 export function formatSetting(v: number | null | undefined, range?: [number, number] | null, unit?: string | null, decimals?: number): Formatted {
   if (!isNum(v)) return formatState({ kind: "na" });
-  const d = decimals ?? settingDecimals(range) ?? Math.min(3, decimalsForSigFigs(v, 3));
+  let d = decimals ?? settingDecimals(range) ?? Math.min(3, decimalsForSigFigs(v, 3));
+  if (v !== 0 && Math.abs(v) < 1) {
+    if (Math.abs(v) < 0.5 * 10 ** -MAX_DECIMALS) {
+      const text = `${v < 0 ? `>${MINUS}` : "<"}0.${"0".repeat(MAX_DECIMALS - 1)}1`;
+      return finishText(v, text, MAX_DECIMALS, { basis: "setting" }, unit ?? null);
+    }
+    d = Math.max(d, decimalsForSigFigs(v, 2));
+  }
   return finish(v, -d, { quantity: "setting", basis: "setting", unit });
 }
 

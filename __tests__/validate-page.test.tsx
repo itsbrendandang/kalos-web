@@ -116,6 +116,8 @@ beforeEach(() => {
       if (url.endsWith(`/api/campaigns/${ID}`)) return detailFails ? json({ error: "unavailable", code: "engine_unavailable" }, 503) : json(detail());
       if (url.endsWith(`/api/campaigns/${ID}/analysis`)) return json(analysis());
       if (url.includes(`/api/campaigns/${ID}/jobs`)) return json({ jobs: jobsList });
+      // The track record (its own tests: track-record-section.test.tsx); here an engine without the route.
+      if (url.includes(`/api/campaigns/${ID}/track-record`)) return json({ detail: "Not Found" }, 404);
       if (url.includes(`/api/campaigns/${ID}/results/history`)) {
         historyCalls += 1;
         return json({ campaign_id: ID, limit: 500, results: { items: history, has_more: false, next_before_id: null } });

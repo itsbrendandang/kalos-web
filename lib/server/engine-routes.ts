@@ -83,6 +83,16 @@ export const ENGINE_ROUTES: readonly EngineRoute[] = Object.freeze([
   // write; only POST is proxied, so no GET ever mints write (GET operating-ranges stays unreachable).
   route("GET", "api/campaigns/:id/export/rows", R, "none"),
   route("GET", "api/campaigns/:id/results/history", R, "none"),
+  // Prospective track record (kalos/portal/history_api.py): per round and per run, the prediction recorded
+  // at start vs the result measured. Query: coverage, band, limit, offset (rounds) / round, after_id (runs).
+  route("GET", "api/campaigns/:id/track-record", R, "none"),
+  route("GET", "api/campaigns/:id/track-record/runs", R, "none"),
+  // Assistant reads (kalos/assist/routes.py): records-only campaign search (?q=&k=), the guide's next step
+  // (?campaign_id=, the tenant default without one) and the index status. POST /api/assist/ask (a model
+  // answer) and the index rebuild are deliberately not proxied.
+  route("GET", "api/campaigns/:id/search", R, "none"),
+  route("GET", "api/assist/next", R, "none"),
+  route("GET", "api/assist/index/status", R, "none"),
   route("POST", "api/campaigns/:id/operating-ranges", W, "json"),
   // Background jobs (kalos-engine docs/JOBS.md): an upload or a re-analysis
   // is submitted (202), then polled for its engine-reported stage and

@@ -137,6 +137,24 @@ describe("quantities", () => {
     expect(atRangeEdge(7.59, [6.0, 7.6])).toBe(true);
     expect(atRangeEdge(7.0, [6.0, 7.6])).toBe(false);
   });
+
+  it("a small non-zero setting never collapses to zero", () => {
+    expect(formatSetting(0.0042, [0.001, 50]).value).toBe("0.0042");
+    expect(formatSetting(-0.0042, [-50, 50]).value).toBe(`${MINUS}0.0042`);
+    expect(formatSetting(0.6, [0, 1000]).value).toBe("0.60");
+    expect(formatSetting(0.05, [0, 50]).value).toBe("0.050");
+    expect(formatSetting(0.0042, null, null, 1).value).toBe("0.0042"); // even against a forced column precision
+    expect(formatSetting(1e-9, [0, 1]).value).toBe("<0.000001");
+    expect(formatValue(0.0042, { quantity: "setting" }).value).toBe("0.0042");
+  });
+
+  it("range precision is kept when it already shows 2 significant digits", () => {
+    expect(formatSetting(0, [0, 50]).value).toBe("0.0");
+    expect(formatSetting(5, [0, 1000]).value).toBe("5");
+    expect(formatSetting(0.25, [0, 1]).value).toBe("0.25");
+    expect(formatSetting(0.123, [0, 1]).value).toBe("0.12");
+    expect(atRangeEdge(7.0, [6.0, 7.6])).toBe(false);
+  });
 });
 
 describe("deltas", () => {

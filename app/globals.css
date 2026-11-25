@@ -35,12 +35,6 @@
   --ink: oklch(0.298 0.002 68);
   --ink-fg: oklch(1 0 0);
 
-  /* Elevation, read by the shadow-card and shadow-popover utilities through
-   * the theme block below. Cards on the grey canvas take elevation-card;
-   * overlays (popovers, menus, dialogs, the sheet) take elevation-popover. */
-  --elevation-card: 0 1px 4px oklch(0.298 0.002 68 / 0.07);
-  --elevation-popover: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12);
-
   /* Accent: the primary action, links, focus, the model's proposal. */
   --accent: oklch(0.48 0.16 285);
   --accent-hover: oklch(0.43 0.16 285);
@@ -113,11 +107,6 @@
   /* A light ink pill on a dark page, so its label is dark. */
   --ink: oklch(0.95 0.005 90);
   --ink-fg: oklch(0.17 0.006 270);
-
-  /* Shadows do not read on a dark page: cards keep their hairline border and
-   * a faint light ring; overlays keep a deeper drop. */
-  --elevation-card: 0 0 0 1px oklch(1 0 0 / 0.03);
-  --elevation-popover: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.5);
 
   /* A light accent fill on a dark page, so the label on it is dark ink. */
   --accent: oklch(0.72 0.13 285);
@@ -201,10 +190,6 @@
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* shadow-card and shadow-popover follow the theme (see the elevation tokens). */
-  --shadow-card: var(--elevation-card);
-  --shadow-popover: var(--elevation-popover);
-
   /* shadcn/ui slot names, mapped onto Kalos tokens for registry components. */
   --color-background: var(--bg);
   --color-foreground: var(--fg);
@@ -265,10 +250,9 @@
   /* Radius: rounded-lg (8px) for controls and rounded-xl (12px) for panels
    * are Tailwind's defaults, so the scale is not overridden. */
 
-  /* Elevation: none, except cards on the grey canvas, which use shadow-card,
-   * and overlays (popovers, menus, dialogs, the sheet), which use
-   * shadow-popover; both are defined with the theme-aware tokens above. The scale is zeroed rather than banned with
-   * `box-shadow: none !important`, which would also kill ring-* focus rings. */
+  /* Elevation: none, anywhere. Hairline borders and the step from grey canvas to white surface do the
+   * separation. The scale is zeroed rather than banned with `box-shadow: none !important`, which would also kill
+   * ring-* focus rings. */
   --shadow-2xs: none;
   --shadow-xs: none;
   --shadow-sm: none;

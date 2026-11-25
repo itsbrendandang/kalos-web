@@ -367,7 +367,7 @@ function MobileSheet({ open, onOpenChange, pathname }: { open: boolean; onOpenCh
         <Dialog.Popup
           aria-label="Navigation"
           onClickCapture={(e) => closeOnNavigate(e.target)}
-          className="fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-xs flex-col border-r border-border bg-bg shadow-popover transition-transform duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full md:hidden"
+          className="fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-xs flex-col border-r border-border bg-bg transition-transform duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full md:hidden"
         >
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface pr-2 pl-4">
             <Dialog.Title className="text-heading text-fg">Navigation</Dialog.Title>

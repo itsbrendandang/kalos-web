@@ -48,7 +48,7 @@ export function ChartTooltip({ tip, onClose, width }: { tip: TipState; onClose: 
     <div
       role={tip.pinned ? "dialog" : "tooltip"}
       aria-label={tip.pinned ? "Mark details" : undefined}
-      className="pointer-events-auto absolute z-20 w-64 rounded-md border border-border bg-surface p-2.5 text-caption text-fg shadow-popover"
+      className="pointer-events-auto absolute z-20 w-64 rounded-md border border-border bg-surface p-2.5 text-caption text-fg"
       style={{ left, top: Math.max(0, tip.y - 8) }}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >

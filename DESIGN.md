@@ -11,7 +11,7 @@ If this file and the CSS disagree, the CSS wins.
 - `:root` holds the light values and `.dark` overrides them.
   Dark mode is a `dark` class on `<html>`, set before first paint by the inline script in `app/layout.tsx` and changed through `hooks/use-theme.ts`.
   It does not follow the OS media query directly, so every `dark:` utility follows the in-app choice (Light, Dark or System, set in Settings or the workspace menu).
-- `@theme inline` maps each token to a Tailwind utility (`bg-surface`, `bg-selected`, `bg-ink`, `text-ink-fg`, `text-fg-muted`, `border-border`, `bg-accent`, `text-good`, `bg-chart-3`, `shadow-card`, `shadow-popover`).
+- `@theme inline` maps each token to a Tailwind utility (`bg-surface`, `bg-selected`, `bg-ink`, `text-ink-fg`, `text-fg-muted`, `border-border`, `bg-accent`, `text-good`, `bg-chart-3`).
   The same block sets `--font-sans` and `--font-mono`.
 - A second `@theme` block defines the type roles and zeroes the rest of the shadow scale.
 - `__tests__/contrast.test.ts` parses `app/globals.css` and checks WCAG contrast for every text and UI pair in both themes.
@@ -50,13 +50,9 @@ It is navigation, never status and never data.
 
 ## Elevation
 
-| Token | Light | Dark | Utility |
-| --- | --- | --- | --- |
-| `--elevation-card` | `0 1px 4px oklch(0.298 0.002 68 / 0.07)` | `0 0 0 1px oklch(1 0 0 / 0.03)` | `shadow-card` |
-| `--elevation-popover` | `0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.12)` | `0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.5)` | `shadow-popover` |
-
-The utilities are mapped in `@theme inline` (`--shadow-card: var(--elevation-card)`), so they follow the theme.
-A dark page does not show a drop shadow, so in dark mode a card keeps its hairline border and a faint ring.
+None. Nothing casts a shadow: not cards, not menus, popovers, dialogs or the mobile sheet.
+The look is flat and quiet: separation comes from the step between the grey canvas and white surfaces, hairline borders and whitespace.
+Overlays are white surfaces with a hairline border (dialogs also dim the page behind them).
 
 ## Accent
 
@@ -200,7 +196,7 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
   sets its padding by name rather than restacking utilities. The raw 8px grid
   (`p-4`, `gap-2`) stays for one-off spacing.
 - **One card recipe**: `CANVAS_CARD` in `components/ui/card.tsx`
-  (`rounded-2xl` + `border-border` + `bg-surface` + `shadow-card`), with `p-panel`
+  (`rounded-2xl` + `border-border` + `bg-surface`, no shadow), with `p-panel`
   for padding. `Card` (bordered), `ChartFrame` in `components/viz/frame.tsx`
   (unless `bare`), `kit/section.tsx`'s `Panel` (`<Card bordered padding="panel">`),
   `NextCard`, the Overview evidence row and activity rows, and the Predict
@@ -208,7 +204,7 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
   `border-accent`) all use it. Do not hand-roll another card; a card never
   sits inside a card (pass `bare` to a chart inside one).
   Boxes inside a page or a card (callouts, tables, job progress, gate panels)
-  stay `rounded-xl` with a hairline and no shadow.
+  stay `rounded-xl` with a hairline.
 - **Tone marks are `size-4`** everywhere (`Callout`, `Verdict`), so status icons
   align across a page.
 - Numbers are `tabular-nums`; no `font-mono` for figures (mono is for ids only).
@@ -219,12 +215,11 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
   a new violation fails the build.  Lower the ceiling as uses are removed.
   `rounded-2xl` has a fixed ceiling equal to the sanctioned cards on the canvas (see Radius).
 - Radius: `rounded-lg` (8px) for controls, `rounded-xl` (12px) for panels and boxes inside a page,
-  `rounded-2xl` (16px) only for a **card on the canvas**: a top-level `bg-surface` card with `border-border` and `shadow-card`.
+  `rounded-2xl` (16px) only for a **card on the canvas**: a top-level `bg-surface` card with `border-border`.
   Tailwind's defaults are not overridden.
   Pills (`rounded-full`) only for the top bar's section navigation and for status badges.
-- Elevation: `shadow-card` for cards on the grey canvas (the same cards that take `rounded-2xl`), `shadow-popover` for overlays (popovers, menus, dialogs, the mobile sheet). Nothing else casts a shadow.
-  The rest of the shadow scale is set to `none` in `@theme`, rather than banned with `!important`, which would also kill `ring-*` focus rings.
-  `design-guards.test.ts` holds `rounded-2xl` to a fixed count and requires every use to sit on a line with `shadow-card`.
+- Elevation: none (see Elevation). The shadow scale is set to `none` in `@theme`, rather than banned with `!important`, which would also kill `ring-*` focus rings.
+  `design-guards.test.ts` holds `rounded-2xl` to a fixed count and fails on any shadow utility or `box-shadow`.
 - Prefer hairline rules inside a card over nested boxes; never put a card inside a card.
 - Tables use right-aligned numerics with `tabular-nums`, 40px rows and a sticky header.
 - No horizontal page scroll at 390px.
@@ -251,7 +246,7 @@ Binding spec: `VIZ_SPEC.md` (viz-research, kept outside the repo at `~/.kalos-de
 ## Dark mode
 
 - Every token has a dark value in `.dark`.
-- Surfaces step up in lightness from `--bg` to `--surface` to `--subtle` to `--selected`, with hairline borders doing the separation that shadows do in light mode.
+- Surfaces step up in lightness from `--bg` to `--surface` to `--subtle` to `--selected`, with hairline borders doing the separation; there are no shadows.
 - Status colors are lightened, and soft fills darkened, so each text and fill pair still passes contrast.
 - Sequential ramps reverse lightness, as described above.
 

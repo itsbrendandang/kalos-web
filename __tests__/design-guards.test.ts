@@ -18,7 +18,7 @@ function sources(exts: RegExp): { file: string; text: string }[] {
 
 // Burn-down guards (redesign brief, "Type roles" / "Visual system"): the design
 // language forbids arbitrary px type sizes, uppercase labels, rounded-2xl, and
-// the sm..xl shadow scale (only --shadow-popover is sanctioned). A large tail of
+// the sm..xl shadow scale (no shadows at all; see the elevation test below). A large tail of
 // pre-existing uses can't be fixed in one pass, so rather than fail on them we
 // cap each at today's count: the number may only go DOWN. A new violation pushes
 // the count over the ceiling and fails here. Lower the ceiling as uses are
@@ -40,10 +40,9 @@ describe("design-language burn-down (count may only decrease)", () => {
     // Raised 0 -> 1 on purpose (2026-11, demo-influenced look): DESIGN.md
     // "Layout" > Radius allows rounded-2xl for a card on the canvas only. The one
     // sanctioned use is CANVAS_CARD in components/ui/card.tsx, which every such
-    // card reuses; a second spelling is a new recipe and fails here. The pairing
-    // test below keeps rounded-2xl and shadow-card on the same line.
+    // card reuses; a second spelling is a new recipe and fails here.
     { what: "rounded-2xl (CANVAS_CARD only, DESIGN.md Radius)", re: /\brounded-2xl\b/g, ceiling: 1 },
-    { what: "shadow-{sm,md,lg,xl} (only --shadow-popover is sanctioned)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
+    { what: "shadow-{sm,md,lg,xl} (zeroing lines in globals.css only)", re: /\bshadow-(?:sm|md|lg|xl)\b/g, ceiling: 9 },
     // Compatibility aliases (globals.css "COMPATIBILITY ALIASES"): old token
     // names kept only so not-yet-rebuilt pages still resolve. New code uses the
     // canonical tokens (bg-surface not bg-card, text-fg-muted not text-muted,
@@ -59,13 +58,13 @@ describe("design-language burn-down (count may only decrease)", () => {
   }
 });
 
-// DESIGN.md "Layout" > Radius / Elevation: rounded-2xl and shadow-card are one
-// recipe, the card on the canvas. Neither appears without the other.
-describe("cards on the canvas", () => {
-  const lines = sources(/\.tsx?$/).flatMap(({ file, text }) => text.split("\n").map((line, i) => ({ file, line, i })));
-  it("every rounded-2xl sits with shadow-card, and every shadow-card with rounded-2xl", () => {
-    const offenders = lines
-      .filter(({ line }) => /\brounded-2xl\b/.test(line) !== /\bshadow-card\b/.test(line))
+// DESIGN.md "Layout" > Elevation: nothing casts a shadow, not cards, not overlays.
+describe("no shadows", () => {
+  it("no shadow-card / shadow-popover / shadow-[...] / drop-shadow utilities and no box-shadow in CSS", () => {
+    const re = /\bshadow-(?:card|popover|2xs|xs|\[)|\bdrop-shadow-(?:sm|md|lg|xl|2xl|\[)|box-shadow:\s*(?!none)/;
+    const offenders = sources(/\.(tsx?|css)$/)
+      .flatMap(({ file, text }) => text.split("\n").map((line, i) => ({ file, line, i })))
+      .filter(({ line }) => re.test(line) && !/:\s*none;/.test(line) && !/^\s*(?:\/\/|\/?\*)/.test(line))
       .map(({ file, i, line }) => `${file}:${i + 1}: ${line.trim()}`);
     expect(offenders).toEqual([]);
   });

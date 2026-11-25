@@ -25,12 +25,12 @@ import { cn } from "@/lib/utils";
  */
 /**
  * The card on the canvas (DESIGN.md "Layout" > Radius / Elevation): a white
- * surface with a hairline border, 16px radius and the card shadow, for
- * top-level blocks that sit directly on the grey page. The only place in the
- * app that spells out the 16px radius and the card shadow (design-guards
+ * surface with a hairline border and 16px radius, no shadow, for top-level
+ * blocks that sit directly on the grey page. The only place in the app that
+ * spells out the 16px radius (design-guards
  * counts them); reuse it, and never nest one inside another.
  */
-export const CANVAS_CARD = "rounded-2xl border border-border bg-surface shadow-card";
+export const CANVAS_CARD = "rounded-2xl border border-border bg-surface";
 
 const CARD_PADDING = {
   inset: "p-inset", // 24px - an open Card

@@ -178,7 +178,7 @@ export function SourceButton({ source, full, className, children }: { source: So
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={6} className="z-50">
-          <Popover.Popup className="w-80 max-w-[90vw] rounded-lg border border-border bg-surface p-3 text-caption text-fg shadow-popover outline-none">
+          <Popover.Popup className="w-80 max-w-[90vw] rounded-lg border border-border bg-surface p-3 text-caption text-fg outline-none">
             <Popover.Title className="text-label text-fg">{source.label}</Popover.Title>
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
               {full ? (

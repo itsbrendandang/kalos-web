@@ -38,7 +38,7 @@ export function Section({
 }
 
 /** A card on the canvas (`CANVAS_CARD`: 16px radius, hairline, white surface,
- *  card shadow), for content that needs a boundary. The one card recipe,
+ *  no shadow), for content that needs a boundary. The one card recipe,
  *  shared with `ChartFrame` in components/viz/frame.tsx (same `CANVAS_CARD` +
  *  p-panel) so the app has a single card surface, not three. */
 export function Panel({ className, ...props }: ComponentProps<"div">) {

@@ -58,9 +58,9 @@ function PanelBody({ campaignId }: { campaignId: string }) {
 
 function Box({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="rounded-xl border border-border bg-bg">
-      <h3 className="border-b border-border px-3 py-2 text-caption font-medium text-fg-muted">{title}</h3>
-      <div className="flex flex-col gap-2 p-3">{children}</div>
+    <section aria-label={title} className="flex flex-col gap-2 rounded-xl border border-border p-3">
+      <h3 className="text-caption font-medium text-fg-muted">{title}</h3>
+      {children}
     </section>
   );
 }

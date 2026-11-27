@@ -135,10 +135,7 @@ function CampaignGate({ children }: { children: ReactNode }) {
 
 function Brand() {
   return (
-    <Link href="/" aria-label="Kalos, all campaigns" className="flex items-center gap-2.5 rounded-lg px-1.5 py-1">
-      <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-ink text-label font-semibold text-ink-fg">
-        K
-      </span>
+    <Link href="/" aria-label="Kalos, all campaigns" className="flex items-center rounded-lg px-1.5 py-1">
       <span className="text-title font-normal tracking-tight whitespace-nowrap text-fg">Kalos</span>
     </Link>
   );

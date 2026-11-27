@@ -29,17 +29,17 @@ export function ToolFinder({ campaignId }: { campaignId?: string }) {
   const matches = entries.filter((entry) => words.every((word) => `${entry.title} ${entry.detail} ${entry.aliases}`.toLowerCase().includes(word)));
   const shown = (words.length ? matches : tools).slice(0, 6);
   return (
-    <section aria-label="Find a campaign or scientific tool" className="min-w-0 rounded-xl bg-surface px-4 py-6 sm:px-7 sm:py-8">
+    <section aria-label="Find a campaign or scientific tool" className="min-w-0">
       <div className="mb-4 flex items-center gap-2 text-caption text-fg-muted"><FlaskConical className="size-4" aria-hidden /> Your scientific workspace</div>
       <label htmlFor={inputId} className="block text-title text-fg">What would you like to explore?</label>
-      <div className="mt-4 flex items-center gap-3 rounded-xl border border-border-input bg-bg px-3 focus-within:ring-2 focus-within:ring-ring">
+      <div className="mt-4 flex items-center gap-3 rounded-xl border border-border-input bg-surface px-3 focus-within:ring-2 focus-within:ring-ring">
         <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />
         <input id={inputId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={campaignId ? "Search data, uncertainty, oxygen transfer…" : "Find a campaign or a bioprocess tool…"} className="min-w-0 flex-1 bg-transparent py-3 text-body text-fg outline-none placeholder:text-fg-muted" />
       </div>
       <p className="mt-2 text-caption text-fg-muted">Search loaded campaigns and tool views. This finder does not run a calculation.</p>
       <p className="sr-only" role="status">{words.length ? `${matches.length} matches${matches.length > 6 ? "; first 6 shown" : ""}` : "Suggested tools"}</p>
       {shown.length ? <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-        {shown.map((entry) => <li key={entry.href} className="min-w-0"><Link href={entry.href} className="flex h-full items-start justify-between gap-3 rounded-lg bg-subtle px-3 py-3 hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-ring"><span className="min-w-0"><span className="block break-words text-label text-fg">{entry.title}</span><span className="mt-1 block text-caption text-fg-muted">{entry.detail}</span></span><ArrowUpRight className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden /></Link></li>)}
+        {shown.map((entry) => <li key={entry.href} className="min-w-0"><Link href={entry.href} className="flex h-full items-start justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-3 hover:bg-subtle focus-visible:outline-2 focus-visible:outline-ring"><span className="min-w-0"><span className="block break-words text-label text-fg">{entry.title}</span><span className="mt-1 block text-caption text-fg-muted">{entry.detail}</span></span><ArrowUpRight className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden /></Link></li>)}
       </ul> : <p className="mt-5 text-body text-fg-muted">No matches. Try a campaign name, data, or scale-up.</p>}
     </section>
   );
